@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Medien hochladen – Autovisa</title>
+  <link rel="stylesheet" href="medien.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
+</head>
+<body>
+
+<!-- Großes Logo -->
+<div class="logo-wrapper">
+  <img src="AUTOVISA LOGO.PNG" alt="Autovisa Logo" class="big-logo" />
+</div>
+
+<main class="upload-main">
+    <form id="mediaForm" method="POST" enctype="multipart/form-data">
+  
+      <!-- 📷 Bilder Upload -->
+      <section class="upload-area">
+        <h2>Bilder hochladen</h2>
+        <div class="upload-box" id="image-upload-box">
+          <i class="fas fa-image upload-icon"></i>
+          <p>Ziehe Bilder hierher oder <span class="upload-click">wähle aus</span></p>
+          <input type="file" accept="image/*" multiple id="image-input" name="images" hidden />
+        </div>
+        <p class="upload-hint">
+          Maximal <strong>20 Bilder</strong>. Das erste Bild wird als Titelbild angezeigt. Du kannst die Reihenfolge durch Ziehen ändern.
+        </p>
+        <!-- Hier werden sowohl neu hochgeladene als auch gespeicherte Bilder angezeigt -->
+        <div class="preview-grid loaded-media-grid" id="image-preview"></div>
+      </section>
+  
+      <!-- 🎥 Video Upload -->
+      <section class="upload-area">
+        <h2>Video hochladen</h2>
+        <div class="upload-box" id="video-upload-box">
+          <i class="fas fa-video upload-icon"></i>
+          <p>Ziehe Videos hierher oder <span class="upload-click">wähle aus</span></p>
+          <input type="file" accept="video/*" id="video-input" name="video" hidden />
+        </div>
+        <p class="upload-hint">
+          Maximal <strong>1 Video</strong> mit einer Länge von <strong>bis zu 30 Sekunden</strong>.<br>
+          <strong>Ein Video ist erforderlich</strong>, damit Käufer das Fahrzeug besser einschätzen können.
+        </p>
+        <!-- Auch gespeichertes Video wird hier korrekt dargestellt -->
+        <div class="preview-grid loaded-media-grid" id="video-preview"></div>
+      </section>
+  
+      <!-- 🔙 Zurück-Button -->
+      <div class="save-btn-container" style="justify-content: flex-start;">
+        <button type="button" class="back-btn" onclick="window.location.href='haendler.html'">
+          <i class="fas fa-arrow-left"></i> Zurück zur Übersicht
+        </button>
+      </div>
+  
+      <!-- 💾 Speichern-Button -->
+      <div class="save-btn-container" style="justify-content: flex-end;">
+        <button class="save-btn" id="saveMedia" type="button">
+          <i class="fas fa-save"></i> Speichern
+        </button>
+      </div>
+  
+    </form>
+  </main>
+  
+  <!-- JS -->
+  <script src="medien.js"></script>
+  </body>
+  </html>

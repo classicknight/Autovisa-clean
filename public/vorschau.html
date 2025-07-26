@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="de" class="no-js">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autovisa – Fahrzeuge kaufen & verkaufen</title>
+
+  <link rel="stylesheet" href="vorschau.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
+  <link rel="icon" href="favicon.ico" type="image/x-icon" />
+  <script defer src="vorschau.js"></script>
+</head>
+<body>
+<!-- Navbar -->
+<nav class="navbar">
+    <div class="logo-container">
+      <img src="AUTOVISA LOGO.PNG" alt="Autovisa Logo" class="logo" />
+    </div>
+    <div class="nav-extras">
+        <span class="tarif-badge" id="tarifAnzeige">
+          <i class="fas fa-tag"></i> Aktiver Tarif: wird geladen ...
+        </span>
+       
+          
+        <button class="publish-button">
+          <i class="fas fa-check-circle"></i> Veröffentlichen
+        </button>
+      </div>
+      
+  </nav>
+  
+
+<div class="media-detail-actions-outside">
+  <button class="back-btn" onclick="goBackToMedia()">
+    <i class="fas fa-arrow-left"></i> Zurück zu Medien
+  </button>
+</div>
+
+<section class="media-detail-container">
+  <div class="media-detail-wrapper">
+    <button class="media-prev" onclick="prevMedia()">
+      <i class="fas fa-chevron-left"></i>
+    </button>
+
+    <div class="media-detail-main" id="media-display">
+      <div class="media-slider" id="media-slider">
+        <!-- Medien werden hier dynamisch eingefügt durch vorschau.js -->
+      </div>
+    </div>
+
+    <button class="media-next" onclick="nextMedia()">
+      <i class="fas fa-chevron-right"></i>
+    </button>
+  </div>
+
+  <div class="media-detail-thumbnails-scroll">
+    <div class="media-detail-thumbnails" id="thumbnail-track">
+      <!-- Thumbnails werden hier dynamisch eingefügt durch vorschau.js -->
+    </div>
+  </div>
+</section>
+<div class="edit-price-title-wrapper">
+    <button class="edit-price-btn" onclick="goToEditVehicleData()">
+      <i class="fas fa-edit"></i> Fahrzeugdaten bearbeiten
+    </button>
+  </div>
+  
+  <div class="car-price-title-wrapper">
+    <div class="car-header-box">
+      <div class="car-price-section">
+        <div class="price-main">
+          <span id="price-main">–</span> <span class="price-brutto" id="price-type">Brutto</span>
+        </div>
+        <div class="price-net">
+          <span id="price-net">–</span> (<span id="mwst-type">zzgl. MwSt.</span>)
+        </div>
+      </div>
+      <div class="car-title" id="car-title">–</div>
+    </div>
+  </div>
+  
+  
+  
+
+  <div class="car-info-box">
+    <div class="info-item">
+      <i class="fas fa-calendar-alt"></i>
+      <div class="info-text">
+        <div class="info-label">Erstzulassung</div>
+        <div class="info-value" id="info-ez">–</div>
+      </div>
+    </div>
+    <div class="info-item">
+      <i class="fas fa-tachometer-alt"></i>
+      <div class="info-text">
+        <div class="info-label">Kilometer</div>
+        <div class="info-value" id="info-km">–</div>
+      </div>
+    </div>
+    <div class="info-item">
+      <i class="fas fa-bolt"></i>
+      <div class="info-text">
+        <div class="info-label">Leistung</div>
+        <div class="info-value" id="info-ps">–</div>
+      </div>
+    </div>
+    <div class="info-item">
+      <i class="fas fa-gas-pump"></i>
+      <div class="info-text">
+        <div class="info-label">Kraftstoff</div>
+        <div class="info-value" id="info-kraftstoff">–</div>
+      </div>
+    </div>
+    <div class="info-item">
+      <i class="fas fa-cogs"></i>
+      <div class="info-text">
+        <div class="info-label">Getriebe</div>
+        <div class="info-value" id="info-getriebe">–</div>
+      </div>
+    </div>
+   
+  
+    
+  
+  
+  <div class="info-item">
+    <i class="fas fa-user"></i>
+    <div class="info-text">
+      <div class="info-label">Verkäufer</div>
+      <div class="info-value" id="seller-type">–</div>
+    </div>
+  </div>
+  </div>
+  
+  <div class="edit-details-wrapper">
+    <button class="edit-details-btn" onclick="goToEditDetails()">
+      <i class="fas fa-edit"></i> Fahrzeugdetails bearbeiten
+    </button>
+  </div>
+  
+
+
+<div class="technical-data-box">
+    <h3 class="technical-data-heading">Technische Daten</h3>
+    <div class="technical-data-grid">
+  
+        <div class="data-item">
+            <span class="data-label">Fahrzeugzustand</span>
+            <span class="data-value" id="v-zustand">–</span>
+          </div>
+          
+  
+          <div class="data-item">
+            <span class="data-label">Fahrzeugart</span>
+            <span class="data-value" id="v-fahrzeugart">–</span>
+          </div>
+          
+          <div class="data-item">
+            <span class="data-label">Anzahl der Fahrzeughalter</span>
+            <span class="data-value" id="v-halter">–</span>
+          </div>
+          
+          <div class="data-item">
+            <span class="data-label">Fahrtauglich</span>
+            <span class="data-value" id="v-fahrtauglich">–</span>
+          </div>
+          
+          <div class="data-item">
+            <span class="data-label">Beschädigtes Fahrzeug</span>
+            <span class="data-value" id="v-beschaedigt">–</span>
+          </div>
+          
+          <div class="data-item">
+            <span class="data-label">Unfallhistorie</span>
+            <span class="data-value" id="v-unfall">–</span>
+          </div>
+          
+
+      <div class="data-item">
+        <span class="data-label">Anzahl der Türen</span>
+        <span class="data-value" id="v-tueren">–</span>
+      </div>
+      
+  
+      <div class="data-item">
+        <span class="data-label">Fahrzeugtyp</span>
+        <span class="data-value" id="v-fahrzeugtyp">–</span>
+      </div>
+  
+      <div class="data-item">
+        <span class="data-label">Hubraum</span>
+        <span class="data-value" id="v-hubraum">–</span>
+      </div>
+  
+      <div class="data-item">
+        <span class="data-label">Verbrauch (kombiniert)</span>
+        <span class="data-value" id="v-verbrauch-kombiniert">–</span>
+      </div>
+  
+      <div class="data-item">
+        <span class="data-label">Verbrauch (innerorts)</span>
+        <span class="data-value" id="v-verbrauch-innerorts">–</span>
+      </div>
+  
+      <div class="data-item">
+        <span class="data-label">Verbrauch (außerorts)</span>
+        <span class="data-value" id="v-verbrauch-ausserorts">–</span>
+      </div>
+  
+
+  
+  
+     
+      
+      <div class="data-item">
+        <span class="data-label">Antriebsart</span>
+        <span class="data-value" id="v-antrieb">–</span>
+      </div>
+      
+      <div class="data-item">
+        <span class="data-label">CO₂-Ausstoß</span>
+        <span class="data-value" id="v-co2">–</span>
+      </div>
+     
+      <div class="data-item">
+        <span class="data-label">Schadstoffklasse</span>
+        <span class="data-value" id="v-schadstoffklasse">–</span>
+      </div>
+      <div class="data-item">
+        <span class="data-label">Umweltplakette</span>
+        <span class="data-value" id="v-umweltplakette">–</span>
+      </div>
+
+      <div class="data-item">
+        <span class="data-label">Partikelfilter</span>
+        <span class="data-value" id="v-partikelfilter">–</span>
+      </div>
+      
+      <div class="data-item">
+        <span class="data-label">HU</span>
+        <span class="data-value" id="v-hu">–</span>
+      </div>
+      
+      <div class="data-item">
+        <span class="data-label">Klimatisierung</span>
+        <span class="data-value" id="v-klimatisierung">–</span>
+      </div>
+      <div class="data-item">
+        <span class="data-label">Einparkhilfe</span>
+        <span class="data-value" id="v-einparkhilfe">–</span>
+      </div>
+      <div class="data-item">
+        <span class="data-label">Airbags</span>
+        <span class="data-value" id="v-airbags">–</span>
+      </div>
+      <div class="data-item">
+        <span class="data-label">Innenausstattung</span>
+        <span class="data-value" id="v-innenausstattung">–</span>
+      </div>
+      
+    </div>
+  </div>
+  
+
+<!-- Ausstattung (wird später per JavaScript befüllt) -->
+<div class="equipment-section" id="ausstattung-block" style="display: none;">
+    <h2>Ausstattung</h2>
+    <div class="equipment-grid" id="v-ausstattung">
+      <!-- Wird dynamisch mit <div class="equipment-item">…</div> gefüllt -->
+    </div>
+  </div>
+  
+</div>
+
+<div class="car-description-box">
+  <h2>Fahrzeugbeschreibung</h2>
+  <div class="car-description-content" id="car-description">...</div>
+
+  <button id="toggle-description-btn">Mehr anzeigen</button>
+</div>
+</div>
+</div>
+
+<div class="kontakt-overlay" id="kontaktOverlay">
+    <div class="kontakt-popup">
+      <h2>Kontaktinformationen prüfen</h2>
+      <form id="kontaktForm">
+        <label>Name:</label>
+        <input type="text" id="kontaktNameInput" required>
+  
+        <label>Adresse:</label>
+        <input type="text" id="kontaktStrasseInput" placeholder="Straße und Hausnummer">
+        <div class="plz-ort-row">
+          <input type="text" id="kontaktPlzInput" placeholder="PLZ">
+          <input type="text" id="kontaktOrtInput" placeholder="Ort">
+        </div>
+  
+        <label>Telefonnummer:</label>
+        <input type="tel" id="kontaktTelefonInput" required>
+  
+        <div class="kontakt-buttons">
+          <button type="button" onclick="closeKontaktPopup()">Abbrechen</button>
+          <button type="submit">Jetzt veröffentlichen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+    
+</body>
+</html>

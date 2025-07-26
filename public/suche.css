@@ -1,0 +1,1370 @@
+
+
+
+
+
+
+
+
+html, body {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+  
+  
+  /* === Grundstruktur === */
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #f5f8fc;
+    padding-top: 120px;
+  }
+  
+  
+  /* === Navbar === */
+  .navbar {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    height: 120px;
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+    z-index: 1000;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  }
+  
+  /* Logo */
+  .logo-container {
+    display: flex;
+    align-items: flex-end;
+    height: 100%;
+    margin-left: -10px;
+  }
+  
+  .logo {
+    height: 120px;
+    width: auto;
+  }
+  
+  /* === Navigation === */
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 50px;
+    list-style: none;
+  }
+  
+  .nav-links li {
+    position: relative;
+    list-style: none; /* Bulletpoints verhindern */
+  }
+  
+  .nav-links a {
+    text-decoration: none;
+    color: #ffffff;
+    font-weight: 500;
+    font-size: 18.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.3s ease;
+  }
+  
+  .nav-links a:hover {
+    color: #00ffcc;
+  }
+  
+  .nav-links a:focus {
+    outline: none;
+    background-color: #2f3e4d;
+    color: #00ffcc;
+  }
+  
+  /* Aktiver Link */
+  .nav-links .active > a {
+    color: #00ffcc;
+    border-bottom: 2px solid #00ffcc;
+  }
+  
+  /* === Dropdown-Menü === */
+  .dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 125%;
+    left: 0;
+    background: #1a2733;
+    border-radius: 8px;
+    min-width: 200px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: none;
+    z-index: 2000;
+    list-style: none; /* Entfernt Bulletpoints im Dropdown */
+  }
+  
+  .dropdown-menu.show {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  
+  .dropdown-menu li {
+    width: 100%;
+    list-style: none;
+  }
+  
+  .dropdown-menu a {
+    padding: 12px 16px;
+    color: #ffffff;
+    display: block;
+    font-size: 15px;
+    transition: background 0.2s ease;
+  }
+  
+  .dropdown-menu a:hover,
+  .dropdown-menu a:focus {
+    background: #2f3e4d;
+    color: #00ffcc;
+    outline: none;
+  }
+  
+  /* === Call to Action Link === */
+  .highlight-link {
+    color: #00ffcc;
+    border: 2px solid #00ffcc;
+    border-radius: 6px;
+    padding: 6px 14px;
+    transition: all 0.3s ease;
+  }
+  
+  .highlight-link:hover {
+    background-color: #00ffcc;
+    color: #003344;
+  }
+  
+  /* === Hamburger-Menü === */
+  .hamburger {
+    display: none;
+    font-size: 26px;
+    color: white;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  
+  
+  .mobile-shortcuts {
+    display: none;
+  }
+  /* === Mobile Ansicht === */
+  @media screen and (max-width: 900px) {
+    body {
+      padding-top: 80px;
+    }
+    
+    .navbar {
+      height: 80px;
+      padding: 0 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .logo {
+      height: 70px;
+    }
+    
+    .logo-container {
+      margin-left: -10px;
+      margin-bottom: 8px;
+    }
+    
+    /* Wrapper für Icons + Burger */
+    .navbar-right-mobile {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+  .mobile-shortcuts {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  
+  .mobile-shortcuts a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background-color: rgba(0, 184, 169, 0.12); /* dezenter Farbton */
+    border-radius: 50%;
+    color: #00b8a9;
+    font-size: 18px;
+    transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+  }
+  
+  .mobile-shortcuts a:hover {
+    background-color: rgba(0, 184, 169, 0.2);
+    color: #009e92;
+    transform: scale(1.1);
+  }
+    
+    .hamburger {
+      display: block;
+      background: none;
+      border: none;
+      font-size: 26px;
+      color: white;
+      cursor: pointer;
+    }
+    
+  .nav-links {
+    display: none;
+    flex-direction: column;
+    position: absolute;
+    top: 80px;
+    left: 0;
+    background: #1a2733;
+    width: 100%;
+    padding: 20px;
+    gap: 15px;
+    border-radius: 4px; /* << Korrektur */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    z-index: 999;
+  }
+    
+    .nav-links.active {
+      display: flex;
+    }
+    
+    .nav-links a {
+      font-size: 16px;
+    }
+    
+    .dropdown-menu {
+      position: static;
+      background: #253544;
+      box-shadow: none;
+      border-radius: 0;
+      opacity: 1;
+      transform: none;
+      pointer-events: auto;
+    }
+    
+    .dropdown-menu a {
+      color: white;
+      padding: 10px 20px;
+    }
+    
+    .dropdown-menu a:hover,
+    .dropdown-menu a:focus {
+      background-color: #2f3e4d;
+      color: #00ffcc;
+    }
+    
+    .highlight-link {
+      padding: 6px 12px;
+      font-size: 16px;
+    }
+  }
+  
+  
+  /* === FILTER-BEREICH (NEU & MODERN) === */
+  
+  .toggle-filters {
+    display: none;
+    background-color: #0f2027;
+    color: #00b8a9;
+    border: 2px solid #00b8a9;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    margin: 20px auto;
+    transition: all 0.3s ease;
+    text-align: center;
+  }
+  
+  .toggle-filters i {
+    margin-right: 8px;
+  }
+  
+  .toggle-filters:hover {
+    background-color: #00b8a9;
+    color: #ffffff;
+  }
+  
+  .search-layout {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 30px;
+    padding: 0 20px;
+    max-width: 1400px;
+    width: 100%;
+    margin: 40px auto;
+    box-sizing: border-box;
+    min-width: 0;
+  }
+  
+  .filter-sidebar {
+    flex-shrink: 0;
+    width: 300px;
+    max-width: 100%;
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 24px 22px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+    border: 1px solid #e3e9ef;
+    font-family: 'Poppins', sans-serif;
+    color: #1a2a33;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+    
+  
+  }
+  
+  .results-section {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .filter-sidebar h2 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: #0f2027;
+    border-bottom: 1px solid #e0e6ed;
+    padding-bottom: 10px;
+  }
+  
+  .filter-group {
+    margin-bottom: 18px;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .filter-group label {
+    font-size: 14.5px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: #37444f;
+  }
+  
+  .range-inputs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  
+  .range-inputs input {
+    flex: 1 1 calc(50% - 5px);
+    min-width: 0;
+    max-width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #ccd5df;
+    background-color: #f9fbfc;
+    font-size: 14px;
+    color: #1a2a33;
+    height: 42px;
+    transition: border-color 0.2s ease;
+    box-sizing: border-box;
+  }
+  
+  .range-inputs input:focus,
+  .filter-group select:focus,
+  .filter-group input[type="month"]:focus {
+    border-color: #00b8a9;
+    outline: none;
+    background-color: #ffffff;
+  }
+  
+  .filter-group select,
+  .filter-group input[type="month"] {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #ccd5df;
+    background-color: #f9fbfc;
+    font-size: 14px;
+    color: #1a2a33;
+    height: 42px;
+    transition: border-color 0.2s ease;
+    box-sizing: border-box;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg fill='%2300b8a9' viewBox='0 0 24 24' width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 36px;
+  }
+  
+  /* Spezielle Zentrierung nur für die Checkboxgruppe */
+  .center-checkbox {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  /* Überschrift mittig */
+  .center-checkbox label {
+    text-align: center;
+    font-size: 14.5px;
+    font-weight: 500;
+    color: #37444f;
+  }
+  
+  /* Checkbox selbst */
+  .center-checkbox input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    accent-color: #00b8a9;
+    cursor: pointer;
+  }
+  
+  
+  
+  .filter-button {
+    margin-top: 12px;
+    background-color: #00b8a9;
+    color: #ffffff;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 20px;
+    cursor: pointer;
+    font-size: 15px;
+    transition: background 0.3s ease;
+    
+  }
+  
+  .filter-button-wrapper {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 12px;
+  }
+  
+  .filter-button:hover {
+    background-color: #00968a;
+  }
+  
+  /* === RESPONSIVE === */
+  @media screen and (max-width: 900px) {
+    .search-layout {
+      flex-direction: column;
+      gap: 20px;
+    }
+    
+      .toggle-filters {
+      display: flex;
+      background-color: #ffffff;
+      color: #0f2027;
+      border: 2px solid #00b8a9;
+      border-radius: 40px;
+      padding: 12px 20px 12px 16px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin: 10px auto 0; /* << Angepasst */
+      transition: all 0.3s ease;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .toggle-filters i {
+      background-color: #00b8a9;
+      color: #ffffff;
+      border-radius: 50%;
+      padding: 8px;
+      font-size: 13px;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .toggle-filters:hover {
+      background-color: #00b8a9;
+      color: #ffffff;
+    }
+    
+    
+    
+    .toggle-filters:hover i {
+      background-color: #ffffff;
+      color: #00b8a9;
+    }
+    
+    .filter-sidebar {
+      display: none;
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid #e3e9ef;
+      background-color: #ffffff;
+      box-sizing: border-box;
+    }
+    
+    .filter-sidebar.visible {
+      display: block;
+      opacity: 1;
+      max-height: 2000px;
+    }
+    
+    .range-inputs input {
+      flex: 1 1 100%;
+      min-width: unset;
+    }
+  }
+  
+  .results-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+  }
+  
+  /* Fahrzeugkarte */
+  
+  /* === FAHRZEUGKARTE (KORRIGIERT) === */
+  
+  .car-card {
+  
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    min-height: 220px;
+    max-height: 280px;
+    background: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    border: 1px solid #e3e9ef;
+    transition: transform 0.25s ease, box-shadow 0.3s ease;
+    margin-bottom: 20px;
+  }
+  
+  .car-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+  }
+  
+  /* === Bildbereich === */
+  .car-card-media {
+    width: 100%;
+    height: 100%;
+    background-color: #f3f6f9;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s ease;
+  }
+  
+  .media-container {
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    flex-shrink: 0;
+    /* NEU (wichtig!): */
+    display: flex;
+  }
+  
+  .slides {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    transition: transform 0.5s ease-in-out;
+    
+    /* NEU: */
+    will-change: transform;
+  }
+  
+  .slide {
+    flex: 0 0 100%;
+    width: 100%;
+    height: 100%;
+    
+    /* NEU: */
+    min-width: 100%;
+    box-sizing: border-box;
+  }
+  
+  .slide.active {
+    display: block;
+  }
+  
+  .slide img,
+  .slide video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+    transition: transform 0.3s ease;
+  }
+  
+  
+  
+  /* === Details === */
+  .car-details {
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 10px;
+    overflow: hidden;
+  }
+  
+  .car-top-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap; /* ❗️Kein Umbruch, Preis bleibt rechts */
+  }
+  
+  .car-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1a2a33;
+    margin: 0;
+  
+    flex-grow: 1;     /* nimmt restlichen Platz */
+    flex-shrink: 1;   /* darf schrumpfen */
+    flex-basis: 0;    /* verteilt gleichmäßig */
+    min-width: 0;     /* ❗️notwendig für Textkürzung */
+  
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  
+  .car-price {
+    font-size: 17px;
+    padding: 6px 10px;
+    background: #e6f0f4;
+    border-radius: 8px;
+    color: #1a2a33;
+    font-weight: 600;
+  
+    white-space: nowrap;
+    flex-shrink: 0;       /* ❗️Preis bleibt immer sichtbar */
+    line-height: 1.3;
+    text-align: center;
+    min-width: 76px;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+  
+  .car-subtitle {
+    font-size: 14px;
+    color: #6c7a89;
+    margin-bottom: 10px;
+  }
+  
+  /* === Info-Grid === */
+  .car-info-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px 20px;
+    font-size: 14px;
+    color: #37444f;
+    border-top: 1px solid #f0f2f5;
+    padding-top: 10px;
+  }
+  
+  .car-info-grid p {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .car-info-grid i {
+    color: #00b8a9;
+    font-size: 13px;
+  }
+  
+  /* === Händlerinfo === */
+  .dealer-info {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid #e6eaf0;
+    font-size: 13px;
+    color: #6b7a88;
+    font-style: italic;
+    line-height: 1.4;
+  }
+  
+  
+  @media screen and (max-width: 900px) {
+    .car-card {
+      width: 95vw; /* volle Breite */
+      margin: 0 -10px; /* visueller Ausgleich */
+      display: flex;
+      flex-direction: column;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+      background-color: #ffffff;
+      min-height: 480px;
+      max-height: none;
+      height: auto;
+      box-sizing: border-box;
+    }
+  
+    .car-card-media {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      border-radius: 12px 12px 0 0;
+      overflow: hidden;
+      flex-shrink: 0;
+      max-height: 300px;
+    }
+  
+    .media-container {
+      height: 100%;
+      width: 100%;
+      border-radius: 12px 12px 0 0;
+    }
+  
+    .slide img,
+    .slide video {
+      object-fit: cover;
+      height: 100%;
+      width: 100%;
+    }
+  
+    .car-details {
+      padding: 16px 18px 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+      flex: 1;
+      box-sizing: border-box;
+    }
+  
+    .car-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      min-width: 0; /* ❗️wichtig für sauberes Flex-Verhalten */
+    }
+  
+    .car-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1a2a33;
+      flex-grow: 1;
+      flex-shrink: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  
+    .car-price {
+      font-size: 17px;
+      padding: 6px 10px;
+      background: #e6f0f4;
+      border-radius: 8px;
+      color: #1a2a33;
+      font-weight: 600;
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-width: 76px;
+      text-align: center;
+    }
+  
+    .car-subtitle {
+      font-size: 13.5px;
+      color: #6c7a89;
+      margin-bottom: 8px;
+    }
+  
+    .car-info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 14px;
+      font-size: 13.5px;
+      color: #37444f;
+      padding-top: 8px;
+      border-top: 1px solid #f0f2f5;
+    }
+  
+    .dealer-info {
+      font-size: 12px;
+      color: #7b8c99;
+      border-top: 1px solid #e6eaf0;
+      padding-top: 8px;
+      margin-top: 8px;
+      font-style: italic;
+    }
+  }
+  
+  @media screen and (min-width: 700px) and (max-width: 1024px) {
+    .search-layout {
+      flex-direction: column;
+      align-items: stretch;
+      padding: 0 16px;
+    }
+    
+    .toggle-filters {
+    display: block;
+    background-color: #ffffff;
+    color: #0f2027;
+    border: 2px solid #00b8a9;
+    border-radius: 40px;
+    padding: 12px 20px 12px 16px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    margin: 12px auto 4px;
+    transition: all 0.3s ease;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .toggle-filters i {
+    background-color: #00b8a9;
+    color: #ffffff;
+    border-radius: 50%;
+    padding: 8px;
+    font-size: 13px;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .toggle-filters:hover {
+    background-color: #00b8a9;
+    color: #ffffff;
+  }
+  
+  .toggle-filters:hover i {
+    background-color: #ffffff;
+    color: #00b8a9;
+  }
+    
+    .filter-sidebar {
+      display: none;
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      width: 100%;
+      border-radius: 16px;
+      background: linear-gradient(to bottom, #ffffff, #f9fbfd);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      border: 1px solid #e0e6ed;
+      margin-bottom: 20px;
+    }
+    
+    .filter-sidebar.visible {
+      display: block;
+      opacity: 1;
+      max-height: 2000px;
+    }
+    
+    .results-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .car-card {
+      grid-template-columns: 1fr;
+      height: auto;
+      max-height: none;
+      min-height: 100%;
+    }
+    
+      .car-card-media {
+      height: 200px; /* Feste Höhe */
+      border-radius: 14px 14px 0 0;
+      overflow: hidden;
+    }
+  
+    .media-container,
+    .slides,
+    .slide {
+      height: 100%;
+    }
+  
+  .slide img,
+  .slide video {
+    object-fit: cover;
+    width: 100%;
+    height: 100%;
+    object-position: center;
+  }
+  
+    
+    .media-container {
+      border-radius: 14px 14px 0 0;
+    }
+    
+    .car-details {
+      padding: 20px;
+    }
+    
+    .car-info-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+    
+    .car-title {
+      font-size: 17px;
+    }
+    
+    .car-price {
+      font-size: 18px;
+      padding: 6px 12px;
+      border-radius: 8px;
+    }
+    
+    .dealer-info {
+      font-size: 12.5px;
+    }
+  }
+  
+  .sort-wrapper {
+    width: 100%;
+    max-width: 1400px;
+    margin: 2px auto 0;
+    padding: 16px 20px;
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .sort-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 15px;
+    color: #1a2a33;
+  }
+  
+  .sort-bar label {
+    font-weight: 500;
+    color: #37444f;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .sort-bar select {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #ccd5df;
+    background-color: #f9fbfc;
+    font-size: 14px;
+    color: #1a2a33;
+    transition: border-color 0.2s ease;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg fill='%2300b8a9' viewBox='0 0 24 24' width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 36px;
+  }
+  
+  .sort-bar select:focus {
+    border-color: #00b8a9;
+    outline: none;
+    background-color: #ffffff;
+  }
+  
+  .results-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    min-width: 0;
+  }
+  
+  @media screen and (max-width: 900px) {
+    .sort-wrapper {
+      margin-top: -35px;
+      margin-bottom: -5px;
+      padding: 0 -6px;
+      width: 100%;
+      background-color: transparent;
+      box-shadow: none;
+      display: flex;
+      justify-content: center;
+    }
+    
+    .sort-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      background-color: #ffffff;
+      border: 1px solid #ccd5df;
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 14px;
+    }
+    
+    .sort-bar label {
+      font-size: 14px;
+      font-weight: 500;
+      color: #37444f;
+    }
+    
+    .sort-bar select {
+      font-size: 14px;
+      padding: 7px 12px;
+      border-radius: 8px;
+      border: 1px solid #ccd5df;
+      background-color: #f9fbfc;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg fill='%2300b8a9' viewBox='0 0 24 24' width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 16px;
+      padding-right: 36px;
+      color: #1a2a33;
+      transition: border-color 0.2s ease;
+    }
+    
+    .sort-bar select:focus {
+      border-color: #00b8a9;
+      outline: none;
+      background-color: #ffffff;
+    }
+  }
+  
+  .media-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(15, 32, 39, 0.7);
+    border: none;
+    color: white;
+    font-size: 18px;
+    padding: 10px 12px;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 5;
+    transition: background 0.3s ease;
+  }
+  
+  .media-arrow:hover {
+    background: rgba(0, 184, 169, 0.9);
+  }
+  
+  .media-arrow.left {
+    left: 10px;
+  }
+  
+  .media-arrow.right {
+    right: 10px;
+  }
+  
+  @media screen and (max-width: 900px) {
+    .media-arrow {
+      font-size: 16px;
+      padding: 8px 10px;
+    }
+  }
+  
+  .slide {
+    touch-action: none;
+  }
+  
+  
+  
+  
+  @media screen and (width: 1024px) and (orientation: portrait) {
+    .results-section {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr !important;
+      gap: 24px !important;
+    }
+  
+    .car-card {
+      display: flex !important;
+      flex-direction: column !important;
+      height: 600px !important; /* Feste Höhe */
+      max-height: none !important;
+      border-radius: 14px !important;
+      overflow: hidden !important;
+    }
+  
+    .car-card-media {
+      height: 50% !important; /* Nimmt genau die Hälfte ein */
+      border-radius: 14px 14px 0 0 !important;
+      overflow: hidden !important;
+    }
+  
+    .media-container,
+    .slides,
+    .slide,
+    .slide img,
+    .slide video {
+      height: 100% !important;
+      width: 100% !important;
+      object-fit: cover !important;
+      object-position: center !important;
+    }
+  
+    .car-details {
+      height: 50% !important; /* Andere Hälfte */
+      padding: 20px !important;
+      display: flex !important;
+      flex-direction: column !important;
+      justify-content: space-between !important;
+    }
+  
+    .search-layout {
+      flex-direction: column !important;
+      padding: 0 16px !important;
+      gap: 20px !important;
+    }
+    .filter-sidebar {
+      display: none; /* kein !important */
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+  
+    .filter-sidebar.visible {
+      display: block;
+      max-height: 2000px;
+      opacity: 1;
+    }
+  
+    .toggle-filters {
+      display: flex !important;
+    }
+  }
+  
+  
+  @media screen and (min-width: 1025px) {
+  
+    
+    .media-container,
+    .slides,
+    .slide,
+    .slide img,
+    .slide video {
+      height: 100%;
+      width: 100%;
+      object-fit: cover;
+      object-position: center;
+    }
+    
+  
+  }
+  
+  
+  
+  
+  
+  @media screen and (max-width: 700px) {
+    .media-container,
+    .slides,
+    .slide,
+    .slide img,
+    .slide video {
+      height: 100% !important;
+      width: 100% !important;
+      object-fit: cover !important;
+      object-position: center !important;
+    }
+  }
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  /* === Gemeinsame Aktions-Buttons (Speichern, Kontaktieren) === */
+  .card-actions {
+    display: flex;
+    gap: 10px;
+  }
+  
+  .card-actions button,
+  .save-btn,
+  .clean-phone {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 184, 169, 0.0); /* 🌿 leicht grünlicher Hintergrund */
+    border: 1px solid #ccd5df;
+    border-radius: 50%; /* komplett rund */
+    padding: 10px;
+    font-size: 16px;
+    cursor: pointer;
+    text-decoration: none;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  
+  .card-actions button:hover,
+  .save-btn:hover,
+  .clean-phone:hover {
+    background: #00b8a9;
+    color: white;
+  }
+  
+  .card-actions button i,
+  .save-btn i,
+  .clean-phone i {
+    color: #1a2a33;
+    transition: color 0.2s ease;
+  }
+  
+  .card-actions button:hover i,
+  .save-btn:hover i,
+  .clean-phone:hover i {
+    color: white;
+  }
+  
+  /* === Sichtbarkeit Mobile/Desktop === */
+  .mobile-only {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 10;
+    display: flex;
+    gap: 10px;
+  }
+  
+  .desktop-only {
+    display: none;
+  }
+  
+  @media screen and (min-width: 901px) {
+    .mobile-only {
+      display: none;
+    }
+    .desktop-only {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+    }
+  }
+  
+  /* === Händlerbereich mit Desktop-Buttons === */
+  .dealer-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid #e6eaf0;
+  }
+  
+  .dealer-info-text {
+    font-size: 13px;
+    color: #6b7a88;
+    font-style: italic;
+    line-height: 1.4;
+    flex: 1;
+  }
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  .more-filters-button {
+    margin-right: auto; /* Nach links geschoben */
+    background-color: #f5f8fc;
+    color: #00b8a9;
+    font-weight: 600;
+    border: 2px solid #00b8a9;
+    border-radius: 8px;
+    padding: 11px 18px;
+    cursor: pointer;
+    font-size: 14.5px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgba(0, 184, 169, 0.1);
+  }
+  
+  .more-filters-button:hover {
+    background-color: #00b8a9;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(0, 184, 169, 0.3);
+  }
+  
+  /* Optional: schöner Abstand zum Anwenden-Button */
+  .filter-button-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  
+  /* Mobile Ansicht */
+  @media screen and (max-width: 768px) {
+    .filter-button-wrapper {
+      flex-direction: column-reverse;
+      align-items: stretch;
+    }
+  
+    .filter-button,
+    .more-filters-button {
+      width: 100%;
+    }
+  }

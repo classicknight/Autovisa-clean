@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "../mein-projekt/nochmal wtf"
+		},
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "autovisa-backend"
+	}
+}

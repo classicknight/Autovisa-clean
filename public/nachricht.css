@@ -1,0 +1,388 @@
+/* === Grundstruktur === */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #f5f8fc;
+    padding-top: 120px;
+  }
+  
+  /* === Navbar === */
+  .navbar {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    height: 120px;
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+    z-index: 1000;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  }
+  
+  /* Logo */
+  .logo-container {
+    display: flex;
+    align-items: flex-end;
+    height: 100%;
+    margin-left: -10px;
+  }
+  
+  .logo {
+    height: 120px;
+    width: auto;
+  }
+  
+  /* === Navigation === */
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 50px;
+    list-style: none;
+  }
+  
+  .nav-links li {
+    position: relative;
+    list-style: none; /* Bulletpoints verhindern */
+  }
+  
+  .nav-links a {
+    text-decoration: none;
+    color: #ffffff;
+    font-weight: 500;
+    font-size: 18.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.3s ease;
+  }
+  
+  .nav-links a:hover {
+    color: #00ffcc;
+  }
+  
+  .nav-links a:focus {
+    outline: none;
+    background-color: #2f3e4d;
+    color: #00ffcc;
+  }
+  
+  /* Aktiver Link */
+  .nav-links .active > a {
+    color: #00ffcc;
+    border-bottom: 2px solid #00ffcc;
+  }
+  
+  /* === Dropdown-Menü === */
+  .dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 125%;
+    left: 0;
+    background: #1a2733;
+    border-radius: 8px;
+    min-width: 200px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: none;
+    z-index: 2000;
+    list-style: none; /* Entfernt Bulletpoints im Dropdown */
+  }
+  
+  .dropdown-menu.show {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  
+  .dropdown-menu li {
+    width: 100%;
+    list-style: none;
+  }
+  
+  .dropdown-menu a {
+    padding: 12px 16px;
+    color: #ffffff;
+    display: block;
+    font-size: 15px;
+    transition: background 0.2s ease;
+  }
+  
+  .dropdown-menu a:hover,
+  .dropdown-menu a:focus {
+    background: #2f3e4d;
+    color: #00ffcc;
+    outline: none;
+  }
+  
+  /* === Call to Action Link === */
+  .highlight-link {
+    color: #00ffcc;
+    border: 2px solid #00ffcc;
+    border-radius: 6px;
+    padding: 6px 14px;
+    transition: all 0.3s ease;
+  }
+  
+  .highlight-link:hover {
+    background-color: #00ffcc;
+    color: #003344;
+  }
+  
+  /* === Hamburger-Menü === */
+  .hamburger {
+    display: none;
+    font-size: 26px;
+    color: white;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  
+  
+  .mobile-shortcuts {
+    display: none;
+  }
+  /* === Mobile Ansicht === */
+  @media screen and (max-width: 900px) {
+    body {
+      padding-top: 80px;
+    }
+    
+    .navbar {
+      height: 80px;
+      padding: 0 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .logo {
+      height: 70px;
+    }
+    
+    .logo-container {
+      margin-left: -10px;
+      margin-bottom: 8px;
+    }
+    
+    /* Wrapper für Icons + Burger */
+    .navbar-right-mobile {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+  .mobile-shortcuts {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  
+  .mobile-shortcuts a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background-color: rgba(0, 184, 169, 0.12); /* dezenter Farbton */
+    border-radius: 50%;
+    color: #00b8a9;
+    font-size: 18px;
+    transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+  }
+  
+  .mobile-shortcuts a:hover {
+    background-color: rgba(0, 184, 169, 0.2);
+    color: #009e92;
+    transform: scale(1.1);
+  }
+    
+    .hamburger {
+      display: block;
+      background: none;
+      border: none;
+      font-size: 26px;
+      color: white;
+      cursor: pointer;
+    }
+    
+  .nav-links {
+    display: none;
+    flex-direction: column;
+    position: absolute;
+    top: 80px;
+    left: 0;
+    background: #1a2733;
+    width: 100%;
+    padding: 20px;
+    gap: 15px;
+    border-radius: 4px; /* << Korrektur */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    z-index: 999;
+  }
+    
+    .nav-links.active {
+      display: flex;
+    }
+    
+    .nav-links a {
+      font-size: 16px;
+    }
+    
+    .dropdown-menu {
+      position: static;
+      background: #253544;
+      box-shadow: none;
+      border-radius: 0;
+      opacity: 1;
+      transform: none;
+      pointer-events: auto;
+    }
+    
+    .dropdown-menu a {
+      color: white;
+      padding: 10px 20px;
+    }
+    
+    .dropdown-menu a:hover,
+    .dropdown-menu a:focus {
+      background-color: #2f3e4d;
+      color: #00ffcc;
+    }
+    
+    .highlight-link {
+      padding: 6px 12px;
+      font-size: 16px;
+    }
+  }
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  .chat-container {
+    max-width: 900px;
+    margin: 40px auto;
+    background: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    height: 80vh;
+  }
+  
+  .chat-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    background-color: #f5f8fc;
+    border-bottom: 1px solid #e3e9ef;
+  }
+  
+  .chat-header img {
+    width: 80px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 10px;
+  }
+  
+  .chat-header-info h2 {
+    font-size: 17px;
+    font-weight: 600;
+    color: #1a2a33;
+    margin: 0;
+  }
+  .chat-header-info p {
+    font-size: 14px;
+    color: #4a5a68;
+    margin: 4px 0 0;
+  }
+  
+  .chat-messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    background-color: #f9fbfd;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .message {
+    max-width: 70%;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    line-height: 1.4;
+    position: relative;
+    word-break: break-word;
+  }
+  
+  .message span {
+    font-size: 11px;
+    color: #6c7a89;
+    margin-top: 4px;
+    display: block;
+  }
+  
+  .from-me {
+    background-color: #00b8a9;
+    color: white;
+    align-self: flex-end;
+    border-bottom-right-radius: 0;
+  }
+  
+  .from-other {
+    background-color: #e6eef2;
+    color: #1a2a33;
+    align-self: flex-start;
+    border-bottom-left-radius: 0;
+  }
+  
+  .chat-input-area {
+    display: flex;
+    border-top: 1px solid #e3e9ef;
+    padding: 12px 16px;
+    background-color: white;
+  }
+  
+  .chat-input-area input {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px solid #dfe6ec;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+  }
+  
+  .chat-input-area button {
+    background-color: #00b8a9;
+    color: white;
+    border: none;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-left: 10px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+  }
+  
+  .chat-input-area button:hover {
+    background-color: #009d94;
+  }

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="de" class="no-js">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autovisa – Fahrzeuge kaufen & verkaufen</title>
+
+  <link rel="stylesheet" href="haendler.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
+
+  <!-- Slim Select v2.6.0 – für korrektes Custom-Styling -->
+  <link href="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.min.js"></script>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="logo-container">
+    <img src="AUTOVISA LOGO.PNG" alt="Autovisa Logo" class="logo" />
+  </div>
+  
+  
+<!-- Mobile Icons + Hamburger als Gruppe -->
+<div class="navbar-right-mobile">
+  <div class="mobile-shortcuts">
+    <a href="gespeicherte-autos.html" aria-label="Gespeicherte Autos">
+      <i class="fas fa-heart"></i>
+    </a>
+    <a href="nachrichten.html" aria-label="Nachrichten">
+      <i class="fas fa-comments"></i>
+    </a>
+  </div>
+  
+  <!-- Hamburger-Menü für Mobile -->
+  <button class="hamburger" id="hamburger" aria-label="Menü öffnen" aria-expanded="false" aria-controls="nav-links">
+    <i class="fas fa-bars"></i>
+  </button>
+  
+  <!-- Navigationslinks -->
+  <ul class="nav-links" id="nav-links">
+    
+    <!-- Home -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-home-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-home">
+        Home <i class="fas fa-chevron-down"></i>
+      </a>
+     <ul class="dropdown-menu" id="dropdown-home">
+  <li><a href="index.html"><i class="fas fa-house"></i> Startseite</a></li>
+  <li><a href="#search-section"><i class="fas fa-search"></i> Fahrzeug suchen</a></li>
+  <li><a href="#results-section"><i class="fas fa-car"></i> Inserate anzeigen</a></li>
+  <li><a href="login.html"><i class="fas fa-sign-in-alt"></i> Login / Registrierung</a></li>
+</ul>
+    </li>
+    
+    <!-- Meine Autos -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-autos-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-autos">
+        Meine Autos <i class="fas fa-chevron-down"></i>
+      </a>
+     <ul class="dropdown-menu" id="dropdown-autos">
+  <li><a href="nachrichten.html"><i class="fas fa-comments"></i> Nachrichten</a></li>
+  <li><a href="#" id="saved-cars-link"><i class="fas fa-heart"></i> Gespeicherte Autos</a></li>
+  <li><a href="#" id="my-cars-link"><i class="fas fa-car"></i> Eigene Inserate</a></li>
+  <li><a href="verkaufte-autos.html"><i class="fas fa-check-circle"></i> Verkaufte Autos</a></li>
+</ul>
+    </li>
+    
+    <!-- Infos -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-info-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-info">
+        Infos <i class="fas fa-chevron-down"></i>
+      </a>
+      <ul class="dropdown-menu" id="dropdown-info">
+        <li><a href="ueber-uns.html"><i class="fas fa-users"></i> Über uns</a></li>
+        <li><a href="hilfe.html"><i class="fas fa-question-circle"></i> Hilfe & FAQ</a></li>
+        <li><a href="preise.html"><i class="fas fa-euro-sign"></i> Tarife & Preise</a></li>
+      </ul>
+    </li>
+    
+    <!-- Kontakt -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-contact-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-contact">
+        Kontakt <i class="fas fa-chevron-down"></i>
+      </a>
+      <ul class="dropdown-menu" id="dropdown-contact">
+        <li><a href="kontakt.html"><i class="fas fa-comments"></i> Kontaktformular</a></li>
+        <li><a href="mailto:support@autovisa.de"><i class="fas fa-envelope"></i> support@autovisa.de</a></li>
+        <li><a href="mailto:business@autovisa.de"><i class="fas fa-briefcase"></i> business@autovisa.de</a></li>
+      </ul>
+    </li>
+    
+    <!-- Auto verkaufen (Call to Action) -->
+    <li class="active">
+      <a href="verkaufen.html" class="highlight-link"><i class="fas fa-plus-circle"></i> Auto verkaufen</a>
+    </li>
+  </ul>
+</nav>
+  
+  
+  
+<section class="tarif-section">
+  <h2 class="tarif-title"><i class="fas fa-tags"></i> Händler-Tarife</h2>
+  <p class="tarif-subtitle">
+    Wähle den passenden Tarif basierend auf der Anzahl deiner Inserate. Alle Tarife sind monatlich kündbar – ohne Mindestlaufzeit.
+  </p>
+
+  
+  <div class="tarif-grid" id="tarifGrid">
+    <div class="tarif-box selected" data-tarif="0-3">
+      <h3>0–3 Fahrzeuge</h3>
+      <p class="tarif-price">Kostenlos</p>
+    </div>
+    <div class="tarif-box" data-tarif="4-10">
+      <h3>4–10 Fahrzeuge</h3>
+      <p class="tarif-price">4,90 € / Monat</p>
+    </div>
+    <div class="tarif-box hide-mobile" data-tarif="11-25">
+      <h3>11–25 Fahrzeuge</h3>
+      <p class="tarif-price">9,90 € / Monat</p>
+    </div>
+    <div class="tarif-box hide-mobile" data-tarif="26-50">
+      <h3>26–50 Fahrzeuge</h3>
+      <p class="tarif-price">17,90 € / Monat</p>
+    </div>
+    <div class="tarif-box hide-mobile" data-tarif="51-100">
+      <h3>51–100 Fahrzeuge</h3>
+      <p class="tarif-price">29,90 € / Monat</p>
+    </div>
+    <div class="tarif-box hide-mobile" data-tarif="100+">
+      <h3>Über 100 Fahrzeuge</h3>
+      <p class="tarif-price">Auf Anfrage</p>
+    </div>
+  </div>
+  
+  <button class="tarif-toggle-btn mobile-only" onclick="toggleTarife()">Mehr Tarife anzeigen</button>
+</section>
+
+<section class="step-container">
+  <div class="step-box" data-step="1">
+    <div class="step-header">
+      <i class="fas fa-car-side"></i>
+      <span class="step-title">1. Fahrzeugdaten</span>
+      <span class="step-status">✔️</span>
+    </div>
+    <p class="step-description">Marke, Modell, Erstzulassung, Leistung, Laufleistung und grundlegende technische Daten.</p>
+  </div>
+  
+  <div class="step-box" data-step="2">
+    <div class="step-header">
+      <i class="fas fa-info-circle"></i>
+      <span class="step-title">2. Fahrzeugdetails</span>
+      <span class="step-status"></span>
+    </div>
+    <p class="step-description">Ausstattung, Zustand, Besonderheiten, Unfälle, TÜV sowie sonstige Eigenschaften.</p>
+  </div>
+  
+  <div class="step-box" data-step="3">
+    <div class="step-header">
+      <i class="fas fa-camera"></i>
+      <span class="step-title">3. Medien</span>
+      <span class="step-status"></span>
+    </div>
+    <p class="step-description">Bilder und Videos deines Fahrzeugs hochladen, sortieren und hervorheben.</p>
+  </div>
+  
+  <div class="step-box" data-step="4">
+    <div class="step-header">
+      <i class="fas fa-eye"></i>
+      <span class="step-title">4. Vorschau & Tarif</span>
+      <span class="step-status"></span>
+    </div>
+    <p class="step-description">Anzeige prüfen, Tarif auswählen und Inserat veröffentlichen.</p>
+  </div>
+</section>
+
+
+
+  <script src="haendler.js"></script>
+</body>
+</html>

@@ -39,7 +39,16 @@ const crypto = require('crypto');
 // === Middleware ===
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname)));
+// === Statische Dateien ausliefern ===
+// === Statische Dateien ausliefern ===
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/data', express.static(path.join(__dirname, 'data'))); // <--- HIER
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+
 app.use('/uploads/images', express.static(imagesDir));
 app.use('/uploads/videos', express.static(videosDir));
 

@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="de" class="no-js">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autovisa – Fahrzeuge kaufen & verkaufen</title>
+
+  <link rel="stylesheet" href="anzeige.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
+
+  <!-- Slim Select v2.6.0 – für korrektes Custom-Styling -->
+  <link href="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.min.js"></script>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="logo-container">
+    <img src="AUTOVISA LOGO.PNG" alt="Autovisa Logo" class="logo" />
+  </div>
+  
+  
+<!-- Mobile Icons + Hamburger als Gruppe -->
+<div class="navbar-right-mobile">
+  <div class="mobile-shortcuts">
+    <a href="gespeicherte-autos.html" aria-label="Gespeicherte Autos">
+      <i class="fas fa-heart"></i>
+    </a>
+    <a href="nachrichten.html" aria-label="Nachrichten">
+      <i class="fas fa-comments"></i>
+    </a>
+  </div>
+  
+  <!-- Hamburger-Menü für Mobile -->
+  <button class="hamburger" id="hamburger" aria-label="Menü öffnen" aria-expanded="false" aria-controls="nav-links">
+    <i class="fas fa-bars"></i>
+  </button>
+  
+  <!-- Navigationslinks -->
+  <ul class="nav-links" id="nav-links">
+    
+    <!-- Home -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-home-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-home">
+        Home <i class="fas fa-chevron-down"></i>
+      </a>
+     <ul class="dropdown-menu" id="dropdown-home">
+  <li><a href="index.html"><i class="fas fa-house"></i> Startseite</a></li>
+  <li><a href="#search-section"><i class="fas fa-search"></i> Fahrzeug suchen</a></li>
+  <li><a href="#results-section"><i class="fas fa-car"></i> Inserate anzeigen</a></li>
+  <li><a href="login.html"><i class="fas fa-sign-in-alt"></i> Login / Registrierung</a></li>
+</ul>
+    </li>
+    
+    <!-- Meine Autos -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-autos-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-autos">
+        Meine Autos <i class="fas fa-chevron-down"></i>
+      </a>
+     <ul class="dropdown-menu" id="dropdown-autos">
+  <li><a href="nachrichten.html"><i class="fas fa-comments"></i> Nachrichten</a></li>
+  <li><a href="#" id="saved-cars-link"><i class="fas fa-heart"></i> Gespeicherte Autos</a></li>
+  <li><a href="#" id="my-cars-link"><i class="fas fa-car"></i> Eigene Inserate</a></li>
+  <li><a href="verkaufte-autos.html"><i class="fas fa-check-circle"></i> Verkaufte Autos</a></li>
+</ul>
+    </li>
+    
+    <!-- Infos -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-info-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-info">
+        Infos <i class="fas fa-chevron-down"></i>
+      </a>
+      <ul class="dropdown-menu" id="dropdown-info">
+        <li><a href="ueber-uns.html"><i class="fas fa-users"></i> Über uns</a></li>
+        <li><a href="hilfe.html"><i class="fas fa-question-circle"></i> Hilfe & FAQ</a></li>
+        <li><a href="preise.html"><i class="fas fa-euro-sign"></i> Tarife & Preise</a></li>
+      </ul>
+    </li>
+    
+    <!-- Kontakt -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-contact-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-contact">
+        Kontakt <i class="fas fa-chevron-down"></i>
+      </a>
+      <ul class="dropdown-menu" id="dropdown-contact">
+        <li><a href="kontakt.html"><i class="fas fa-comments"></i> Kontaktformular</a></li>
+        <li><a href="mailto:support@autovisa.de"><i class="fas fa-envelope"></i> support@autovisa.de</a></li>
+        <li><a href="mailto:business@autovisa.de"><i class="fas fa-briefcase"></i> business@autovisa.de</a></li>
+      </ul>
+    </li>
+    
+    <!-- Auto verkaufen (Call to Action) -->
+    <li class="active">
+      <a href="verkaufen.html" class="highlight-link"><i class="fas fa-plus-circle"></i> Auto verkaufen</a>
+    </li>
+  </ul>
+</nav>
+  
+  
+  
+<div class="media-detail-actions-outside">
+  <div class="left-actions">
+    <button class="back-to-search-btn" onclick="history.back()">
+      <i class="fas fa-arrow-left"></i> Zurück zur Suche
+    </button>
+  </div>
+  
+  <div class="right-actions">
+    <div class="contact-wrapper">
+      <button class="contact-btn" onclick="toggleContactPanel()">
+        <i class="fas fa-phone"></i> Kontaktieren
+      </button>
+      <div class="contact-panel" id="contactPanel">
+        <div class="contact-panel-header">
+          <span>Kontakt</span>
+          <button class="close-contact" onclick="toggleContactPanel()">×</button>
+        </div>
+        <div class="contact-panel-body">
+          <button onclick="showPhoneNumber()" id="showPhoneBtn">
+            <i class="fas fa-phone"></i> Telefon anzeigen
+          </button>
+          <div id="phoneNumber" class="phone-number" style="display: none;">
+            – 
+          </div>
+          
+          <button>
+            <i class="fas fa-comment-dots"></i> Nachricht schreiben
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <button class="save-btn" onclick="toggleSave(this)">
+      <i class="far fa-heart"></i> Speichern
+    </button>
+  </div>
+</div>
+
+
+<section class="media-detail-container">
+    <div class="media-detail-wrapper">
+      <button class="media-prev" onclick="prevMedia()">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+  
+      <div class="media-detail-main" id="media-display">
+        <div class="media-slider" id="media-slider">
+          <!-- Wird durch JS befüllt -->
+        </div>
+      </div>
+  
+      <button class="media-next" onclick="nextMedia()">
+        <i class="fas fa-chevron-right"></i>
+      </button>
+    </div>
+  
+    <div class="media-detail-thumbnails-scroll">
+      <div class="media-detail-thumbnails" id="thumbnail-track">
+        <!-- Wird durch JS befüllt -->
+      </div>
+    </div>
+  </section>
+  
+
+
+
+  <div class="car-price-title-wrapper">
+    <div class="car-header-box">
+      <div class="car-price-section">
+        <div class="price-main">
+          <span id="price-main">–</span> <span class="price-brutto" id="price-type">Brutto</span>
+        </div>
+        <div class="price-net">
+          <span id="price-net">–</span> (<span id="mwst-type">zzgl. MwSt.</span>)
+        </div>
+      </div>
+      <div class="car-title" id="car-title">–</div>
+    </div>
+  </div>
+  
+
+  <div class="car-info-box">
+    <div class="info-item">
+      <i class="fas fa-calendar-alt"></i>
+      <div class="info-text">
+        <div class="info-label">Erstzulassung</div>
+        <div class="info-value" id="info-ez">–</div>
+      </div>
+    </div>
+    <div class="info-item">
+      <i class="fas fa-tachometer-alt"></i>
+      <div class="info-text">
+        <div class="info-label">Kilometer</div>
+        <div class="info-value" id="info-km">–</div>
+      </div>
+    </div>
+    <div class="info-item">
+      <i class="fas fa-bolt"></i>
+      <div class="info-text">
+        <div class="info-label">Leistung</div>
+        <div class="info-value" id="info-ps">–</div>
+      </div>
+    </div>
+    <div class="info-item">
+      <i class="fas fa-gas-pump"></i>
+      <div class="info-text">
+        <div class="info-label">Kraftstoff</div>
+        <div class="info-value" id="info-kraftstoff">–</div>
+      </div>
+    </div>
+    <div class="info-item">
+      <i class="fas fa-cogs"></i>
+      <div class="info-text">
+        <div class="info-label">Getriebe</div>
+        <div class="info-value" id="info-getriebe">–</div>
+      </div>
+    </div>
+   
+  
+    
+  
+  
+  <div class="info-item">
+    <i class="fas fa-user"></i>
+    <div class="info-text">
+      <div class="info-label">Verkäufer</div>
+      <div class="info-value" id="seller-type">–</div>
+    </div>
+  </div>
+  </div>
+
+
+  <div class="technical-data-box">
+    <h3 class="technical-data-heading">Technische Daten</h3>
+    <div class="technical-data-grid">
+  
+        <div class="data-item">
+            <span class="data-label">Fahrzeugzustand</span>
+            <span class="data-value" id="v-zustand">–</span>
+          </div>
+          
+  
+          <div class="data-item">
+            <span class="data-label">Fahrzeugart</span>
+            <span class="data-value" id="v-fahrzeugart">–</span>
+          </div>
+          
+          <div class="data-item">
+            <span class="data-label">Anzahl der Fahrzeughalter</span>
+            <span class="data-value" id="v-halter">–</span>
+          </div>
+          
+          <div class="data-item">
+            <span class="data-label">Fahrtauglich</span>
+            <span class="data-value" id="v-fahrtauglich">–</span>
+          </div>
+          
+          <div class="data-item">
+            <span class="data-label">Beschädigtes Fahrzeug</span>
+            <span class="data-value" id="v-beschaedigt">–</span>
+          </div>
+          
+          <div class="data-item">
+            <span class="data-label">Unfallhistorie</span>
+            <span class="data-value" id="v-unfall">–</span>
+          </div>
+          
+
+      <div class="data-item">
+        <span class="data-label">Anzahl der Türen</span>
+        <span class="data-value" id="v-tueren">–</span>
+      </div>
+      
+  
+      <div class="data-item">
+        <span class="data-label">Fahrzeugtyp</span>
+        <span class="data-value" id="v-fahrzeugtyp">–</span>
+      </div>
+  
+      <div class="data-item">
+        <span class="data-label">Hubraum</span>
+        <span class="data-value" id="v-hubraum">–</span>
+      </div>
+  
+      <div class="data-item">
+        <span class="data-label">Verbrauch (kombiniert)</span>
+        <span class="data-value" id="v-verbrauch-kombiniert">–</span>
+      </div>
+  
+      <div class="data-item">
+        <span class="data-label">Verbrauch (innerorts)</span>
+        <span class="data-value" id="v-verbrauch-innerorts">–</span>
+      </div>
+  
+      <div class="data-item">
+        <span class="data-label">Verbrauch (außerorts)</span>
+        <span class="data-value" id="v-verbrauch-ausserorts">–</span>
+      </div>
+  
+
+  
+  
+     
+      
+      <div class="data-item">
+        <span class="data-label">Antriebsart</span>
+        <span class="data-value" id="v-antrieb">–</span>
+      </div>
+      
+      <div class="data-item">
+        <span class="data-label">CO₂-Ausstoß</span>
+        <span class="data-value" id="v-co2">–</span>
+      </div>
+     
+      <div class="data-item">
+        <span class="data-label">Schadstoffklasse</span>
+        <span class="data-value" id="v-schadstoffklasse">–</span>
+      </div>
+      <div class="data-item">
+        <span class="data-label">Umweltplakette</span>
+        <span class="data-value" id="v-umweltplakette">–</span>
+      </div>
+
+      <div class="data-item">
+        <span class="data-label">Partikelfilter</span>
+        <span class="data-value" id="v-partikelfilter">–</span>
+      </div>
+      
+      <div class="data-item">
+        <span class="data-label">HU</span>
+        <span class="data-value" id="v-hu">–</span>
+      </div>
+      
+      <div class="data-item">
+        <span class="data-label">Klimatisierung</span>
+        <span class="data-value" id="v-klimatisierung">–</span>
+      </div>
+      <div class="data-item">
+        <span class="data-label">Einparkhilfe</span>
+        <span class="data-value" id="v-einparkhilfe">–</span>
+      </div>
+      <div class="data-item">
+        <span class="data-label">Airbags</span>
+        <span class="data-value" id="v-airbags">–</span>
+      </div>
+      <div class="data-item">
+        <span class="data-label">Innenausstattung</span>
+        <span class="data-value" id="v-innenausstattung">–</span>
+      </div>
+      
+    </div>
+  </div>
+
+<!-- Ausstattung (wird später per JavaScript befüllt) -->
+<div class="equipment-section" id="ausstattung-block" style="display: none;">
+    <h2>Ausstattung</h2>
+    <div class="equipment-grid" id="v-ausstattung">
+      <!-- Wird dynamisch mit <div class="equipment-item">…</div> gefüllt -->
+    </div>
+  </div>
+  
+</div>
+
+<div class="car-description-box">
+  <h2>Fahrzeugbeschreibung</h2>
+  <div class="car-description-content" id="car-description">...</div>
+
+  <button id="toggle-description-btn">Mehr anzeigen</button>
+</div>
+</div>
+</div>
+<div class="message-box">
+    <div class="message-box-header">
+      <i class="fas fa-envelope"></i> Nachricht an den Verkäufer
+    </div>
+    <form class="message-form" id="messageForm">
+      <textarea name="nachricht" placeholder="Schreibe deine Nachricht..." required></textarea>
+      <div class="message-actions">
+        <button type="submit">
+          <i class="fas fa-paper-plane"></i> Senden
+        </button>
+      </div>
+    </form>
+  </div>
+  
+</div>
+<div class="seller-box">
+  <div class="seller-info">
+    <div class="seller-name">Max Mustermann</div>
+    <div class="seller-rating">
+      <i class="fas fa-star"></i>
+      <i class="fas fa-star"></i>
+      <i class="fas fa-star"></i>
+      <i class="fas fa-star"></i>
+      <i class="fas fa-star-half-alt"></i>
+      <span class="rating-value">4.8</span>
+    </div>
+  </div>
+  <button class="seller-cars-btn">Alle Autos des Anbieters</button>
+  <button class="rate-seller-btn" onclick="toggleRatingPanel()">Händler bewerten</button>
+</div>
+
+
+<div class="rating-panel" id="ratingPanel">
+  <div class="rating-panel-header">
+    <span>Händler bewerten</span>
+    <button class="close-rating" onclick="toggleRatingPanel()">×</button>
+  </div>
+  <div class="rating-panel-body">
+    <div class="star-rating" id="starRating">
+      <i class="fas fa-star" data-value="1"></i>
+      <i class="fas fa-star" data-value="2"></i>
+      <i class="fas fa-star" data-value="3"></i>
+      <i class="fas fa-star" data-value="4"></i>
+      <i class="fas fa-star" data-value="5"></i>
+    </div>
+    <textarea id="ratingText" placeholder="Deine Bewertung..." rows="4"></textarea>
+    <button class="submit-rating-btn" onclick="submitRating()">Absenden</button>
+  </div>
+</div>
+
+
+
+<script src="anzeige.js"></script>
+<div id="lightbox-overlay" class="lightbox-overlay" onclick="closeLightbox()">
+  <!-- Inhalt -->
+  <div id="lightbox-content" class="lightbox-content"></div>
+  
+  <!-- Bild x von y -->
+  <div id="lightbox-counter" class="lightbox-counter">Bild 1 von 10</div>
+  
+  
+  <div class="contact-overlay" id="contactOverlay" onclick="toggleContactPanel()"></div>
+  
+
+  
+  <!-- Schließen-Button -->
+  <button id="lightbox-close-btn" class="lightbox-close-btn" onclick="closeLightbox(); event.stopPropagation();">
+    <i class="fas fa-times"></i>
+  </button>
+  
+
+  
+  <!-- Navigation -->
+  <button class="lightbox-prev" onclick="navigateLightbox(-1); event.stopPropagation();">
+    <i class="fas fa-chevron-left"></i>
+  </button>
+  <button class="lightbox-next" onclick="navigateLightbox(1); event.stopPropagation();">
+    <i class="fas fa-chevron-right"></i>
+  </button>
+</div>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="de" class="no-js">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autovisa – Fahrzeuge kaufen & verkaufen</title>
+
+  <link rel="stylesheet" href="chat.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
+
+  <!-- Slim Select v2.6.0 – für korrektes Custom-Styling -->
+  <link href="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.min.js"></script>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="logo-container">
+    <img src="AUTOVISA LOGO.PNG" alt="Autovisa Logo" class="logo" />
+  </div>
+  
+  
+<!-- Mobile Icons + Hamburger als Gruppe -->
+<div class="navbar-right-mobile">
+  <div class="mobile-shortcuts">
+    <a href="gespeicherte-autos.html" aria-label="Gespeicherte Autos">
+      <i class="fas fa-heart"></i>
+    </a>
+    <a href="nachrichten.html" aria-label="Nachrichten">
+      <i class="fas fa-comments"></i>
+    </a>
+  </div>
+  
+  <!-- Hamburger-Menü für Mobile -->
+  <button class="hamburger" id="hamburger" aria-label="Menü öffnen" aria-expanded="false" aria-controls="nav-links">
+    <i class="fas fa-bars"></i>
+  </button>
+  
+  <!-- Navigationslinks -->
+  <ul class="nav-links" id="nav-links">
+    
+    <!-- Home -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-home-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-home">
+        Home <i class="fas fa-chevron-down"></i>
+      </a>
+     <ul class="dropdown-menu" id="dropdown-home">
+  <li><a href="index.html"><i class="fas fa-house"></i> Startseite</a></li>
+  <li><a href="#search-section"><i class="fas fa-search"></i> Fahrzeug suchen</a></li>
+  <li><a href="#results-section"><i class="fas fa-car"></i> Inserate anzeigen</a></li>
+  <li><a href="login.html"><i class="fas fa-sign-in-alt"></i> Login / Registrierung</a></li>
+</ul>
+    </li>
+    
+    <!-- Meine Autos -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-autos-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-autos">
+        Meine Autos <i class="fas fa-chevron-down"></i>
+      </a>
+     <ul class="dropdown-menu" id="dropdown-autos">
+  <li><a href="nachrichten.html"><i class="fas fa-comments"></i> Nachrichten</a></li>
+  <li><a href="#" id="saved-cars-link"><i class="fas fa-heart"></i> Gespeicherte Autos</a></li>
+  <li><a href="#" id="my-cars-link"><i class="fas fa-car"></i> Eigene Inserate</a></li>
+  <li><a href="verkaufte-autos.html"><i class="fas fa-check-circle"></i> Verkaufte Autos</a></li>
+</ul>
+    </li>
+    
+    <!-- Infos -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-info-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-info">
+        Infos <i class="fas fa-chevron-down"></i>
+      </a>
+      <ul class="dropdown-menu" id="dropdown-info">
+        <li><a href="ueber-uns.html"><i class="fas fa-users"></i> Über uns</a></li>
+        <li><a href="hilfe.html"><i class="fas fa-question-circle"></i> Hilfe & FAQ</a></li>
+        <li><a href="preise.html"><i class="fas fa-euro-sign"></i> Tarife & Preise</a></li>
+      </ul>
+    </li>
+    
+    <!-- Kontakt -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-contact-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-contact">
+        Kontakt <i class="fas fa-chevron-down"></i>
+      </a>
+      <ul class="dropdown-menu" id="dropdown-contact">
+        <li><a href="kontakt.html"><i class="fas fa-comments"></i> Kontaktformular</a></li>
+        <li><a href="mailto:support@autovisa.de"><i class="fas fa-envelope"></i> support@autovisa.de</a></li>
+        <li><a href="mailto:business@autovisa.de"><i class="fas fa-briefcase"></i> business@autovisa.de</a></li>
+      </ul>
+    </li>
+    
+    <!-- Auto verkaufen (Call to Action) -->
+    <li class="active">
+      <a href="verkaufen.html" class="highlight-link"><i class="fas fa-plus-circle"></i> Auto verkaufen</a>
+    </li>
+  </ul>
+</nav>
+  
+  
+  
+<section class="chat-overview">
+  <h1 class="chat-title"><i class="fas fa-comments"></i> Chats</h1>
+  
+  <div class="chat-card">
+    <div class="chat-media">
+      <img src="1.jpeg" alt="Auto" />
+    </div>
+    <div class="chat-info">
+      <h2 class="chat-car-title">BMW 3er • 12.990 €</h2>
+      <p class="chat-message-preview"><strong>Max Mustermann:</strong> Ist der Wagen noch verfügbar?</p>
+    </div>
+  </div>
+  <div class="chat-buttons">
+    <a href="chatverlauf.html?auto=123" class="open-chat-btn"><i class="fas fa-comments"></i> Chat öffnen</a>
+    <button class="delete-chat-btn"><i class="fas fa-trash-alt"></i> Chat löschen</button>
+  </div>
+  
+  <div class="chat-card">
+    <div class="chat-media">
+      <img src="2.jpeg" alt="Auto" />
+    </div>
+    <div class="chat-info">
+      <h2 class="chat-car-title">Audi A4 Avant • 14.790 €</h2>
+      <p class="chat-message-preview"><strong>Laura Beispiel:</strong> Ich würde morgen gerne eine Probefahrt machen.</p>
+    </div>
+  </div>
+  <div class="chat-buttons">
+    <a href="chatverlauf.html?auto=456" class="open-chat-btn"><i class="fas fa-comments"></i> Chat öffnen</a>
+    <button class="delete-chat-btn"><i class="fas fa-trash-alt"></i> Chat löschen</button>
+  </div>
+</section>
+
+
+
+  <script src="chat.js"></script>
+</body>
+</html>

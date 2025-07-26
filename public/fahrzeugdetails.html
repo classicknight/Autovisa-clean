@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fahrzeugdetails – Autovisa</title>
+  <link rel="stylesheet" href="fahrzeugdetails.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="logo-container">
+    <img src="AUTOVISA LOGO.PNG" alt="Autovisa Logo" class="logo" />
+  </div>
+  <div class="progress-wrapper">
+    <i class="fas fa-car-side progress-icon start-icon"></i>
+    <div class="progress-track">
+    <div class="progress-fill" id="progress-bar" style="width: 0%;"></div>
+    </div>
+    <i class="fas fa-flag-checkered progress-icon end-icon"></i>
+  </div>
+</nav>
+
+<main class="form-section">
+    <div class="form-container">
+      <h1 class="form-heading">Fahrzeugdetails eingeben</h1>
+  
+      <!-- ✅ ID ist notwendig für JS -->
+      <form id="fahrzeugForm" class="vehicle-form">
+  
+        <!-- Abschnitt: Fahrzeugzustand -->
+        <section>
+          <h2 class="section-title">Fahrzeugzustand</h2>
+  
+          <div class="form-row">
+            <div class="form-group">
+                <label for="zustand">Zustand</label>
+                <select id="zustand" name="zustand" required>
+                  <option value="" disabled selected>Bitte wählen</option>
+                  <option value="Neu">Neu</option>
+                  <option value="Sehr gepflegt">Sehr gepflegt</option>
+                  <option value="Gepflegt">Gepflegt</option>
+                  <option value="Unfallfahrzeug">Unfallfahrzeug</option>
+                  <option value="Beschädigt">Beschädigt</option>
+                  <option value="Defekt">Defekt</option>
+                </select>
+                
+            </div>
+  
+            <div class="form-group">
+              <label for="fahrzeugart">Fahrzeugart</label>
+              <select id="fahrzeugart" name="fahrzeugart" required>
+                <option value="" disabled selected>Bitte wählen</option>
+                <option value="Gebrauchtfahrzeug">Gebrauchtfahrzeug</option>
+                <option value="Vorführfahrzeug">Vorführfahrzeug</option>
+                <option value="Neufahrzeug">Neufahrzeug</option>
+                <option value="Oldtimer">Oldtimer</option>
+              </select>
+            </div>
+          </div>
+  
+          <div class="form-row">
+            <div class="form-group">
+              <label for="halter">Anzahl der Fahrzeughalter</label>
+              <select id="halter" name="halter" required>
+                <option value="" disabled selected>Bitte wählen</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10 oder mehr">10 oder mehr</option>
+                <option value="Keine Angabe">Keine Angabe</option>
+              </select>
+            </div>
+  
+            <div class="form-group">
+                <label for="fahrtauglich">Fahrtauglich</label>
+                <select id="fahrtauglich" name="fahrtauglich" required>
+                  <option value="" disabled selected>Bitte wählen</option>
+                  <option value="Ja">Ja</option>
+                  <option value="Nein">Nein</option>
+                </select>
+              </div>
+            </div>
+  
+          <div class="form-row">
+            <div class="form-group">
+              <label for="beschaedigt">Beschädigtes Fahrzeug</label>
+              <select id="beschaedigt" name="beschaedigt" required>
+                <option value="" disabled selected>Bitte wählen</option>
+                <option value="Ja">Ja</option>
+                <option value="Nein">Nein</option>
+              </select>
+            </div>
+  
+            <div class="form-group">
+                <label for="unfall">Unfallhistorie</label>
+                <select id="unfall" name="unfall" required>
+                  <option value="" disabled selected>Bitte wählen</option>
+                  <option value="Keine">Keine</option>
+                  <option value="Reparierter Unfallschaden">Reparierter Unfallschaden</option>
+                  <option value="Unreparierter Unfallschaden">Unreparierter Unfallschaden</option>
+                </select>
+              </div>
+              
+          </div>
+        </section>
+
+<!-- Abschnitt: Wartung & Zusatzinfos -->
+<section>
+    <h2 class="section-title">Wartung & Zusatzinfos</h2>
+    
+    <div class="form-row">
+      <div class="form-group">
+        <label for="tuevMonat">HU gültig bis</label>
+        <div class="form-row">
+          <select id="tuevMonat" name="tuevMonat">
+            <option value="" disabled selected>Monat</option>
+            <option>Januar</option>
+            <option>Februar</option>
+            <option>März</option>
+            <option>April</option>
+            <option>Mai</option>
+            <option>Juni</option>
+            <option>Juli</option>
+            <option>August</option>
+            <option>September</option>
+            <option>Oktober</option>
+            <option>November</option>
+            <option>Dezember</option>
+          </select>
+          <select id="tuevJahr" name="tuevJahr">
+            <option value="" disabled selected>Jahr</option>
+            <option>2024</option>
+            <option>2025</option>
+            <option>2026</option>
+            <option>2027</option>
+            <option>2028</option>
+            <option>2029</option>
+            <option>2030</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    
+    <div class="checkbox-grid" style="margin-top: 16px;">
+      <label class="checkbox-tile">
+        <input type="checkbox" id="nichtraucher" name="nichtraucher" />
+        <span class="checkbox-label">Nichtraucherfahrzeug</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" id="scheckheft" name="scheckheft" />
+        <span class="checkbox-label">Scheckheftgepflegt</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" id="garantie" name="garantie" />
+        <span class="checkbox-label">Garantie / Werksgarantie</span>
+      </label>
+    </div>
+  </section>
+  
+  <!-- Abschnitt: Farbe & Innenausstattung -->
+  <section>
+    <h2 class="section-title">Farbe & Innenausstattung</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="karosseriefarbe">Karosseriefarbe</label>
+        <select id="karosseriefarbe" name="karosseriefarbe">
+          <option value="" disabled selected>Bitte wählen</option>
+          <option>Weiß</option><option>Schwarz</option><option>Silber</option>
+          <option>Grau</option><option>Blau</option><option>Rot</option>
+          <option>Grün</option><option>Gelb</option><option>Orange</option>
+          <option>Beige</option><option>Gold</option><option>Violett</option>
+          <option>Braun</option><option>Andere</option>
+        </select>
+        <div class="checkbox-grid" style="margin-top: 12px;">
+          <label class="checkbox-tile">
+            <input type="checkbox" id="metallic" name="metallic" />
+            <span class="checkbox-label">Metallic-Lackierung</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="innenmaterial">Innenausstattung – Material</label>
+        <select id="innenmaterial" name="innenmaterial">
+          <option value="" disabled selected>Bitte wählen</option>
+          <option>Stoff</option><option>Leder Imitat</option>
+          <option>Teilleder</option><option>Vollleder</option>
+          <option>Alcantara</option><option>Velours</option>
+          <option>Andere</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="innenfarbe">Innenausstattung – Farbe</label>
+        <select id="innenfarbe" name="innenfarbe">
+          <option value="" disabled selected>Bitte wählen</option>
+          <option>Schwarz</option><option>Grau</option><option>Beige</option>
+          <option>Braun</option><option>Blau</option><option>Rot</option>
+          <option>Andere</option>
+        </select>
+      </div>
+    </div>
+  </section>
+<!-- Abschnitt: Sicherheit & Assistenzsysteme -->
+<section>
+    <h2 class="section-title">Sicherheit & Assistenzsysteme</h2>
+    <div class="checkbox-grid">
+      <label class="checkbox-tile">
+        <input type="checkbox" name="abs" />
+        <span class="checkbox-label">ABS</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="esp" />
+        <span class="checkbox-label">ESP</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="asr" />
+        <span class="checkbox-label">ASR</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="berganfahrassistent" />
+        <span class="checkbox-label">Berganfahrassistent</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="muedigkeitswarner" />
+        <span class="checkbox-label">Müdigkeitswarner</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="spurhalteassistent" />
+        <span class="checkbox-label">Spurhalteassistent</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="totwinkelassistent" />
+        <span class="checkbox-label">Totwinkel-Assistent</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="notbremsassistent" />
+        <span class="checkbox-label">Notbremsassistent</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="notrufsystem" />
+        <span class="checkbox-label">Notrufsystem</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="verkehrszeichenerkennung" />
+        <span class="checkbox-label">Verkehrszeichenerkennung</span>
+      </label>
+    </div>
+  </section>
+  
+  <!-- Abschnitt: Insassenschutz -->
+  <section>
+    <h2 class="section-title">Insassenschutz</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="airbags">Airbags</label>
+        <select id="airbags" name="airbags">
+          <option value="" disabled selected>Bitte wählen</option>
+          <option>Keine</option>
+          <option>Fahrerairbag</option>
+          <option>Fahrer- und Beifahrerairbag</option>
+          <option>Seiten- und Kopfairbags</option>
+          <option>Vollständig</option>
+        </select>
+      </div>
+    </div>
+    <div class="checkbox-grid" style="margin-top: 16px;">
+      <label class="checkbox-tile">
+        <input type="checkbox" name="isofixHinten" />
+        <span class="checkbox-label">Isofix (hinten)</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="isofixBeifahrer" />
+        <span class="checkbox-label">Isofix Beifahrersitz</span>
+      </label>
+    </div>
+  </section>
+  
+  <!-- Abschnitt: Licht & Sicht -->
+  <section>
+    <h2 class="section-title">Licht & Sicht</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="scheinwerfer">Scheinwerfer</label>
+        <select id="scheinwerfer" name="scheinwerfer">
+          <option value="" disabled selected>Bitte wählen</option>
+          <option>Halogen</option>
+          <option>Xenon</option>
+          <option>LED</option>
+          <option>Matrix LED</option>
+          <option>Laser</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="tagfahrlicht">Tagfahrlicht</label>
+        <select id="tagfahrlicht" name="tagfahrlicht">
+          <option value="" disabled selected>Bitte wählen</option>
+          <option>Tagfahrlicht</option>
+          <option>LED-Tagfahrlicht</option>
+        </select>
+      </div>
+    </div>
+  
+    <div class="form-row">
+      <div class="form-group">
+        <label for="kurvenlicht">Kurvenlicht</label>
+        <select id="kurvenlicht" name="kurvenlicht">
+          <option value="" disabled selected>Bitte wählen</option>
+          <option>Kurvenlicht</option>
+          <option>Adaptives Kurvenlicht</option>
+        </select>
+      </div>
+    </div>
+  
+    <div class="checkbox-grid" style="margin-top: 16px;">
+      <label class="checkbox-tile">
+        <input type="checkbox" name="scheinwerferreinigung" />
+        <span class="checkbox-label">Scheinwerferreinigung</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="blendfreiesFernlicht" />
+        <span class="checkbox-label">Blendfreies Fernlicht</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="fernlichtassistent" />
+        <span class="checkbox-label">Fernlichtassistent</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="innenspiegelAbblendend" />
+        <span class="checkbox-label">Innenspiegel autom. abblendend</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="nachtsichtassistent" />
+        <span class="checkbox-label">Nachtsichtassistent</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="nebelscheinwerfer" />
+        <span class="checkbox-label">Nebelscheinwerfer</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="lichtsensor" />
+        <span class="checkbox-label">Lichtsensor</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="regensensor" />
+        <span class="checkbox-label">Regensensor</span>
+      </label>
+    </div>
+  </section>
+<<!-- Abschnitt: Diebstahlschutz -->
+<section>
+    <h2 class="section-title">Diebstahlschutz</h2>
+    <div class="checkbox-grid" style="margin-top: 16px;">
+      <label class="checkbox-tile">
+        <input type="checkbox" name="alarmanlage" />
+        <span class="checkbox-label">Alarmanlage</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="wegfahrsperre" />
+        <span class="checkbox-label">Elektrische Wegfahrsperre</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="keylessZV" />
+        <span class="checkbox-label">Schlüssellose Zentralverriegelung</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="zentralverriegelung" />
+        <span class="checkbox-label">Zentralverriegelung</span>
+      </label>
+    </div>
+  </section>
+  
+  <!-- Abschnitt: Komfort -->
+  <section>
+    <h2 class="section-title">Komfort</h2>
+  
+    <!-- Klimatisierung -->
+    <div class="form-row">
+      <div class="form-group">
+        <label for="klimatisierung">Klimatisierung</label>
+        <select id="klimatisierung" name="klimatisierung">
+          <option value="" disabled selected>Bitte wählen</option>
+          <option>Klimaanlage</option>
+          <option>2-Zonen-Klimaautomatik</option>
+          <option>3-Zonen-Klimaautomatik</option>
+          <option>4-Zonen-Klimaautomatik</option>
+        </select>
+      </div>
+    </div>
+  
+    <div class="checkbox-grid">
+      <label class="checkbox-tile">
+        <input type="checkbox" name="standheizung" />
+        <span class="checkbox-label">Standheizung</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="frontscheibeBeheizbar" />
+        <span class="checkbox-label">Beheizbare Frontscheibe</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="lenkradBeheizbar" />
+        <span class="checkbox-label">Beheizbares Lenkrad</span>
+      </label>
+    </div>
+  
+    <!-- Einparkhilfe -->
+    <div class="form-row" style="margin-top: 30px;">
+      <label class="section-subtitle">Einparkhilfe <i class="fas fa-circle-info" style="font-size: 14px;"></i></label>
+    </div>
+    <div class="checkbox-grid">
+      <label class="checkbox-tile">
+        <input type="checkbox" name="einparkhilfeSelbstlenkend" />
+        <span class="checkbox-label">Selbstlenkende Systeme</span>
+      </label>
+    </div>
+  
+    <label class="section-subtitle" style="margin-top: 20px;">Akustische Einparkhilfe</label>
+    <div class="checkbox-grid">
+      <label class="checkbox-tile">
+        <input type="checkbox" name="einparkhilfeVorne" />
+        <span class="checkbox-label">Vorne</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="einparkhilfeHinten" />
+        <span class="checkbox-label">Hinten</span>
+      </label>
+    </div>
+  
+    <label class="section-subtitle" style="margin-top: 20px;">Visuelle Einparkhilfe</label>
+    <div class="checkbox-grid">
+      <label class="checkbox-tile">
+        <input type="checkbox" name="kameraHinten" />
+        <span class="checkbox-label">Kamera</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="kamera360" />
+        <span class="checkbox-label">360°-Kamera</span>
+      </label>
+    </div>
+  
+    <!-- Sitze -->
+    <h3 class="section-subtitle" style="margin-top: 30px;">Sitze</h3>
+    <div class="checkbox-grid">
+      <label class="checkbox-tile">
+        <input type="checkbox" name="sitzheizungVorne" />
+        <span class="checkbox-label">Sitzheizung vorne</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="sitzheizungHinten" />
+        <span class="checkbox-label">Sitzheizung hinten</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="sitzeElektrisch" />
+        <span class="checkbox-label">Elektrische Sitzeinstellung vorne</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="sportsitze" />
+        <span class="checkbox-label">Sportsitze</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="armlehne" />
+        <span class="checkbox-label">Armlehne</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="lordosenstuetze" />
+        <span class="checkbox-label">Lordosenstütze</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="massagesitze" />
+        <span class="checkbox-label">Massagesitze</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="sitzbelueftung" />
+        <span class="checkbox-label">Sitzbelüftung</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="beifahrersitzUmklappbar" />
+        <span class="checkbox-label">Umklappbarer Beifahrersitz</span>
+      </label>
+    </div>
+  
+    <!-- Weitere Komfortausstattungen -->
+    <h3 class="section-subtitle" style="margin-top: 30px;">Weitere Komfortausstattungen</h3>
+    <div class="checkbox-grid">
+      <label class="checkbox-tile">
+        <input type="checkbox" name="elektrFensterheber" />
+        <span class="checkbox-label">Elektrische Fensterheber</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="elektrSpiegel" />
+        <span class="checkbox-label">Elektrische Seitenspiegel</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="elektrHeckklappe" />
+        <span class="checkbox-label">Elektrische Heckklappe</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="servolenkung" />
+        <span class="checkbox-label">Servolenkung</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="ambientebeleuchtung" />
+        <span class="checkbox-label">Ambientebeleuchtung</span>
+      </label>
+      <label class="checkbox-tile">
+        <input type="checkbox" name="lederlenkrad" />
+        <span class="checkbox-label">Lederlenkrad</span>
+      </label>
+    </div>
+  </section>
+<!-- Abschnitt: Infotainment -->
+<section>
+    <h2 class="section-title">Infotainment</h2>
+  
+    <!-- Multimedia -->
+    <h3 class="section-subtitle">Multimedia</h3>
+    <div class="checkbox-grid">
+      <label class="checkbox-tile"><input type="checkbox" name="radio"><span class="checkbox-label">Tuner / Radio</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="dab"><span class="checkbox-label">Radio DAB</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="cd"><span class="checkbox-label">CD-Spieler</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="tv"><span class="checkbox-label">TV</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="navi"><span class="checkbox-label">Navigationssystem</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="soundsystem"><span class="checkbox-label">Soundsystem</span></label>
+    </div>
+  
+    <!-- Bedienung & Steuerung -->
+    <h3 class="section-subtitle" style="margin-top: 30px;">Bedienung & Steuerung</h3>
+    <div class="checkbox-grid">
+      <label class="checkbox-tile"><input type="checkbox" name="touchscreen"><span class="checkbox-label">Touchscreen</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="sprachsteuerung"><span class="checkbox-label">Sprachsteuerung</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="multifunktionslenkrad"><span class="checkbox-label">Multifunktionslenkrad</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="freisprecheinrichtung"><span class="checkbox-label">Freisprecheinrichtung</span></label>
+    </div>
+  
+    <!-- Konnektivität & Schnittstellen -->
+    <h3 class="section-subtitle" style="margin-top: 30px;">Konnektivität & Schnittstellen</h3>
+    <div class="checkbox-grid">
+      <label class="checkbox-tile"><input type="checkbox" name="usb"><span class="checkbox-label">USB</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="bluetooth"><span class="checkbox-label">Bluetooth</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="applecarplay"><span class="checkbox-label">Apple CarPlay</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="androidauto"><span class="checkbox-label">Android Auto</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="wlan"><span class="checkbox-label">WLAN / Wifi Hotspot</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="streaming"><span class="checkbox-label">Musikstreaming integriert</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="induktionsladen"><span class="checkbox-label">Induktionsladen für Smartphones</span></label>
+    </div>
+  
+    <!-- Instrumentenanzeige -->
+    <h3 class="section-subtitle" style="margin-top: 30px;">Instrumentenanzeige</h3>
+    <div class="checkbox-grid">
+      <label class="checkbox-tile"><input type="checkbox" name="bordcomputer"><span class="checkbox-label">Bordcomputer</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="headup"><span class="checkbox-label">Head-up Display</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="volldigital"><span class="checkbox-label">Volldigitales Kombiinstrument</span></label>
+    </div>
+  </section>
+  
+  <!-- Abschnitt: Extras -->
+  <section>
+    <h2 class="section-title">Extras</h2>
+  
+    <!-- Reifen und Felgen -->
+    <h3 class="section-subtitle">Reifen und Felgen</h3>
+    <div class="checkbox-grid">
+      <label class="checkbox-tile"><input type="checkbox" name="alufelgen"><span class="checkbox-label">Leichtmetallfelgen</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="sommerreifen"><span class="checkbox-label">Sommerreifen</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="winterreifen"><span class="checkbox-label">Winterreifen</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="allwetterreifen"><span class="checkbox-label">Allwetterreifen</span></label>
+    </div>
+  
+    <!-- Pannenhilfe -->
+    <h3 class="section-subtitle" style="margin-top: 30px;">Pannenhilfe</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="pannenhilfe">Pannenhilfe</label>
+        <select id="pannenhilfe" name="pannenhilfe">
+          <option value="" disabled selected>Bitte wählen</option>
+          <option>Notrad</option>
+          <option>Pannenset</option>
+          <option>Reserverad</option>
+        </select>
+      </div>
+    </div>
+    <div class="checkbox-grid" style="margin-top: 16px;">
+      <label class="checkbox-tile"><input type="checkbox" name="reifendruckkontrolle"><span class="checkbox-label">Reifendruckkontrolle</span></label>
+    </div>
+  
+    <!-- Sonderausstattung -->
+    <h3 class="section-subtitle" style="margin-top: 30px;">Sonderausstattung</h3>
+    <div class="checkbox-grid">
+      <label class="checkbox-tile"><input type="checkbox" name="winterpaket"><span class="checkbox-label">Winterpaket</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="raucherpaket"><span class="checkbox-label">Raucherpaket</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="sportpaket"><span class="checkbox-label">Sportpaket</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="sportfahrwerk"><span class="checkbox-label">Sportfahrwerk</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="luftfederung"><span class="checkbox-label">Luftfederung</span></label>
+    </div>
+  
+    <!-- Anhängerkupplung -->
+    <h3 class="section-subtitle" style="margin-top: 30px;">Anhängerkupplung</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="anhaengerkupplung">Anhängerkupplung</label>
+        <select id="anhaengerkupplung" name="anhaengerkupplung">
+          <option value="" disabled selected>Bitte wählen</option>
+          <option>Anhängerkupplung abnehmbar</option>
+          <option>Anhängerkupplung fest</option>
+          <option>Anhängerkupplung schwenkbar</option>
+          <option>Anhängerkupplung-Vorbereitung</option>
+        </select>
+      </div>
+    </div>
+  
+    <!-- Weitere Extras -->
+    <div class="checkbox-grid" style="margin-top: 16px;">
+      <label class="checkbox-tile"><input type="checkbox" name="gepaeckabtrennung"><span class="checkbox-label">Gepäckraumabtrennung</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="skisack"><span class="checkbox-label">Skisack</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="schiebedach"><span class="checkbox-label">Schiebedach</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="panoramadach"><span class="checkbox-label">Panorama-Dach</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="dachreling"><span class="checkbox-label">Dachreling</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="behindertengerecht"><span class="checkbox-label">Behindertengerecht</span></label>
+      <label class="checkbox-tile"><input type="checkbox" name="taxi"><span class="checkbox-label">Taxi</span></label>
+    </div>
+  
+    <!-- Fahrzeugbeschreibung -->
+    <div class="form-row">
+      <div class="form-group" style="width: 100%;">
+        <label for="fahrzeugbeschreibung">Fahrzeugbeschreibung</label>
+        <textarea id="fahrzeugbeschreibung" name="fahrzeugbeschreibung" class="form-textarea" rows="6" placeholder="Beschreibe dein Fahrzeug: z. B. Zustand, Historie, besondere Merkmale..."></textarea>
+      </div>
+    </div>
+  </section>
+
+<!-- Zurück-Button -->
+<div class="form-row" style="justify-content: flex-start; margin-top: 40px;">
+    <button type="button" class="back-button" onclick="window.location.href='haendler.html'">
+      <i class="fas fa-arrow-left"></i> Zurück zur Übersicht
+    </button>
+  </div>
+<!-- Speichern-Button -->
+<div class="form-row" style="justify-content: flex-end; margin-top: 40px;">
+  <button type="submit" class="save-button">
+    <i class="fas fa-save"></i> Speichern
+  </button>
+</div>
+
+    </form>
+  </div>
+</main>
+<script src="fahrzeugdetails.js"></script>
+</body>
+</html>

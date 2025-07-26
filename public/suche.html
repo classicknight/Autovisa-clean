@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="de" class="no-js">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autovisa – Fahrzeuge kaufen & verkaufen</title>
+
+  <link rel="stylesheet" href="suche.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
+    <!-- Slim Select v2.6.0 – für korrektes Custom-Styling -->
+  <link href="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.min.js"></script>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="logo-container">
+    <img src="AUTOVISA LOGO.PNG" alt="Autovisa Logo" class="logo" />
+  </div>
+  
+  <div class="navbar-right-mobile">
+    <div class="mobile-shortcuts">
+      <a href="gespeicherte-autos.html" aria-label="Gespeicherte Autos">
+        <i class="fas fa-heart"></i>
+      </a>
+      <a href="nachrichten.html" aria-label="Nachrichten">
+        <i class="fas fa-comments"></i>
+      </a>
+    </div>
+    
+    <button class="hamburger" id="hamburger" aria-label="Menü öffnen" aria-expanded="false" aria-controls="nav-links">
+      <i class="fas fa-bars"></i>
+    </button>
+    
+    <ul class="nav-links" id="nav-links">
+      <!-- Home -->
+      <li class="dropdown">
+        <a href="#" id="dropdown-home-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-home">
+          Home <i class="fas fa-chevron-down"></i>
+        </a>
+        <ul class="dropdown-menu" id="dropdown-home">
+          <li><a href="index.html"><i class="fas fa-house"></i> Startseite</a></li>
+        <li><a href="index.html#search-section"><i class="fas fa-search"></i> Fahrzeug suchen</a></li>
+          <li><a href="index.html#results-section"><i class="fas fa-car"></i> Inserate anzeigen</a></li>
+          <li><a href="login.html"><i class="fas fa-sign-in-alt"></i> Login / Registrierung</a></li>
+        </ul>
+      </li>
+      
+      <!-- Meine Autos -->
+      <li class="dropdown">
+        <a href="#" id="dropdown-autos-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-autos">
+          Meine Autos <i class="fas fa-chevron-down"></i>
+        </a>
+        <ul class="dropdown-menu" id="dropdown-autos">
+          <li><a href="nachrichten.html"><i class="fas fa-comments"></i> Nachrichten</a></li>
+          <li><a href="#" id="saved-cars-link"><i class="fas fa-heart"></i> Gespeicherte Autos</a></li>
+          <li><a href="#" id="my-cars-link"><i class="fas fa-car"></i> Eigene Inserate</a></li>
+          <li><a href="verkaufte-autos.html"><i class="fas fa-check-circle"></i> Verkaufte Autos</a></li>
+        </ul>
+      </li>
+      
+      <!-- Infos -->
+      <li class="dropdown">
+        <a href="#" id="dropdown-info-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-info">
+          Infos <i class="fas fa-chevron-down"></i>
+        </a>
+        <ul class="dropdown-menu" id="dropdown-info">
+          <li><a href="ueber-uns.html"><i class="fas fa-users"></i> Über uns</a></li>
+          <li><a href="hilfe.html"><i class="fas fa-question-circle"></i> Hilfe & FAQ</a></li>
+          <li><a href="preise.html"><i class="fas fa-euro-sign"></i> Tarife & Preise</a></li>
+        </ul>
+      </li>
+      
+      <!-- Kontakt -->
+      <li class="dropdown">
+        <a href="#" id="dropdown-contact-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-contact">
+          Kontakt <i class="fas fa-chevron-down"></i>
+        </a>
+        <ul class="dropdown-menu" id="dropdown-contact">
+          <li><a href="kontakt.html"><i class="fas fa-comments"></i> Kontaktformular</a></li>
+          <li><a href="mailto:support@autovisa.de"><i class="fas fa-envelope"></i> support@autovisa.de</a></li>
+          <li><a href="mailto:business@autovisa.de"><i class="fas fa-briefcase"></i> business@autovisa.de</a></li>
+        </ul>
+      </li>
+      
+      <!-- Auto verkaufen -->
+      <li class="active">
+        <a href="verkaufen.html" class="highlight-link"><i class="fas fa-plus-circle"></i> Auto verkaufen</a>
+      </li>
+    </ul>
+  </div>
+</nav>
+
+
+
+
+
+
+  <!-- Filterbutton für Mobilgeräte -->
+  <button class="toggle-filters" id="toggleFiltersBtn">
+    <i class="fas fa-sliders-h"></i> Filter anzeigen
+  </button>
+
+  <div class="search-layout">
+    <aside class="filter-sidebar">
+      <h2>Filter</h2>
+
+      <!-- Filtergruppen -->
+      <div class="filter-group">
+        <label for="priceFrom">Preis (€)</label>
+        <div class="range-inputs">
+          <input type="number" id="priceFrom" placeholder="von">
+          <input type="number" id="priceTo" placeholder="bis">
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label for="firstRegFrom">Erstzulassung</label>
+        <div class="range-inputs">
+          <input type="month" id="firstRegFrom">
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label for="mileageFrom">Kilometerstand</label>
+        <div class="range-inputs">
+          <input type="number" id="mileageFrom" placeholder="von">
+          <input type="number" id="mileageTo" placeholder="bis">
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label for="powerFrom">Leistung (PS)</label>
+        <div class="range-inputs">
+          <input type="number" id="powerFrom" placeholder="von">
+          <input type="number" id="powerTo" placeholder="bis">
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label>Kraftstoff</label>
+        <select id="fuelType">
+          <option>Beliebig</option>
+          <option>Benzin</option>
+          <option>Diesel</option>
+          <option>Elektro</option>
+          <option>Hybrid</option>
+          <option>Gas</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>Getriebe</label>
+        <select id="transmission">
+          <option>Beliebig</option>
+          <option>Manuell</option>
+          <option>Automatik</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>Fahrzeugtyp</label>
+        <select id="vehicleType">
+          <option>Beliebig</option>
+          <option>Limousine</option>
+          <option>Kombi</option>
+          <option>SUV/Geländewagen</option>
+          <option>Cabrio</option>
+          <option>Coupe</option>
+          <option>Kleinwagen</option>
+          <option>Van</option>
+          <option>Pick-Up</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>Farbe</label>
+        <select id="color">
+          <option>Beliebig</option>
+          <option>Schwarz</option>
+          <option>Weiß</option>
+          <option>Silber</option>
+          <option>Grau</option>
+          <option>Blau</option>
+          <option>Rot</option>
+          <option>Grün</option>
+          <option>Gelb</option>
+        </select>
+      </div>
+
+<div class="filter-group center-checkbox">
+  <label for="accidentFree">Nur unfallfreie Fahrzeuge</label>
+  <input type="checkbox" id="accidentFree" />
+</div>
+
+<div class="filter-group">
+  <label for="inspectionUntil">HU gültig bis</label>
+  <input type="month" id="inspectionUntil">
+</div>
+
+<div class="filter-button-wrapper">
+  <button class="more-filters-button" id="moreFiltersBtn">Weitere Filter</button>
+  <button class="filter-button">Anwenden</button>
+</div>
+    </aside>
+
+    <div class="results-container">
+      <div class="sort-wrapper">
+        <div class="sort-bar">
+          <label for="sortBy"><i class="fas fa-sort-amount-down-alt"></i> Sortieren nach:</label>
+          <select id="sortBy" onchange="sortResults()">
+            <option value="relevance">Relevanz</option>
+            <option value="price-asc">Preis aufsteigend</option>
+            <option value="price-desc">Preis absteigend</option>
+            <option value="date-desc">Neueste zuerst</option>
+            <option value="mileage-asc">Kilometer aufsteigend</option>
+          </select>
+        </div>
+      </div>
+      <section class="results-section">
+        <div class="car-results" id="carResults">
+          <!-- Fahrzeugkarten werden hier per suche.js eingefügt -->
+        </div>
+      </section>
+      
+
+
+      </section>
+
+    </div> <!-- results-container -->
+  </div> <!-- search-layout -->
+
+  <script src="suche.js"></script>
+</body>
+</html>

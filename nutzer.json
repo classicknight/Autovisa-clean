@@ -1,0 +1,27 @@
+[
+  {
+    "id": "1753265813341",
+    "firma": "Autovisa 1",
+    "strasse": "Großer Kamp",
+    "hausnummer": "62",
+    "plz": "45731",
+    "ort": "Waltrop",
+    "land": "Deutschland",
+    "telefon": "01759659954",
+    "telefon2": "",
+    "email": "a.gotfrid@gmx.net",
+    "whatsapp": false,
+    "tarif": "11-25",
+    "zahlungsmethode": "sepa",
+    "kontoinhaber": "Alexandr",
+    "iban": "DE531532512334",
+    "bic": "BIC7328910571895",
+    "impressum": "fioösjreoibagioröjiowjVOIRWVIAREJIERJARR",
+    "agb": true,
+    "datenschutz": true,
+    "password": "Peter211",
+    "verified": true,
+    "token": null,
+    "role": "haendler"
+  }
+]

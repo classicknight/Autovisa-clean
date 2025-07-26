@@ -1,0 +1,594 @@
+
+<!DOCTYPE html>
+<html lang="de" class="no-js">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autovisa – Fahrzeuge kaufen & verkaufen</title>
+
+  <link rel="stylesheet" href="suchkriterien.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
+    <!-- Slim Select v2.6.0 – für korrektes Custom-Styling -->
+  <link href="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.min.js"></script>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="logo-container">
+    <img src="AUTOVISA LOGO.PNG" alt="Autovisa Logo" class="logo" />
+  </div>
+  
+  <div class="navbar-right-mobile">
+    <div class="mobile-shortcuts">
+      <a href="gespeicherte-autos.html" aria-label="Gespeicherte Autos">
+        <i class="fas fa-heart"></i>
+      </a>
+      <a href="nachrichten.html" aria-label="Nachrichten">
+        <i class="fas fa-comments"></i>
+      </a>
+    </div>
+    
+    <button class="hamburger" id="hamburger" aria-label="Menü öffnen" aria-expanded="false" aria-controls="nav-links">
+      <i class="fas fa-bars"></i>
+    </button>
+    
+    <ul class="nav-links" id="nav-links">
+      <!-- Home -->
+      <li class="dropdown">
+        <a href="#" id="dropdown-home-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-home">
+          Home <i class="fas fa-chevron-down"></i>
+        </a>
+        <ul class="dropdown-menu" id="dropdown-home">
+          <li><a href="index.html"><i class="fas fa-house"></i> Startseite</a></li>
+        <li><a href="index.html#search-section"><i class="fas fa-search"></i> Fahrzeug suchen</a></li>
+          <li><a href="index.html#results-section"><i class="fas fa-car"></i> Inserate anzeigen</a></li>
+          <li><a href="login.html"><i class="fas fa-sign-in-alt"></i> Login / Registrierung</a></li>
+        </ul>
+      </li>
+      
+      <!-- Meine Autos -->
+      <li class="dropdown">
+        <a href="#" id="dropdown-autos-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-autos">
+          Meine Autos <i class="fas fa-chevron-down"></i>
+        </a>
+        <ul class="dropdown-menu" id="dropdown-autos">
+          <li><a href="nachrichten.html"><i class="fas fa-comments"></i> Nachrichten</a></li>
+          <li><a href="#" id="saved-cars-link"><i class="fas fa-heart"></i> Gespeicherte Autos</a></li>
+          <li><a href="#" id="my-cars-link"><i class="fas fa-car"></i> Eigene Inserate</a></li>
+          <li><a href="verkaufte-autos.html"><i class="fas fa-check-circle"></i> Verkaufte Autos</a></li>
+        </ul>
+      </li>
+      
+      <!-- Infos -->
+      <li class="dropdown">
+        <a href="#" id="dropdown-info-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-info">
+          Infos <i class="fas fa-chevron-down"></i>
+        </a>
+        <ul class="dropdown-menu" id="dropdown-info">
+          <li><a href="ueber-uns.html"><i class="fas fa-users"></i> Über uns</a></li>
+          <li><a href="hilfe.html"><i class="fas fa-question-circle"></i> Hilfe & FAQ</a></li>
+          <li><a href="preise.html"><i class="fas fa-euro-sign"></i> Tarife & Preise</a></li>
+        </ul>
+      </li>
+      
+      <!-- Kontakt -->
+      <li class="dropdown">
+        <a href="#" id="dropdown-contact-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-contact">
+          Kontakt <i class="fas fa-chevron-down"></i>
+        </a>
+        <ul class="dropdown-menu" id="dropdown-contact">
+          <li><a href="kontakt.html"><i class="fas fa-comments"></i> Kontaktformular</a></li>
+          <li><a href="mailto:support@autovisa.de"><i class="fas fa-envelope"></i> support@autovisa.de</a></li>
+          <li><a href="mailto:business@autovisa.de"><i class="fas fa-briefcase"></i> business@autovisa.de</a></li>
+        </ul>
+      </li>
+      
+      <!-- Auto verkaufen -->
+      <li class="active">
+        <a href="verkaufen.html" class="highlight-link"><i class="fas fa-plus-circle"></i> Auto verkaufen</a>
+      </li>
+    </ul>
+  </div>
+</nav>
+
+
+
+
+<section class="search-section">
+  <h2>Fahrzeug-Suche</h2>
+<!-- Marke -->
+<div class="form-group">
+  <label for="marke">Marke</label>
+  <select id="marke" name="marke" class="slim-styled" data-placeholder="Marke wählen" required>
+    <option value="" disabled selected>Bitte wählen</option>
+  <option value="Abarth">Abarth</option>
+  <option value="AC">AC</option>
+    <option value="Acura">Acura</option>
+    <option value="Aiways">Aiways</option>
+    <option value="Aixam">Aixam</option>
+    <option value="Alfa Romeo">Alfa Romeo</option>
+    <option value="ALPINA">ALPINA</option>
+    <option value="Alpine">Alpine</option>
+    <option value="Ariel">Ariel</option>
+    <option value="Artega">Artega</option>
+    <option value="Asia Motors">Asia Motors</option>
+    <option value="Aston Martin">Aston Martin</option>
+    <option value="Audi">Audi</option>
+    <option value="Austin">Austin</option>
+    <option value="Austin Healey">Austin Healey</option>
+    <option value="BAIC">BAIC</option>
+    <option value="Bentley">Bentley</option>
+    <option value="BMW">BMW</option>
+    <option value="Borgward">Borgward</option>
+    <option value="Brilliance">Brilliance</option>
+    <option value="Bugatti">Bugatti</option>
+    <option value="Buick">Buick</option>
+    <option value="BYD">BYD</option>
+    <option value="Cadillac">Cadillac</option>
+    <option value="Casalini">Casalini</option>
+    <option value="Caterham">Caterham</option>
+    <option value="Cenntro">Cenntro</option>
+    <option value="Chatenet">Chatenet</option>
+    <option value="Chevrolet">Chevrolet</option>
+    <option value="Chrysler">Chrysler</option>
+    <option value="Citroën">Citroën</option>
+    <option value="Cobra">Cobra</option>
+    <option value="Corvette">Corvette</option>
+    <option value="Cupra">Cupra</option>
+    <option value="Dacia">Dacia</option>
+    <option value="Daewoo">Daewoo</option>
+    <option value="Daihatsu">Daihatsu</option>
+    <option value="DeTomaso">DeTomaso</option>
+    <option value="DFSK">DFSK</option>
+    <option value="Dodge">Dodge</option>
+    <option value="Donkervoort">Donkervoort</option>
+    <option value="DS Automobiles">DS Automobiles</option>
+    <option value="e.GO">e.GO</option>
+    <option value="Elaris">Elaris</option>
+    <option value="Estrima">Estrima</option>
+    <option value="Ferrari">Ferrari</option>
+    <option value="Fiat">Fiat</option>
+    <option value="Fisker">Fisker</option>
+    <option value="Ford">Ford</option>
+    <option value="GAC Gonow">GAC Gonow</option>
+    <option value="Gemballa">Gemballa</option>
+    <option value="Genesis">Genesis</option>
+    <option value="GMC">GMC</option>
+    <option value="Grecav">Grecav</option>
+    <option value="GWM">GWM</option>
+    <option value="Hamann">Hamann</option>
+    <option value="Holden">Holden</option>
+    <option value="Honda">Honda</option>
+    <option value="Hummer">Hummer</option>
+    <option value="Hyundai">Hyundai</option>
+    <option value="INEOS">INEOS</option>
+    <option value="Infiniti">Infiniti</option>
+    <option value="Isuzu">Isuzu</option>
+    <option value="Iveco">Iveco</option>
+    <option value="JAC">JAC</option>
+    <option value="Jaguar">Jaguar</option>
+    <option value="Jeep">Jeep</option>
+    <option value="Kia">Kia</option>
+    <option value="Koenigsegg">Koenigsegg</option>
+    <option value="KTM">KTM</option>
+    <option value="Lada">Lada</option>
+    <option value="Lamborghini">Lamborghini</option>
+    <option value="Lancia">Lancia</option>
+    <option value="Land Rover">Land Rover</option>
+    <option value="Landwind">Landwind</option>
+    <option value="LEVC">LEVC</option>
+    <option value="Lexus">Lexus</option>
+    <option value="Ligier">Ligier</option>
+    <option value="Lincoln">Lincoln</option>
+    <option value="Lotus">Lotus</option>
+    <option value="Lucid">Lucid</option>
+    <option value="Lynk&Co">Lynk&Co</option>
+    <option value="Mahindra">Mahindra</option>
+    <option value="MAN">MAN</option>
+    <option value="Maserati">Maserati</option>
+    <option value="Maxus">Maxus</option>
+    <option value="Maybach">Maybach</option>
+    <option value="Mazda">Mazda</option>
+    <option value="McLaren">McLaren</option>
+    <option value="Mercedes-Benz">Mercedes-Benz</option>
+    <option value="MG">MG</option>
+    <option value="Microcar">Microcar</option>
+    <option value="Microlino">Microlino</option>
+    <option value="MINI">MINI</option>
+    <option value="Mitsubishi">Mitsubishi</option>
+    <option value="Morgan">Morgan</option>
+    <option value="NIO">NIO</option>
+    <option value="Nissan">Nissan</option>
+    <option value="NSU">NSU</option>
+    <option value="Oldsmobile">Oldsmobile</option>
+    <option value="Opel">Opel</option>
+    <option value="ORA">ORA</option>
+    <option value="Pagani">Pagani</option>
+    <option value="Peugeot">Peugeot</option>
+    <option value="Piaggio">Piaggio</option>
+    <option value="Plymouth">Plymouth</option>
+    <option value="Polestar">Polestar</option>
+    <option value="Pontiac">Pontiac</option>
+    <option value="Porsche">Porsche</option>
+    <option value="Proton">Proton</option>
+    <option value="Renault">Renault</option>
+    <option value="Rolls-Royce">Rolls-Royce</option>
+    <option value="Rover">Rover</option>
+    <option value="Ruf">Ruf</option>
+    <option value="Saab">Saab</option>
+    <option value="Santana">Santana</option>
+    <option value="Seat">Seat</option>
+    <option value="Seres">Seres</option>
+    <option value="Skoda">Skoda</option>
+    <option value="Smart">Smart</option>
+    <option value="speedART">speedART</option>
+    <option value="Spyker">Spyker</option>
+    <option value="Ssangyong">Ssangyong</option>
+    <option value="Subaru">Subaru</option>
+    <option value="Suzuki">Suzuki</option>
+    <option value="SWM">SWM</option>
+    <option value="Talbot">Talbot</option>
+    <option value="Tata">Tata</option>
+    <option value="TECHART">TECHART</option>
+    <option value="Tesla">Tesla</option>
+    <option value="Toyota">Toyota</option>
+    <option value="Trabant">Trabant</option>
+    <option value="Triumph">Triumph</option>
+    <option value="TVR">TVR</option>
+    <option value="VinFast">VinFast</option>
+    <option value="Volkswagen">Volkswagen</option>
+    <option value="Volvo">Volvo</option>
+    <option value="Wartburg">Wartburg</option>
+    <option value="Westfield">Westfield</option>
+    <option value="WEY">WEY</option>
+    <option value="Wiesmann">Wiesmann</option>
+    <option value="XEV">XEV</option>
+    <option value="XPENG">XPENG</option>
+    <option value="Zhidou">Zhidou</option>
+    <option value="Andere">Andere</option>
+  </select>
+</div>
+
+<!-- Modell -->
+<div class="form-group">
+  <label for="modell">Modell</label>
+  <select id="modell" name="modell[]" class="slim-styled" multiple data-placeholder="Bitte zuerst Marke wählen" required>
+    <option value="" disabled selected>Bitte zuerst Marke wählen</option>
+  </select>
+</div>
+
+
+<div class="search-group">
+  <label for="modellausfuehrung">Modellvariante</label>
+<input type="text" id="modellausfuehrung" name="modellausfuehrung" placeholder="z. B. Golf 7 GTD">
+</div>
+
+<!-- Fahrzeugtyp -->
+<div class="search-group">
+  <label for="fahrzeugtyp">Fahrzeugtyp</label>
+  <div class="checkbox-grid">
+    <label><input type="checkbox"> Cabrio / Roadster</label>
+    <label><input type="checkbox"> Kleinwagen</label>
+    <label><input type="checkbox"> Limousine</label>
+    <label><input type="checkbox"> Van / Minibus</label>
+    <label><input type="checkbox"> SUV</label>
+    <label><input type="checkbox"> Kombi</label>
+    <label><input type="checkbox"> Coupé</label>
+    <label><input type="checkbox"> Andere</label>
+  </div>
+</div>
+
+
+  
+
+<div class="search-group">
+  <label for="tueren">Anzahl der Türen</label>
+  <select id="tueren">
+    <option value="">Beliebig</option>
+    <option>2/3</option>
+    <option>4/5</option>
+    <option>6/7</option>
+  </select>
+</div>
+
+<!-- Erstzulassung -->
+<div class="search-group">
+  <label for="ez-von">Erstzulassung</label>
+  <div class="range-inputs">
+    <input type="month" id="ez-von" />
+    <input type="month" id="ez-bis" />
+  </div>
+</div>
+
+<!-- Kilometerstand -->
+<div class="search-group">
+  <label for="km-von">Kilometerstand</label>
+  <div class="range-inputs">
+    <input type="number" id="km-von" placeholder="von km" />
+    <input type="number" id="km-bis" placeholder="bis km" />
+  </div>
+</div>
+
+<!-- Preis -->
+<div class="search-group">
+  <label for="preis-von">Preis</label>
+  <div class="range-inputs">
+    <input type="number" id="preis-von" placeholder="von €" />
+    <input type="number" id="preis-bis" placeholder="bis €" />
+  </div>
+</div>
+
+<!-- Standort (Land, Ort, Umkreis) -->
+<div class="search-group">
+  <label for="land">Land</label>
+  <select id="land">
+    <option>Deutschland</option>
+  </select>
+</div>
+
+<div class="search-group">
+  <label for="ort">Ort / PLZ</label>
+  <input type="text" id="ort" placeholder="z. B. 10115 oder Berlin" />
+</div>
+
+<div class="search-group">
+  <label for="umkreis">Umkreis</label>
+  <select id="umkreis" onchange="toggleCustomUmkreis(this.value)">
+    <option value="">Beliebig</option>
+    <option value="custom">Benutzerdefiniert</option>
+    <option value="10">10 km</option>
+    <option value="25">25 km</option>
+    <option value="50">50 km</option>
+    <option value="100">100 km</option>
+    <option value="200">200 km</option>
+  </select>
+
+  <input
+    type="number"
+    id="custom-umkreis"
+    placeholder="Eigener Wert in km"
+    style="display: none; margin-top: 10px"
+    min="1"
+    class="modern-input"
+  />
+</div>
+
+
+  <div class="search-group" >
+    <label for="leistung-von">Leistung</label>
+    <div class="range-inputs">
+      <input type="number" id="leistung-von" placeholder="von PS" />
+      <input type="number" id="leistung-bis" placeholder="bis PS" />
+    </div>
+  </div>
+  
+  
+    <div class="search-group">
+    <label for="hubraum-von">Hubraum</label>
+    <div class="range-inputs">
+      <input type="number" id="hubraum-von" placeholder="von" />
+      <select><option>cm³</option></select>
+      <input type="number" id="hubraum-bis" placeholder="bis" />
+      <select><option>cm³</option></select>
+    </div>
+  </div>
+  
+  
+<div class="search-group">
+  <label for="verbrauch">Verbrauch (komb.) bis</label>
+  <input
+    type="number"
+    id="verbrauch"
+    placeholder="z. B. 6,5"
+    step="0.1"
+    min="0"
+    class="modern-input"
+  />
+</div>
+
+
+
+  <div class="search-group">
+    <label>Getriebe</label>
+    <div class="checkbox-inline">
+      <label><input type="checkbox" value="Automatik" /> Automatik</label>
+      <label><input type="checkbox" value="Schaltgetriebe" /> Schaltgetriebe</label>
+    </div>
+  </div>
+  
+  <!-- Antriebsart -->
+<div class="search-group">
+  <label>Antriebsart</label>
+  <div class="checkbox-inline">
+    <label><input type="checkbox" value="Frontantrieb" /> Frontantrieb</label>
+    <label><input type="checkbox" value="Heckantrieb" /> Heckantrieb</label>
+    <label><input type="checkbox" value="Allradantrieb" /> Allradantrieb</label>
+  </div>
+</div>
+  
+  
+    <div class="search-group">
+    <label>Kraftstoffart</label>
+    <div class="checkbox-grid fuel-type-grid">
+      <label><input type="checkbox"> Benzin</label>
+      <label><input type="checkbox"> Diesel</label>
+      <label><input type="checkbox"> Elektro</label>
+      <label><input type="checkbox"> Hybrid (Diesel/Elektro)</label>
+      <label><input type="checkbox"> Hybrid (Benzin/Elektro)</label>
+      <label><input type="checkbox"> Wasserstoff</label>
+      <label><input type="checkbox"> Erdgas (CNG)</label>
+      <label><input type="checkbox"> Autogas (LPG)</label>
+      <label><input type="checkbox"> Ethanol</label>
+      <label><input type="checkbox"> Andere</label>
+    </div>
+  </div>
+  
+  
+    <div class="search-group">
+  <label for="schadstoffklasse">Schadstoffklasse</label>
+  <select id="schadstoffklasse" onchange="toggleCustomSchadstoff(this.value)">
+    <option value="" disabled selected>Bitte wählen</option>
+    <option>Euro 1</option>
+    <option>Euro 2</option>
+    <option>Euro 3</option>
+    <option>Euro 4</option>
+    <option>Euro 5</option>
+    <option>Euro 6</option>
+    <option>Euro 6c</option>
+    <option>Euro 6d-TEMP</option>
+    <option>Euro 6d</option>
+ 
+  </select>
+
+  <input
+    type="text"
+    id="custom-schadstoff"
+    placeholder="Eigener Eintrag z. B. Euro 7"
+    style="display: none; margin-top: 10px"
+    class="modern-input"
+  />
+</div>
+   
+   
+   
+   
+  <div class="search-group">
+  <label for="plakette">Umweltplakette <i class="fas fa-info-circle"></i></label>
+  <select id="plakette">
+    <option>Beliebig</option>
+    <option>Grün (4)</option>
+    <option>Gelb (3)</option>
+    <option>Rot (2)</option>
+    
+    <option>Keine</option>
+  </select>
+</div>
+   
+   
+   
+      <div class="search-group">
+  <label for="partikelfilter" class="group-label">Partikelfilter</label>
+  <div class="checkbox-grid">
+    <label class="checkbox-tile">
+      <input type="checkbox" id="partikelfilter" name="partikelfilter">
+      <span class="checkbox-label">Partikelfilter</span>
+    </label>
+  </div>
+</div>
+
+<div class="search-group">
+  <label for="hu-gueltig">HU mind. gültig</label>
+  <select id="hu-gueltig" onchange="toggleCustomHU(this.value)">
+    <option value="" disabled selected>Bitte wählen</option>
+    <option>Beliebig</option>
+    <option>Neu</option>
+    <option>Mind. 6 Monate</option>
+    <option>Mind. 12 Monate</option>
+    <option>Mind. 18 Monate</option>
+    <option>Mind. 24 Monate</option>
+    
+  </select>
+
+  <div id="custom-hu-wrapper" class="custom-input-wrapper" style="display: none;">
+    <input
+      type="text"
+      id="custom-hu"
+      placeholder="Eigener Eintrag (z. B. mind. 9 Monate)"
+      class="modern-input"
+    />
+  </div>
+</div>
+
+<div class="search-group">
+  <label for="fahrzeughalter">Maximale Anzahl der Fahrzeughalter</label>
+  <select id="fahrzeughalter">
+    <option value="">Beliebig</option>
+    <option value="1">1 Halter</option>
+    <option value="2">2 Halter</option>
+    <option value="3">Bis 3 Halter</option>
+    <option value="4">Bis 4 Halter</option>
+    <option value="5">Bis 5 Halter</option>
+    <option value="6">Bis 6 Halter</option>
+    <option value="7">Bis 7 Halter</option>
+    <option value="8">Bis 8 Halter</option>
+    <option value="9">Bis 9 Halter</option>
+    <option value="10">10 oder mehr</option>
+  </select>
+</div>
+
+  <div class="search-group">
+    <label>Sonstige Merkmale</label>
+    <div class="checkbox-grid">
+      <label><input type="checkbox"> Scheckheftgepflegt</label>
+      <label><input type="checkbox"> Fahrtauglich</label>
+      <label><input type="checkbox"> Inspektion neu</label>
+    </div>
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+   
+
+  <div class="search-group">
+    <label>Karosseriefarbe</label>
+    <div class="color-selection">
+      <label class="color-option" style="--color:#222;"><input type="checkbox"> Schwarz</label>
+      <label class="color-option" style="--color:#d4af78;"><input type="checkbox"> Beige</label>
+      <label class="color-option" style="--color:#aaa;"><input type="checkbox"> Grau</label>
+      <label class="color-option" style="--color:#8b4513;"><input type="checkbox"> Braun</label>
+      <label class="color-option" style="--color:#fff;"><input type="checkbox"> Weiß</label>
+      <label class="color-option" style="--color:#ff6600;"><input type="checkbox"> Orange</label>
+      <label class="color-option" style="--color:#1e5ee4;"><input type="checkbox"> Blau</label>
+      <label class="color-option" style="--color:#ffd700;"><input type="checkbox"> Gelb</label>
+      <label class="color-option" style="--color:#e60000;"><input type="checkbox"> Rot</label>
+      <label class="color-option" style="--color:#7ed957;"><input type="checkbox"> Grün</label>
+      <label class="color-option" style="--color:#ccc;"><input type="checkbox"> Silber</label>
+      <label class="color-option" style="--color:#ffda44;"><input type="checkbox"> Gold</label>
+      <label class="color-option" style="--color:#a033e6;"><input type="checkbox"> Violett</label>
+      <label class="color-option color-outline"><input type="checkbox"> Matt</label>
+      <label class="color-option color-outline"><input type="checkbox"> Metallic</label>
+    </div>
+  </div>
+  
+  <div class="search-submit">
+  <button class="submit-btn"><i class="fas fa-search"></i> Fahrzeuge anzeigen</button>
+</div>
+</section>
+<script>
+  const fadeElems = document.querySelectorAll('[data-fade]');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.1 });
+  
+  fadeElems.forEach(el => observer.observe(el));
+</script>
+<script src="suchkriterien.js"></script>
+</body>
+</html>

@@ -1,0 +1,454 @@
+
+
+
+<!DOCTYPE html>
+<html lang="de" class="no-js">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autovisa – Fahrzeuge kaufen & verkaufen</title>
+
+  <link rel="stylesheet" href="übersicht.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
+
+  <!-- Slim Select v2.6.0 – für korrektes Custom-Styling -->
+  <link href="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.min.js"></script>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="logo-container">
+    <img src="AUTOVISA LOGO.PNG" alt="Autovisa Logo" class="logo" />
+  </div>
+  
+  
+<!-- Mobile Icons + Hamburger als Gruppe -->
+<div class="navbar-right-mobile">
+  <div class="mobile-shortcuts">
+    <a href="gespeicherte-autos.html" aria-label="Gespeicherte Autos">
+      <i class="fas fa-heart"></i>
+    </a>
+    <a href="nachrichten.html" aria-label="Nachrichten">
+      <i class="fas fa-comments"></i>
+    </a>
+  </div>
+  
+  <!-- Hamburger-Menü für Mobile -->
+  <button class="hamburger" id="hamburger" aria-label="Menü öffnen" aria-expanded="false" aria-controls="nav-links">
+    <i class="fas fa-bars"></i>
+  </button>
+  
+  <!-- Navigationslinks -->
+  <ul class="nav-links" id="nav-links">
+    
+    <!-- Home -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-home-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-home">
+        Home <i class="fas fa-chevron-down"></i>
+      </a>
+     <ul class="dropdown-menu" id="dropdown-home">
+  <li><a href="index.html"><i class="fas fa-house"></i> Startseite</a></li>
+  <li><a href="#search-section"><i class="fas fa-search"></i> Fahrzeug suchen</a></li>
+  <li><a href="#results-section"><i class="fas fa-car"></i> Inserate anzeigen</a></li>
+  <li><a href="login.html"><i class="fas fa-sign-in-alt"></i> Login / Registrierung</a></li>
+</ul>
+    </li>
+    
+    <!-- Meine Autos -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-autos-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-autos">
+        Meine Autos <i class="fas fa-chevron-down"></i>
+      </a>
+     <ul class="dropdown-menu" id="dropdown-autos">
+  <li><a href="nachrichten.html"><i class="fas fa-comments"></i> Nachrichten</a></li>
+  <li><a href="#" id="saved-cars-link"><i class="fas fa-heart"></i> Gespeicherte Autos</a></li>
+  <li><a href="#" id="my-cars-link"><i class="fas fa-car"></i> Eigene Inserate</a></li>
+  <li><a href="verkaufte-autos.html"><i class="fas fa-check-circle"></i> Verkaufte Autos</a></li>
+</ul>
+    </li>
+    
+    <!-- Infos -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-info-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-info">
+        Infos <i class="fas fa-chevron-down"></i>
+      </a>
+      <ul class="dropdown-menu" id="dropdown-info">
+        <li><a href="ueber-uns.html"><i class="fas fa-users"></i> Über uns</a></li>
+        <li><a href="hilfe.html"><i class="fas fa-question-circle"></i> Hilfe & FAQ</a></li>
+        <li><a href="preise.html"><i class="fas fa-euro-sign"></i> Tarife & Preise</a></li>
+      </ul>
+    </li>
+    
+    <!-- Kontakt -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-contact-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-contact">
+        Kontakt <i class="fas fa-chevron-down"></i>
+      </a>
+      <ul class="dropdown-menu" id="dropdown-contact">
+        <li><a href="kontakt.html"><i class="fas fa-comments"></i> Kontaktformular</a></li>
+        <li><a href="mailto:support@autovisa.de"><i class="fas fa-envelope"></i> support@autovisa.de</a></li>
+        <li><a href="mailto:business@autovisa.de"><i class="fas fa-briefcase"></i> business@autovisa.de</a></li>
+      </ul>
+    </li>
+    
+    <!-- Auto verkaufen (Call to Action) -->
+    <li class="active">
+      <a href="verkaufen.html" class="highlight-link"><i class="fas fa-plus-circle"></i> Auto verkaufen</a>
+    </li>
+  </ul>
+</nav>
+  
+
+<!-- Container -->
+<div class="container">
+  <aside class="sidebar">
+    <h2 class="sidebar-title">Menü</h2>
+    <ul class="sidebar-menu">
+      <li class="sidebar-link active" data-section="car-list">
+        <i class="fa-solid fa-car"></i> Meine Autos
+      </li>
+      <li class="sidebar-link" data-section="messages-list">
+        <i class="fa-solid fa-comments"></i> Nachrichten
+      </li>
+      <li class="sidebar-link" data-section="saved-cars">
+        <i class="fa-solid fa-heart"></i> Gespeicherte Autos
+      </li>
+      <li class="sidebar-link" data-section="sold-cars">
+        <i class="fa-solid fa-check-circle"></i> Verkaufte Autos
+      </li>
+    </ul>
+    <hr class="menu-divider">
+  </aside>
+
+ <main class="content">
+<h1 class="title"></h1>
+  
+<section class="car-list">
+
+    <div class="car-card-wrapper" data-id="inseratID"> <!-- optional: data-id -->
+  
+      <!-- Mobile-Ansicht: Buttons oben -->
+      <div class="car-card-actions mobile-only">
+        <button class="publish-btn"><i class="fas fa-globe"></i> Veröffentlichen</button>
+        <button class="edit-btn"><i class="fas fa-pen"></i> Bearbeiten</button>
+      </div>
+  
+      <!-- Hauptkarte -->
+      <div class="car-card horizontal">
+        <div class="car-card-media">
+          <div class="media-container">
+            <div class="slides">
+              <!-- JS fügt hier Bilder/Videos ein -->
+            </div>
+            <button class="media-arrow left"><i class="fas fa-chevron-left"></i></button>
+            <button class="media-arrow right"><i class="fas fa-chevron-right"></i></button>
+          </div>
+        </div>
+        <div class="car-details">
+          <div class="car-top-row">
+            <h2 class="car-title" id="car-title">Titel</h2>
+            <p class="car-price" id="car-price">Preis</p>
+          </div>
+          <p class="car-subtitle" id="car-subtitle">Untertitel</p>
+          <div class="car-info-grid">
+            <p><i class="fas fa-road"></i> <span id="car-km">KM</span></p>
+            <p><i class="fas fa-calendar-alt"></i> <span id="car-ez">EZ</span></p>
+            <p><i class="fas fa-gas-pump"></i> <span id="car-kraftstoff">Kraftstoff</span></p>
+            <p><i class="fas fa-gauge-high"></i> <span id="car-ps">Leistung</span></p>
+            <p><i class="fas fa-gears"></i> <span id="car-getriebe">Getriebe</span></p>
+            <p><i class="fas fa-tint"></i> <span id="car-verbrauch">Verbrauch</span></p>
+          </div>
+          <div class="dealer-info" id="dealer-info">
+            <!-- Verkäufername / Ort -->
+          </div>
+        </div>
+      </div>
+  
+      <!-- Desktop-Ansicht: Buttons rechts neben dem Inserat -->
+      <div class="car-card-actions desktop-only">
+        <button class="publish-btn"><i class="fas fa-globe"></i> Veröffentlichen</button>
+        <button class="edit-btn"><i class="fas fa-pen"></i> Bearbeiten</button>
+      </div>
+  
+    </div>
+  
+  </section>
+  
+
+
+  <section class="messages-list hidden" id="messages-list">
+  
+    <!-- Fahrzeug & Nachricht -->
+    <div class="car-card-wrapper">
+      
+      <!-- Mobile: Buttons über dem Inserat -->
+      <div class="car-card-actions mobile-only">
+        <p class="interested-user"><i class="fas fa-user"></i> Nachricht von <strong>Max Mustermann</strong></p>
+        <a href="chat.html?auto=123" class="chat-btn"><i class="fas fa-comments"></i> Zum Chat</a>
+        <button class="mark-read-btn"><i class="fas fa-check"></i> Als gelesen</button>
+      </div>
+      
+      <!-- Fahrzeug-Inserat -->
+      <div class="car-card horizontal">
+        <div class="car-card-media">
+          <div class="media-container">
+            <div class="slides">
+              <img src="1.jpeg" alt="Bild" class="slide active" />
+            </div>
+          </div>
+        </div>
+        
+        <div class="car-details">
+          <div class="car-top-row">
+            <h2 class="car-title">BMW 3er</h2>
+            <p class="car-price">12.990 €</p>
+          </div>
+          
+          <p class="car-subtitle">Euro 5 • Klimaautomatik • Navi</p>
+          
+          <div class="car-info-grid">
+            <p><i class="fas fa-road"></i> 94.000 km</p>
+            <p><i class="fas fa-calendar-alt"></i> EZ 01/2017</p>
+            <p><i class="fas fa-gas-pump"></i> Benzin</p>
+            <p><i class="fas fa-gauge-high"></i> 150 PS</p>
+            <p><i class="fas fa-gears"></i> Automatik</p>
+          </div>
+          
+          <div class="dealer-info">
+            <strong>Autohaus Beispiel GmbH</strong><br>
+            Max Beispiel • Berlin
+          </div>
+        </div>
+      </div>
+      
+      <!-- Desktop: Buttons neben dem Inserat -->
+      <div class="car-card-actions desktop-only">
+        <p class="interested-user"><i class="fas fa-user"></i> Nachricht von <strong>Max Mustermann</strong></p>
+        <a href="chat.html?auto=123" class="chat-btn"><i class="fas fa-comments"></i> Zum Chat</a>
+        <button class="mark-read-btn"><i class="fas fa-check"></i> Als gelesen</button>
+      </div>
+    </div>
+    
+    <!-- Zweites Fahrzeug & Nachricht -->
+    <div class="car-card-wrapper">
+      
+      <!-- Mobile: Buttons über dem Inserat -->
+      <div class="car-card-actions mobile-only">
+        <p class="interested-user"><i class="fas fa-user"></i> Nachricht von <strong>Laura Beispiel</strong></p>
+        <a href="chat.html?auto=456" class="chat-btn"><i class="fas fa-comments"></i> Zum Chat</a>
+        <button class="mark-read-btn"><i class="fas fa-check"></i> Als gelesen</button>
+      </div>
+      
+      <!-- Fahrzeug-Inserat -->
+      <div class="car-card horizontal">
+        <div class="car-card-media">
+          <div class="media-container">
+            <div class="slides">
+              <img src="2.jpeg" alt="Bild" class="slide active" />
+            </div>
+          </div>
+        </div>
+        
+        <div class="car-details">
+          <div class="car-top-row">
+            <h2 class="car-title">Audi A4 Avant 5 hhhhhhhhhhhhhhhhhhhhh</h2>
+            <p class="car-price">14.790 €</p>
+          </div>
+          
+          <p class="car-subtitle">Euro 6 • S-Line • Navi</p>
+          
+          <div class="car-info-grid">
+            <p><i class="fas fa-road"></i> 88.000 km</p>
+            <p><i class="fas fa-calendar-alt"></i> EZ 03/2018</p>
+            <p><i class="fas fa-gas-pump"></i> Benzin</p>
+            <p><i class="fas fa-gauge-high"></i> 190 PS</p>
+            <p><i class="fas fa-gears"></i> Automatik</p>
+          </div>
+          
+          <div class="dealer-info">
+            <strong>Autozentrum Beispiel AG</strong><br>
+            Laura Beispiel • Hamburg
+          </div>
+        </div>
+      </div>
+      
+      <!-- Desktop: Buttons neben dem Inserat -->
+      <div class="car-card-actions desktop-only">
+        <p class="interested-user"><i class="fas fa-user"></i> Nachricht von <strong>Laura Beispiel</strong></p>
+        <a href="chat.html?auto=456" class="chat-btn"><i class="fas fa-comments"></i> Zum Chat</a>
+        <button class="mark-read-btn"><i class="fas fa-check"></i> Als gelesen</button>
+      </div>
+    </div>
+    
+  </section>
+        
+    
+  
+  
+  <section class="saved-cars hidden" id="saved-cars">
+    <div class="car-card-wrapper">
+      
+      <!-- Mobile: Buttons über dem Inserat -->
+      <div class="car-card-actions mobile-only">
+        <a href="chat.html?auto=123" class="contact-btn">
+          <i class="fas fa-comments"></i> Kontakt aufnehmen
+        </a>
+        <button class="remove-saved-btn">
+          <i class="fas fa-heart-broken"></i> Entfernen
+        </button>
+      </div>
+      
+      <!-- Fahrzeugkarte -->
+      <div class="car-card horizontal">
+        <div class="car-card-media">
+          <div class="media-container">
+            <div class="slides">
+              <img src="1.jpeg" alt="Bild" class="slide active" />
+            </div>
+          </div>
+        </div>
+        <div class="car-details">
+          <div class="car-top-row">
+            <h2 class="car-title">Volvo V40 Momentum</h2>
+            <p class="car-price">7.990 €</p>
+          </div>
+          <p class="car-subtitle">Euro 5 • Klimaautomatik • Navi</p>
+          <div class="car-info-grid">
+            <p><i class="fas fa-road"></i> 123.885 km</p>
+            <p><i class="fas fa-calendar-alt"></i> EZ 07/2013</p>
+            <p><i class="fas fa-gas-pump"></i> Diesel</p>
+            <p><i class="fas fa-gauge-high"></i> 114 PS</p>
+            <p><i class="fas fa-gears"></i> Schaltgetriebe</p>
+            <p><i class="fas fa-tint"></i> 3,8 l/100 km</p>
+          </div>
+          <div class="dealer-info">
+            <strong>Autohaus Diker GbR</strong><br>
+            Bünyamin Diker • Hückelhoven
+          </div>
+        </div>
+      </div>
+      
+      <!-- Desktop: Buttons rechts neben dem Inserat -->
+      <div class="car-card-actions desktop-only">
+        <a href="chat.html?auto=123" class="contact-btn">
+          <i class="fas fa-comments"></i> Kontakt aufnehmen
+        </a>
+        <button class="remove-saved-btn">
+          <i class="fas fa-heart-broken"></i> Entfernen
+        </button>
+      </div>
+      
+    </div>
+  </section>
+  <section class="sold-cars hidden" id="sold-cars">
+    <div class="car-card-wrapper">
+      
+      <!-- Mobile: Buttons über dem Inserat -->
+      <div class="car-card-actions mobile-only">
+        <button class="relist-btn">
+          <i class="fas fa-undo"></i> Wieder online stellen
+        </button>
+        <button class="archive-btn">
+          <i class="fas fa-box-archive"></i> Archivieren
+        </button>
+      </div>
+      
+      <!-- Fahrzeugkarte -->
+      <div class="car-card horizontal">
+        <div class="car-card-media">
+          <div class="media-container">
+            <div class="slides">
+              <img src="6.jpeg" alt="Bild" class="slide active" />
+            </div>
+          </div>
+        </div>
+        <div class="car-details">
+          <div class="car-top-row">
+            <h2 class="car-title">Opel Astra Sports Tourer</h2>
+            <p class="car-price">8.990 €</p>
+          </div>
+          <p class="car-subtitle">Euro 6 • Navi • LED</p>
+          <div class="car-info-grid">
+            <p><i class="fas fa-road"></i> 110.000 km</p>
+            <p><i class="fas fa-calendar-alt"></i> EZ 06/2016</p>
+            <p><i class="fas fa-gas-pump"></i> Benzin</p>
+            <p><i class="fas fa-gauge-high"></i> 125 PS</p>
+            <p><i class="fas fa-gears"></i> Schaltgetriebe</p>
+          </div>
+          <div class="dealer-info">
+            <strong>Autohaus Schneider</strong><br>
+            Jens Schneider • Leipzig
+          </div>
+        </div>
+      </div>
+      
+      <!-- Desktop: Buttons rechts neben dem Inserat -->
+      <div class="car-card-actions desktop-only">
+        <button class="relist-btn">
+          <i class="fas fa-undo"></i> Wieder online stellen
+        </button>
+        <button class="archive-btn">
+          <i class="fas fa-box-archive"></i> Archivieren
+        </button>
+      </div>
+      
+    </div>
+  </section>
+  </main>
+
+
+
+<script src="übersicht.js"></script>
+<script>
+  const body = document.getElementById("main-body");
+  
+  function showSection(sectionName) {
+    const sections = {
+      "car-list": document.querySelector(".car-list"),
+      "messages-list": document.querySelector("#messages-list"),
+      "saved-cars": document.querySelector("#saved-cars"),
+      "sold-cars": document.querySelector("#sold-cars")
+    };
+    
+    Object.values(sections).forEach(section => {
+      if (section) {
+        section.classList.remove("visible");
+        section.classList.add("hidden");
+      }
+    });
+    
+    if (sections[sectionName]) {
+      sections[sectionName].classList.remove("hidden");
+      sections[sectionName].classList.add("visible");
+    }
+    
+    // ✅ Body-Klasse wechseln (steuert Werbung)
+    switch (sectionName) {
+      case "messages-list":
+        body.className = "nachrichten-seite";
+        break;
+      case "saved-cars":
+        body.className = "gespeicherte-autos-seite";
+        break;
+      default:
+        body.className = "meine-autos-seite";
+    }
+  }
+  
+  // Sidebar-Navigation
+  document.querySelectorAll(".sidebar-link").forEach(link => {
+    link.addEventListener("click", () => {
+      const target = link.getAttribute("data-section");
+      showSection(target);
+    });
+  });
+  
+  // Beim Laden: „Meine Autos“ zeigen
+  showSection("car-list");
+</script>
+</body>

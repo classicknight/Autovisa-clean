@@ -1,0 +1,164 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  body {
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+  
+  .auth-wrapper {
+    width: 100%;
+    padding: 20px;
+  }
+  
+  .auth-box {
+    background: #ffffff;
+    padding: 32px;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    max-width: 420px;
+    margin: auto;
+  }
+  
+  .auth-logo {
+    display: block;
+    max-width: 180px;
+    margin: 0 auto 28px;
+    background-color: #1a2733;
+    padding: 12px 18px;
+    border-radius: 8px;
+  }
+  
+  .tab-buttons {
+    display: flex;
+    overflow: hidden;
+    border-radius: 8px;
+    border: 1px solid #e3e9ef;
+    margin-bottom: 24px;
+  }
+  
+  .tab-buttons button {
+    flex: 1;
+    padding: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    background: #e3e9ef;
+    color: #1a2a33;
+    border: none;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  
+  .tab-buttons button.active {
+    background: #00b8a9;
+    color: white;
+  }
+  
+  .tab-content {
+    display: block;
+  }
+  
+  .tab-content.hidden {
+    display: none;
+  }
+  
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  label {
+    font-size: 14px;
+    color: #37444f;
+  }
+  
+  input {
+    padding: 10px;
+    border: 1.5px solid #e3e9ef;
+    border-radius: 6px;
+    font-size: 15px;
+  }
+  
+  input:focus {
+    border-color: #00b8a9;
+    box-shadow: 0 0 0 3px rgba(0, 184, 169, 0.2);
+    outline: none;
+  }
+  
+  .submit-btn {
+    background-color: #00b8a9;
+    color: white;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s;
+  }
+  
+  .submit-btn:hover {
+    background-color: #009d94;
+  }
+  
+  .forgot-link {
+    text-align: right;
+    margin-top: -10px;
+  }
+  
+  .forgot-link a {
+    font-size: 13px;
+    color: #00b8a9;
+    text-decoration: none;
+  }
+  
+  .checkbox-label {
+    font-size: 13px;
+    color: #4a5a68;
+  }
+  
+  .checkbox-label a {
+    color: #00b8a9;
+    text-decoration: none;
+  }
+  
+  
+  
+  
+  
+  
+  
+  
+  .alt-registration {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 13.5px;
+    color: #cfdce8;
+  }
+  
+  .dealer-btn {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 8px 16px;
+    background-color: transparent;
+    color: #00b8a9;
+    font-weight: 600;
+    border: 1.8px solid #00b8a9;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: all 0.25s ease;
+    font-size: 13.5px;
+  }
+  
+  .dealer-btn:hover {
+    background-color: rgba(0, 184, 169, 0.08);
+    border-color: #00a093;
+    color: #00e0c0;
+  }

@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="de" class="no-js">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autovisa – Fahrzeuge kaufen & verkaufen</title>
+
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
+
+  <!-- Slim Select v2.6.0 – für korrektes Custom-Styling -->
+  <link href="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.min.js"></script>
+</head>
+<body>
+
+
+    
+    <div id="password-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a2733; color: white; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+        <h2>Autovisa – Geschützte Vorschau</h2>
+        <input type="password" id="password-input" placeholder="Passwort eingeben" style="padding: 10px; font-size: 1rem; border-radius: 5px; border: none;">
+        <button onclick="checkPassword()" style="margin-top: 10px; padding: 8px 16px; font-size: 1rem;">Weiter</button>
+        <p id="wrong-password" style="color: red; display: none; margin-top: 10px;">Falsches Passwort</p>
+      </div>
+
+      
+
+
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="logo-container">
+    <img src="AUTOVISA LOGO.PNG" alt="Autovisa Logo" class="logo" />
+  </div>
+  
+  
+<!-- Mobile Icons + Hamburger als Gruppe -->
+<div class="navbar-right-mobile">
+  <div class="mobile-shortcuts">
+    <a href="gespeicherte-autos.html" aria-label="Gespeicherte Autos">
+      <i class="fas fa-heart"></i>
+    </a>
+    <a href="nachrichten.html" aria-label="Nachrichten">
+      <i class="fas fa-comments"></i>
+    </a>
+  </div>
+  
+  <!-- Hamburger-Menü für Mobile -->
+  <button class="hamburger" id="hamburger" aria-label="Menü öffnen" aria-expanded="false" aria-controls="nav-links">
+    <i class="fas fa-bars"></i>
+  </button>
+  
+  <!-- Navigationslinks -->
+  <ul class="nav-links" id="nav-links">
+    
+    <!-- Home -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-home-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-home">
+        Home <i class="fas fa-chevron-down"></i>
+      </a>
+     <ul class="dropdown-menu" id="dropdown-home">
+  <li><a href="index.html"><i class="fas fa-house"></i> Startseite</a></li>
+  <li><a href="#search-section"><i class="fas fa-search"></i> Fahrzeug suchen</a></li>
+  <li><a href="#results-section"><i class="fas fa-car"></i> Inserate anzeigen</a></li>
+  <li><a href="login.html"><i class="fas fa-sign-in-alt"></i> Login / Registrierung</a></li>
+</ul>
+    </li>
+    
+    <!-- Meine Autos -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-autos-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-autos">
+        Meine Autos <i class="fas fa-chevron-down"></i>
+      </a>
+     <ul class="dropdown-menu" id="dropdown-autos">
+  <li><a href="nachrichten.html"><i class="fas fa-comments"></i> Nachrichten</a></li>
+  <li><a href="#" id="saved-cars-link"><i class="fas fa-heart"></i> Gespeicherte Autos</a></li>
+  <li><a href="#" id="my-cars-link"><i class="fas fa-car"></i> Eigene Inserate</a></li>
+  <li><a href="verkaufte-autos.html"><i class="fas fa-check-circle"></i> Verkaufte Autos</a></li>
+</ul>
+    </li>
+    
+    <!-- Infos -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-info-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-info">
+        Infos <i class="fas fa-chevron-down"></i>
+      </a>
+      <ul class="dropdown-menu" id="dropdown-info">
+        <li><a href="ueber-uns.html"><i class="fas fa-users"></i> Über uns</a></li>
+        <li><a href="hilfe.html"><i class="fas fa-question-circle"></i> Hilfe & FAQ</a></li>
+        <li><a href="preise.html"><i class="fas fa-euro-sign"></i> Tarife & Preise</a></li>
+      </ul>
+    </li>
+    
+    <!-- Kontakt -->
+    <li class="dropdown">
+      <a href="#" id="dropdown-contact-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-contact">
+        Kontakt <i class="fas fa-chevron-down"></i>
+      </a>
+      <ul class="dropdown-menu" id="dropdown-contact">
+        <li><a href="kontakt.html"><i class="fas fa-comments"></i> Kontaktformular</a></li>
+        <li><a href="mailto:support@autovisa.de"><i class="fas fa-envelope"></i> support@autovisa.de</a></li>
+        <li><a href="mailto:business@autovisa.de"><i class="fas fa-briefcase"></i> business@autovisa.de</a></li>
+      </ul>
+    </li>
+    
+    <!-- Auto verkaufen (Call to Action) -->
+    <li class="active">
+      <a href="verkaufen.html" class="highlight-link"><i class="fas fa-plus-circle"></i> Auto verkaufen</a>
+    </li>
+  </ul>
+</nav>
+
+<!-- Hauptbereich -->
+<main class="homepage-main">
+  <!-- Hero-Bereich mit Bild und Text im Overlay -->
+  <section class="hero-with-image">
+    <img src="IMG_1764.jpeg" alt="Autohandel Symbolbild" class="hero-background-image">
+    <div class="hero-overlay">
+      <h1>Finde dein Traumauto oder verkaufe es stressfrei</h1>
+      <p>Autovisa verbindet dich mit den besten Angeboten und Käufern in deiner Nähe.</p>
+    </div>
+  </section>
+</main>
+
+  <!-- Suchformular -->
+  <section id="search-section" class="search-section">
+    <h2>Jetzt Fahrzeug suchen</h2>
+    <form class="search-form">
+      <!-- Marke & Modell -->
+    <!-- Marke -->
+<div class="form-group">
+    <label for="marke">Marke</label>
+    <select id="marke" name="marke" class="slim-styled" data-placeholder="Marke wählen" required>
+      <option value="" disabled selected>Bitte wählen</option>
+      <option value="Abarth">Abarth</option>
+    <option value="AC">AC</option>
+    <option value="Acura">Acura</option>
+    <option value="Aiways">Aiways</option>
+    <option value="Aixam">Aixam</option>
+    <option value="Alfa Romeo">Alfa Romeo</option>
+    <option value="ALPINA">ALPINA</option>
+    <option value="Alpine">Alpine</option>
+    <option value="Ariel">Ariel</option>
+    <option value="Artega">Artega</option>
+    <option value="Asia Motors">Asia Motors</option>
+    <option value="Aston Martin">Aston Martin</option>
+    <option value="Audi">Audi</option>
+    <option value="Austin">Austin</option>
+    <option value="Austin Healey">Austin Healey</option>
+    <option value="BAIC">BAIC</option>
+    <option value="Bentley">Bentley</option>
+    <option value="BMW">BMW</option>
+    <option value="Borgward">Borgward</option>
+    <option value="Brilliance">Brilliance</option>
+    <option value="Bugatti">Bugatti</option>
+    <option value="Buick">Buick</option>
+    <option value="BYD">BYD</option>
+    <option value="Cadillac">Cadillac</option>
+    <option value="Casalini">Casalini</option>
+    <option value="Caterham">Caterham</option>
+    <option value="Cenntro">Cenntro</option>
+    <option value="Chatenet">Chatenet</option>
+    <option value="Chevrolet">Chevrolet</option>
+    <option value="Chrysler">Chrysler</option>
+    <option value="Citroën">Citroën</option>
+    <option value="Cobra">Cobra</option>
+    <option value="Corvette">Corvette</option>
+    <option value="Cupra">Cupra</option>
+    <option value="Dacia">Dacia</option>
+    <option value="Daewoo">Daewoo</option>
+    <option value="Daihatsu">Daihatsu</option>
+    <option value="DeTomaso">DeTomaso</option>
+    <option value="DFSK">DFSK</option>
+    <option value="Dodge">Dodge</option>
+    <option value="Donkervoort">Donkervoort</option>
+    <option value="DS Automobiles">DS Automobiles</option>
+    <option value="e.GO">e.GO</option>
+    <option value="Elaris">Elaris</option>
+    <option value="Estrima">Estrima</option>
+    <option value="Ferrari">Ferrari</option>
+    <option value="Fiat">Fiat</option>
+    <option value="Fisker">Fisker</option>
+    <option value="Ford">Ford</option>
+    <option value="GAC Gonow">GAC Gonow</option>
+    <option value="Gemballa">Gemballa</option>
+    <option value="Genesis">Genesis</option>
+    <option value="GMC">GMC</option>
+    <option value="Grecav">Grecav</option>
+    <option value="GWM">GWM</option>
+    <option value="Hamann">Hamann</option>
+    <option value="Holden">Holden</option>
+    <option value="Honda">Honda</option>
+    <option value="Hummer">Hummer</option>
+    <option value="Hyundai">Hyundai</option>
+    <option value="INEOS">INEOS</option>
+    <option value="Infiniti">Infiniti</option>
+    <option value="Isuzu">Isuzu</option>
+    <option value="Iveco">Iveco</option>
+    <option value="JAC">JAC</option>
+    <option value="Jaguar">Jaguar</option>
+    <option value="Jeep">Jeep</option>
+    <option value="Kia">Kia</option>
+    <option value="Koenigsegg">Koenigsegg</option>
+    <option value="KTM">KTM</option>
+    <option value="Lada">Lada</option>
+    <option value="Lamborghini">Lamborghini</option>
+    <option value="Lancia">Lancia</option>
+    <option value="Land Rover">Land Rover</option>
+    <option value="Landwind">Landwind</option>
+    <option value="LEVC">LEVC</option>
+    <option value="Lexus">Lexus</option>
+    <option value="Ligier">Ligier</option>
+    <option value="Lincoln">Lincoln</option>
+    <option value="Lotus">Lotus</option>
+    <option value="Lucid">Lucid</option>
+    <option value="Lynk&Co">Lynk&Co</option>
+    <option value="Mahindra">Mahindra</option>
+    <option value="MAN">MAN</option>
+    <option value="Maserati">Maserati</option>
+    <option value="Maxus">Maxus</option>
+    <option value="Maybach">Maybach</option>
+    <option value="Mazda">Mazda</option>
+    <option value="McLaren">McLaren</option>
+    <option value="Mercedes-Benz">Mercedes-Benz</option>
+    <option value="MG">MG</option>
+    <option value="Microcar">Microcar</option>
+    <option value="Microlino">Microlino</option>
+    <option value="MINI">MINI</option>
+    <option value="Mitsubishi">Mitsubishi</option>
+    <option value="Morgan">Morgan</option>
+    <option value="NIO">NIO</option>
+    <option value="Nissan">Nissan</option>
+    <option value="NSU">NSU</option>
+    <option value="Oldsmobile">Oldsmobile</option>
+    <option value="Opel">Opel</option>
+    <option value="ORA">ORA</option>
+    <option value="Pagani">Pagani</option>
+    <option value="Peugeot">Peugeot</option>
+    <option value="Piaggio">Piaggio</option>
+    <option value="Plymouth">Plymouth</option>
+    <option value="Polestar">Polestar</option>
+    <option value="Pontiac">Pontiac</option>
+    <option value="Porsche">Porsche</option>
+    <option value="Proton">Proton</option>
+    <option value="Renault">Renault</option>
+    <option value="Rolls-Royce">Rolls-Royce</option>
+    <option value="Rover">Rover</option>
+    <option value="Ruf">Ruf</option>
+    <option value="Saab">Saab</option>
+    <option value="Santana">Santana</option>
+    <option value="Seat">Seat</option>
+    <option value="Seres">Seres</option>
+    <option value="Skoda">Skoda</option>
+    <option value="Smart">Smart</option>
+    <option value="speedART">speedART</option>
+    <option value="Spyker">Spyker</option>
+    <option value="Ssangyong">Ssangyong</option>
+    <option value="Subaru">Subaru</option>
+    <option value="Suzuki">Suzuki</option>
+    <option value="SWM">SWM</option>
+    <option value="Talbot">Talbot</option>
+    <option value="Tata">Tata</option>
+    <option value="TECHART">TECHART</option>
+    <option value="Tesla">Tesla</option>
+    <option value="Toyota">Toyota</option>
+    <option value="Trabant">Trabant</option>
+    <option value="Triumph">Triumph</option>
+    <option value="TVR">TVR</option>
+    <option value="VinFast">VinFast</option>
+    <option value="Volkswagen">Volkswagen</option>
+    <option value="Volvo">Volvo</option>
+    <option value="Wartburg">Wartburg</option>
+    <option value="Westfield">Westfield</option>
+    <option value="WEY">WEY</option>
+    <option value="Wiesmann">Wiesmann</option>
+    <option value="XEV">XEV</option>
+    <option value="XPENG">XPENG</option>
+    <option value="Zhidou">Zhidou</option>
+    <option value="Andere">Andere</option>
+    </select>
+  </div>
+  
+  <!-- Modell -->
+  <div class="form-group">
+    <label for="modell">Modell</label>
+    <select id="modell" name="modell[]" multiple required>
+      <option value="" disabled selected>Bitte zuerst Marke wählen</option>
+    </select>
+  </div>
+  <div class="form-group">
+  <label for="first-registration-month">Erstzulassung</label>
+  <div class="inline-selects">
+    <select id="first-registration-month" name="first_registration_month">
+      <option value="" disabled selected>Monat</option>
+      <option value="01">Januar</option>
+      <option value="02">Februar</option>
+      <option value="03">März</option>
+      <option value="04">April</option>
+      <option value="05">Mai</option>
+      <option value="06">Juni</option>
+      <option value="07">Juli</option>
+      <option value="08">August</option>
+      <option value="09">September</option>
+      <option value="10">Oktober</option>
+      <option value="11">November</option>
+      <option value="12">Dezember</option>
+    </select>
+    
+    <select id="first-registration-year" name="first_registration_year">
+      <option value="" disabled selected>Jahr</option>
+      <!-- wird per JS generiert -->
+    </select>
+  </div>
+</div>
+
+    <div class="form-group">
+  <label for="kilometer-select">Kilometer bis:</label>
+  <div class="dual-input-wrapper">
+    <select id="kilometer-select" name="kilometer-select" required>
+      <option value="" disabled selected>Bitte wählen</option>
+      <option value="custom">Benutzerdefiniert</option>
+      <option value="5000">bis 5.000 km</option>
+      <option value="10000">bis 10.000 km</option>
+      <option value="20000">bis 20.000 km</option>
+      <option value="30000">bis 30.000 km</option>
+      <option value="50000">bis 50.000 km</option>
+      <option value="75000">bis 75.000 km</option>
+      <option value="100000">bis 100.000 km</option>
+      <option value="125000">bis 125.000 km</option>
+      <option value="150000">bis 150.000 km</option>
+      <option value="175000">bis 175.000 km</option>
+      <option value="200000">bis 200.000 km</option>
+      <option value="250000">bis 250.000 km</option>
+    </select>
+
+    <input
+      type="number"
+      id="kilometer-custom"
+      name="kilometer"
+      placeholder="Eigener Wert"
+      class="custom-kilometer"
+      style="display: none;"
+    />
+  </div>
+</div>
+<div class="form-group">
+  <label for="price-select">Preis bis (€):</label>
+  <div class="dual-input-wrapper">
+    <select id="price-select" name="price-select">
+      <option value="" disabled selected>Bitte wählen</option>
+      <option value="custom">Benutzerdefiniert</option>
+      <option value="1000">bis 1.000 €</option>
+  <option value="2000">bis 2.000 €</option>
+  <option value="3000">bis 3.000 €</option>
+  <option value="5000">bis 5.000 €</option>
+  <option value="7500">bis 7.500 €</option>
+  <option value="10000">bis 10.000 €</option>
+  <option value="15000">bis 15.000 €</option>
+  <option value="20000">bis 20.000 €</option>
+  <option value="30000">bis 30.000 €</option>
+  <option value="40000">bis 40.000 €</option>
+  <option value="50000">bis 50.000 €</option>
+  <option value="75000">bis 75.000 €</option>
+  <option value="100000">bis 100.000 €</option>
+      
+    </select>
+
+    <input
+      type="number"
+      id="price-custom"
+      name="price"
+      placeholder="Eigener Betrag"
+      class="custom-price"
+      style="display: none;"
+    />
+  </div>
+</div>
+
+<div class="form-group">
+  <label for="gear">Getriebe:</label>
+  <select id="gear">
+    <option value="" disabled selected>Bitte wählen</option>
+    <option value="manuell">Manuell</option>
+    <option value="automatik">Automatik</option>
+  </select>
+</div>
+
+    <div class="form-group">
+  <label for="fuel">Kraftstoff:</label>
+  <select id="fuel" name="fuel">
+    <option value="" disabled selected>Bitte wählen</option>
+    <option value="benzin">Benzin (Ottomotor)</option>
+    <option value="diesel">Diesel</option>
+    <option value="elektro">Elektro (rein elektrisch)</option>
+    <option value="hybrid">Hybrid (Benzin/Elektro)</option>
+    <option value="hybrid">Hybrid (Diesel/Elektro)</option>
+    <option value="wasserstoff">Wasserstoff (Brennstoffzelle)</option>
+    <option value="gas">Autogas (LPG)</option>
+    <option value="andere">Andere</option>
+  </select>
+</div>
+
+    <div class="form-group icon-left location-group">
+  <label for="location">PLZ / Ort:</label>
+  <div class="input-icon-wrapper">
+    <i class="fas fa-map-marker-alt"></i>
+    <input type="text" id="location" name="location" placeholder="z. B. 10115 Berlin" autocomplete="postal-code">
+  </div>
+</div>
+
+<div class="form-group">
+  <label for="distance-select">Umkreis:</label>
+  <div class="dual-input-wrapper">
+    <select id="distance-select" name="distance" disabled>
+      <option value="999">Beliebig</option>
+      <option value="custom">Benutzerdefiniert</option>
+      <option value="10">10 km</option>
+      <option value="25">25 km</option>
+      <option value="50">50 km</option>
+      <option value="100">100 km</option>
+      <option value="250">250 km</option>
+      
+    </select>
+
+    <input
+      type="number"
+      id="distance-custom"
+      name="distance-custom"
+      placeholder="Eigener Umkreis"
+      class="custom-distance"
+      style="display: none;"
+    />
+  </div>
+</div>
+      
+      
+  
+
+<!-- Buttons -->
+<div class="form-buttons">
+  <button type="button" class="btn-advanced">
+    Weitere Filter
+  </button>
+  <button type="submit" class="btn-search">
+    <i class="fas fa-search"></i> Suchen
+  </button>
+</div>
+</section>
+
+
+<section id="results-section" class="results-section">
+
+<!-- Fahrzeugkarte -->
+<div class="car-card">
+  <div class="car-card-media">
+    <div class="media-container">
+      <div class="slides">
+        <img src="1.jpeg" alt="Bild 1" class="slide">
+        <img src="2.jpeg" alt="Bild 2" class="slide">
+        <img src="3.jpeg" alt="Bild 3" class="slide">
+        <video class="slide" controls muted playsinline preload="metadata">
+          <source src="1.mp4" type="video/mp4">
+        </video>
+      </div>
+      <button class="media-arrow left"><i class="fas fa-chevron-left"></i></button>
+      <button class="media-arrow right"><i class="fas fa-chevron-right"></i></button>
+    </div>
+  </div>
+  
+  <div class="car-details">
+    <div class="car-top-row">
+      <h2 class="car-title">Volvo V40 Momentum</h2>
+      <p class="car-price">7.990 €</p>
+    </div>
+    <p class="car-subtitle">Euro 5 • Klimaautomatik • Navi</p>
+    <div class="car-info-grid">
+      <p><i class="fas fa-road"></i> 123.885 km</p>
+      <p><i class="fas fa-calendar-alt"></i> EZ 07/2013</p>
+      <p><i class="fas fa-gas-pump"></i> Diesel</p>
+      <p><i class="fas fa-gauge-high"></i> 114 PS</p>
+      <p><i class="fas fa-gears"></i> Schaltgetriebe</p>
+      <p><i class="fas fa-tint"></i> 3,8 l/100 km</p>
+    </div>
+    <div class="dealer-info">
+      <strong>Autohaus Diker GbR</strong><br>
+      Bünyamin Diker • Hückelhoven
+    </div>
+  </div>
+</div>
+
+
+<!-- Fahrzeugkarte -->
+<div class="car-card">
+  <div class="car-card-media">
+    <div class="media-container">
+      <div class="slides">
+        <img src="1.jpeg" alt="Bild 1" class="slide">
+        <img src="2.jpeg" alt="Bild 2" class="slide">
+        <img src="3.jpeg" alt="Bild 3" class="slide">
+        <video class="slide" controls muted playsinline preload="metadata">
+          <source src="1.mp4" type="video/mp4">
+        </video>
+      </div>
+      <button class="media-arrow left"><i class="fas fa-chevron-left"></i></button>
+      <button class="media-arrow right"><i class="fas fa-chevron-right"></i></button>
+    </div>
+  </div>
+  
+  <div class="car-details">
+    <div class="car-top-row">
+      <h2 class="car-title">Volvo V40 Momentumbhifrehebrfberjvbfkjerfjkerbkjrfehjrkfbfekjherfjherhfkjrherkjhfrehfkurehhkuhfrukerhrfhrekfufehuk</h2>
+      <p class="car-price">7.990 €</p>
+    </div>
+    <p class="car-subtitle">Euro 5 • Klimaautomatik • Navi</p>
+    <div class="car-info-grid">
+      <p><i class="fas fa-road"></i> 123.885 km</p>
+      <p><i class="fas fa-calendar-alt"></i> EZ 07/2013</p>
+      <p><i class="fas fa-gas-pump"></i> Diesel</p>
+      <p><i class="fas fa-gauge-high"></i> 114 PS</p>
+      <p><i class="fas fa-gears"></i> Schaltgetriebe</p>
+      <p><i class="fas fa-tint"></i> 3,8 l/100 km</p>
+    </div>
+    <div class="dealer-info">
+      <strong>Autohaus Diker GbR</strong><br>
+      Bünyamin Diker • Hückelhoven
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Fahrzeugkarte -->
+<div class="car-card">
+  <div class="car-card-media">
+    <div class="media-container">
+      <div class="slides">
+        <img src="1.jpeg" alt="Bild 1" class="slide">
+        <img src="2.jpeg" alt="Bild 2" class="slide">
+        <img src="3.jpeg" alt="Bild 3" class="slide">
+        <video class="slide" controls muted playsinline preload="metadata">
+          <source src="1.mp4" type="video/mp4">
+        </video>
+      </div>
+      <button class="media-arrow left"><i class="fas fa-chevron-left"></i></button>
+      <button class="media-arrow right"><i class="fas fa-chevron-right"></i></button>
+    </div>
+  </div>
+  
+  <div class="car-details">
+    <div class="car-top-row">
+      <h2 class="car-title">Volvo V40 Momentum hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh</h2>
+      <p class="car-price">7.990 €</p>
+    </div>
+    <p class="car-subtitle">Euro 5 • Klimaautomatik • Navi</p>
+    <div class="car-info-grid">
+      <p><i class="fas fa-road"></i> 123.885 km</p>
+      <p><i class="fas fa-calendar-alt"></i> EZ 07/2013</p>
+      <p><i class="fas fa-gas-pump"></i> diesel</p>
+      <p><i class="fas fa-gauge-high"></i> 114 PS</p>
+      <p><i class="fas fa-gears"></i> Schaltgetriebe</p>
+      <p><i class="fas fa-tint"></i> 3,8 l/100 km</p>
+    </div>
+    <div class="dealer-info">
+      <strong>Autohaus Diker GbR</strong><br>
+      Bünyamin Diker • Hückelhoven
+    </div>
+  </div>
+</div>
+
+
+<!-- Fahrzeugkarte -->
+<div class="car-card">
+  <div class="car-card-media">
+    <div class="media-container">
+      <div class="slides">
+        <img src="1.jpeg" alt="Bild 1" class="slide">
+        <img src="2.jpeg" alt="Bild 2" class="slide">
+        <img src="3.jpeg" alt="Bild 3" class="slide">
+        <video class="slide" controls muted playsinline preload="metadata">
+          <source src="1.mp4" type="video/mp4">
+        </video>
+      </div>
+      <button class="media-arrow left"><i class="fas fa-chevron-left"></i></button>
+      <button class="media-arrow right"><i class="fas fa-chevron-right"></i></button>
+    </div>
+  </div>
+  
+  <div class="car-details">
+    <div class="car-top-row">
+      <h2 class="car-title">Volvo V40 Momentum</h2>
+      <p class="car-price">7.990 €</p>
+    </div>
+    <p class="car-subtitle">Euro 5 • Klimaautomatik • Navi</p>
+    <div class="car-info-grid">
+      <p><i class="fas fa-road"></i> 123.885 km</p>
+      <p><i class="fas fa-calendar-alt"></i> EZ 07/2013</p>
+      <p><i class="fas fa-gas-pump"></i> Diesel</p>
+      <p><i class="fas fa-gauge-high"></i> 114 PS</p>
+      <p><i class="fas fa-gears"></i> Schaltgetriebe</p>
+      <p><i class="fas fa-tint"></i> 3,8 l/100 km</p>
+    </div>
+    <div class="dealer-info">
+      <strong>Autohaus Diker GbR</strong><br>
+      Bünyamin Diker • Hückelhoven
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Fahrzeugkarte -->
+<div class="car-card">
+  <div class="car-card-media">
+    <div class="media-container">
+      <div class="slides">
+        <img src="1.jpeg" alt="Bild 1" class="slide">
+        <img src="2.jpeg" alt="Bild 2" class="slide">
+        <img src="3.jpeg" alt="Bild 3" class="slide">
+        <video class="slide" controls muted playsinline preload="metadata">
+          <source src="1.mp4" type="video/mp4">
+        </video>
+      </div>
+      <button class="media-arrow left"><i class="fas fa-chevron-left"></i></button>
+      <button class="media-arrow right"><i class="fas fa-chevron-right"></i></button>
+    </div>
+  </div>
+  
+  <div class="car-details">
+    <div class="car-top-row">
+      <h2 class="car-title">Volvo V40 Momentum</h2>
+      <p class="car-price">7.990 €</p>
+    </div>
+    <p class="car-subtitle">Euro 5 • Klimaautomatik • Navi</p>
+    <div class="car-info-grid">
+      <p><i class="fas fa-road"></i> 123.885 km</p>
+      <p><i class="fas fa-calendar-alt"></i> EZ 07/2013</p>
+      <p><i class="fas fa-gas-pump"></i> Diesel</p>
+      <p><i class="fas fa-gauge-high"></i> 114 PS</p>
+      <p><i class="fas fa-gears"></i> Schaltgetriebe</p>
+      <p><i class="fas fa-tint"></i> 3,8 l/100 km</p>
+    </div>
+    <div class="dealer-info">
+      <strong>Autohaus Diker GbR</strong><br>
+      Bünyamin Diker • Hückelhoven
+    </div>
+  </div>
+</div>
+
+
+<!-- Fahrzeugkarte -->
+<div class="car-card">
+  <div class="car-card-media">
+    <div class="media-container">
+      <div class="slides">
+        <img src="1.jpeg" alt="Bild 1" class="slide">
+        <img src="2.jpeg" alt="Bild 2" class="slide">
+        <img src="3.jpeg" alt="Bild 3" class="slide">
+        <video class="slide" controls muted playsinline preload="metadata">
+          <source src="1.mp4" type="video/mp4">
+        </video>
+      </div>
+      <button class="media-arrow left"><i class="fas fa-chevron-left"></i></button>
+      <button class="media-arrow right"><i class="fas fa-chevron-right"></i></button>
+    </div>
+  </div>
+  
+  <div class="car-details">
+    <div class="car-top-row">
+      <h2 class="car-title">Volvo V40 Momentum</h2>
+      <p class="car-price">7.990 €</p>
+    </div>
+    <p class="car-subtitle">Euro 5 • Klimaautomatik • Navi</p>
+    <div class="car-info-grid">
+      <p><i class="fas fa-road"></i> 123.885 km</p>
+      <p><i class="fas fa-calendar-alt"></i> EZ 07/2013</p>
+      <p><i class="fas fa-gas-pump"></i> Diesel</p>
+      <p><i class="fas fa-gauge-high"></i> 114 PS</p>
+      <p><i class="fas fa-gears"></i> Schaltgetriebe</p>
+      <p><i class="fas fa-tint"></i> 3,8 l/100 km</p>
+    </div>
+    <div class="dealer-info">
+      <strong>Autohaus Diker GbR</strong><br>
+      Bünyamin Diker • Hückelhoven
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+<!-- Fahrzeugkarte -->
+<div class="car-card">
+  <div class="car-card-media">
+    <div class="media-container">
+      <div class="slides">
+        <img src="1.jpeg" alt="Bild 1" class="slide">
+        <img src="2.jpeg" alt="Bild 2" class="slide">
+        <img src="3.jpeg" alt="Bild 3" class="slide">
+        <video class="slide" controls muted playsinline preload="metadata">
+          <source src="1.mp4" type="video/mp4">
+        </video>
+      </div>
+      <button class="media-arrow left"><i class="fas fa-chevron-left"></i></button>
+      <button class="media-arrow right"><i class="fas fa-chevron-right"></i></button>
+    </div>
+  </div>
+  
+  <div class="car-details">
+    <div class="car-top-row">
+      <h2 class="car-title">Volvo V40 Momentum</h2>
+      <p class="car-price">7.990 €</p>
+    </div>
+    <p class="car-subtitle">Euro 5 • Klimaautomatik • Navi</p>
+    <div class="car-info-grid">
+      <p><i class="fas fa-road"></i> 123.885 km</p>
+      <p><i class="fas fa-calendar-alt"></i> EZ 07/2013</p>
+      <p><i class="fas fa-gas-pump"></i> Diesel</p>
+      <p><i class="fas fa-gauge-high"></i> 114 PS</p>
+      <p><i class="fas fa-gears"></i> Schaltgetriebe</p>
+      <p><i class="fas fa-tint"></i> 3,8 l/100 km</p>
+    </div>
+    <div class="dealer-info">
+      <strong>Autohaus Diker GbR</strong><br>
+      Bünyamin Diker • Hückelhoven
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+<!-- Fahrzeugkarte -->
+<div class="car-card">
+  <div class="car-card-media">
+    <div class="media-container">
+      <div class="slides">
+        <img src="1.jpeg" alt="Bild 1" class="slide">
+        <img src="2.jpeg" alt="Bild 2" class="slide">
+        <img src="3.jpeg" alt="Bild 3" class="slide">
+        <video class="slide" controls muted playsinline preload="metadata">
+          <source src="1.mp4" type="video/mp4">
+        </video>
+      </div>
+      <button class="media-arrow left"><i class="fas fa-chevron-left"></i></button>
+      <button class="media-arrow right"><i class="fas fa-chevron-right"></i></button>
+    </div>
+  </div>
+  
+  <div class="car-details">
+    <div class="car-top-row">
+      <h2 class="car-title">Volvo V40 Momentum</h2>
+      <p class="car-price">7.990 €</p>
+    </div>
+    <p class="car-subtitle">Euro 5 • Klimaautomatik • Navi</p>
+    <div class="car-info-grid">
+      <p><i class="fas fa-road"></i> 123.885 km</p>
+      <p><i class="fas fa-calendar-alt"></i> EZ 07/2013</p>
+      <p><i class="fas fa-gas-pump"></i> Diesel</p>
+      <p><i class="fas fa-gauge-high"></i> 114 PS</p>
+      <p><i class="fas fa-gears"></i> Schaltgetriebe</p>
+      <p><i class="fas fa-tint"></i> 3,8 l/100 km</p>
+    </div>
+    <div class="dealer-info">
+      <strong>Autohaus Diker GbR</strong><br>
+      Bünyamin Diker • Hückelhoven
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+<!-- Fahrzeugkarte -->
+<div class="car-card">
+  <div class="car-card-media">
+    <div class="media-container">
+      <div class="slides">
+        <img src="1.jpeg" alt="Bild 1" class="slide">
+        <img src="2.jpeg" alt="Bild 2" class="slide">
+        <img src="3.jpeg" alt="Bild 3" class="slide">
+        <video class="slide" controls muted playsinline preload="metadata">
+          <source src="1.mp4" type="video/mp4">
+        </video>
+      </div>
+      <button class="media-arrow left"><i class="fas fa-chevron-left"></i></button>
+      <button class="media-arrow right"><i class="fas fa-chevron-right"></i></button>
+    </div>
+  </div>
+  
+  <div class="car-details">
+    <div class="car-top-row">
+      <h2 class="car-title">Volvo V40 Momentum</h2>
+      <p class="car-price">7.990 €</p>
+    </div>
+    <p class="car-subtitle">Euro 5 • Klimaautomatik • Navi</p>
+    <div class="car-info-grid">
+      <p><i class="fas fa-road"></i> 123.885 km</p>
+      <p><i class="fas fa-calendar-alt"></i> EZ 07/2013</p>
+      <p><i class="fas fa-gas-pump"></i> Diesel</p>
+      <p><i class="fas fa-gauge-high"></i> 114 PS</p>
+      <p><i class="fas fa-gears"></i> Schaltgetriebe</p>
+      <p><i class="fas fa-tint"></i> 3,8 l/100 km</p>
+    </div>
+    <div class="dealer-info">
+      <strong>Autohaus Diker GbR</strong><br>
+      Bünyamin Diker • Hückelhoven
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+</section>
+
+</main>
+
+
+<script src="main.js" defer></script>
+<script src="abbruch.js" defer></script>
+
+
+<footer class="site-footer">
+  <div class="footer-container">
+    <div class="footer-links">
+      <a href="impressum.html">Impressum</a>
+      <a href="datenschutz.html">Datenschutz</a>
+      <a href="kontakt.html">Kontakt</a>
+      <a href="agb.html">AGB</a>
+    </div>
+    <p class="footer-copy">© 2025 Autovisa – Alle Rechte vorbehalten</p>
+  </div>
+</footer>
+</body>
+</html>
