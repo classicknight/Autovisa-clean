@@ -65,25 +65,43 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   
-  // Login-Link Verhalten
-  const isLoggedIn = false; // ← später dynamisch ersetzen
-  
+  const isLoggedIn = false; // später dynamisch setzen (z.B. per Cookie oder localStorage)
+
   const savedCarsLink = document.getElementById("saved-cars-link");
   const myCarsLink = document.getElementById("my-cars-link");
+  const soldCarsLink = document.getElementById("sold-cars-link");
   
   if (savedCarsLink) {
     savedCarsLink.addEventListener("click", (e) => {
       e.preventDefault();
-      window.location.href = isLoggedIn ? "gespeicherte-autos.html" : "login.html";
+      window.location.href = isLoggedIn ? "übersicht.html#saved" : "login.html";
     });
   }
   
   if (myCarsLink) {
     myCarsLink.addEventListener("click", (e) => {
       e.preventDefault();
-      window.location.href = isLoggedIn ? "meine-autos.html" : "login.html";
+      window.location.href = isLoggedIn ? "übersicht.html#my-cars" : "login.html";
     });
   }
+  
+  if (soldCarsLink) {
+    soldCarsLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      window.location.href = isLoggedIn ? "übersicht.html#sold" : "login.html";
+    });
+  }
+  
+
+  const messagesLink = document.getElementById("messages-link");
+
+if (messagesLink) {
+  messagesLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    window.location.href = isLoggedIn ? "übersicht.html#chats" : "login.html";
+  });
+}
+
   
   // Smooth Scroll zu #search-section
   const searchLink = document.querySelector('a[href="#search-section"]');
@@ -105,7 +123,33 @@ document.addEventListener("DOMContentLoaded", () => {
       advancedBtn.textContent = filters.classList.contains('show') ? 'Filter schließen' : 'Weitere Filter';
     });
   }
-});
+
+  // === Login-Status prüfen und "Login/Registrierung" durch "Abmelden" ersetzen ===
+  fetch("/getNutzerInfo")
+    .then(res => res.json())
+    .then(data => {
+      const authLink = document.getElementById("auth-link");
+      if (!authLink) return;
+
+      if (data.eingeloggt) {
+        // Wenn eingeloggt, Link ersetzen durch Logout
+        authLink.innerHTML = `
+          <a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>
+        `;
+
+        document.getElementById("logout-link").addEventListener("click", (e) => {
+          e.preventDefault();
+          fetch("/logout", { method: "POST" })
+            .then(() => location.reload())
+            .catch(() => alert("Abmelden fehlgeschlagen."));
+        });
+      }
+    })
+    .catch(err => {
+      console.error("Fehler beim Abrufen des Login-Zustands:", err);
+    });
+  
+  });
 
 
 

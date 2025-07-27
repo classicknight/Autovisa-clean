@@ -809,6 +809,12 @@ app.post('/inserat-veroeffentlichen', (req, res) => {
   
   
   
+
+  app.post("/logout", (req, res) => {
+    res.clearCookie("nutzer");
+    res.json({ success: true });
+  });
+  
  
 
   app.listen(PORT, () => {
