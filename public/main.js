@@ -139,17 +139,28 @@ if (messagesLink) {
 
         document.getElementById("logout-link").addEventListener("click", (e) => {
           e.preventDefault();
+        
           fetch("/logout", { method: "POST" })
-            .then(() => location.reload())
+            .then(() => {
+              // 🔥 Lokale Daten löschen
+              localStorage.removeItem("nutzer.id");
+              localStorage.removeItem("nutzer.role");
+              localStorage.removeItem("token");
+              // ggf. alles löschen: localStorage.clear();
+        
+              location.reload();
+            })
             .catch(() => alert("Abmelden fehlgeschlagen."));
         });
+        
       }
     })
     .catch(err => {
       console.error("Fehler beim Abrufen des Login-Zustands:", err);
     });
+});
+
   
-  });
 
 
 
