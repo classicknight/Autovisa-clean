@@ -227,7 +227,8 @@ app.post('/abbrechen', (req, res) => {
 
 
 
-const tarifPath = path.join(__dirname, "data", "nutzerTarif.json");
+const tarifPath = path.join(__dirname, "nutzerTarif.json");
+
 
 // Tarif speichern
 app.post("/saveTarif", (req, res) => {
