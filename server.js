@@ -4,7 +4,8 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+
 
 // === Upload-Verzeichnisse vorbereiten ===
 const uploadsBaseDir = path.join(__dirname, 'uploads');
@@ -378,12 +379,11 @@ const erlaubteAusstattungen = [
   
   
 
- 
+
+app.use(cookieParser());
   
 
-  // Middleware
-app.use(express.json());
-app.use(cookieParser());
+ 
 
 // Login-Prüfung
 function checkLogin(req, res, next) {
@@ -455,7 +455,9 @@ const transporter = nodemailer.createTransport({
     nutzer.push(neuerNutzer);
     fs.writeFileSync(nutzerPath, JSON.stringify(nutzer, null, 2));
   
-    const verifyLink = `http://localhost:${PORT}/verify?token=${token}`;
+    const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+    const verifyLink = `${baseUrl}/verify?token=${token}`;
+    
   
     const mailOptions = {
       from: '"Autovisa" <autovisa0607@gmail.com>',
@@ -806,8 +808,10 @@ app.post('/inserat-veroeffentlichen', (req, res) => {
   
   
   
-  // === Server starten ===
+ 
+
   app.listen(PORT, () => {
-    console.log(`🚗 Server läuft unter http://localhost:${PORT}`);
+    console.log(`✅ Server läuft auf Port ${PORT}`);
   });
+  
   
