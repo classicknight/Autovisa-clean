@@ -634,7 +634,9 @@ app.post("/login", (req, res) => {
     nutzer.push(neuerHaendler);
     fs.writeFileSync(nutzerPath, JSON.stringify(nutzer, null, 2));
   
-    const verifyLink = `http://localhost:${PORT}/verify?token=${token}`;
+    const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+const verifyLink = `${baseUrl}/verify?token=${token}`;
+
     const mailOptions = {
       from: '"Autovisa" <autovisa0607@gmail.com>',
       to: email,
