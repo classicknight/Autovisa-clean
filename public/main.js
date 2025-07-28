@@ -124,41 +124,40 @@ if (messagesLink) {
     });
   }
 
-  // === Login-Status prüfen und "Login/Registrierung" durch "Abmelden" ersetzen ===
-  fetch("/getNutzerInfo")
-    .then(res => res.json())
-    .then(data => {
-      const authLink = document.getElementById("auth-link");
-      if (!authLink) return;
+// === Login-Status prüfen und "Login/Registrierung" durch "Abmelden" ersetzen ===
+fetch("/getNutzerInfo")
+  .then(res => res.json())
+  .then(data => {
+    const authLink = document.getElementById("auth-link");
+    if (!authLink) return;
 
-      if (data.eingeloggt) {
-        // Wenn eingeloggt, Link ersetzen durch Logout
-        authLink.innerHTML = `
-          <a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>
-        `;
+    if (data.eingeloggt) {
+      // Wenn eingeloggt, Link ersetzen durch Logout
+      authLink.innerHTML = `
+        <a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>
+      `;
 
-        document.getElementById("logout-link").addEventListener("click", (e) => {
-          e.preventDefault();
-        
-          fetch("/logout", { method: "POST" })
-            .then(() => {
-              // 🔥 Lokale Daten löschen
-              localStorage.removeItem("nutzer.id");
-              localStorage.removeItem("nutzer.role");
-              localStorage.removeItem("token");
-              // ggf. alles löschen: localStorage.clear();
-        
-              location.reload();
-            })
-            .catch(() => alert("Abmelden fehlgeschlagen."));
-        });
-        
-      }
-    })
-    .catch(err => {
-      console.error("Fehler beim Abrufen des Login-Zustands:", err);
-    });
-});
+      document.getElementById("logout-link").addEventListener("click", (e) => {
+        e.preventDefault();
+
+        fetch("/logout", { method: "POST" })
+          .then(() => {
+            // 🔥 Lokale Daten löschen
+            localStorage.removeItem("nutzer.id");
+            localStorage.removeItem("nutzer.role");
+            localStorage.removeItem("token");
+            // oder: localStorage.clear();
+
+            location.reload();
+          })
+          .catch(() => alert("Abmelden fehlgeschlagen."));
+      });
+    }
+  })
+  .catch(err => {
+    console.error("Fehler beim Abrufen des Login-Zustands:", err);
+  });
+}); // ⬅️ ganz wichtig! Das ist das Ende von document.addEventListener("DOMContentLoaded", ...)
 
   
 

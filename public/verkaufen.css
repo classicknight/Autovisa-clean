@@ -344,3 +344,21 @@
     gap: 10px;
     margin-bottom: 8px;
   }
+
+
+
+
+
+
+
+
+
+
+
+
+  .verkaufen-option.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+    cursor: not-allowed;
+  }
+  

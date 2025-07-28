@@ -550,17 +550,22 @@ app.post("/login", (req, res) => {
       .json({ success: true, role: user.role || "privat" });
   });
   
-  
   // === Login-Zustand prüfen (für Frontend) ===
-  app.get("/getNutzerInfo", (req, res) => {
-    try {
-      const nutzer = JSON.parse(req.cookies.nutzer || null);
-      if (!nutzer?.id) return res.json({ eingeloggt: false });
-      res.json({ eingeloggt: true, nutzer });
-    } catch {
-      res.json({ eingeloggt: false });
-    }
-  });
+app.get("/getNutzerInfo", (req, res) => {
+  try {
+    const nutzer = JSON.parse(req.cookies.nutzer || null);
+    if (!nutzer?.id) return res.json({ eingeloggt: false });
+
+    res.json({
+      eingeloggt: true,
+      nutzerId: nutzer.id,
+      rolle: nutzer.rolle // z. B. "privat" oder "haendler"
+    });
+  } catch {
+    res.json({ eingeloggt: false });
+  }
+});
+
   
 
 
