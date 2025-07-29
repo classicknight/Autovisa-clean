@@ -549,11 +549,10 @@ app.post("/login", (req, res) => {
       })
       .json({ success: true, role: user.role || "privat" });
   });
-  
   // === Login-Zustand prüfen (für Frontend) ===
 app.get("/getNutzerInfo", (req, res) => {
   try {
-    const nutzer = JSON.parse(req.cookies.nutzer || null);
+    const nutzer = req.cookies.nutzer ? JSON.parse(req.cookies.nutzer) : null;
     if (!nutzer?.id) return res.json({ eingeloggt: false });
 
     res.json({
