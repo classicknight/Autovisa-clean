@@ -45,14 +45,24 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
         localStorage.setItem("userId", data.id || "");
         localStorage.setItem("username", data.name || "");
   
-        // Zielseite aus redirectAfterLogin lesen (falls vorhanden)
         const redirectPage = localStorage.getItem("redirectAfterLogin");
+
         if (redirectPage) {
           localStorage.removeItem("redirectAfterLogin");
-          window.location.href = redirectPage;
+        
+          // Schutz: Nur weiterleiten, wenn die Seite zur Rolle passt
+          const role = data.role || "privat";
+          if (role === "haendler" && redirectPage.includes("privat")) {
+            window.location.href = "index.html";
+          } else if (role === "privat" && redirectPage.includes("haendler")) {
+            window.location.href = "index.html";
+          } else {
+            window.location.href = redirectPage;
+          }
         } else {
           window.location.href = "index.html";
         }
+        
   
       } else {
         alert("❌ " + (data.error || "Login fehlgeschlagen"));
