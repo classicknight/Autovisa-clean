@@ -13,7 +13,8 @@ const imagesDir = path.join(uploadsBaseDir, 'images');
 const videosDir = path.join(uploadsBaseDir, 'videos');
 const vehiclesPath = path.join(__dirname, 'vehicles.json');
 const meineInseratePath = path.join(__dirname, 'meineInserate.json');
-const nutzerPath = path.join(__dirname, 'data', 'nutzer.json');
+const nutzerPath = path.join(__dirname, 'nutzer.json');
+
 
 
 
