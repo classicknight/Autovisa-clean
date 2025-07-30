@@ -13,7 +13,8 @@ const imagesDir = path.join(uploadsBaseDir, 'images');
 const videosDir = path.join(uploadsBaseDir, 'videos');
 const vehiclesPath = path.join(__dirname, 'vehicles.json');
 const meineInseratePath = path.join(__dirname, 'meineInserate.json');
-const nutzerPath = path.join(__dirname, 'nutzer.json');
+const nutzerPath = path.join(__dirname, 'data', 'nutzer.json');
+
 
 
 
@@ -549,24 +550,27 @@ app.post("/login", (req, res) => {
       })
       .json({ success: true, role: user.role || "privat" });
   });
-  // === Login-Zustand prüfen (für Frontend) ===
+  // === Login-Zustand prüfen anhand userId aus localStorage ===
 app.get("/getNutzerInfo", (req, res) => {
-  try {
-    const nutzer = req.cookies.nutzer ? JSON.parse(req.cookies.nutzer) : null;
-    if (!nutzer?.id) return res.json({ eingeloggt: false });
+  const { id } = req.query;
+  if (!id) return res.status(400).json({ error: "Keine ID übergeben." });
 
-    res.json({
-      eingeloggt: true,
-      nutzerId: nutzer.id,
-      rolle: nutzer.role
-// z. B. "privat" oder "haendler"
-    });
-  } catch {
-    res.json({ eingeloggt: false });
+  let nutzer = [];
+  if (fs.existsSync(nutzerPath)) {
+    nutzer = JSON.parse(fs.readFileSync(nutzerPath));
   }
+
+  const user = nutzer.find(n => n.id === id);
+  if (!user) return res.status(404).json({ error: "Nutzer nicht gefunden." });
+
+  res.json({
+    eingeloggt: true,
+    nutzerId: user.id,
+    rolle: user.role,
+    name: user.name || user.firma || "Unbekannt"
+  });
 });
 
-  
 
 
   app.post("/haendler-registrieren", async (req, res) => {

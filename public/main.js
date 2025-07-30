@@ -905,9 +905,16 @@ function initMediaSlider(container) {
 
 
 
-// === 1. Login-Status beim Laden synchronisieren ===
 document.addEventListener("DOMContentLoaded", () => {
-  fetch("/getNutzerInfo", { credentials: "include" })
+  const userId = localStorage.getItem("userId");
+
+  if (!userId) {
+    localStorage.removeItem("isLoggedIn");
+    localStorage.removeItem("userRole");
+    return;
+  }
+
+  fetch(`/getNutzerInfo?id=${userId}`)
     .then(res => res.json())
     .then(data => {
       if (data.eingeloggt) {
@@ -922,8 +929,12 @@ document.addEventListener("DOMContentLoaded", () => {
     })
     .catch(err => {
       console.error("Fehler beim Login-Check:", err);
+      localStorage.removeItem("isLoggedIn");
+      localStorage.removeItem("userRole");
+      localStorage.removeItem("userId");
     });
 });
+
 
 // === 2. Fahrzeugverkauf: Weiterleitung je nach Login-Status und Rolle ===
 function handleVerkaufenClick() {
