@@ -905,108 +905,96 @@ function initMediaSlider(container) {
 
 
 
-
-
-
-
-function handleVerkaufenClick() {
-    const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
-    const role = localStorage.getItem("userRole");
-  
-    if (!isLoggedIn) {
-      // Weiterleitung zur Login-Seite
-      window.location.href = "login.html";
-    } else if (role === "haendler") {
-      window.location.href = "haendler.html";
-    } else {
-      window.location.href = "privat.html";
-    }
-  }
-
-
-
-
-
-  function logout() {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("userRole");
-    window.location.href = "index.html";
-  }
-
-
-
-
-
-
-
-
-  document.addEventListener("DOMContentLoaded", () => {
-    const path = window.location.pathname;
-  
-    const istNurAufIndex = path === "/" || path.endsWith("/index.html");
-  
-    if (istNurAufIndex) {
-      sessionStorage.removeItem("inseratGestartet");
-      sessionStorage.removeItem("hatGespeichert");
-    }
-  });
-  
-
-
-
-
-
-
-  document.addEventListener("DOMContentLoaded", () => {
-    const checkAndRedirect = (e) => {
-      e.preventDefault();
-      const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
-      if (isLoggedIn) {
-        window.location.href = "übersicht.html";
+// === 1. Login-Status beim Laden synchronisieren ===
+document.addEventListener("DOMContentLoaded", () => {
+  fetch("/getNutzerInfo", { credentials: "include" })
+    .then(res => res.json())
+    .then(data => {
+      if (data.eingeloggt) {
+        localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("userRole", data.rolle || "privat");
+        localStorage.setItem("userId", data.nutzerId || "");
       } else {
-        localStorage.setItem("redirectAfterLogin", "übersicht.html");
-        window.location.href = "login.html";
+        localStorage.removeItem("isLoggedIn");
+        localStorage.removeItem("userRole");
+        localStorage.removeItem("userId");
       }
-    };
-  
-    const savedCars = document.getElementById("saved-cars-link");
-    const myCars = document.getElementById("my-cars-link");
-    const nachrichten = document.querySelector('a[href="nachrichten.html"]');
-  
-    savedCars?.addEventListener("click", checkAndRedirect);
-    myCars?.addEventListener("click", checkAndRedirect);
-    nachrichten?.addEventListener("click", checkAndRedirect);
-  });
-  
+    })
+    .catch(err => {
+      console.error("Fehler beim Login-Check:", err);
+    });
+});
 
+// === 2. Fahrzeugverkauf: Weiterleitung je nach Login-Status und Rolle ===
+function handleVerkaufenClick() {
+  const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
+  const role = localStorage.getItem("userRole");
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-  function checkPassword() {
-    const input = document.getElementById("password-input").value;
-    const overlay = document.getElementById("password-overlay");
-    const wrong = document.getElementById("wrong-password");
-
-    if (input === "Peter211") { // Passwort hier festlegen
-      overlay.style.display = "none";
-    } else {
-      wrong.style.display = "block";
-    }
+  if (!isLoggedIn) {
+    window.location.href = "login.html";
+  } else if (role === "haendler") {
+    window.location.href = "haendler.html";
+  } else {
+    window.location.href = "privat.html";
   }
+}
+
+// === 3. Logout: Cookies + localStorage leeren
+function logout() {
+  fetch("/logout", { method: "POST", credentials: "include" })
+    .then(() => {
+      localStorage.clear();
+      window.location.href = "index.html";
+    })
+    .catch(() => {
+      localStorage.clear();
+      window.location.href = "index.html";
+    });
+}
+
+// === 4. Nur auf Startseite: sessionStorage zurücksetzen
+document.addEventListener("DOMContentLoaded", () => {
+  const path = window.location.pathname;
+  const istNurAufIndex = path === "/" || path.endsWith("/index.html");
+
+  if (istNurAufIndex) {
+    sessionStorage.removeItem("inseratGestartet");
+    sessionStorage.removeItem("hatGespeichert");
+  }
+});
+
+// === 5. Buttons wie "Meine Autos", "Gespeicherte Autos", "Nachrichten" prüfen Login
+document.addEventListener("DOMContentLoaded", () => {
+  const checkAndRedirect = (e) => {
+    e.preventDefault();
+    const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
+    if (isLoggedIn) {
+      window.location.href = "übersicht.html";
+    } else {
+      localStorage.setItem("redirectAfterLogin", "übersicht.html");
+      window.location.href = "login.html";
+    }
+  };
+
+  const savedCars = document.getElementById("saved-cars-link");
+  const myCars = document.getElementById("my-cars-link");
+  const nachrichten = document.querySelector('a[href="nachrichten.html"]');
+
+  savedCars?.addEventListener("click", checkAndRedirect);
+  myCars?.addEventListener("click", checkAndRedirect);
+  nachrichten?.addEventListener("click", checkAndRedirect);
+});
+
+// === 6. Passwortschutz-Funktion (z. B. für Adminbereiche)
+function checkPassword() {
+  const input = document.getElementById("password-input").value;
+  const overlay = document.getElementById("password-overlay");
+  const wrong = document.getElementById("wrong-password");
+
+  if (input === "Peter211") {
+    overlay.style.display = "none";
+  } else {
+    wrong.style.display = "block";
+  }
+}
 

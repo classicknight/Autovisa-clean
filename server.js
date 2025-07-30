@@ -558,7 +558,8 @@ app.get("/getNutzerInfo", (req, res) => {
     res.json({
       eingeloggt: true,
       nutzerId: nutzer.id,
-      rolle: nutzer.rolle // z. B. "privat" oder "haendler"
+      rolle: nutzer.role
+// z. B. "privat" oder "haendler"
     });
   } catch {
     res.json({ eingeloggt: false });
