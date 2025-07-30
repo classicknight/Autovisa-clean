@@ -1,37 +1,3 @@
 [
-  {
-    "id": "1753534467947",
-    "marke": "Holden",
-    "titel": "Holden Andere",
-    "modell": "Andere",
-    "preis": "",
-    "verkauf_ez_monat": "05",
-    "verkauf_ez_jahr": "2020",
-    "erstzulassung": "2020-05",
-    "verkauf_kilometer": "5000",
-    "verkauf_leistung": "190",
-    "hubraum": "",
-    "verkauf_preis": "",
-    "verkauf_brutto": "",
-    "verkauf_netto": "",
-    "verkauf_mwst": "Keine MwSt.",
-    "verkauf_modell": "Holden Andere",
-    "verkauf_verkaeufer": "Händler",
-    "verkauf_erstzulassung": "05/2020",
-    "brutto-preis": "",
-    "netto-preis": "",
-    "verkauf_antrieb": "",
-    "verkauf_hubraum": "",
-    "verkauf_fahrzeugtyp": "",
-    "verkauf_tueren": "",
-    "verkauf_partikelfilter": "",
-    "verkauf_verbrauch_kombiniert": "",
-    "verkauf_co2_emission": "",
-    "verkauf_verbrauch_innerorts": "",
-    "verkauf_verbrauch_ausserorts": "",
-    "verkauf_schadstoffklasse": "",
-    "verkauf_umweltplakette": "",
-    "images": [],
-    "video": null
-  }
+ 
 ]
