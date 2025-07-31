@@ -1,10 +1,3 @@
 [
-  {
-    "id": "1753951654266",
-    "name": "Testuser",
-    "email": "test@example.com",
-    "password": "1234",
-    "verified": true,
-    "role": "privat"
-  }
+  
 ]
