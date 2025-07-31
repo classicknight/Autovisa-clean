@@ -549,7 +549,13 @@ app.post("/login", (req, res) => {
         sameSite: "Lax",           // ✅ CSRF-Schutz bei Bedarf (optional)
         maxAge: 1000 * 60 * 60 * 24 // 1 Tag gültig
       })
-      .json({ success: true, role: user.role || "privat" });
+      .json({ 
+        success: true, 
+        role: user.role || "privat", 
+        id: user.id, 
+        name: user.name || user.firma || "Unbekannt" 
+      });
+      
   });
   // === Login-Zustand prüfen anhand userId aus localStorage ===
 app.get("/getNutzerInfo", (req, res) => {
