@@ -122,45 +122,43 @@ if (messagesLink) {
       filters.classList.toggle('show');
       advancedBtn.textContent = filters.classList.contains('show') ? 'Filter schließen' : 'Weitere Filter';
     });
-  }
+  }// Diese Zeile darf es in der Datei nur EINMAL geben!
+document.addEventListener("DOMContentLoaded", () => {
+  const authLink = document.getElementById("auth-link");
 
-// === Login-Status prüfen und "Login/Registrierung" durch "Abmelden" ersetzen ===
-fetch("/getNutzerInfo")
-  .then(res => res.json())
-  .then(data => {
-    const authLink = document.getElementById("auth-link");
-    if (!authLink) return;
+  if (!authLink) return;
 
-    if (data.eingeloggt) {
-      // Wenn eingeloggt, Link ersetzen durch Logout
-      authLink.innerHTML = `
-        <a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>
-      `;
-
-      document.getElementById("logout-link").addEventListener("click", (e) => {
-        e.preventDefault();
-
-        fetch("/logout", { method: "POST" })
-          .then(() => {
-            // 🔥 Lokale Daten löschen
-            localStorage.removeItem("nutzer.id");
-            localStorage.removeItem("nutzer.role");
-            localStorage.removeItem("token");
-            // oder: localStorage.clear();
-
-            location.reload();
-          })
-          .catch(() => alert("Abmelden fehlgeschlagen."));
-      });
-    }
+  fetch("/getNutzerInfo", {
+    credentials: "include" // ⬅️ wichtig, um Cookies mitzuschicken
   })
-  .catch(err => {
-    console.error("Fehler beim Abrufen des Login-Zustands:", err);
+    .then(res => res.json())
+    .then(data => {
+      if (data.eingeloggt) {
+        authLink.innerHTML = `
+          <a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>
+        `;
+
+        document.getElementById("logout-link").addEventListener("click", (e) => {
+          e.preventDefault();
+
+          fetch("/logout", {
+            method: "POST",
+            credentials: "include"
+          })
+            .then(() => {
+              localStorage.clear(); // lokale Daten löschen
+              location.reload();
+            })
+            .catch(() => alert("Abmelden fehlgeschlagen."));
+        });
+      }
+    })
+    .catch(err => {
+      console.error("Fehler beim Abrufen des Login-Zustands:", err);
+    });
   });
-}); // ⬅️ ganz wichtig! Das ist das Ende von document.addEventListener("DOMContentLoaded", ...)
 
-  
-
+});
 
 
 
