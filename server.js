@@ -13,7 +13,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // === MongoDB Konfiguration ===
-const mongoUri = "mongodb+srv://autovisa0607:Udh0bajDV7jlv15Z@cluster0.dnrajni.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri);
 let db;
 
