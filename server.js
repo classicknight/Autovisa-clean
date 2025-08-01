@@ -12,6 +12,10 @@ const { MongoClient, ObjectId } = require('mongodb');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const bcrypt = require("bcryptjs");
+const hashed = await bcrypt.hash(password, 10);
+// und dann speichern: password: hashed
+
 // === MongoDB Konfiguration ===
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri);
