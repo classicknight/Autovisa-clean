@@ -13,7 +13,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const bcrypt = require("bcryptjs");
-const hashed = await bcrypt.hash(password, 10);
+
 // und dann speichern: password: hashed
 
 // === MongoDB Konfiguration ===
