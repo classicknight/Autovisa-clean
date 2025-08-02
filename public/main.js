@@ -30,13 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
       
       // Aktuelles Dropdown toggeln
       menu.classList.toggle("show");
-      
-      // ARIA-Zustand aktualisieren
       link.setAttribute("aria-expanded", menu.classList.contains("show"));
-      
-      // Optional: ersten Eintrag im Menü fokussieren (Zukunfts-Feature)
-      // const firstItem = menu.querySelector("a");
-      // firstItem?.focus();
     });
   });
   
@@ -64,45 +58,48 @@ document.addEventListener("DOMContentLoaded", () => {
       link.setAttribute("aria-expanded", "false");
     });
   }
-  
-  const isLoggedIn = false; // später dynamisch setzen (z.B. per Cookie oder localStorage)
 
   const savedCarsLink = document.getElementById("saved-cars-link");
   const myCarsLink = document.getElementById("my-cars-link");
   const soldCarsLink = document.getElementById("sold-cars-link");
-  
+  const messagesLink = document.getElementById("messages-link");
+
+  function checkLoginAndRedirect(targetUrl) {
+    fetch("/getNutzerInfo", { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        window.location.href = data.eingeloggt ? targetUrl : "login.html";
+      });
+  }
+
   if (savedCarsLink) {
     savedCarsLink.addEventListener("click", (e) => {
       e.preventDefault();
-      window.location.href = isLoggedIn ? "übersicht.html#saved" : "login.html";
+      checkLoginAndRedirect("übersicht.html#saved");
     });
   }
-  
+
   if (myCarsLink) {
     myCarsLink.addEventListener("click", (e) => {
       e.preventDefault();
-      window.location.href = isLoggedIn ? "übersicht.html#my-cars" : "login.html";
+      checkLoginAndRedirect("übersicht.html#my-cars");
     });
   }
-  
+
   if (soldCarsLink) {
     soldCarsLink.addEventListener("click", (e) => {
       e.preventDefault();
-      window.location.href = isLoggedIn ? "übersicht.html#sold" : "login.html";
+      checkLoginAndRedirect("übersicht.html#sold");
     });
   }
-  
 
-  const messagesLink = document.getElementById("messages-link");
+  if (messagesLink) {
+    messagesLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      checkLoginAndRedirect("übersicht.html#chats");
+    });
+  }
 
-if (messagesLink) {
-  messagesLink.addEventListener("click", (e) => {
-    e.preventDefault();
-    window.location.href = isLoggedIn ? "übersicht.html#chats" : "login.html";
-  });
-}
-
-  
   // Smooth Scroll zu #search-section
   const searchLink = document.querySelector('a[href="#search-section"]');
   if (searchLink) {
@@ -111,7 +108,7 @@ if (messagesLink) {
       document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
     });
   }
-  
+
   // Erweiterte Filter ein-/ausklappen
   const form = document.querySelector('.search-form');
   const advancedBtn = form?.querySelector('.btn-advanced');
@@ -122,43 +119,37 @@ if (messagesLink) {
       filters.classList.toggle('show');
       advancedBtn.textContent = filters.classList.contains('show') ? 'Filter schließen' : 'Weitere Filter';
     });
-  }// Diese Zeile darf es in der Datei nur EINMAL geben!
-document.addEventListener("DOMContentLoaded", () => {
+  }
+
+  // Login-Status prüfen & Navbar Link ersetzen
   const authLink = document.getElementById("auth-link");
+  if (authLink) {
+    fetch("/getNutzerInfo", { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        if (data.eingeloggt) {
+          authLink.innerHTML = `
+            <a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>
+          `;
 
-  if (!authLink) return;
-
-  fetch("/getNutzerInfo", {
-    credentials: "include" // ⬅️ wichtig, um Cookies mitzuschicken
-  })
-    .then(res => res.json())
-    .then(data => {
-      if (data.eingeloggt) {
-        authLink.innerHTML = `
-          <a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>
-        `;
-
-        document.getElementById("logout-link").addEventListener("click", (e) => {
-          e.preventDefault();
-
-          fetch("/logout", {
-            method: "POST",
-            credentials: "include"
-          })
-            .then(() => {
-              localStorage.clear(); // lokale Daten löschen
-              location.reload();
-            })
-            .catch(() => alert("Abmelden fehlgeschlagen."));
-        });
-      }
-    })
-    .catch(err => {
-      console.error("Fehler beim Abrufen des Login-Zustands:", err);
-    });
-  });
+          document.getElementById("logout-link").addEventListener("click", (e) => {
+            e.preventDefault();
+            fetch("/logout", { method: "POST", credentials: "include" })
+              .then(() => {
+                localStorage.clear();
+                location.reload();
+              })
+              .catch(() => alert("Abmelden fehlgeschlagen."));
+          });
+        }
+      })
+      .catch(err => {
+        console.error("Fehler beim Abrufen des Login-Zustands:", err);
+      });
+  }
 
 });
+
 
 
 
