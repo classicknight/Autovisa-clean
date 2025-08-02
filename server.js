@@ -370,7 +370,7 @@ app.get("/verify", async (req, res) => {
   if (!token) return res.send("❌ Ungültiger Link.");
 
   try {
-    const nutzerColl = db.collection("Nutzer");
+    const nutzerColl = db.collection("nutzer");
 
     const user = await nutzerColl.findOne({ token });
     if (!user) return res.send("❌ Token ungültig oder bereits bestätigt.");
