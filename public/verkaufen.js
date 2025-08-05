@@ -33,7 +33,39 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // === Login-Zustand & Navigation ===
+  // === Navbar Login/Logout (LocalStorage & Fetch Fallback) ===
+  const authLink = document.getElementById("auth-link");
+
+  function handleLogout(e) {
+    e.preventDefault();
+    fetch("/logout", { method: "POST", credentials: "include" })
+      .then(() => {
+        localStorage.clear();
+        location.reload();
+      })
+      .catch(() => alert("Abmelden fehlgeschlagen."));
+  }
+
+  function setLoggedInNavbar() {
+    authLink.innerHTML = `<a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>`;
+    document.getElementById("logout-link").addEventListener("click", handleLogout);
+  }
+
+  const isLoggedInLocal = localStorage.getItem("isLoggedIn") === "true";
+  if (isLoggedInLocal) {
+    setLoggedInNavbar();
+  } else {
+    fetch("/getNutzerInfo", { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        if (data.eingeloggt) setLoggedInNavbar();
+      })
+      .catch(err => {
+        console.error("Fehler beim Abrufen des Login-Zustands:", err);
+      });
+  }
+
+  // === Login-Zustand & Navigation für verkaufen.html ===
   fetch("/getNutzerInfo", {
     method: "GET",
     credentials: "include"
@@ -59,16 +91,15 @@ document.addEventListener("DOMContentLoaded", () => {
       privatLink?.addEventListener("click", (e) => {
         e.preventDefault();
         if (!isLoggedIn || rolle !== "privat") return;
-        handleNavigation("privat.html");
+        window.location.href = "privat.html";
       });
 
       haendlerLink?.addEventListener("click", (e) => {
         e.preventDefault();
         if (!isLoggedIn || rolle !== "haendler") return;
-        handleNavigation("haendler.html");
+        window.location.href = "haendler.html";
       });
 
-      // Weitere Navigation oben
       const savedCarsLink = document.getElementById("saved-cars-link");
       const myCarsLink = document.getElementById("my-cars-link");
 
@@ -85,12 +116,6 @@ document.addEventListener("DOMContentLoaded", () => {
     .catch(err => {
       console.error("❌ Fehler beim Login-Check:", err);
     });
-
-  function handleNavigation(targetPage) {
-    console.log("➡️ Weiterleitung zu:", targetPage);
-    localStorage.setItem("redirectAfterLogin", targetPage);
-    window.location.href = "login.html";
-  }
 
   // === Smooth scroll
   const searchLink = document.querySelector('a[href="#search-section"]');
