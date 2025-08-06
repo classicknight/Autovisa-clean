@@ -58,9 +58,15 @@ document.addEventListener("DOMContentLoaded", () => {
     fetch("/getNutzerInfo", { credentials: "include" })
       .then(res => res.json())
       .then(data => {
-        window.location.href = data.eingeloggt ? targetUrl : "login.html";
+        if (data.eingeloggt) {
+          window.location.href = targetUrl;
+        } else {
+          localStorage.setItem("redirectAfterLogin", window.location.pathname + window.location.hash);
+          window.location.href = "login.html";
+        }
       });
   }
+  
 
   if (savedCarsLink) savedCarsLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#saved"); });
   if (myCarsLink) myCarsLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#my-cars"); });
