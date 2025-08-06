@@ -10,6 +10,19 @@ document.addEventListener("DOMContentLoaded", () => {
     closeAllDropdowns();
   });
 
+
+  fetch("/getNutzerInfo", { credentials: "include" })
+  .then(res => res.json())
+  .then(data => {
+    if (!data.eingeloggt) {
+      localStorage.setItem("redirectAfterLogin", "verkaufen.html");
+      window.location.href = "login.html";
+    }
+  })
+  .catch(err => {
+    console.error("❌ Fehler beim Login-Check:", err);
+  });
+
   dropdownLinks.forEach(link => {
     const menu = link.nextElementSibling;
     link.addEventListener("click", (e) => {
@@ -87,18 +100,18 @@ document.addEventListener("DOMContentLoaded", () => {
           privatLink.title = "Als Händler nicht verfügbar";
         }
       }
-
       privatLink?.addEventListener("click", (e) => {
         e.preventDefault();
-        if (!isLoggedIn || rolle !== "privat") return;
+        if (rolle !== "privat") return alert("❌ Dieser Bereich ist nur für Privatverkäufer zugänglich.");
         window.location.href = "privat.html";
       });
-
+      
       haendlerLink?.addEventListener("click", (e) => {
         e.preventDefault();
-        if (!isLoggedIn || rolle !== "haendler") return;
+        if (rolle !== "haendler") return alert("❌ Dieser Bereich ist nur für Händler zugänglich.");
         window.location.href = "haendler.html";
       });
+      
 
       const savedCarsLink = document.getElementById("saved-cars-link");
       const myCarsLink = document.getElementById("my-cars-link");
