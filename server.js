@@ -417,6 +417,14 @@ app.post("/login", async (req, res) => {
       sameSite: "Lax",
       maxAge: 1000 * 60 * 60 * 24
     });
+    
+    // === ➡️ Das hier NEU hinzufügen
+    res.cookie("isLoggedIn", "true", {
+      httpOnly: false,
+      sameSite: "Lax",
+      maxAge: 1000 * 60 * 60 * 24
+    });
+    
 
     res.json({
       success: true,
