@@ -439,18 +439,18 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// === Nutzerinfo anhand ID abrufen ===
 app.get("/getNutzerInfo", async (req, res) => {
-  const { id } = req.query;
-  if (!id) return res.status(400).json({ error: "❌ Keine ID übergeben." });
-
   try {
-    const nutzerColl = db.collection("nutzer");
-    const user = await nutzerColl.findOne({ id });
+    const cookie = req.cookies.nutzer;
+    if (!cookie) return res.json({ eingeloggt: false });
 
-    if (!user) {
-      return res.status(404).json({ error: "❌ Nutzer nicht gefunden." });
-    }
+    const nutzer = JSON.parse(cookie);
+    if (!nutzer?.id) return res.json({ eingeloggt: false });
+
+    const nutzerColl = db.collection("nutzer");
+    const user = await nutzerColl.findOne({ id: nutzer.id });
+
+    if (!user) return res.json({ eingeloggt: false });
 
     res.json({
       eingeloggt: true,
@@ -458,12 +458,12 @@ app.get("/getNutzerInfo", async (req, res) => {
       rolle: user.role,
       name: user.name || user.firma || "Unbekannt"
     });
-
   } catch (err) {
     console.error("❌ Fehler bei getNutzerInfo:", err);
-    res.status(500).json({ error: "❌ Interner Serverfehler." });
+    res.status(500).json({ error: "Interner Serverfehler." });
   }
 });
+
 
 // === Händlerregistrierung mit MongoDB ===
 app.post("/haendler-registrieren", async (req, res) => {
