@@ -553,7 +553,7 @@ app.post("/haendler-registrieren", async (req, res) => {
 
 // === Händler-Formular anzeigen ===
 app.get("/haendler-registrieren", (req, res) => {
-  res.sendFile(path.join(__dirname, "Händlerformular.html"));
+  res.sendFile(path.join(__dirname, "händlerformular.html"));
 });
 
 // === Nachricht senden ===
