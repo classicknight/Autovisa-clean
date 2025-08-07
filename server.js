@@ -79,6 +79,34 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 50 MB
 });
 
+
+app.post("/saveFahrzeugdaten", async (req, res) => {
+  try {
+    const cookie = req.cookies.nutzer;
+    if (!cookie) return res.status(401).json({ error: "Nicht eingeloggt." });
+
+    const nutzer = JSON.parse(cookie);
+    if (!nutzer?.id) return res.status(401).json({ error: "Ungültiger Login." });
+
+    const daten = req.body;
+
+    const collection = db.collection("fahrzeugeEntwurf");
+
+    // Neues Fahrzeug für den Nutzer erstellen
+    const ergebnis = await collection.insertOne({
+      ...daten,
+      nutzerId: nutzer.id,
+      erstelltAm: new Date()
+    });
+
+    res.json({ success: true, fahrzeugId: ergebnis.insertedId });
+
+  } catch (err) {
+    console.error("❌ Fehler bei /saveFahrzeugdaten:", err);
+    res.status(500).json({ error: "Serverfehler beim Speichern." });
+  }
+});
+
 // === 🧾 Schritt 2: Fahrzeugdetails speichern ===
 app.post('/saveDetails', async (req, res) => {
   try {
