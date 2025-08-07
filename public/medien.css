@@ -192,3 +192,33 @@ body {
   .preview-thumb:hover {
     transform: scale(1.02);
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+  #upload-loader {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(30, 30, 30, 0.9);
+    color: #fff;
+    padding: 1rem 2rem;
+    border-radius: 10px;
+    font-size: 1.2rem;
+    z-index: 9999;
+  }
+  
+  .hidden {
+    display: none;
+  }
+  

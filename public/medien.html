@@ -16,7 +16,8 @@
 </div>
 
 <main class="upload-main">
-    <form id="mediaForm" method="POST" enctype="multipart/form-data">
+  <form id="mediaForm">
+
   
       <!-- 📷 Bilder Upload -->
       <section class="upload-area">
@@ -56,14 +57,20 @@
         </button>
       </div>
   
-      <!-- 💾 Speichern-Button -->
-      <div class="save-btn-container" style="justify-content: flex-end;">
-        <button class="save-btn" id="saveMedia" type="button">
-          <i class="fas fa-save"></i> Speichern
-        </button>
-      </div>
-  
-    </form>
+   <!-- 💾 Speichern-Button -->
+<div class="save-btn-container" style="justify-content: flex-end;">
+  <button class="save-btn" id="saveMedia" type="button">
+    <i class="fas fa-save"></i> Speichern
+  </button>
+</div>
+
+</form> <!-- ⛔ schließt das Formular -->
+
+<!-- ⬇️ Richtig positioniert -->
+<div id="upload-loader" class="hidden">🔄 Hochladen läuft...</div>
+
+
+
   </main>
   
   <!-- JS -->

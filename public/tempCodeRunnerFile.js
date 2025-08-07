@@ -144,13 +144,13 @@ window.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      const gespeicherteRolle = sessionStorage.getItem("verkaeuferTyp");
-      if (gespeicherteRolle && data.rolle !== gespeicherteRolle) {
-        const fallback = data.rolle === "haendler" ? "haendler.html" : "privat.html";
+      // ✅ Optional: zusätzliche Prüfung, ob die Rolle zur Seite passt
+      const erwarteteRolle = sessionStorage.getItem("verkaeuferTyp") || "privat";
+      if (data.rolle !== erwarteteRolle) {
+        const fallback = erwarteteRolle === "haendler" ? "haendler.html" : "privat.html";
         window.location.href = fallback;
         return;
       }
-      
 
       // ✅ Upload-Funktion erst aufrufen, wenn Nutzer gültig ist
       setupUpload('image-upload-box', 'image-input', 'image-preview', false, 20);
@@ -208,63 +208,53 @@ document.addEventListener("DOMContentLoaded", async () => {
   } catch (error) {
     console.error("Fehler beim Laden der gespeicherten Medien:", error);
   }
-  document.getElementById('saveMedia').addEventListener('click', async () => {
-    const button = document.getElementById('saveMedia');
-    const loader = document.getElementById('upload-loader'); // <div id="upload-loader">🔄 Hochladen läuft...</div>
-  
+
+  document.getElementById('saveMedia').addEventListener('click', () => {
     console.log("🔘 Speichern-Button wurde geklickt");
-    button.disabled = true;
-    if (loader) loader.classList.remove("hidden");
-  
+
     const videoPreview = document.getElementById('video-preview');
     const videoCount = videoPreview.querySelectorAll('video').length;
-  
+
     if (videoCount === 0 && globalVideoFiles.length === 0) {
       alert('Bitte lade mindestens ein Video hoch.');
-      button.disabled = false;
-      if (loader) loader.classList.add("hidden");
       return;
     }
-  
+
     const formData = new FormData();
-  
-    // ✅ Nur neue Dateien senden (keine bereits auf dem Server)
+
+    // ✅ Nur neue Dateien senden, nicht die mit serverPath
     globalImageFiles.forEach(file => {
       if (!file.serverPath) formData.append("images", file);
     });
-  
+
     globalVideoFiles.forEach(file => {
       if (!file.serverPath) formData.append("video", file);
     });
-  
-    // 📦 Upload-Größe anzeigen (nur zur Info)
-    const totalSize = [...formData].reduce((sum, [_, file]) => sum + file.size, 0);
-    console.log("📦 Gesamtgröße der Dateien:", (totalSize / 1024 / 1024).toFixed(2), "MB");
-  
-    try {
-      const res = await fetch("/saveMedia", {
+
+    console.log("📤 Sende Daten an /saveMedia ...");
+
+    fetch("/saveMedia", {
         method: "POST",
         body: formData
-      });
-  
-      const text = await res.text();
-      console.log("📥 Antwort von Server:", text);
-  
-      if (res.ok) {
-        console.log("✅ Upload erfolgreich, weiter zur nächsten Seite");
-        const userRole = localStorage.getItem("userRole");
-        const ziel = userRole === "haendler" ? "haendler.html" : "privat.html";
-        window.location.href = ziel;
-      } else {
-        console.error("❌ Fehler beim Speichern:", text);
-        alert("Beim Speichern ist ein Fehler aufgetreten.");
-      }
-    } catch (err) {
-      console.error("❌ Netzwerkfehler beim Hochladen:", err);
-      alert("Netzwerkfehler beim Hochladen.");
-    } finally {
-      button.disabled = false;
-      if (loader) loader.classList.add("hidden");
-    }
+      })
+        .then(async (res) => {
+          const text = await res.text();
+          console.log("📥 Antwort von Server:", text);
+      
+          if (res.ok) {
+            console.log("✅ Upload erfolgreich, weiter zur nächsten Seite");
+            const userRole = localStorage.getItem("userRole");
+            const ziel = userRole === "haendler" ? "haendler.html" : "privat.html";
+            window.location.href = ziel;
+          } else {
+            console.error("❌ Fehler beim Speichern:", text);
+            alert("Beim Speichern ist ein Fehler aufgetreten.");
+          }
+        })
+        .catch((err) => {
+          console.error("❌ Netzwerkfehler beim Hochladen:", err);
+          alert("Netzwerkfehler beim Hochladen.");
+        });
+      
   });
 });
