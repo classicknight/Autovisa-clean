@@ -433,3 +433,24 @@
       display: none;
     }
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+  .navbar-user-display {
+    color: #fff;
+    cursor: default;
+    opacity: 0.8;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+  }
+  
