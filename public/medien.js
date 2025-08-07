@@ -133,28 +133,35 @@ function setupUpload(boxId, inputId, previewId, isVideo = false, maxFiles = 20) 
   }
 }
 
-
 // 🧠 Setup bei DOM-Start
 window.addEventListener('DOMContentLoaded', () => {
-    fetch("/getNutzerInfo")
-      .then(res => res.json())
-      .then(data => {
-        if (!data.eingeloggt || !data.nutzer) {
-          const ziel = sessionStorage.getItem("verkaeuferTyp") === "haendler" ? "haendler.html" : "privat.html";
-          window.location.href = ziel;
-          return;
-        }
-  
-        // ✅ Upload-Funktion erst aufrufen, wenn Nutzer gültig ist
-        setupUpload('image-upload-box', 'image-input', 'image-preview', false, 20);
-        setupUpload('video-upload-box', 'video-input', 'video-preview', true, 1);
-      })
-      .catch((err) => {
-        console.error("Fehler beim Abrufen der Nutzerinfo:", err);
-        window.location.href = "index.html";
-      });
-  });
-  
+  fetch("/getNutzerInfo")
+    .then(res => res.json())
+    .then(data => {
+      if (!data.eingeloggt) {
+        const ziel = sessionStorage.getItem("verkaeuferTyp") === "haendler" ? "haendler.html" : "privat.html";
+        window.location.href = ziel;
+        return;
+      }
+
+      // ✅ Optional: zusätzliche Prüfung, ob die Rolle zur Seite passt
+      const erwarteteRolle = sessionStorage.getItem("verkaeuferTyp") || "privat";
+      if (data.rolle !== erwarteteRolle) {
+        const fallback = erwarteteRolle === "haendler" ? "haendler.html" : "privat.html";
+        window.location.href = fallback;
+        return;
+      }
+
+      // ✅ Upload-Funktion erst aufrufen, wenn Nutzer gültig ist
+      setupUpload('image-upload-box', 'image-input', 'image-preview', false, 20);
+      setupUpload('video-upload-box', 'video-input', 'video-preview', true, 1);
+    })
+    .catch((err) => {
+      console.error("Fehler beim Abrufen der Nutzerinfo:", err);
+      window.location.href = "index.html";
+    });
+});
+
 
 document.addEventListener("DOMContentLoaded", async () => {
   try {

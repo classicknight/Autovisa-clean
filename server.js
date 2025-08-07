@@ -80,22 +80,16 @@ const upload = multer({
 });
 
 
-app.post("/saveFahrzeugdaten", async (req, res) => {
+
+// === Schritt 1: Fahrzeugdaten speichern ===
+app.post("/saveFahrzeugdaten", checkLogin, async (req, res) => {
   try {
-    const cookie = req.cookies.nutzer;
-    if (!cookie) return res.status(401).json({ error: "Nicht eingeloggt." });
-
-    const nutzer = JSON.parse(cookie);
-    if (!nutzer?.id) return res.status(401).json({ error: "Ungültiger Login." });
-
     const daten = req.body;
-
     const collection = db.collection("fahrzeugeEntwurf");
 
-    // Neues Fahrzeug für den Nutzer erstellen
     const ergebnis = await collection.insertOne({
       ...daten,
-      nutzerId: nutzer.id,
+      nutzerId: req.nutzer.id,
       erstelltAm: new Date()
     });
 
@@ -107,13 +101,16 @@ app.post("/saveFahrzeugdaten", async (req, res) => {
   }
 });
 
-// === 🧾 Schritt 2: Fahrzeugdetails speichern ===
-app.post('/saveDetails', async (req, res) => {
+// === Schritt 2: Fahrzeugdetails speichern ===
+app.post('/saveDetails', checkLogin, async (req, res) => {
   try {
     const details = req.body;
-
     const collection = db.collection("fahrzeugeEntwurf");
-    const letzter = await collection.findOne({}, { sort: { _id: -1 } });
+
+    const letzter = await collection.findOne(
+      { nutzerId: req.nutzer.id },
+      { sort: { _id: -1 } }
+    );
 
     if (!letzter) return res.status(400).json({ error: 'Kein Fahrzeug gefunden.' });
 
@@ -130,14 +127,13 @@ app.post('/saveDetails', async (req, res) => {
   }
 });
 
-// === 📷🎥 Schritt 3: Medien speichern ===
-app.post('/saveMedia', upload.fields([
+// === Schritt 3: Medien speichern ===
+app.post('/saveMedia', checkLogin, upload.fields([
   { name: 'images', maxCount: 20 },
   { name: 'video', maxCount: 1 }
 ]), async (req, res) => {
   try {
     const files = req.files;
-
     if (!files || (!files.images && !files.video)) {
       return res.status(400).json({ error: 'Keine Mediendateien hochgeladen.' });
     }
@@ -146,7 +142,10 @@ app.post('/saveMedia', upload.fields([
     const videoUrl = files.video?.[0]?.filename ? `/uploads/videos/${files.video[0].filename}` : null;
 
     const collection = db.collection("fahrzeugeEntwurf");
-    const letzter = await collection.findOne({}, { sort: { _id: -1 } });
+    const letzter = await collection.findOne(
+      { nutzerId: req.nutzer.id },
+      { sort: { _id: -1 } }
+    );
 
     if (!letzter) return res.status(400).json({ error: 'Kein Fahrzeug gefunden.' });
 
@@ -163,17 +162,18 @@ app.post('/saveMedia', upload.fields([
   }
 });
 
-// === 🔍 Vorschau für vorschau.html ===
-app.get('/getVehicleData', async (req, res) => {
+// === Vorschau: Nur Fahrzeuge dieses Nutzers laden ===
+app.get('/getVehicleData', checkLogin, async (req, res) => {
   try {
     const collection = db.collection("fahrzeugeEntwurf");
-    const data = await collection.find({}).toArray();
+    const data = await collection.find({ nutzerId: req.nutzer.id }).toArray();
     res.json(data);
   } catch (err) {
     console.error("❌ Fehler beim Laden der Fahrzeugdaten:", err);
     res.status(500).json({ error: 'Fehler beim Laden der Daten.' });
   }
 });
+
 
 // === ❌ Abbrechen-Logik ===
 app.post('/abbrechen', async (req, res) => {
