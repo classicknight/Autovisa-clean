@@ -450,3 +450,25 @@
   
   
   
+
+
+
+
+
+
+
+
+
+
+
+  .navbar-user-display {
+    display: block;
+    color: #bbb;
+    font-size: 15px;
+    padding: 12px 16px;
+    cursor: default;
+    opacity: 0.9;
+    background: transparent;
+    font-weight: 500;
+  }
+  
