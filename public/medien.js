@@ -144,13 +144,13 @@ window.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // ✅ Optional: zusätzliche Prüfung, ob die Rolle zur Seite passt
-      const erwarteteRolle = sessionStorage.getItem("verkaeuferTyp") || "privat";
-      if (data.rolle !== erwarteteRolle) {
-        const fallback = erwarteteRolle === "haendler" ? "haendler.html" : "privat.html";
+      const gespeicherteRolle = sessionStorage.getItem("verkaeuferTyp");
+      if (gespeicherteRolle && data.rolle !== gespeicherteRolle) {
+        const fallback = data.rolle === "haendler" ? "haendler.html" : "privat.html";
         window.location.href = fallback;
         return;
       }
+      
 
       // ✅ Upload-Funktion erst aufrufen, wenn Nutzer gültig ist
       setupUpload('image-upload-box', 'image-input', 'image-preview', false, 20);
