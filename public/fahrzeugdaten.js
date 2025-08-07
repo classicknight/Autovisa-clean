@@ -1,5 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
-    const isLoggedIn = localStorage.getItem("userLoggedIn") === "true";
+  const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
+
     if (!isLoggedIn) {
       localStorage.setItem("redirectAfterLogin", "fahrzeugdaten.html");
       window.location.href = "login.html";
@@ -262,3 +263,7 @@ fetch("/saveFahrzeugdaten", {
   
 
 
+
+
+
+ 
