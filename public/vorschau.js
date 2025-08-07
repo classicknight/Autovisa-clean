@@ -347,84 +347,87 @@ function updateNavbarTarif() {
     })
     .catch(err => console.warn("⚠️ Tarif konnte nicht geladen werden:", err));
 }document.addEventListener("DOMContentLoaded", () => {
-    fetch("/getNutzerInfo", { credentials: "include" })
-      .then(res => res.json())
-      .then(data => {
-        console.log("✅ Daten von /getNutzerInfo erhalten:", data);
-  
-        if (!data.eingeloggt || !data.nutzer) {
-          const ziel = sessionStorage.getItem("verkaeuferTyp") === "haendler" ? "haendler.html" : "privat.html";
-          console.warn("⛔ Nicht eingeloggt. Weiterleitung zu:", ziel);
-          window.location.href = ziel;
-          return;
-        }
-  
-        // 🟢 Nutzer-Infos speichern
-        localStorage.setItem("nutzerId", data.nutzer.id); // 🔑 hinzugefügt
-        localStorage.setItem("userRole", data.nutzer.role || "");
-  
-        // Restliche Setup-Logik mit try/catch:
-        try {
-          updateNavbarTarif();
-          console.log("✅ updateNavbarTarif erfolgreich");
-        } catch (e) {
-          console.error("❌ Fehler in updateNavbarTarif:", e);
-        }
-  
-        try {
-          setupLightboxSwipe();
-          console.log("✅ setupLightboxSwipe erfolgreich");
-        } catch (e) {
-          console.error("❌ Fehler in setupLightboxSwipe:", e);
-        }
-  
-        try {
-          const btn = document.getElementById("toggle-description-btn");
-          const description = document.getElementById("car-description");
-          if (btn && description) {
-            btn.addEventListener("click", () => {
-              description.classList.toggle("expanded");
-              btn.textContent = description.classList.contains("expanded") ? "Weniger anzeigen" : "Mehr anzeigen";
-            });
-            console.log("✅ Toggle Beschreibung-Button aktiviert");
-          }
-        } catch (e) {
-          console.error("❌ Fehler beim Toggle-Button:", e);
-        }
-  
-        try {
-          const fullscreenBtn = document.getElementById("lightbox-fullscreen-btn");
-          if (fullscreenBtn) {
-            fullscreenBtn.addEventListener("click", () => {
-              const media = document.querySelector("#lightbox-content .lightbox-inner-media");
-              if (media) {
-                const request = media.requestFullscreen || media.webkitRequestFullscreen;
-                if (request) {
-                  request.call(media).catch(err => console.error("❌ Fullscreen-Fehler:", err));
-                }
-              }
-            });
-            console.log("✅ Fullscreen-Button aktiviert");
-          }
-        } catch (e) {
-          console.error("❌ Fehler beim Fullscreen-Button:", e);
-        }
-  
-        try {
-          setupNavbar();
-          console.log("✅ setupNavbar erfolgreich");
-        } catch (e) {
-          console.error("❌ Fehler in setupNavbar:", e);
-        }
-      })
-      .catch(err => {
-        console.error("❌ Fehler beim Abrufen der Nutzerinfo:", err);
+  fetch("/getNutzerInfo", { credentials: "include" })
+    .then(res => res.json())
+    .then(data => {
+      console.log("✅ Daten von /getNutzerInfo erhalten:", data);
+
+      if (!data.eingeloggt || !data.nutzerId) {
         const ziel = sessionStorage.getItem("verkaeuferTyp") === "haendler" ? "haendler.html" : "privat.html";
-        console.warn("⛔ Fehler → Weiterleitung zu:", ziel);
+        console.warn("⛔ Nicht eingeloggt. Weiterleitung zu:", ziel);
         window.location.href = ziel;
-      });
-  });
-  
+        return;
+      }
+
+      // 🟢 Nutzer-Infos speichern
+      localStorage.setItem("nutzerId", data.nutzerId);
+      localStorage.setItem("userRole", data.rolle || "");
+
+      // Restliche Setup-Logik mit try/catch:
+      try {
+        updateNavbarTarif();
+        console.log("✅ updateNavbarTarif erfolgreich");
+      } catch (e) {
+        console.error("❌ Fehler in updateNavbarTarif:", e);
+      }
+
+      try {
+        setupLightboxSwipe();
+        console.log("✅ setupLightboxSwipe erfolgreich");
+      } catch (e) {
+        console.error("❌ Fehler in setupLightboxSwipe:", e);
+      }
+
+      try {
+        const btn = document.getElementById("toggle-description-btn");
+        const description = document.getElementById("car-description");
+        if (btn && description) {
+          btn.addEventListener("click", () => {
+            description.classList.toggle("expanded");
+            btn.textContent = description.classList.contains("expanded")
+              ? "Weniger anzeigen"
+              : "Mehr anzeigen";
+          });
+          console.log("✅ Toggle Beschreibung-Button aktiviert");
+        }
+      } catch (e) {
+        console.error("❌ Fehler beim Toggle-Button:", e);
+      }
+
+      try {
+        const fullscreenBtn = document.getElementById("lightbox-fullscreen-btn");
+        if (fullscreenBtn) {
+          fullscreenBtn.addEventListener("click", () => {
+            const media = document.querySelector("#lightbox-content .lightbox-inner-media");
+            if (media) {
+              const request = media.requestFullscreen || media.webkitRequestFullscreen;
+              if (request) {
+                request.call(media).catch(err =>
+                  console.error("❌ Fullscreen-Fehler:", err)
+                );
+              }
+            }
+          });
+          console.log("✅ Fullscreen-Button aktiviert");
+        }
+      } catch (e) {
+        console.error("❌ Fehler beim Fullscreen-Button:", e);
+      }
+
+      try {
+        setupNavbar();
+        console.log("✅ setupNavbar erfolgreich");
+      } catch (e) {
+        console.error("❌ Fehler in setupNavbar:", e);
+      }
+    })
+    .catch(err => {
+      console.error("❌ Fehler beim Abrufen der Nutzerinfo:", err);
+      const ziel = sessionStorage.getItem("verkaeuferTyp") === "haendler" ? "haendler.html" : "privat.html";
+      console.warn("⛔ Fehler → Weiterleitung zu:", ziel);
+      window.location.href = ziel;
+    });
+});
 
 
 
