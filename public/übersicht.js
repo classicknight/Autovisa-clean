@@ -396,13 +396,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         const nutzerRes = await fetch("/getNutzerInfo", { credentials: "include" });
         const nutzerData = await nutzerRes.json();
         
-        if (!nutzerData.eingeloggt || !nutzerData.nutzer?.id) {
+        if (!nutzerData.eingeloggt || !nutzerData.nutzerId) {
           alert("❌ Du bist nicht eingeloggt. Bitte logge dich zuerst ein.");
           window.location.href = "login.html";
           return;
         }
         
-        const userId = nutzerData.nutzer.id;
+        const userId = nutzerData.nutzerId;
+        
         
         
         const res = await fetch("/meineInserate.json");
