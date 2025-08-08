@@ -127,40 +127,64 @@ app.post('/saveDetails', checkLogin, async (req, res) => {
   }
 });
 
-// === Schritt 3: Medien speichern ===
+// === Schritt 3: Medien speichern (anhängen statt überschreiben) ===
 app.post('/saveMedia', checkLogin, upload.fields([
   { name: 'images', maxCount: 20 },
   { name: 'video', maxCount: 1 }
 ]), async (req, res) => {
   try {
-    const files = req.files;
-    if (!files || (!files.images && !files.video)) {
-      return res.status(400).json({ error: 'Keine Mediendateien hochgeladen.' });
-    }
-
-    const imageUrls = files.images ? files.images.map(file => `/uploads/images/${file.filename}`) : [];
-    const videoUrl = files.video?.[0]?.filename ? `/uploads/videos/${files.video[0].filename}` : null;
-
     const collection = db.collection("fahrzeugeEntwurf");
+
+    // letzten Entwurf des eingeloggten Nutzers holen
     const letzter = await collection.findOne(
       { nutzerId: req.nutzer.id },
       { sort: { _id: -1 } }
     );
+    if (!letzter) {
+      return res.status(400).json({ error: 'Kein Fahrzeug gefunden.' });
+    }
 
-    if (!letzter) return res.status(400).json({ error: 'Kein Fahrzeug gefunden.' });
+    const files = req.files || {};
+    const neueImages = files.images ? files.images.map(f => `/uploads/images/${f.filename}`) : [];
+    const neuesVideo = (files.video && files.video[0]) ? `/uploads/videos/${files.video[0].filename}` : null;
+
+    // Nichts hochgeladen? => Nichts überschreiben.
+    if (neueImages.length === 0 && !neuesVideo) {
+      return res.status(200).json({
+        success: true,
+        message: 'Keine neuen Dateien – bestehende Medien unverändert.',
+        images: letzter.images || [],
+        video: letzter.video || null
+      });
+    }
+
+    // Bilder anhängen (bestehende behalten)
+    const mergedImages = Array.isArray(letzter.images)
+      ? [...letzter.images, ...neueImages]
+      : [...neueImages];
+
+    // Video: wenn ein neues kommt, ersetzen wir das alte (du willst genau 1 Video)
+    const updateDoc = {};
+    if (neueImages.length > 0) updateDoc.images = mergedImages;
+    if (neuesVideo) updateDoc.video = neuesVideo;
 
     await collection.updateOne(
       { _id: letzter._id },
-      { $set: { images: imageUrls, video: videoUrl } }
+      { $set: updateDoc }
     );
 
-    res.json({ success: true });
-
+    return res.json({
+      success: true,
+      message: 'Medien gespeichert.',
+      images: updateDoc.images ?? letzter.images ?? [],
+      video: updateDoc.video ?? letzter.video ?? null
+    });
   } catch (err) {
     console.error("❌ Fehler beim Speichern der Medien:", err);
     res.status(500).json({ error: 'Fehler beim Speichern der Medien.' });
   }
 });
+
 
 // === Vorschau: Nur Fahrzeuge dieses Nutzers laden ===
 app.get('/getVehicleData', checkLogin, async (req, res) => {
