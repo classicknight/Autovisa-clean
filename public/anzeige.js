@@ -8,100 +8,121 @@ let animationID;
 let slider;
 let container;
 
-window.addEventListener("load", () => {
-    const daten = localStorage.getItem("ausgewaehltesInserat");
-    if (!daten) return;
-  
-    const inserat = JSON.parse(daten);
-  
-    // 🔹 Titel setzen
-    const titelAnzeige = document.getElementById("titelAnzeige");
-    const carTitle = document.getElementById("car-title");
-    if (inserat.titel) {
-      if (titelAnzeige) titelAnzeige.textContent = inserat.titel;
-      if (carTitle) carTitle.textContent = inserat.titel;
-    }
-  
-    // 🔹 Preis setzen
-    const priceMain = document.getElementById("price-main");
-    const priceNet = document.getElementById("price-net");
-    const mwstType = document.getElementById("mwst-type");
-    const priceType = document.getElementById("price-type");
-  
-    if (priceMain) {
-      if (inserat.verkauf_brutto) {
-        priceMain.textContent = `${Number(inserat.verkauf_brutto).toLocaleString("de-DE")} €`;
-      } else if (inserat.verkauf_preis) {
-        priceMain.textContent = `${Number(inserat.verkauf_preis).toLocaleString("de-DE")} €`;
+// 🔐 Navbar-Login/Logout dynamisch (Anzeige erfordert KEIN Login)
+function setupAuthLink() {
+  fetch("/getNutzerInfo", { credentials: "include" })
+    .then(r => r.json())
+    .then(data => {
+      const authLink = document.getElementById("auth-link");
+      if (!authLink) return;
+
+      if (data.eingeloggt) {
+        authLink.innerHTML = `<a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>`;
+        document.getElementById("logout-link")?.addEventListener("click", (e) => {
+          e.preventDefault();
+          fetch("/logout", { method: "POST", credentials: "include" })
+            .then(() => {
+              localStorage.clear();
+              window.location.href = "index.html";
+            })
+            .catch(() => alert("Abmelden fehlgeschlagen."));
+        });
       } else {
-        priceMain.textContent = "–";
+        authLink.innerHTML = `<a href="login.html"><i class="fas fa-sign-in-alt"></i> Login / Registrierung</a>`;
       }
-    }
-  
-    if (priceNet && inserat.verkauf_netto) {
-      priceNet.textContent = `${Number(inserat.verkauf_netto).toLocaleString("de-DE")} €`;
-    }
-  
-    if (mwstType && inserat.verkauf_mwst) {
-      mwstType.textContent = inserat.verkauf_mwst;
-    }
-  
-    if (priceType) {
-      priceType.textContent =
-        inserat.verkauf_mwst === "Keine MwSt." ? "Endpreis" : "Brutto";
-    }
-  
-    // 🔹 Medien vorbereiten
-    mediaItems = [];
-  
-    if (Array.isArray(inserat.images)) {
-      inserat.images.forEach((src) => {
-        mediaItems.push({ type: "img", src });
-      });
-    }
-  
-    if (inserat.video && inserat.video.trim() !== "") {
-      mediaItems.push({ type: "video", src: inserat.video });
-    }
-  
+    })
+    .catch(() => { /* still not fatal for view page */ });
+}
+
+window.addEventListener("load", () => {
+  setupAuthLink();
+
+  // Links "Gespeicherte Autos" / "Eigene Inserate" nur bei Login öffnen
+  document.getElementById("saved-cars-link")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    try {
+      const s = await fetch("/getNutzerInfo", { credentials: "include" }).then(r => r.json());
+      window.location.href = s.eingeloggt ? "gespeicherte-autos.html" : "login.html";
+    } catch { window.location.href = "login.html"; }
+  });
+  document.getElementById("my-cars-link")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    try {
+      const s = await fetch("/getNutzerInfo", { credentials: "include" }).then(r => r.json());
+      window.location.href = s.eingeloggt ? "meine-autos.html" : "login.html";
+    } catch { window.location.href = "login.html"; }
+  });
+
+  // ── Inserat aus localStorage laden ─────────────────────────────
+  const daten = localStorage.getItem("ausgewaehltesInserat");
+  if (!daten) return;
+
+  let inserat = {};
+  try { inserat = JSON.parse(daten); } catch { inserat = {}; }
+
+  // 🔹 Titel
+  const titelAnzeige = document.getElementById("titelAnzeige");
+  const carTitle = document.getElementById("car-title");
+  if (inserat.titel) {
+    if (titelAnzeige) titelAnzeige.textContent = inserat.titel;
+    if (carTitle) carTitle.textContent = inserat.titel;
+  }
+
+  // 🔹 Preis(e)
+  const priceMain = document.getElementById("price-main");
+  const priceNet  = document.getElementById("price-net");
+  const mwstType  = document.getElementById("mwst-type");
+  const priceType = document.getElementById("price-type");
+
+  const toPrice = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? `${n.toLocaleString("de-DE")} €` : "–";
+  };
+
+  if (priceMain) {
+    if (inserat.verkauf_brutto) priceMain.textContent = toPrice(inserat.verkauf_brutto);
+    else if (inserat.verkauf_preis) priceMain.textContent = toPrice(inserat.verkauf_preis);
+    else priceMain.textContent = "–";
+  }
+  if (priceNet && inserat.verkauf_netto) priceNet.textContent = toPrice(inserat.verkauf_netto);
+  if (mwstType && inserat.verkauf_mwst) mwstType.textContent = inserat.verkauf_mwst;
+  if (priceType) priceType.textContent = inserat.verkauf_mwst === "Keine MwSt." ? "Endpreis" : "Brutto";
+
+  // 🔹 Medien vorbereiten
+  mediaItems = [];
+  if (Array.isArray(inserat.images)) {
+    inserat.images.forEach(src => mediaItems.push({ type: "img", src }));
+  }
+  if (inserat.video && String(inserat.video).trim() !== "") {
+    mediaItems.push({ type: "video", src: inserat.video });
+  }
+
+  // Slider initialisieren (nur wenn Container existieren)
+  slider = document.getElementById("media-slider");
+  container = document.getElementById("media-display");
+  if (slider && container) {
     initSlider();
     setMedia(0);
     setupSlider();
-  
-    const ezEl = document.getElementById("info-ez");
-const kmEl = document.getElementById("info-km");
-const psEl = document.getElementById("info-ps");
-const kraftstoffEl = document.getElementById("info-kraftstoff");
-const getriebeEl = document.getElementById("info-getriebe");
-const sellerTypeEl = document.getElementById("seller-type");
+  }
 
-if (inserat.verkauf_erstzulassung && ezEl) {
-  ezEl.textContent = inserat.verkauf_erstzulassung;
-}
+  // 🔹 Top-Infos
+  const ezEl         = document.getElementById("info-ez");
+  const kmEl         = document.getElementById("info-km");
+  const psEl         = document.getElementById("info-ps");
+  const kraftstoffEl = document.getElementById("info-kraftstoff");
+  const getriebeEl   = document.getElementById("info-getriebe");
+  const sellerTypeEl = document.getElementById("seller-type");
 
-if (inserat.verkauf_kilometer && kmEl) {
-  kmEl.textContent = `${Number(inserat.verkauf_kilometer).toLocaleString("de-DE")} km`;
-}
+  if (inserat.verkauf_erstzulassung && ezEl) ezEl.textContent = inserat.verkauf_erstzulassung;
+  if (inserat.verkauf_kilometer && kmEl) kmEl.textContent = `${Number(inserat.verkauf_kilometer).toLocaleString("de-DE")} km`;
+  if (inserat.verkauf_leistung && psEl) psEl.textContent = `${inserat.verkauf_leistung} PS`;
+  if (inserat.verkauf_kraftstoff && kraftstoffEl) kraftstoffEl.textContent = inserat.verkauf_kraftstoff;
+  if (inserat.verkauf_getriebe && getriebeEl) getriebeEl.textContent = inserat.verkauf_getriebe;
+  if (inserat.verkauf_verkaeufer && sellerTypeEl) sellerTypeEl.textContent = inserat.verkauf_verkaeufer;
 
-if (inserat.verkauf_leistung && psEl) {
-  psEl.textContent = `${inserat.verkauf_leistung} PS`;
-}
-
-if (inserat.verkauf_kraftstoff && kraftstoffEl) {
-  kraftstoffEl.textContent = inserat.verkauf_kraftstoff;
-}
-
-if (inserat.verkauf_getriebe && getriebeEl) {
-  getriebeEl.textContent = inserat.verkauf_getriebe;
-}
-
-if (inserat.verkauf_verkaeufer && sellerTypeEl) {
-  sellerTypeEl.textContent = inserat.verkauf_verkaeufer;
-}
-
-
-
-const technischeDatenMapping = {
+  // 🔹 Technische Daten
+  const technischeDatenMapping = {
     "v-zustand": "zustand",
     "v-fahrzeugart": "fahrzeugart",
     "v-halter": "halter",
@@ -119,30 +140,28 @@ const technischeDatenMapping = {
     "v-schadstoffklasse": "verkauf_schadstoffklasse",
     "v-umweltplakette": "verkauf_umweltplakette",
     "v-partikelfilter": "verkauf_partikelfilter",
-    "v-hu": "", // wird separat behandelt
+    "v-hu": "", // separat
     "v-klimatisierung": "klimatisierung",
-    "v-einparkhilfe": "", // wird separat behandelt
+    "v-einparkhilfe": "", // separat
     "v-airbags": "airbags",
     "v-innenausstattung": "innenmaterial"
   };
-  
-  // 🔹 Alle direkten Zuweisungen
+
   for (const [spanId, jsonKey] of Object.entries(technischeDatenMapping)) {
     const el = document.getElementById(spanId);
     if (!el) continue;
-  
-    if (jsonKey && inserat[jsonKey]) {
-      el.textContent = inserat[jsonKey];
-    }
+    if (jsonKey && inserat[jsonKey]) el.textContent = inserat[jsonKey];
   }
-  
-  // 🔹 Sonderfall HU
+
+  // HU (Monat/Jahr)
   const huEl = document.getElementById("v-hu");
-  if (huEl && inserat.tuevMonat && inserat.tuevJahr) {
-    huEl.textContent = `${inserat.tuevMonat} ${inserat.tuevJahr}`;
+  if (huEl && (inserat.tuevMonat || inserat.tuevJahr)) {
+    const m = inserat.tuevMonat || "";
+    const j = inserat.tuevJahr || "";
+    huEl.textContent = `${m} ${j}`.trim() || "–";
   }
-  
-  // 🔹 Sonderfall Einparkhilfe (zusammenfassend dargestellt)
+
+  // Einparkhilfe – zusammenbauen
   const einparkhilfeEl = document.getElementById("v-einparkhilfe");
   if (einparkhilfeEl) {
     const hilfen = [];
@@ -151,153 +170,138 @@ const technischeDatenMapping = {
     if (inserat.einparkhilfeSelbstlenkend) hilfen.push("selbstlenkend");
     if (inserat.kameraHinten) hilfen.push("Kamera hinten");
     if (inserat.kamera360) hilfen.push("360° Kamera");
-  
-    einparkhilfeEl.textContent = hilfen.length > 0 ? hilfen.join(", ") : "–";
+    einparkhilfeEl.textContent = hilfen.length ? hilfen.join(", ") : "–";
   }
-  
 
-
-
+  // 🔹 Ausstattungsliste
   const ausstattungContainer = document.getElementById("v-ausstattung");
   const ausstattungBlock = document.getElementById("ausstattung-block");
-  
-  const ausstattungLabels = {
-    abstandsregeltempomat: "Abstandsregeltempomat",
-    applecarplay: "Apple CarPlay",
-    androidauto: "Android Auto",
-    frontscheibenheizung: "Frontscheibenheizung",
-    heckklappe: "Elektrische Heckklappe",
-    led: "LED-Scheinwerfer",
-    multifunktion: "Multifunktionslenkrad",
-    navigation: "Navigationssystem",
-    sitzheizung: "Sitzheizung",
-    rueckfahrkamera: "Rückfahrkamera",
-    nichtraucher: "Nichtraucherfahrzeug",
-    scheckheft: "Scheckheftgepflegt",
-    garantie: "Garantie / Werksgarantie",
-    mettalic: "Metallic-Lackierung",
-    abs: "ABS",
-    esp: "ESP",
-    asr: "ASR (Traktionskontrolle)",
-    berganfahrassistent: "Berganfahrassistent",
-    muedigkeitswarner: "Müdigkeitswarner",
-    spurhalteassistent: "Spurhalteassistent",
-    totwinkelassistent: "Totwinkelassistent",
-    notbremsassistent: "Notbremsassistent",
-    notrufsystem: "Notrufsystem",
-    verkehrszeichenerkennung: "Verkehrszeichenerkennung",
-    isofixhinten: "Isofix (hinten)",
-    isofixbeifahrer: "Isofix Beifahrersitz",
-    scheinwerferreinigung: "Scheinwerferreinigung",
-    blendfreiesfernlicht: "Blendfreies Fernlicht",
-    fernlichtassistent: "Fernlichtassistent",
-    innenspiegelabblendend: "Innenspiegel automatisch abblendend",
-    nachtsichtassistent: "Nachtsichtassistent",
-    nebelscheinwerfer: "Nebelscheinwerfer",
-    lichtsensor: "Lichtsensor",
-    regensensor: "Regensensor",
-    alarmanlage: "Alarmanlage",
-    wegfahrsperre: "Elektrische Wegfahrsperre",
-    keylesszv: "Schlüssellose Zentralverriegelung",
-    zentralverriegelung: "Zentralverriegelung",
-    standheizung: "Standheizung",
-    frontscheibebeheizbar: "Beheizbare Frontscheibe",
-    lenkradbeheizbar: "Beheizbares Lenkrad",
-    einparkhilfeselbstlenkend: "Selbstlenkende Einparkhilfe",
- 
-    kamerahinten: "Rückfahrkamera",
-    kamera360: "360°-Kamera",
-    sitzheizungvorne: "Sitzheizung vorne",
-    sitzheizunghinten: "Sitzheizung hinten",
-    sitzeelektrisch: "Elektrische Sitzeinstellung",
-    sportsitze: "Sportsitze",
-    armlehne: "Armlehne",
-    lordosenstuetze: "Lordosenstütze",
-    massagesitze: "Massagesitze",
-    sitzbelueftung: "Sitzbelüftung",
-    beifahrersitzumklappbar: "Umklappbarer Beifahrersitz",
-    elektrfensterheber: "Elektrische Fensterheber",
-    elektrspiegel: "Elektrische Seitenspiegel",
-    elektheckklappe: "Elektrische Heckklappe",
-    servolenkung: "Servolenkung",
-    ambientebeleuchtung: "Ambientebeleuchtung",
-    lederlenkrad: "Lederlenkrad",
-    radio: "Radio",
-    dab: "DAB-Radio",
-    cd: "CD-Spieler",
-    tv: "TV-Empfang",
-    navi: "Navigationssystem",
-    soundsystem: "Soundsystem",
-    touchscreen: "Touchscreen",
-    sprachsteuerung: "Sprachsteuerung",
-    freisprecheinrichtung: "Freisprecheinrichtung",
-    usb: "USB-Anschluss",
-    bluetooth: "Bluetooth",
-    wlan: "WLAN / Wifi Hotspot",
-    streaming: "Musikstreaming integriert",
-    induktionsladen: "Induktionsladen für Smartphones",
-    bordcomputer: "Bordcomputer",
-    headup: "Head-up Display",
-    volldigital: "Volldigitales Kombiinstrument",
-    alufelgen: "Leichtmetallfelgen",
-    sommerreifen: "Sommerreifen",
-    winterreifen: "Winterreifen",
-    allwetterreifen: "Allwetterreifen",
-    reifendruckkontrolle: "Reifendruckkontrollsystem",
-    winterpaket: "Winterpaket",
-    raucherpaket: "Raucherpaket",
-    sportpaket: "Sportpaket",
-    sportfahrwerk: "Sportfahrwerk",
-    luftfederung: "Luftfederung",
-    gepaeckabtrennung: "Gepäckraumabtrennung",
-    skisack: "Skisack",
-    schiebedach: "Schiebedach",
-    panoramadach: "Panorama-Dach",
-    dachreling: "Dachreling",
-    behindertengerecht: "Behindertengerecht",
-    taxi: "Taxi"
-    // ✍️ … (alle weiteren ausstattungLabels einfügen wie in vorschau.js)
-  };
-  let hatAusstattung = false;
+  if (ausstattungContainer) {
+    const ausstattungLabels = {
+      abstandsregeltempomat: "Abstandsregeltempomat",
+      applecarplay: "Apple CarPlay",
+      androidauto: "Android Auto",
+      frontscheibenheizung: "Frontscheibenheizung",
+      heckklappe: "Elektrische Heckklappe",
+      led: "LED-Scheinwerfer",
+      multifunktion: "Multifunktionslenkrad",
+      navigation: "Navigationssystem",
+      sitzheizung: "Sitzheizung",
+      rueckfahrkamera: "Rückfahrkamera",
+      nichtraucher: "Nichtraucherfahrzeug",
+      scheckheft: "Scheckheftgepflegt",
+      garantie: "Garantie / Werksgarantie",
+      mettalic: "Metallic-Lackierung",
+      abs: "ABS",
+      esp: "ESP",
+      asr: "ASR (Traktionskontrolle)",
+      berganfahrassistent: "Berganfahrassistent",
+      muedigkeitswarner: "Müdigkeitswarner",
+      spurhalteassistent: "Spurhalteassistent",
+      totwinkelassistent: "Totwinkelassistent",
+      notbremsassistent: "Notbremsassistent",
+      notrufsystem: "Notrufsystem",
+      verkehrszeichenerkennung: "Verkehrszeichenerkennung",
+      isofixhinten: "Isofix (hinten)",
+      isofixbeifahrer: "Isofix Beifahrersitz",
+      scheinwerferreinigung: "Scheinwerferreinigung",
+      blendfreiesfernlicht: "Blendfreies Fernlicht",
+      fernlichtassistent: "Fernlichtassistent",
+      innenspiegelabblendend: "Innenspiegel automatisch abblendend",
+      nachtsichtassistent: "Nachtsichtassistent",
+      nebelscheinwerfer: "Nebelscheinwerfer",
+      lichtsensor: "Lichtsensor",
+      regensensor: "Regensensor",
+      alarmanlage: "Alarmanlage",
+      wegfahrsperre: "Elektrische Wegfahrsperre",
+      keylesszv: "Schlüssellose Zentralverriegelung",
+      zentralverriegelung: "Zentralverriegelung",
+      standheizung: "Standheizung",
+      frontscheibebeheizbar: "Beheizbare Frontscheibe",
+      lenkradbeheizbar: "Beheizbares Lenkrad",
+      einparkhilfeselbstlenkend: "Selbstlenkende Einparkhilfe",
+      kamerahinten: "Rückfahrkamera",
+      kamera360: "360°-Kamera",
+      sitzheizungvorne: "Sitzheizung vorne",
+      sitzheizunghinten: "Sitzheizung hinten",
+      sitzeelektrisch: "Elektrische Sitzeinstellung",
+      sportsitze: "Sportsitze",
+      armlehne: "Armlehne",
+      lordosenstuetze: "Lordosenstütze",
+      massagesitze: "Massagesitze",
+      sitzbelueftung: "Sitzbelüftung",
+      beifahrersitzumklappbar: "Umklappbarer Beifahrersitz",
+      elektrfensterheber: "Elektrische Fensterheber",
+      elektrspiegel: "Elektrische Seitenspiegel",
+      elektheckklappe: "Elektrische Heckklappe",
+      servolenkung: "Servolenkung",
+      ambientebeleuchtung: "Ambientebeleuchtung",
+      lederlenkrad: "Lederlenkrad",
+      radio: "Radio",
+      dab: "DAB-Radio",
+      cd: "CD-Spieler",
+      tv: "TV-Empfang",
+      navi: "Navigationssystem",
+      soundsystem: "Soundsystem",
+      touchscreen: "Touchscreen",
+      sprachsteuerung: "Sprachsteuerung",
+      freisprecheinrichtung: "Freisprecheinrichtung",
+      usb: "USB-Anschluss",
+      bluetooth: "Bluetooth",
+      wlan: "WLAN / Wifi Hotspot",
+      streaming: "Musikstreaming integriert",
+      induktionsladen: "Induktionsladen für Smartphones",
+      bordcomputer: "Bordcomputer",
+      headup: "Head-up Display",
+      volldigital: "Volldigitales Kombiinstrument",
+      alufelgen: "Leichtmetallfelgen",
+      sommerreifen: "Sommerreifen",
+      winterreifen: "Winterreifen",
+      allwetterreifen: "Allwetterreifen",
+      reifendruckkontrolle: "Reifendruckkontrollsystem",
+      winterpaket: "Winterpaket",
+      raucherpaket: "Raucherpaket",
+      sportpaket: "Sportpaket",
+      sportfahrwerk: "Sportfahrwerk",
+      luftfederung: "Luftfederung",
+      gepaeckabtrennung: "Gepäckraumabtrennung",
+      skisack: "Skisack",
+      schiebedach: "Schiebedach",
+      panoramadach: "Panorama-Dach",
+      dachreling: "Dachreling",
+      behindertengerecht: "Behindertengerecht",
+      taxi: "Taxi"
+    };
 
-  for (const key in ausstattungLabels) {
-    const gespeichert = localStorage.getItem("details_" + key);
-    const datenwert = inserat["verkauf_" + key] || inserat[key];
-  
-    const checked = gespeichert === "true" || datenwert === true || datenwert === "true";
-  
-    if (checked) {
-      const div = document.createElement("div");
-      div.classList.add("equipment-item");
-      div.innerHTML = `<i class="fas fa-check"></i> ${ausstattungLabels[key]}`;
-      ausstattungContainer.appendChild(div);
-      hatAusstattung = true;
+    let hatAusstattung = false;
+    for (const key in ausstattungLabels) {
+      const datenwert = inserat["verkauf_" + key] ?? inserat[key];
+      const gespeichert = localStorage.getItem("details_" + key);
+      const checked = gespeichert === "true" || datenwert === true || datenwert === "true";
+      if (checked) {
+        const div = document.createElement("div");
+        div.classList.add("equipment-item");
+        div.innerHTML = `<i class="fas fa-check"></i> ${ausstattungLabels[key]}`;
+        ausstattungContainer.appendChild(div);
+        hatAusstattung = true;
+      }
     }
+    if (hatAusstattung && ausstattungBlock) ausstattungBlock.style.display = "block";
   }
-  
-  if (hatAusstattung) {
-    ausstattungBlock.style.display = "block";
-  }
-  
+
+  // 🔹 Beschreibung
   const beschreibungEl = document.getElementById("car-description");
   const toggleBtn = document.getElementById("toggle-description-btn");
-  
   if (inserat.fahrzeugbeschreibung && beschreibungEl) {
     beschreibungEl.textContent = inserat.fahrzeugbeschreibung;
   }
-  
-  // Falls Button existiert, Umschaltfunktion aktivieren
   toggleBtn?.addEventListener("click", () => {
+    if (!beschreibungEl) return;
     beschreibungEl.classList.toggle("expanded");
     toggleBtn.textContent = beschreibungEl.classList.contains("expanded")
-      ? "Weniger anzeigen"
-      : "Mehr anzeigen";
+      ? "Weniger anzeigen" : "Mehr anzeigen";
   });
-  
-
-  });
-  
-  
+});
 
 
   
@@ -891,133 +895,112 @@ function setupSlider() {
   
   
   
-  
-  
-  
-  document.getElementById('toggle-description-btn').addEventListener('click', function() {
-    document.querySelector('.car-description-box').classList.toggle('expanded');
+  // Beschreibung auf/zu
+const descBtn = document.getElementById('toggle-description-btn');
+if (descBtn) {
+  descBtn.addEventListener('click', function () {
+    const box = document.querySelector('.car-description-box');
+    if (!box) return;
+    box.classList.toggle('expanded');
     this.textContent = this.textContent.includes('Mehr') ? 'Weniger anzeigen' : 'Mehr anzeigen';
   });
-  
-  
-  
-  document.addEventListener("DOMContentLoaded", async () => {
-    const form = document.getElementById("messageForm");
-  
-    // 🔄 Fahrzeugdaten aus localStorage holen
-    const fahrzeug = JSON.parse(localStorage.getItem("ausgewaehltesInserat") || "{}");
-  
-    if (!fahrzeug || !fahrzeug.id) {
-      alert("❌ Kein Fahrzeug ausgewählt.");
-      window.location.href = "übersicht.html";
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("messageForm");
+  if (!form) return; // auf Seiten ohne Formular einfach nix machen
+
+  // 🚗 Fahrzeug aus LocalStorage holen (id oder _id zulassen)
+  let fahrzeug = {};
+  try {
+    fahrzeug = JSON.parse(localStorage.getItem("ausgewaehltesInserat") || "{}");
+  } catch {}
+  const fahrzeugId = fahrzeug.id || fahrzeug._id;
+  if (!fahrzeugId) {
+    alert("❌ Kein Fahrzeug ausgewählt.");
+    window.location.href = "übersicht.html";
+    return;
+  }
+
+  // 📩 Formular absenden
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    const nachricht = this.querySelector("textarea[name='nachricht']")?.value.trim();
+    if (!nachricht) return;
+
+    // Absender aus LocalStorage (wird beim Login gesetzt)
+    const senderId = localStorage.getItem("userId");
+    const absenderName = localStorage.getItem("username");
+
+    if (!senderId || !absenderName) {
+      alert("Bitte logge dich ein, um eine Nachricht zu senden.");
+      // Optional: redirect: window.location.href = "login.html";
       return;
     }
-  
-    // 📩 Formular absenden
-    form.addEventListener("submit", async function (e) {
-      e.preventDefault();
-  
-      const nachricht = this.querySelector("textarea[name='nachricht']").value.trim();
-      if (!nachricht) return;
-  
-      const senderId = localStorage.getItem("userId");
-      const absenderName = localStorage.getItem("username");
-  
-      if (!senderId || !absenderName) {
-        alert("Bitte logge dich ein, um eine Nachricht zu senden.");
-        return;
+
+    const payload = {
+      senderId,
+      empfaengerId: fahrzeug.verkaeuferId || fahrzeug.nutzerId || "", // Fallbacks
+      fahrzeugId: fahrzeugId,
+      absenderName,
+      nachricht
+    };
+
+    try {
+      const res = await fetch("/nachricht-senden", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",                // <- falls Server später Login voraussetzt
+        body: JSON.stringify(payload),
+      });
+
+      // Serverantwort lesen (auch bei Fehlern)
+      const result = await res.json().catch(() => ({}));
+
+      if (res.ok && result.success) {
+        alert("Nachricht wurde erfolgreich gesendet.");
+        this.reset();
+      } else {
+        const msg = result.error || `Fehler ${res.status}`;
+        alert("Fehler beim Senden: " + msg);
       }
-  
-      const payload = {
-        senderId,
-        empfaengerId: fahrzeug.verkaeuferId, // ← wichtig
-        fahrzeugId: fahrzeug.id,
-        absenderName,
-        nachricht
-      };
-  
-      try {
-        const res = await fetch("/nachricht-senden", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        });
-  
-        const result = await res.json();
-        if (res.ok && result.success) {
-          alert("Nachricht wurde erfolgreich gesendet.");
-          this.reset();
-        } else {
-          alert("Fehler beim Senden: " + (result.error || "Unbekannt"));
-        }
-      } catch (err) {
-        console.error("Fehler beim Senden:", err);
-        alert("Serverfehler. Bitte später versuchen.");
-      }
-    });
-  });
-  
-  
-  
-  
-  
-  
-  
-  function toggleRatingPanel() {
-    const panel = document.getElementById("ratingPanel");
-    panel.classList.toggle("show");
-  }
-  
-  
-  
-  
-  
-  
-  function toggleContactPanel() {
-    const panel = document.getElementById("contactPanel");
-    const overlay = document.getElementById("contactOverlay");
-    panel.classList.toggle("open");
-    overlay.classList.toggle("show");
-  }
-
-
-
-
-
-
-
-
-
-
-  function showPhoneNumber() {
-    const phoneContainer = document.getElementById("phoneNumber");
-    const btn = document.getElementById("showPhoneBtn");
-  
-    const inserat = JSON.parse(localStorage.getItem("ausgewaehltesInserat") || "{}");
-  
-    if (inserat.telefon) {
-      phoneContainer.textContent = inserat.telefon;
-      phoneContainer.style.display = "block";
-      btn.style.display = "none";
-    } else {
-      phoneContainer.textContent = "Keine Nummer vorhanden";
-      phoneContainer.style.display = "block";
-      btn.style.display = "none";
+    } catch (err) {
+      console.error("Fehler beim Senden:", err);
+      alert("Serverfehler. Bitte später versuchen.");
     }
+  });
+});
+
+// Panels togglen
+function toggleRatingPanel() {
+  const panel = document.getElementById("ratingPanel");
+  panel?.classList.toggle("show");
+}
+
+function toggleContactPanel() {
+  const panel = document.getElementById("contactPanel");
+  const overlay = document.getElementById("contactOverlay");
+  panel?.classList.toggle("open");
+  overlay?.classList.toggle("show");
+}
+
+// Telefonnummer anzeigen
+function showPhoneNumber() {
+  const phoneContainer = document.getElementById("phoneNumber");
+  const btn = document.getElementById("showPhoneBtn");
+  if (!phoneContainer || !btn) return;
+
+  let inserat = {};
+  try {
+    inserat = JSON.parse(localStorage.getItem("ausgewaehltesInserat") || "{}");
+  } catch {}
+
+  if (inserat.telefon) {
+    phoneContainer.textContent = inserat.telefon;
+  } else {
+    phoneContainer.textContent = "Keine Nummer vorhanden";
   }
-  
-  
-
-
-
-
-
-
-
-
-
-
-
-
+  phoneContainer.style.display = "block";
+  btn.style.display = "none";
+}
