@@ -559,12 +559,12 @@ function setupSlider() {
   }
   
   // ---------------------- Navbar Interaktion ----------------------
-  
   function setupNavbar() {
     const navLinks = document.getElementById("nav-links");
     const hamburger = document.getElementById("hamburger");
     const dropdownLinks = document.querySelectorAll(".dropdown > a");
   
+    // Burger & Dropdowns
     hamburger?.addEventListener("click", (e) => {
       e.stopPropagation();
       navLinks?.classList.toggle("active");
@@ -576,11 +576,9 @@ function setupSlider() {
       link.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-  
-        document.querySelectorAll(".dropdown-menu").forEach(otherMenu => {
-          if (otherMenu !== menu) otherMenu.classList.remove("show");
+        document.querySelectorAll(".dropdown-menu").forEach(m => {
+          if (m !== menu) m.classList.remove("show");
         });
-  
         menu.classList.toggle("show");
       });
     });
@@ -591,27 +589,51 @@ function setupSlider() {
     });
   
     function closeAllDropdowns() {
-      document.querySelectorAll(".dropdown-menu").forEach(menu => {
-        menu.classList.remove("show");
-      });
+      document.querySelectorAll(".dropdown-menu").forEach(m => m.classList.remove("show"));
     }
   
-    // Beispiel-Login-Logik
-    const isLoggedIn = false;
-    document.getElementById("saved-cars-link")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      window.location.href = isLoggedIn ? "gespeicherte-autos.html" : "login.html";
-    });
-    document.getElementById("my-cars-link")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      window.location.href = isLoggedIn ? "meine-autos.html" : "login.html";
-    });
+    // 🔒 Login/Logout + geschützte Links
+    fetch("/getNutzerInfo", { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        const authLink = document.getElementById("auth-link");
+        if (authLink) {
+          if (data.eingeloggt) {
+            authLink.innerHTML = `<a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>`;
+            document.getElementById("logout-link")?.addEventListener("click", (e) => {
+              e.preventDefault();
+              fetch("/logout", { method: "POST", credentials: "include" })
+                .then(() => {
+                  localStorage.clear();
+                  window.location.href = "index.html";
+                });
+            });
+          } else {
+            authLink.innerHTML = `<a href="login.html"><i class="fas fa-sign-in-alt"></i> Login / Registrierung</a>`;
+          }
+        }
   
+        // jetzt mit echtem Status weiterleiten
+        document.getElementById("saved-cars-link")?.addEventListener("click", (e) => {
+          e.preventDefault();
+          window.location.href = data.eingeloggt ? "gespeicherte-autos.html" : "login.html";
+        });
+        document.getElementById("my-cars-link")?.addEventListener("click", (e) => {
+          e.preventDefault();
+          window.location.href = data.eingeloggt ? "meine-autos.html" : "login.html";
+        });
+      })
+      .catch(err => {
+        console.warn("⚠️ Konnte Nutzerstatus nicht abrufen:", err);
+      });
+  
+    // Smooth scroll (optional)
     document.querySelector('a[href="#search-section"]')?.addEventListener("click", (e) => {
       e.preventDefault();
       document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
     });
   }
+  
   
   // ---------------------- Lightbox mit Swipe ----------------------
   
