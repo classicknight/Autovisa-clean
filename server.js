@@ -3,8 +3,10 @@ const express = require('express');
 const multer = require('multer');
 const cookieParser = require('cookie-parser');
 const path = require('path');
+const fs = require('fs');                     // ⬅️ hinzugefügt
 const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');     // ⬅️ hinzugefügt
 const cloudinary = require('cloudinary').v2;
 
 // === Express Initialisierung ===
