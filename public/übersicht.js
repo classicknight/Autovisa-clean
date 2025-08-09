@@ -389,105 +389,106 @@ document.querySelectorAll('.remove-saved-btn').forEach(button => {
 
 
 
-
 document.addEventListener("DOMContentLoaded", async () => {
-    const carlist = document.querySelector(".car-list");
-    try {
-        const nutzerRes = await fetch("/getNutzerInfo", { credentials: "include" });
-        const nutzerData = await nutzerRes.json();
-        
-        if (!nutzerData.eingeloggt || !nutzerData.nutzerId) {
-          alert("❌ Du bist nicht eingeloggt. Bitte logge dich zuerst ein.");
-          window.location.href = "login.html";
-          return;
-        }
-        
-        const userId = nutzerData.nutzerId;
-        
-        
-        
-        const res = await fetch("/meineInserate.json");
-        const alleInserate = await res.json();
-        
-        // ✅ Zeige nur die Inserate, die zu diesem User gehören
-        const inserate = alleInserate.filter(i => i.verkaeuferId === userId);
-        
-  
-      if (!Array.isArray(inserate) || inserate.length === 0) {
-        document.querySelector(".car-list").innerHTML = "<p>Keine Inserate gefunden.</p>";
-        return;
-      }
-  
-      const carList = document.querySelector(".car-list");
-      carList.innerHTML = "";
-  
-      inserate.forEach((inserat, index) => {
-        const wrapper = document.createElement("div");
-        wrapper.className = "car-card-wrapper";
-        wrapper.dataset.id = inserat.id || `inserat-${index}`;
-  
-        wrapper.innerHTML = `
-          <div class="car-card-actions mobile-only">
-            <button class="publish-btn"><i class="fas fa-globe"></i> Veröffentlichen</button>
-            <button class="edit-btn"><i class="fas fa-pen"></i> Bearbeiten</button>
-            <button class="remove-saved-btn"><i class="fas fa-trash"></i> Entfernen</button>
-          </div>
-  
-          <div class="car-card horizontal">
-            <div class="car-card-media">
-              <div class="media-container">
-                <div class="slides">
-                  ${generateSlides(inserat)}
-                </div>
-                <button class="media-arrow left"><i class="fas fa-chevron-left"></i></button>
-                <button class="media-arrow right"><i class="fas fa-chevron-right"></i></button>
-              </div>
-            </div>
-  
-<div class="car-details">
-  <div class="car-top-row">
-    <h2 class="car-title">${inserat.titel || "Titel fehlt"}</h2>
-    <p class="car-price">${
-      inserat.verkauf_brutto
-        ? Number(inserat.verkauf_brutto).toLocaleString("de-DE") + " €"
-        : "Preis fehlt"
-    }</p>
-  </div>
-  <p class="car-subtitle">${inserat.verkauf_kurzbeschreibung || "Besondere Ausstattung"}</p>
 
-
-
-
-
-
-              <div class="car-info-grid">
-                <p><i class="fas fa-road"></i> ${inserat.verkauf_kilometer || "—"} km</p>
-                <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.verkauf_erstzulassung || "—"}</p>
-                <p><i class="fas fa-gas-pump"></i> ${inserat.verkauf_kraftstoff || "—"}</p>
-                <p><i class="fas fa-gauge-high"></i> ${inserat.verkauf_leistung || "—"} PS</p>
-                <p><i class="fas fa-gears"></i> ${inserat.verkauf_getriebe || "—"}</p>
-                <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "—"} l/100 km</p>
-              </div>
-<div class="dealer-info">
-  ${
-    inserat.verkauf_verkaeufer?.toLowerCase() === "händler"
-      ? `<div><strong>${inserat.verkauf_name || "Unbekannt"}</strong></div>`
-      : `<div><span class="seller-label">Privatanbieter</span></div>`
+  // 🔹 Hilfsfunktion zum sicheren Formatieren von Preisen
+  function formatEUR(value) {
+    if (value == null || value === "") return null;
+    const num = parseFloat(String(value).replace(/\./g, "").replace(",", "."));
+    if (!isNaN(num)) return num.toLocaleString("de-DE") + " €";
+    return String(value) + " €";
   }
-  <div class="seller-location">${inserat.standort || "Standort nicht angegeben"}</div>
-</div>
 
+  const carlist = document.querySelector(".car-list");
+  try {
+    const nutzerRes = await fetch("/getNutzerInfo", { credentials: "include" });
+    const nutzerData = await nutzerRes.json();
 
+    if (!nutzerData.eingeloggt || !nutzerData.nutzerId) {
+      alert("❌ Du bist nicht eingeloggt. Bitte logge dich zuerst ein.");
+      window.location.href = "login.html";
+      return;
+    }
 
+    const userId = nutzerData.nutzerId;
+
+    const res = await fetch("/meineInserate.json");
+    const alleInserate = await res.json();
+
+    // ✅ Zeige nur die Inserate, die zu diesem User gehören
+    const inserate = alleInserate.filter(i => i.verkaeuferId === userId);
+
+    if (!Array.isArray(inserate) || inserate.length === 0) {
+      document.querySelector(".car-list").innerHTML = "<p>Keine Inserate gefunden.</p>";
+      return;
+    }
+
+    const carList = document.querySelector(".car-list");
+    carList.innerHTML = "";
+
+    inserate.forEach((inserat, index) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "car-card-wrapper";
+      wrapper.dataset.id = inserat.id || `inserat-${index}`;
+
+      wrapper.innerHTML = `
+        <div class="car-card-actions mobile-only">
+          <button class="publish-btn"><i class="fas fa-globe"></i> Veröffentlichen</button>
+          <button class="edit-btn"><i class="fas fa-pen"></i> Bearbeiten</button>
+          <button class="remove-saved-btn"><i class="fas fa-trash"></i> Entfernen</button>
+        </div>
+
+        <div class="car-card horizontal">
+          <div class="car-card-media">
+            <div class="media-container">
+              <div class="slides">
+                ${generateSlides(inserat)}
+              </div>
+              <button class="media-arrow left"><i class="fas fa-chevron-left"></i></button>
+              <button class="media-arrow right"><i class="fas fa-chevron-right"></i></button>
             </div>
           </div>
-  
-          <div class="car-card-actions desktop-only">
-            <button class="publish-btn"><i class="fas fa-globe"></i> Veröffentlichen</button>
-            <button class="edit-btn"><i class="fas fa-pen"></i> Bearbeiten</button>
-            <button class="remove-saved-btn"><i class="fas fa-trash"></i> Entfernen</button>
+
+          <div class="car-details">
+            <div class="car-top-row">
+              <h2 class="car-title">${inserat.titel || "Titel fehlt"}</h2>
+              <p class="car-price">${
+                formatEUR(inserat.verkauf_brutto) ||
+                formatEUR(inserat.verkauf_preis) ||
+                formatEUR(inserat.preis) ||
+                "Preis fehlt"
+              }</p>
+            </div>
+            <p class="car-subtitle">${inserat.verkauf_kurzbeschreibung || "Besondere Ausstattung"}</p>
+
+            <div class="car-info-grid">
+              <p><i class="fas fa-road"></i> ${inserat.verkauf_kilometer || "—"} km</p>
+              <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.verkauf_erstzulassung || "—"}</p>
+              <p><i class="fas fa-gas-pump"></i> ${inserat.verkauf_kraftstoff || "—"}</p>
+              <p><i class="fas fa-gauge-high"></i> ${inserat.verkauf_leistung || "—"} PS</p>
+              <p><i class="fas fa-gears"></i> ${inserat.verkauf_getriebe || "—"}</p>
+              <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "—"} l/100 km</p>
+            </div>
+            <div class="dealer-info">
+              ${
+                inserat.verkauf_verkaeufer?.toLowerCase() === "händler"
+                  ? `<div><strong>${inserat.verkauf_name || "Unbekannt"}</strong></div>`
+                  : `<div><span class="seller-label">Privatanbieter</span></div>`
+              }
+              <div class="seller-location">${inserat.standort || "Standort nicht angegeben"}</div>
+            </div>
           </div>
-        `;
+        </div>
+
+        <div class="car-card-actions desktop-only">
+          <button class="publish-btn"><i class="fas fa-globe"></i> Veröffentlichen</button>
+          <button class="edit-btn"><i class="fas fa-pen"></i> Bearbeiten</button>
+          <button class="remove-saved-btn"><i class="fas fa-trash"></i> Entfernen</button>
+        </div>
+      `;
+
+
+
   
 
         // 📦 Klick auf Fahrzeugkarte → Inserat speichern + Weiterleitung
