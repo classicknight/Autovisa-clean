@@ -1,20 +1,15 @@
 // === Module & Abhängigkeiten ===
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs');
-const path = require('path');
 const cookieParser = require('cookie-parser');
-const nodemailer = require('nodemailer');
-const crypto = require('crypto');
+const path = require('path');
 const { MongoClient, ObjectId } = require('mongodb');
+const bcrypt = require('bcryptjs');
+const cloudinary = require('cloudinary').v2;
 
 // === Express Initialisierung ===
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-const bcrypt = require("bcryptjs");
-
-// und dann speichern: password: hashed
 
 // === MongoDB Konfiguration ===
 const mongoUri = process.env.MONGODB_URI;
@@ -23,21 +18,18 @@ let db;
 
 client.connect()
   .then(() => {
-    db = client.db("autovisa");
-    console.log("✅ MongoDB verbunden");
+    db = client.db('autovisa');
+    console.log('✅ MongoDB verbunden');
   })
   .catch(err => {
-    console.error("❌ MongoDB-Verbindung fehlgeschlagen:", err);
+    console.error('❌ MongoDB-Verbindung fehlgeschlagen:', err);
   });
 
-// === Upload-Verzeichnisse ===
-const uploadsBaseDir = path.join(__dirname, 'uploads');
-const imagesDir = path.join(uploadsBaseDir, 'images');
-const videosDir = path.join(uploadsBaseDir, 'videos');
-
-// === Upload-Ordner erstellen falls nicht vorhanden ===
-[uploadsBaseDir, imagesDir, videosDir].forEach(dir => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+// === Cloudinary Konfiguration ===
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 // === Middleware ===
@@ -48,44 +40,34 @@ app.use(cookieParser());
 // === Statische Dateien ausliefern ===
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/data', express.static(path.join(__dirname, 'data')));
-app.use('/uploads/images', express.static(imagesDir));
-app.use('/uploads/videos', express.static(videosDir));
 
 // === Startseite ===
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// === Multer für Medien-Upload ===
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) cb(null, imagesDir);
-    else if (file.mimetype.startsWith('video/')) cb(null, videosDir);
-    else cb(new Error('Nur Bilder und Videos erlaubt.'), null);
-  },
-  filename: (req, file, cb) => {
-    const timestamp = Date.now();
-    const ext = path.extname(file.originalname);
-    cb(null, `${file.fieldname}-${timestamp}${ext}`);
-  }
-});
+// === Multer: In-Memory Storage (wir streamen zu Cloudinary) ===
+const upload = multer({ storage: multer.memoryStorage() });
 
-const upload = multer({
-  storage,
-  fileFilter: (req, file, cb) => {
-    const isValid = file.mimetype.startsWith("image/") || file.mimetype.startsWith("video/");
-    cb(null, isValid);
-  },
-  limits: { fileSize: 50 * 1024 * 1024 } // 50 MB
-});
+// Helper: Datei zu Cloudinary hochladen
+function uploadToCloudinary(file, { folder, resource_type }) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder, resource_type },
+      (err, result) => (err ? reject(err) : resolve(result))
+    );
+    stream.end(file.buffer);
+  });
+}
 
-
+// === 🛡️ Login-Middleware (angenommen vorhanden) ===
+// function checkLogin(req, res, next) { ... }
 
 // === Schritt 1: Fahrzeugdaten speichern ===
-app.post("/saveFahrzeugdaten", checkLogin, async (req, res) => {
+app.post('/saveFahrzeugdaten', checkLogin, async (req, res) => {
   try {
     const daten = req.body;
-    const collection = db.collection("fahrzeugeEntwurf");
+    const collection = db.collection('fahrzeugeEntwurf');
 
     const ergebnis = await collection.insertOne({
       ...daten,
@@ -94,10 +76,9 @@ app.post("/saveFahrzeugdaten", checkLogin, async (req, res) => {
     });
 
     res.json({ success: true, fahrzeugId: ergebnis.insertedId });
-
   } catch (err) {
-    console.error("❌ Fehler bei /saveFahrzeugdaten:", err);
-    res.status(500).json({ error: "Serverfehler beim Speichern." });
+    console.error('❌ Fehler bei /saveFahrzeugdaten:', err);
+    res.status(500).json({ error: 'Serverfehler beim Speichern.' });
   }
 });
 
@@ -105,13 +86,12 @@ app.post("/saveFahrzeugdaten", checkLogin, async (req, res) => {
 app.post('/saveDetails', checkLogin, async (req, res) => {
   try {
     const details = req.body;
-    const collection = db.collection("fahrzeugeEntwurf");
+    const collection = db.collection('fahrzeugeEntwurf');
 
     const letzter = await collection.findOne(
       { nutzerId: req.nutzer.id },
       { sort: { _id: -1 } }
     );
-
     if (!letzter) return res.status(400).json({ error: 'Kein Fahrzeug gefunden.' });
 
     await collection.updateOne(
@@ -120,20 +100,19 @@ app.post('/saveDetails', checkLogin, async (req, res) => {
     );
 
     res.json({ success: true });
-
   } catch (err) {
-    console.error("❌ Fehler in /saveDetails:", err);
+    console.error('❌ Fehler in /saveDetails:', err);
     res.status(500).json({ error: 'Fehler beim Speichern der Details.' });
   }
 });
 
-// === Schritt 3: Medien speichern (anhängen statt überschreiben) ===
+// === Schritt 3: Medien speichern (Cloudinary; Bilder anhängen, Video ersetzen) ===
 app.post('/saveMedia', checkLogin, upload.fields([
   { name: 'images', maxCount: 20 },
-  { name: 'video', maxCount: 1 }
+  { name: 'video',  maxCount: 1  }
 ]), async (req, res) => {
   try {
-    const collection = db.collection("fahrzeugeEntwurf");
+    const collection = db.collection('fahrzeugeEntwurf');
 
     // letzten Entwurf des eingeloggten Nutzers holen
     const letzter = await collection.findOne(
@@ -145,45 +124,65 @@ app.post('/saveMedia', checkLogin, upload.fields([
     }
 
     const files = req.files || {};
-    const neueImages = files.images ? files.images.map(f => `/uploads/images/${f.filename}`) : [];
-    const neuesVideo = (files.video && files.video[0]) ? `/uploads/videos/${files.video[0].filename}` : null;
+    const imageFiles = Array.isArray(files.images) ? files.images : [];
+    const videoFile  = Array.isArray(files.video)  && files.video[0] ? files.video[0] : null;
 
-    // Nichts hochgeladen? => Nichts überschreiben.
-    if (neueImages.length === 0 && !neuesVideo) {
-      return res.status(200).json({
+    // 1) Bilder zu Cloudinary (parallel)
+    let uploadedImageUrls = [];
+    if (imageFiles.length > 0) {
+      const uploads = imageFiles.map(f =>
+        uploadToCloudinary(f, { folder: 'autovisa/images', resource_type: 'image' })
+          .then(r => r.secure_url)
+      );
+      uploadedImageUrls = await Promise.all(uploads);
+    }
+
+    // 2) Video zu Cloudinary (ersetzt vorhandenes)
+    let uploadedVideoUrl = null;
+    if (videoFile) {
+      const r = await uploadToCloudinary(videoFile, { folder: 'autovisa/videos', resource_type: 'video' });
+      uploadedVideoUrl = r.secure_url;
+    }
+
+    // Nichts neu? -> nichts ändern
+    if (uploadedImageUrls.length === 0 && !uploadedVideoUrl) {
+      return res.json({
         success: true,
         message: 'Keine neuen Dateien – bestehende Medien unverändert.',
         images: letzter.images || [],
-        video: letzter.video || null
+        video:  letzter.video  || null
       });
     }
 
-    // Bilder anhängen (bestehende behalten)
-    const mergedImages = Array.isArray(letzter.images)
-      ? [...letzter.images, ...neueImages]
-      : [...neueImages];
-
-    // Video: wenn ein neues kommt, ersetzen wir das alte (du willst genau 1 Video)
+    // Bilder anhängen, Video ggf. ersetzen
     const updateDoc = {};
-    if (neueImages.length > 0) updateDoc.images = mergedImages;
-    if (neuesVideo) updateDoc.video = neuesVideo;
+    if (uploadedImageUrls.length > 0) {
+      const mergedImages = Array.isArray(letzter.images)
+        ? [...letzter.images, ...uploadedImageUrls]
+        : [...uploadedImageUrls];
+      updateDoc.images = mergedImages;
+    }
+    if (uploadedVideoUrl) updateDoc.video = uploadedVideoUrl;
 
     await collection.updateOne(
       { _id: letzter._id },
       { $set: updateDoc }
     );
 
-    return res.json({
+    res.json({
       success: true,
       message: 'Medien gespeichert.',
       images: updateDoc.images ?? letzter.images ?? [],
-      video: updateDoc.video ?? letzter.video ?? null
+      video:  updateDoc.video  ?? letzter.video  ?? null
     });
   } catch (err) {
-    console.error("❌ Fehler beim Speichern der Medien:", err);
+    console.error('❌ Fehler beim Speichern der Medien (Cloudinary):', err);
     res.status(500).json({ error: 'Fehler beim Speichern der Medien.' });
   }
 });
+
+// (export/app.listen ... kommt bei dir weiter unten)
+
 
 
 // === Vorschau: Nur Fahrzeuge dieses Nutzers laden ===
