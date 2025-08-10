@@ -4,51 +4,113 @@ document.addEventListener("DOMContentLoaded", () => {
   const navLinks = document.getElementById("nav-links");
   const hamburger = document.getElementById("hamburger");
   const dropdownLinks = document.querySelectorAll(".dropdown > a");
+  const dropdownLis = document.querySelectorAll(".dropdown");
 
-  // Hamburger-Menü
+  // ===== Helpers =====
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+  function closeAllDropdowns(except = null) {
+    dropdownLis.forEach(li => {
+      if (li !== except) {
+        li.classList.remove("open");
+        const trigger = li.querySelector('a[aria-haspopup="true"]');
+        const menu = li.querySelector(".dropdown-menu");
+        if (trigger) trigger.setAttribute("aria-expanded", "false");
+        if (menu) {
+          menu.classList.remove("show");
+          menu.style.left = "";
+          [...menu.children].forEach(item => (item.style.transitionDelay = ""));
+        }
+      }
+    });
+  }
+
+  function positionMenu(li) {
+    const trigger = li.querySelector('a[aria-haspopup="true"]');
+    const menu = li.querySelector('.dropdown-menu');
+    if (!trigger || !menu) return;
+
+    const tRect = trigger.getBoundingClientRect();
+    const mRect = menu.getBoundingClientRect();
+    const liRect = li.getBoundingClientRect();
+    const vw = window.innerWidth;
+
+    const center = tRect.left + tRect.width / 2;
+    let leftAbs = center - mRect.width / 2;
+    leftAbs = clamp(leftAbs, 16, vw - mRect.width - 16);
+
+    const relativeLeft = leftAbs - liRect.left;
+    menu.style.left = `${relativeLeft}px`;
+  }
+
+  function openDropdown(trigger) {
+    const li = trigger.closest(".dropdown");
+    const menu = trigger.nextElementSibling;
+    closeAllDropdowns(li);
+
+    li.classList.add("open");
+    trigger.setAttribute("aria-expanded", "true");
+    menu.classList.add("show");
+
+    [...menu.children].forEach((item, i) => {
+      item.style.transitionDelay = `${i * 25}ms`;
+    });
+
+    const isMobile = window.matchMedia("(max-width: 900px)").matches;
+    if (!isMobile) requestAnimationFrame(() => positionMenu(li));
+  }
+
+  function toggleDropdown(trigger) {
+    const li = trigger.closest(".dropdown");
+    const isOpen = li.classList.contains("open");
+    if (isOpen) {
+      closeAllDropdowns();
+    } else {
+      openDropdown(trigger);
+    }
+  }
+
+  // ===== Hamburger =====
   hamburger.addEventListener("click", (e) => {
     e.stopPropagation();
     navLinks.classList.toggle("active");
-    hamburger.setAttribute("aria-expanded", navLinks.classList.contains("active"));
     closeAllDropdowns();
+    hamburger.setAttribute("aria-expanded", navLinks.classList.contains("active") ? "true" : "false");
   });
 
-  // Dropdowns
+  // ===== Dropdown Click =====
   dropdownLinks.forEach(link => {
-    const menu = link.nextElementSibling;
+    link.setAttribute("aria-expanded", "false");
     link.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-
-      document.querySelectorAll(".dropdown-menu").forEach(otherMenu => {
-        if (otherMenu !== menu) otherMenu.classList.remove("show");
-      });
-
-      menu.classList.toggle("show");
-      link.setAttribute("aria-expanded", menu.classList.contains("show"));
+      toggleDropdown(link);
     });
   });
 
+  // ===== Desktop Hover (kein Touch) =====
+  const isCoarse = matchMedia("(pointer: coarse)").matches;
+  if (!isCoarse) {
+    dropdownLis.forEach(li => {
+      const trigger = li.querySelector('a[aria-haspopup="true"]');
+      if (!trigger) return;
+      li.addEventListener("mouseenter", () => openDropdown(trigger));
+      li.addEventListener("mouseleave", () => closeAllDropdowns());
+    });
+  }
+
+  // ===== Outside Click =====
   document.addEventListener("click", () => {
     navLinks.classList.remove("active");
-    hamburger.setAttribute("aria-expanded", "false");
     closeAllDropdowns();
   });
 
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      navLinks.classList.remove("active");
-      hamburger.setAttribute("aria-expanded", "false");
-      closeAllDropdowns();
-    }
-  });
+  // ===== Reposition on resize/scroll =====
+  const repositionOpen = () => document.querySelectorAll(".dropdown.open").forEach(positionMenu);
+  window.addEventListener("resize", repositionOpen);
+  window.addEventListener("scroll", repositionOpen);
 
-  function closeAllDropdowns() {
-    document.querySelectorAll(".dropdown-menu").forEach(menu => menu.classList.remove("show"));
-    dropdownLinks.forEach(link => link.setAttribute("aria-expanded", "false"));
-  }
-
-  // Login-abhängige Weiterleitungen
+  // ===== Login-abhängige Weiterleitungen =====
   const savedCarsLink = document.getElementById("saved-cars-link");
   const myCarsLink = document.getElementById("my-cars-link");
   const soldCarsLink = document.getElementById("sold-cars-link");
@@ -66,14 +128,13 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
   }
-  
 
   if (savedCarsLink) savedCarsLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#saved"); });
   if (myCarsLink) myCarsLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#my-cars"); });
   if (soldCarsLink) soldCarsLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#sold"); });
   if (messagesLink) messagesLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#chats"); });
 
-  // Smooth Scroll
+  // ===== Smooth Scroll =====
   const searchLink = document.querySelector('a[href="#search-section"]');
   if (searchLink) {
     searchLink.addEventListener("click", (e) => {
@@ -82,7 +143,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Filter Toggle
+  // ===== Filter Toggle =====
   const form = document.querySelector('.search-form');
   const advancedBtn = form?.querySelector('.btn-advanced');
   const filters = document.getElementById('extra-filters');
@@ -93,18 +154,203 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Navbar Login/Logout
+  // ===== Navbar Login/Logout =====
   const authLink = document.getElementById("auth-link");
-
   if (authLink) {
-    // LocalStorage Check zuerst (schneller als fetch)
     const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
-
     if (isLoggedIn) {
       authLink.innerHTML = `<a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>`;
       document.getElementById("logout-link").addEventListener("click", handleLogout);
     } else {
-      // Falls LocalStorage nicht vorhanden — sichere Abfrage über Server
+      fetch("/getNutzerInfo", { credentials: "include" })
+        .then(res => res.json())
+        .then(data => {
+          if (data.eingeloggt) {
+            authLink.innerHTML = `<a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>`;
+            document.getElementById("logout-link").addEventListener("click", handleLogout);
+          }
+        })
+        .catch(err => {
+          console.error("Fehler beim Abrufen des Login-Zustands:", err);
+        });
+    }
+  }
+
+  function handleLogout(e) {
+    e.preventDefault();
+    fetch("/logout", { method: "POST", credentials: "include" })
+      .then(() => {
+        localStorage.clear();
+        location.reload();
+      })
+      .catch(() => alert("Abmelden fehlgeschlagen."));
+  }
+
+});
+document.documentElement.classList.remove('no-js');
+
+document.addEventListener("DOMContentLoaded", () => {
+  const navLinks = document.getElementById("nav-links");
+  const hamburger = document.getElementById("hamburger");
+  const dropdownLinks = document.querySelectorAll(".dropdown > a");
+  const dropdownLis = document.querySelectorAll(".dropdown");
+
+  // ===== Helpers =====
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+  function closeAllDropdowns(except = null) {
+    dropdownLis.forEach(li => {
+      if (li !== except) {
+        li.classList.remove("open");
+        const trigger = li.querySelector('a[aria-haspopup="true"]');
+        const menu = li.querySelector(".dropdown-menu");
+        if (trigger) trigger.setAttribute("aria-expanded", "false");
+        if (menu) {
+          menu.classList.remove("show");
+          menu.style.left = "";
+          [...menu.children].forEach(item => (item.style.transitionDelay = ""));
+        }
+      }
+    });
+  }
+
+  function positionMenu(li) {
+    const trigger = li.querySelector('a[aria-haspopup="true"]');
+    const menu = li.querySelector('.dropdown-menu');
+    if (!trigger || !menu) return;
+
+    const tRect = trigger.getBoundingClientRect();
+    const mRect = menu.getBoundingClientRect();
+    const liRect = li.getBoundingClientRect();
+    const vw = window.innerWidth;
+
+    const center = tRect.left + tRect.width / 2;
+    let leftAbs = center - mRect.width / 2;
+    leftAbs = clamp(leftAbs, 16, vw - mRect.width - 16);
+
+    const relativeLeft = leftAbs - liRect.left;
+    menu.style.left = `${relativeLeft}px`;
+  }
+
+  function openDropdown(trigger) {
+    const li = trigger.closest(".dropdown");
+    const menu = trigger.nextElementSibling;
+    closeAllDropdowns(li);
+
+    li.classList.add("open");
+    trigger.setAttribute("aria-expanded", "true");
+    menu.classList.add("show");
+
+    [...menu.children].forEach((item, i) => {
+      item.style.transitionDelay = `${i * 25}ms`;
+    });
+
+    const isMobile = window.matchMedia("(max-width: 900px)").matches;
+    if (!isMobile) requestAnimationFrame(() => positionMenu(li));
+  }
+
+  function toggleDropdown(trigger) {
+    const li = trigger.closest(".dropdown");
+    const isOpen = li.classList.contains("open");
+    if (isOpen) {
+      closeAllDropdowns();
+    } else {
+      openDropdown(trigger);
+    }
+  }
+
+  // ===== Hamburger =====
+  hamburger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    navLinks.classList.toggle("active");
+    closeAllDropdowns();
+    hamburger.setAttribute("aria-expanded", navLinks.classList.contains("active") ? "true" : "false");
+  });
+
+  // ===== Dropdown Click =====
+  dropdownLinks.forEach(link => {
+    link.setAttribute("aria-expanded", "false");
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleDropdown(link);
+    });
+  });
+
+  // ===== Desktop Hover (kein Touch) =====
+  const isCoarse = matchMedia("(pointer: coarse)").matches;
+  if (!isCoarse) {
+    dropdownLis.forEach(li => {
+      const trigger = li.querySelector('a[aria-haspopup="true"]');
+      if (!trigger) return;
+      li.addEventListener("mouseenter", () => openDropdown(trigger));
+      li.addEventListener("mouseleave", () => closeAllDropdowns());
+    });
+  }
+
+  // ===== Outside Click =====
+  document.addEventListener("click", () => {
+    navLinks.classList.remove("active");
+    closeAllDropdowns();
+  });
+
+  // ===== Reposition on resize/scroll =====
+  const repositionOpen = () => document.querySelectorAll(".dropdown.open").forEach(positionMenu);
+  window.addEventListener("resize", repositionOpen);
+  window.addEventListener("scroll", repositionOpen);
+
+  // ===== Login-abhängige Weiterleitungen =====
+  const savedCarsLink = document.getElementById("saved-cars-link");
+  const myCarsLink = document.getElementById("my-cars-link");
+  const soldCarsLink = document.getElementById("sold-cars-link");
+  const messagesLink = document.getElementById("messages-link");
+
+  function checkLoginAndRedirect(targetUrl) {
+    fetch("/getNutzerInfo", { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        if (data.eingeloggt) {
+          window.location.href = targetUrl;
+        } else {
+          localStorage.setItem("redirectAfterLogin", window.location.pathname + window.location.hash);
+          window.location.href = "login.html";
+        }
+      });
+  }
+
+  if (savedCarsLink) savedCarsLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#saved"); });
+  if (myCarsLink) myCarsLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#my-cars"); });
+  if (soldCarsLink) soldCarsLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#sold"); });
+  if (messagesLink) messagesLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#chats"); });
+
+  // ===== Smooth Scroll =====
+  const searchLink = document.querySelector('a[href="#search-section"]');
+  if (searchLink) {
+    searchLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
+    });
+  }
+
+  // ===== Filter Toggle =====
+  const form = document.querySelector('.search-form');
+  const advancedBtn = form?.querySelector('.btn-advanced');
+  const filters = document.getElementById('extra-filters');
+  if (advancedBtn && filters) {
+    advancedBtn.addEventListener("click", () => {
+      filters.classList.toggle('show');
+      advancedBtn.textContent = filters.classList.contains('show') ? 'Filter schließen' : 'Weitere Filter';
+    });
+  }
+
+  // ===== Navbar Login/Logout =====
+  const authLink = document.getElementById("auth-link");
+  if (authLink) {
+    const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
+    if (isLoggedIn) {
+      authLink.innerHTML = `<a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>`;
+      document.getElementById("logout-link").addEventListener("click", handleLogout);
+    } else {
       fetch("/getNutzerInfo", { credentials: "include" })
         .then(res => res.json())
         .then(data => {
