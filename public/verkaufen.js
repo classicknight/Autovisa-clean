@@ -1,14 +1,12 @@
 document.documentElement.classList.remove('no-js');
 
 document.addEventListener("DOMContentLoaded", () => {
-  // ====== DOM refs ======
+  // ===== Navbar Grund-Setup (wie in navbar.js) =====
   const navLinks = document.getElementById("nav-links");
   const hamburger = document.getElementById("hamburger");
   const dropdownLinks = document.querySelectorAll(".dropdown > a");
   const dropdownLis = document.querySelectorAll(".dropdown");
-  const authLink = document.getElementById("auth-link");
 
-  // ====== Helpers ======
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
   function closeAllDropdowns(except = null) {
@@ -39,7 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const center = tRect.left + tRect.width / 2;
     let leftAbs = center - mRect.width / 2;
-    leftAbs = clamp(leftAbs, 16, vw - mRect.width - 16);
+    leftAbs = Math.max(16, Math.min(leftAbs, vw - mRect.width - 16));
 
     const relativeLeft = leftAbs - liRect.left;
     menu.style.left = `${relativeLeft}px`;
@@ -54,19 +52,14 @@ document.addEventListener("DOMContentLoaded", () => {
     trigger.setAttribute("aria-expanded", "true");
     menu.classList.add("show");
 
-    // Stagger der Items
+    // Stagger
     [...menu.children].forEach((item, i) => {
       item.style.transitionDelay = `${i * 25}ms`;
     });
 
-    // Nur Desktop zentrieren (Mobile = position:static)
+    // Nur Desktop zentrieren
     const isMobile = window.matchMedia("(max-width: 900px)").matches;
-    if (!isMobile) {
-      // Warten bis das Menü sichtbar ist, dann messen
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => positionMenu(li));
-      });
-    }
+    if (!isMobile) requestAnimationFrame(() => positionMenu(li));
   }
 
   function toggleDropdown(trigger) {
@@ -79,16 +72,20 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ====== Hamburger ======
-  hamburger?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const willOpen = !navLinks.classList.contains("active");
-    navLinks.classList.toggle("active");
-    closeAllDropdowns();
-    hamburger.setAttribute("aria-expanded", willOpen ? "true" : "false");
-  });
+  // Hamburger-Menü (wie navbar.js)
+  if (hamburger) {
+    hamburger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      navLinks.classList.toggle("active");
+      closeAllDropdowns(); // immer schließen
+      hamburger.setAttribute(
+        "aria-expanded",
+        navLinks.classList.contains("active") ? "true" : "false"
+      );
+    });
+  }
 
-  // ====== Dropdown NUR per Klick ======
+  // Dropdowns per Klick (wie navbar.js)
   dropdownLinks.forEach(link => {
     link.setAttribute("aria-expanded", "false");
     link.addEventListener("click", (e) => {
@@ -98,35 +95,32 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // >>> KEIN Hover-Open (bewusst weggelassen)
+  // Optional Desktop Hover (genau wie navbar.js)
+  const isCoarse = matchMedia("(pointer: coarse)").matches;
+  if (!isCoarse) {
+    dropdownLis.forEach(li => {
+      const trigger = li.querySelector('a[aria-haspopup="true"]');
+      const menu = li.querySelector(".dropdown-menu");
+      if (!trigger || !menu) return;
 
-  // ====== Outside Click (NICHT zu aggressiv) ======
-  document.addEventListener("click", (e) => {
-    // Nur schließen, wenn NICHT in der Navbar und NICHT in einem offenen Dropdown geklickt wurde
-    const inNavbar = !!e.target.closest(".navbar");
-    const inOpenDropdown = !!e.target.closest(".dropdown.open");
-    if (!inNavbar && !inOpenDropdown) {
-      navLinks?.classList.remove("active");
-      hamburger?.setAttribute("aria-expanded", "false");
-      closeAllDropdowns();
-    }
+      li.addEventListener("mouseenter", () => openDropdown(trigger));
+      li.addEventListener("mouseleave", () => closeAllDropdowns());
+    });
+  }
+
+  // Outside Click schließt (wie navbar.js)
+  document.addEventListener("click", () => {
+    navLinks.classList.remove("active");
+    closeAllDropdowns();
   });
 
-  // ESC schließt
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      navLinks?.classList.remove("active");
-      hamburger?.setAttribute("aria-expanded", "false");
-      closeAllDropdowns();
-    }
-  });
-
-  // Reposition bei Resize/Scroll (Desktop)
-  const repositionOpen = () => document.querySelectorAll(".dropdown.open").forEach(positionMenu);
+  // Reposition on resize/scroll
+  const repositionOpen = () =>
+    document.querySelectorAll(".dropdown.open").forEach(positionMenu);
   window.addEventListener("resize", repositionOpen);
   window.addEventListener("scroll", repositionOpen);
 
-  // ====== HARTE Login-Pflicht für verkaufen.html ======
+  // ===== Login-Pflicht für verkaufen.html =====
   fetch("/getNutzerInfo", { credentials: "include" })
     .then(res => res.json())
     .then(data => {
@@ -135,29 +129,32 @@ document.addEventListener("DOMContentLoaded", () => {
         window.location.href = "login.html";
         return;
       }
-      // Eingeloggt: Navbar & Rollen-Logik initialisieren
+      // eingeloggt → Navbar/Links/Rolle initialisieren
       initNavbarAuth(data);
       initRoleRouting(data);
       initInternalLinks(data);
     })
-    .catch(err => {
-      console.error("❌ Fehler beim Login-Check:", err);
-    });
+    .catch(err => console.error("❌ Fehler beim Login-Check:", err));
 
-  // ====== Navbar Login/Logout ======
+  // ===== Navbar Login/Logout =====
   function initNavbarAuth(userData) {
+    const authLink = document.getElementById("auth-link");
     if (!authLink) return;
-    const alreadyTrue = localStorage.getItem("isLoggedIn") === "true" || userData.eingeloggt === true;
+
+    const alreadyTrue =
+      localStorage.getItem("isLoggedIn") === "true" || userData.eingeloggt === true;
 
     if (alreadyTrue) {
-      authLink.innerHTML = `<a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>`;
+      authLink.innerHTML =
+        `<a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>`;
       document.getElementById("logout-link")?.addEventListener("click", handleLogout);
     } else {
       fetch("/getNutzerInfo", { credentials: "include" })
         .then(res => res.json())
         .then(data => {
           if (data.eingeloggt) {
-            authLink.innerHTML = `<a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>`;
+            authLink.innerHTML =
+              `<a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>`;
             document.getElementById("logout-link")?.addEventListener("click", handleLogout);
           }
         })
@@ -175,7 +172,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .catch(() => alert("Abmelden fehlgeschlagen."));
   }
 
-  // ====== Rollenabhängige Navigation ======
+  // ===== Rollenabhängige Navigation =====
   function initRoleRouting(userData) {
     const rolle = userData.rolle;
     const privatLink = document.getElementById("privat-link");
@@ -206,7 +203,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ====== Interne Links ======
+  // ===== Interne Links =====
   function initInternalLinks(userData) {
     const isLoggedIn = userData.eingeloggt === true;
     const savedCarsLink = document.getElementById("saved-cars-link");
@@ -223,7 +220,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ====== Smooth scroll ======
+  // ===== Smooth Scroll (falls vorhanden) =====
   const searchLink = document.querySelector('a[href="#search-section"]');
   if (searchLink) {
     searchLink.addEventListener("click", (e) => {
