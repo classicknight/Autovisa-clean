@@ -54,14 +54,19 @@ document.addEventListener("DOMContentLoaded", () => {
     trigger.setAttribute("aria-expanded", "true");
     menu.classList.add("show");
 
-    // Stagger die Items leicht
+    // Stagger der Items
     [...menu.children].forEach((item, i) => {
       item.style.transitionDelay = `${i * 25}ms`;
     });
 
     // Nur Desktop zentrieren (Mobile = position:static)
     const isMobile = window.matchMedia("(max-width: 900px)").matches;
-    if (!isMobile) requestAnimationFrame(() => positionMenu(li));
+    if (!isMobile) {
+      // Warten bis das Menü sichtbar ist, dann messen
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => positionMenu(li));
+      });
+    }
   }
 
   function toggleDropdown(trigger) {
@@ -95,9 +100,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // >>> KEIN Hover-Open (bewusst weggelassen)
 
-  // ====== Outside Click (nur außerhalb der Navbar) ======
+  // ====== Outside Click (NICHT zu aggressiv) ======
   document.addEventListener("click", (e) => {
-    if (!e.target.closest(".navbar")) {
+    // Nur schließen, wenn NICHT in der Navbar und NICHT in einem offenen Dropdown geklickt wurde
+    const inNavbar = !!e.target.closest(".navbar");
+    const inOpenDropdown = !!e.target.closest(".dropdown.open");
+    if (!inNavbar && !inOpenDropdown) {
       navLinks?.classList.remove("active");
       hamburger?.setAttribute("aria-expanded", "false");
       closeAllDropdowns();
@@ -119,7 +127,6 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("scroll", repositionOpen);
 
   // ====== HARTE Login-Pflicht für verkaufen.html ======
-  // Wenn nicht eingeloggt -> auf Login umleiten, danach zurück auf verkaufen.html
   fetch("/getNutzerInfo", { credentials: "include" })
     .then(res => res.json())
     .then(data => {
@@ -137,7 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("❌ Fehler beim Login-Check:", err);
     });
 
-  // ====== Navbar Login/Logout (zeigt Abmelden, wenn eingeloggt) ======
+  // ====== Navbar Login/Logout ======
   function initNavbarAuth(userData) {
     if (!authLink) return;
     const alreadyTrue = localStorage.getItem("isLoggedIn") === "true" || userData.eingeloggt === true;
@@ -146,7 +153,6 @@ document.addEventListener("DOMContentLoaded", () => {
       authLink.innerHTML = `<a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>`;
       document.getElementById("logout-link")?.addEventListener("click", handleLogout);
     } else {
-      // Fallback: versuch Servercheck (sollte hier eigentlich nie nötig sein)
       fetch("/getNutzerInfo", { credentials: "include" })
         .then(res => res.json())
         .then(data => {
@@ -169,7 +175,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .catch(() => alert("Abmelden fehlgeschlagen."));
   }
 
-  // ====== Rollenabhängige Navigation (privat/haendler) ======
+  // ====== Rollenabhängige Navigation ======
   function initRoleRouting(userData) {
     const rolle = userData.rolle;
     const privatLink = document.getElementById("privat-link");
@@ -200,7 +206,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ====== Interne Links (gespeicherte / eigene Autos) ======
+  // ====== Interne Links ======
   function initInternalLinks(userData) {
     const isLoggedIn = userData.eingeloggt === true;
     const savedCarsLink = document.getElementById("saved-cars-link");
@@ -217,7 +223,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ====== Smooth scroll (falls vorhanden) ======
+  // ====== Smooth scroll ======
   const searchLink = document.querySelector('a[href="#search-section"]');
   if (searchLink) {
     searchLink.addEventListener("click", (e) => {
