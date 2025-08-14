@@ -95,18 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Optional Desktop Hover (genau wie navbar.js)
-  const isCoarse = matchMedia("(pointer: coarse)").matches;
-  if (!isCoarse) {
-    dropdownLis.forEach(li => {
-      const trigger = li.querySelector('a[aria-haspopup="true"]');
-      const menu = li.querySelector(".dropdown-menu");
-      if (!trigger || !menu) return;
-
-      li.addEventListener("mouseenter", () => openDropdown(trigger));
-      li.addEventListener("mouseleave", () => closeAllDropdowns());
-    });
-  }
+ 
 
   // Outside Click schließt (wie navbar.js)
   document.addEventListener("click", () => {
