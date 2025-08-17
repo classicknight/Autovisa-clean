@@ -143,7 +143,35 @@ document.addEventListener("DOMContentLoaded", async () => {
   makeInput?.addEventListener("input", updateTitle);
   modelInput?.addEventListener("input", updateTitle);
 
-  // ===== Login-Redirects =====
+  // ===== Navbar Login/Logout: #auth-link auf „Abmelden“ setzen, wenn eingeloggt =====
+  const authLi = document.getElementById("auth-link");
+  if (authLi) {
+    try {
+      const res = await fetch("/getNutzerInfo", { credentials: "include" });
+      const data = await res.json();
+      if (data?.eingeloggt) {
+        authLi.innerHTML = `
+          <a href="#" id="logout-link">
+            <i class="fas fa-sign-out-alt"></i> Abmelden
+          </a>`;
+        document.getElementById("logout-link")?.addEventListener("click", async (e) => {
+          e.preventDefault();
+          try {
+            await fetch("/logout", { method: "POST", credentials: "include" });
+            localStorage.clear();
+            location.reload();
+          } catch {
+            alert("Abmelden fehlgeschlagen.");
+          }
+        });
+      }
+    } catch (err) {
+      // still silent – Login-UI bleibt dann wie sie ist
+      console.warn("Login-Status konnte nicht ermittelt werden:", err);
+    }
+  }
+
+  // ===== Login-Redirects (Gespeicherte/Meine Autos) =====
   function checkLoginAndGo(targetUrl) {
     fetch("/getNutzerInfo", { credentials: "include" })
       .then(res => res.json())
