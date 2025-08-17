@@ -1,223 +1,113 @@
-document.addEventListener("DOMContentLoaded", () => {
-
-
-
-    function initMediaSlider(container) {
-  const slidesWrapper = container.querySelector(".slides");
-  const slides = Array.from(slidesWrapper.children);
-  
-  const state = {
-    currentIndex: 0,
-    isDragging: false,
-    startPos: 0,
-    currentTranslate: 0,
-    prevTranslate: 0,
-    animationID: null,
-  };
-  
-  slidesWrapper.style.display = "flex";
-  slidesWrapper.style.transition = "transform 0.3s ease";
-  slidesWrapper.style.willChange = "transform";
-  
-  slides.forEach(slide => {
-    slide.style.flex = "0 0 100%";
-    slide.style.minWidth = "100%";
-  });
-  
-  function setSliderPosition() {
-    slidesWrapper.style.transform = `translateX(${state.currentTranslate}px)`;
-  }
-  
-  function animation() {
-    setSliderPosition();
-    if (state.isDragging) requestAnimationFrame(animation);
-  }
-  
-  function pointerDown(event) {
-    state.isDragging = true;
-    state.startPos = event.clientX;
-    state.animationID = requestAnimationFrame(animation);
-  }
-  
-  function pointerMove(event) {
-    if (state.isDragging) {
-      const currentPosition = event.clientX;
-      state.currentTranslate = state.prevTranslate + currentPosition - state.startPos;
-    }
-  }
-  
-  function pointerUp() {
-    state.isDragging = false;
-    cancelAnimationFrame(state.animationID);
-    const movedBy = state.currentTranslate - state.prevTranslate;
-    const containerWidth = container.clientWidth;
-    
-    if (movedBy < -50 && state.currentIndex < slides.length - 1) {
-      state.currentIndex++;
-    } else if (movedBy > 50 && state.currentIndex > 0) {
-      state.currentIndex--;
-    }
-    
-    updateSlidePosition();
-  }
-  
-  function updateSlidePosition() {
-    const containerWidth = container.clientWidth;
-    state.currentTranslate = -state.currentIndex * containerWidth;
-    state.prevTranslate = state.currentTranslate;
-    setSliderPosition();
-  }
-  
-  // Pointer Events
-  slidesWrapper.addEventListener("pointerdown", pointerDown);
-  slidesWrapper.addEventListener("pointermove", pointerMove);
-  slidesWrapper.addEventListener("pointerup", pointerUp);
-  slidesWrapper.addEventListener("pointerleave", (e) => { if (state.isDragging) pointerUp(e); });
-  slidesWrapper.addEventListener("pointercancel", pointerUp);
-  
-  slides.forEach(slide => {
-    slide.addEventListener("pointerdown", pointerDown);
-    slide.addEventListener("pointermove", pointerMove);
-    slide.addEventListener("pointerup", pointerUp);
-    slide.addEventListener("pointerleave", (e) => { if (state.isDragging) pointerUp(e); });
-    slide.addEventListener("pointercancel", pointerUp);
-  });
-  
-    container.querySelector(".media-arrow.right")?.addEventListener("click", () => {
-    if (state.currentIndex < slides.length - 1) {
-      state.currentIndex++;
-      updateSlidePosition();
-    }
-  });
-  
-  container.querySelector(".media-arrow.left")?.addEventListener("click", () => {
-    if (state.currentIndex > 0) {
-      state.currentIndex--;
-      updateSlidePosition();
-    }
-  });
-  
-  window.addEventListener("resize", updateSlidePosition);
-  updateSlidePosition();
-  }
-  
-  // **Hier den Aufruf einfügen – sonst wird der Slider nie aktiviert!**
-  document.querySelectorAll(".media-container").forEach(initMediaSlider);
-  });
-
-  /** 🔹 Fahrzeug löschen */
-  document.querySelectorAll(".delete-btn").forEach(button => {
-    button.addEventListener("click", function() {
-      const carCard = this.closest(".car-card");
-      if (confirm("Möchtest du dieses Inserat wirklich löschen?")) {
-        carCard.remove();
-      }
-    });
-  });
-
-  /** 🔹 Sidebar Navigation (Sektionen umschalten) */
-  const sidebarLinks = document.querySelectorAll(".sidebar-link");
-const title = document.querySelector(".title");
-const sections = {
-    "car-list": document.querySelector(".car-list"),
-    "messages-list": document.querySelector("#messages-list"),
-    "saved-cars": document.querySelector("#saved-cars"),
-    "sold-cars": document.querySelector("#sold-cars")
-  };
-
-  function showSection(sectionName) {
-    Object.values(sections).forEach(section => {
-      if (section) {
-        section.classList.add("hidden");
-        section.classList.remove("visible");
-      }
-    });
-
-    if (sections[sectionName]) {
-      sections[sectionName].classList.remove("hidden");
-      sections[sectionName].classList.add("visible");
-    }
-  }
-
-  const chatButton = `<a href="chat-uebersicht.html" class="all-chats-btn" style="margin-left: auto;">
-  <i class="fas fa-envelope-open-text"></i> Alle Chats anzeigen
-</a>`;
-
-sidebarLinks.forEach(link => {
-  link.addEventListener("click", () => {
-    const selectedSection = link.dataset.section;
-    
-    // Aktiven Link markieren
-    sidebarLinks.forEach(l => l.classList.remove("active"));
-    link.classList.add("active");
-    
-    // Sichtbare Sektion wechseln
-    showSection(selectedSection);
-    
-    // Überschrift setzen (und bei Nachrichten zusätzlich Button einfügen)
-    switch (selectedSection) {
-      case "car-list":
-        title.innerHTML = '<i class="fas fa-car"></i> Meine Autos';
-        break;
-      case "messages-list":
-        title.innerHTML = '<i class="fas fa-comments"></i> Nachrichten' + chatButton;
-        break;
-      case "saved-cars":
-        title.innerHTML = '<i class="fas fa-heart"></i> Gespeicherte Autos';
-        break;
-      case "sold-cars":
-        title.innerHTML = '<i class="fas fa-check-circle"></i> Verkaufte Autos';
-        break;
-      default:
-        title.innerHTML = '<i class="fas fa-car"></i> Meine Autos';
-    }
-  });
-});
-
-  /** 🔹 Kommentar-Funktionen */
-  document.querySelectorAll(".delete-comment-btn").forEach(button => {
-    button.addEventListener("click", function() {
-      if (confirm("Möchtest du diesen Kommentar wirklich löschen?")) {
-        this.closest(".comment-card").remove();
-      }
-    });
-  });
-
-  document.querySelectorAll(".reply-btn").forEach(button => {
-    button.addEventListener("click", function() {
-      alert("Antwortfunktion wird demnächst verfügbar sein.");
-    });
-  });
-
-// Beim Laden: „Meine Autos“ anzeigen und Titel setzen
-showSection("car-list");
-title.innerHTML = '<i class="fas fa-car"></i> Meine Autos';
-
-  /** 🔹 Gespeicherte Autos umschalten */
-  document.querySelectorAll(".toggle-saved-car").forEach(button => {
-    button.addEventListener("click", function() {
-      const carCard = this.closest(".saved-car-card");
-      this.classList.toggle("removed");
-
-      if (this.classList.contains("removed")) {
-        setTimeout(() => {
-          carCard.remove();
-        }, 300);
-      }
-    });
-  });
-
-
-// uebersicht.js
+// uebersicht.js (klick-only, kein Hover-Open)
 document.documentElement.classList.remove('no-js');
 
 document.addEventListener("DOMContentLoaded", () => {
+  /* =========================
+     Medien-Slider (Swipe/Click)
+     ========================= */
+  function initMediaSlider(container) {
+    const slidesWrapper = container.querySelector(".slides");
+    if (!slidesWrapper) return;
+    const slides = Array.from(slidesWrapper.children);
+
+    const state = {
+      currentIndex: 0,
+      isDragging: false,
+      startPos: 0,
+      currentTranslate: 0,
+      prevTranslate: 0,
+      animationID: null,
+    };
+
+    slidesWrapper.style.display = "flex";
+    slidesWrapper.style.transition = "transform 0.3s ease";
+    slidesWrapper.style.willChange = "transform";
+    slides.forEach(slide => {
+      slide.style.flex = "0 0 100%";
+      slide.style.minWidth = "100%";
+    });
+
+    const setSliderPosition = () => {
+      slidesWrapper.style.transform = `translateX(${state.currentTranslate}px)`;
+    };
+
+    const animation = () => {
+      setSliderPosition();
+      if (state.isDragging) requestAnimationFrame(animation);
+    };
+
+    function pointerDown(event) {
+      state.isDragging = true;
+      state.startPos = event.clientX ?? (event.touches && event.touches[0]?.clientX) ?? 0;
+      state.animationID = requestAnimationFrame(animation);
+    }
+    function pointerMove(event) {
+      if (!state.isDragging) return;
+      const currentPosition = event.clientX ?? (event.touches && event.touches[0]?.clientX) ?? 0;
+      state.currentTranslate = state.prevTranslate + currentPosition - state.startPos;
+    }
+    function pointerUp() {
+      if (!state.isDragging) return;
+      state.isDragging = false;
+      cancelAnimationFrame(state.animationID);
+
+      const movedBy = state.currentTranslate - state.prevTranslate;
+      if (movedBy < -50 && state.currentIndex < slides.length - 1) state.currentIndex++;
+      else if (movedBy > 50 && state.currentIndex > 0) state.currentIndex--;
+
+      updateSlidePosition();
+    }
+    function updateSlidePosition() {
+      const containerWidth = container.clientWidth || 0;
+      state.currentTranslate = -state.currentIndex * containerWidth;
+      state.prevTranslate = state.currentTranslate;
+      setSliderPosition();
+    }
+
+    // Pointer Events
+    ["pointerdown","pointermove","pointerup","pointerleave","pointercancel"].forEach(type => {
+      slidesWrapper.addEventListener(type, (e) => {
+        if (type === "pointerdown") pointerDown(e);
+        if (type === "pointermove") pointerMove(e);
+        if (type === "pointerup" || type === "pointercancel" || type === "pointerleave") pointerUp(e);
+      }, { passive: true });
+    });
+    slides.forEach(slide => {
+      ["pointerdown","pointermove","pointerup","pointerleave","pointercancel"].forEach(type => {
+        slide.addEventListener(type, (e) => {
+          if (type === "pointerdown") pointerDown(e);
+          if (type === "pointermove") pointerMove(e);
+          if (type === "pointerup" || type === "pointercancel" || type === "pointerleave") pointerUp(e);
+        }, { passive: true });
+      });
+    });
+
+    container.querySelector(".media-arrow.right")?.addEventListener("click", () => {
+      if (state.currentIndex < slides.length - 1) {
+        state.currentIndex++;
+        updateSlidePosition();
+      }
+    });
+    container.querySelector(".media-arrow.left")?.addEventListener("click", () => {
+      if (state.currentIndex > 0) {
+        state.currentIndex--;
+        updateSlidePosition();
+      }
+    });
+
+    window.addEventListener("resize", updateSlidePosition);
+    updateSlidePosition();
+  }
+  document.querySelectorAll(".media-container").forEach(initMediaSlider);
+
+  /* =========================
+     Navbar / Dropdowns (KLICK ONLY)
+     ========================= */
   const navLinks      = document.getElementById("nav-links");
   const hamburger     = document.getElementById("hamburger");
   const dropdownLinks = document.querySelectorAll(".dropdown > a");
   const dropdownLis   = document.querySelectorAll(".dropdown");
 
-  // --- Helpers ---
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
   function closeAllDropdowns(except = null) {
@@ -240,17 +130,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const trigger = li.querySelector('a[aria-haspopup="true"]');
     const menu    = li.querySelector('.dropdown-menu');
     if (!trigger || !menu) return;
-
     const tRect = trigger.getBoundingClientRect();
     const mRect = menu.getBoundingClientRect();
     const liRect = li.getBoundingClientRect();
     const vw = window.innerWidth;
-
     const center  = tRect.left + tRect.width / 2;
     let leftAbs   = center - mRect.width / 2;
     leftAbs       = clamp(leftAbs, 16, vw - mRect.width - 16);
     const relLeft = leftAbs - liRect.left;
-
     menu.style.left = `${relLeft}px`;
   }
 
@@ -258,17 +145,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const li   = trigger.closest(".dropdown");
     const menu = trigger.nextElementSibling;
     closeAllDropdowns(li);
-
     li.classList.add("open");
     trigger.setAttribute("aria-expanded", "true");
     menu.classList.add("show");
 
-    // Stagger
     [...menu.children].forEach((item, i) => {
       item.style.transitionDelay = `${i * 25}ms`;
     });
 
-    // Nur Desktop zentrieren
     const isMobile = window.matchMedia("(max-width: 900px)").matches;
     if (!isMobile) requestAnimationFrame(() => positionMenu(li));
   }
@@ -278,7 +162,7 @@ document.addEventListener("DOMContentLoaded", () => {
     li.classList.contains("open") ? closeAllDropdowns() : openDropdown(trigger);
   }
 
-  // --- Hamburger ---
+  // Hamburger (Panel toggeln)
   hamburger?.addEventListener("click", (e) => {
     e.stopPropagation();
     const willOpen = !navLinks.classList.contains("active");
@@ -287,7 +171,7 @@ document.addEventListener("DOMContentLoaded", () => {
     hamburger.setAttribute("aria-expanded", willOpen ? "true" : "false");
   });
 
-  // --- Dropdowns per Klick ---
+  // Dropdowns per Klick (kein Hover)
   dropdownLinks.forEach(link => {
     link.setAttribute("aria-expanded", "false");
     link.addEventListener("click", (e) => {
@@ -297,30 +181,21 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // --- Optional: Hover auf Desktop (kein Touch) ---
-  const isCoarse = matchMedia("(pointer: coarse)").matches;
-  if (!isCoarse) {
-    dropdownLis.forEach(li => {
-      const trigger = li.querySelector('a[aria-haspopup="true"]');
-      const menu = li.querySelector(".dropdown-menu");
-      if (!trigger || !menu) return;
-      li.addEventListener("mouseenter", () => openDropdown(trigger));
-      li.addEventListener("mouseleave", () => closeAllDropdowns());
-    });
-  }
-
-  // --- Outside Click ---
+  // Outside Click
   document.addEventListener("click", () => {
-    navLinks.classList.remove("active");
+    navLinks?.classList.remove("active");
     closeAllDropdowns();
   });
 
-  // --- Reposition on resize/scroll ---
-  const repositionOpen = () => document.querySelectorAll(".dropdown.open").forEach(positionMenu);
+  // Reposition on resize/scroll
+  const repositionOpen = () =>
+    document.querySelectorAll(".dropdown.open").forEach(positionMenu);
   window.addEventListener("resize", repositionOpen);
   window.addEventListener("scroll", repositionOpen);
 
-  // ===== Login-abhängige Weiterleitungen zu Tabs der Übersicht =====
+  /* =========================
+     Login-abhängige Weiterleitungen (Tabs in übersicht.html)
+     ========================= */
   const savedCarsLink = document.getElementById("saved-cars-link");
   const myCarsLink    = document.getElementById("my-cars-link");
   const soldCarsLink  = document.getElementById("sold-cars-link");
@@ -333,13 +208,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (data.eingeloggt) {
           window.location.href = `übersicht.html${targetHash}`;
         } else {
-          // nach Login wieder hierher (inkl. gewünschtem Tab)
           localStorage.setItem("redirectAfterLogin", `übersicht.html${targetHash}`);
           window.location.href = "login.html";
         }
       })
       .catch(() => {
-        // Fallback: sicherheitshalber zum Login
         localStorage.setItem("redirectAfterLogin", `übersicht.html${targetHash}`);
         window.location.href = "login.html";
       });
@@ -350,14 +223,17 @@ document.addEventListener("DOMContentLoaded", () => {
   soldCarsLink?.addEventListener("click",  (e) => { e.preventDefault(); checkLoginAndRedirect("#sold"); });
   messagesLink?.addEventListener("click",  (e) => { e.preventDefault(); checkLoginAndRedirect("#chats"); });
 
-  // ===== Smooth Scroll (falls section existiert) =====
-  const searchLink = document.querySelector('a[href="#search-section"]');
-  searchLink?.addEventListener("click", (e) => {
+  /* =========================
+     Smooth Scroll (optional)
+     ========================= */
+  document.querySelector('a[href="#search-section"]')?.addEventListener("click", (e) => {
     e.preventDefault();
     document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
   });
 
-  // ===== Titel-Autofill (falls Inputs vorhanden) =====
+  /* =========================
+     Titel-Autofill (optional)
+     ========================= */
   const makeInput  = document.getElementById("make");
   const modelInput = document.getElementById("model");
   const titleInput = document.getElementById("title");
@@ -370,16 +246,16 @@ document.addEventListener("DOMContentLoaded", () => {
   makeInput?.addEventListener("input", updateTitle);
   modelInput?.addEventListener("input", updateTitle);
 
-  // ===== Navbar Login/Logout (auth-link Umschreiben) =====
+  /* =========================
+     Navbar Login/Logout (falls du es hier brauchst)
+     ========================= */
   const authLink = document.getElementById("auth-link");
   if (authLink) {
     fetch("/getNutzerInfo", { credentials: "include" })
       .then(res => res.json())
       .then(data => {
         if (data.eingeloggt) {
-          authLink.innerHTML = `<a href="#" id="logout-link">
-            <i class="fas fa-sign-out-alt"></i> Abmelden
-          </a>`;
+          authLink.innerHTML = `<a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>`;
           document.getElementById("logout-link")?.addEventListener("click", (e) => {
             e.preventDefault();
             fetch("/logout", { method: "POST", credentials: "include" })
@@ -390,7 +266,127 @@ document.addEventListener("DOMContentLoaded", () => {
       })
       .catch(() => {});
   }
+
+  /* =========================
+     Medien: Hochkant-Erkennung (Zoom-Klasse)
+     ========================= */
+  document.querySelectorAll('.slide img, .slide video').forEach(media => {
+    if (media.tagName === "VIDEO") {
+      media.addEventListener("loadedmetadata", () => {
+        if (media.videoHeight > media.videoWidth) media.classList.add("portrait-zoom");
+      });
+    } else {
+      media.addEventListener("load", () => {
+        if (media.naturalHeight > media.naturalWidth) media.classList.add("portrait-zoom");
+      });
+    }
+  });
+
+  /* =========================
+     Karten/Kommentare/Speicherfunktionen
+     ========================= */
+  // Fahrzeug-Karte löschen
+  document.querySelectorAll(".delete-btn").forEach(btn => {
+    btn.addEventListener("click", function () {
+      const card = this.closest(".car-card");
+      if (card && confirm("Möchtest du dieses Inserat wirklich löschen?")) {
+        card.remove();
+      }
+    });
+  });
+
+  // Sidebar/Tabs
+  const sidebarLinks = document.querySelectorAll(".sidebar-link");
+  const titleEl = document.querySelector(".title");
+  const sections = {
+    "car-list":     document.querySelector(".car-list"),
+    "messages-list":document.querySelector("#messages-list"),
+    "saved-cars":   document.querySelector("#saved-cars"),
+    "sold-cars":    document.querySelector("#sold-cars")
+  };
+
+  function showSection(sectionName) {
+    Object.values(sections).forEach(section => {
+      if (!section) return;
+      section.classList.add("hidden");
+      section.classList.remove("visible");
+    });
+    if (sections[sectionName]) {
+      sections[sectionName].classList.remove("hidden");
+      sections[sectionName].classList.add("visible");
+    }
+  }
+
+  const chatButton = `
+    <a href="chat-uebersicht.html" class="all-chats-btn" style="margin-left:auto;">
+      <i class="fas fa-envelope-open-text"></i> Alle Chats anzeigen
+    </a>`;
+
+  sidebarLinks.forEach(link => {
+    link.addEventListener("click", () => {
+      const selected = link.dataset.section;
+      sidebarLinks.forEach(l => l.classList.remove("active"));
+      link.classList.add("active");
+      showSection(selected);
+      switch (selected) {
+        case "car-list":
+          titleEl && (titleEl.innerHTML = '<i class="fas fa-car"></i> Meine Autos');
+          break;
+        case "messages-list":
+          titleEl && (titleEl.innerHTML = '<i class="fas fa-comments"></i> Nachrichten' + chatButton);
+          break;
+        case "saved-cars":
+          titleEl && (titleEl.innerHTML = '<i class="fas fa-heart"></i> Gespeicherte Autos');
+          break;
+        case "sold-cars":
+          titleEl && (titleEl.innerHTML = '<i class="fas fa-check-circle"></i> Verkaufte Autos');
+          break;
+        default:
+          titleEl && (titleEl.innerHTML = '<i class="fas fa-car"></i> Meine Autos');
+      }
+    });
+  });
+
+  // Default-Ansicht
+  showSection("car-list");
+  if (titleEl) titleEl.innerHTML = '<i class="fas fa-car"></i> Meine Autos';
+
+  // Kommentar löschen & Antworten Placeholder
+  document.querySelectorAll(".delete-comment-btn").forEach(btn => {
+    btn.addEventListener("click", function () {
+      if (confirm("Möchtest du diesen Kommentar wirklich löschen?")) {
+        this.closest(".comment-card")?.remove();
+      }
+    });
+  });
+  document.querySelectorAll(".reply-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      alert("Antwortfunktion wird demnächst verfügbar sein.");
+    });
+  });
+
+  // Gespeicherte Autos entfernen (Optik + Remove)
+  document.querySelectorAll(".toggle-saved-car").forEach(btn => {
+    btn.addEventListener("click", function () {
+      const card = this.closest(".saved-car-card");
+      this.classList.toggle("removed");
+      if (this.classList.contains("removed")) {
+        setTimeout(() => card?.remove(), 300);
+      }
+    });
+  });
+
+  // „Aus gespeicherten entfernen“ (Alternative Btn-Klasse)
+  document.querySelectorAll('.remove-saved-btn').forEach(button => {
+    button.addEventListener('click', function() {
+      const wrapper = this.closest('.car-card-wrapper');
+      if (confirm("Möchtest du dieses Fahrzeug wirklich entfernen?")) {
+        wrapper?.remove();
+      }
+    });
+  });
 });
+
 
 
 
