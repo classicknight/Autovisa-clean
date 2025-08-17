@@ -1,76 +1,159 @@
+document.documentElement.classList.remove('no-js');
+
 document.addEventListener("DOMContentLoaded", () => {
-    const navLinks = document.getElementById("nav-links");
-    const hamburger = document.getElementById("hamburger");
-    const dropdownLinks = document.querySelectorAll(".dropdown > a");
-    
-    // Hamburger-Menü ein-/ausblenden
-    hamburger.addEventListener("click", (e) => {
-      e.stopPropagation();
-      navLinks.classList.toggle("active");
-      closeAllDropdowns(); // Immer Dropdowns schließen beim Öffnen
+  const navLinks      = document.getElementById("nav-links");
+  const hamburger     = document.getElementById("hamburger");
+  const dropdownLinks = document.querySelectorAll(".dropdown > a");
+  const dropdownLis   = document.querySelectorAll(".dropdown");
+  const authLinkLi    = document.getElementById("auth-link"); // <li id="auth-link">…</li>
+
+  // --- Helpers ---
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+  function closeAllDropdowns(except = null) {
+    dropdownLis.forEach(li => {
+      if (li !== except) {
+        li.classList.remove("open");
+        const trigger = li.querySelector('a[aria-haspopup="true"]');
+        const menu    = li.querySelector(".dropdown-menu");
+        if (trigger) trigger.setAttribute("aria-expanded", "false");
+        if (menu) {
+          menu.classList.remove("show");
+          menu.style.left = "";
+          [...menu.children].forEach(item => (item.style.transitionDelay = ""));
+        }
+      }
     });
-    
-    // Dropdown-Handling
-    dropdownLinks.forEach(link => {
-      const menu = link.nextElementSibling;
-      
-      link.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Schließt alle Dropdowns außer das angeklickte
-        document.querySelectorAll(".dropdown-menu").forEach(otherMenu => {
-          if (otherMenu !== menu) {
-            otherMenu.classList.remove("show");
-          }
-        });
-        
-        menu.classList.toggle("show");
-      });
+  }
+
+  function positionMenu(li) {
+    const trigger = li.querySelector('a[aria-haspopup="true"]');
+    const menu    = li.querySelector('.dropdown-menu');
+    if (!trigger || !menu) return;
+
+    const tRect = trigger.getBoundingClientRect();
+    const mRect = menu.getBoundingClientRect();
+    const liRect = li.getBoundingClientRect();
+    const vw = window.innerWidth;
+
+    const center  = tRect.left + tRect.width / 2;
+    let leftAbs   = center - mRect.width / 2;
+    leftAbs       = clamp(leftAbs, 16, vw - mRect.width - 16);
+    const relLeft = leftAbs - liRect.left;
+
+    menu.style.left = `${relLeft}px`;
+  }
+
+  function openDropdown(trigger) {
+    const li   = trigger.closest(".dropdown");
+    const menu = trigger.nextElementSibling;
+    closeAllDropdowns(li);
+
+    li.classList.add("open");
+    trigger.setAttribute("aria-expanded", "true");
+    menu.classList.add("show");
+
+    // leichter Stagger
+    [...menu.children].forEach((item, i) => {
+      item.style.transitionDelay = `${i * 25}ms`;
     });
-    
-    // Klick außerhalb: alles schließen
-    document.addEventListener("click", () => {
-      navLinks.classList.remove("active");
-      closeAllDropdowns();
-    });
-    
-    function closeAllDropdowns() {
-      document.querySelectorAll(".dropdown-menu").forEach(menu => {
-        menu.classList.remove("show");
-      });
-    }
-    
-    // Login-Handling
-    const isLoggedIn = false; // später dynamisch setzen
-    
-    const savedCarsLink = document.getElementById("saved-cars-link");
-    const myCarsLink = document.getElementById("my-cars-link");
-    
-    if (savedCarsLink) {
-      savedCarsLink.addEventListener("click", (e) => {
-        e.preventDefault();
-        window.location.href = isLoggedIn ? "gespeicherte-autos.html" : "login.html";
-      });
-    }
-    
-    if (myCarsLink) {
-      myCarsLink.addEventListener("click", (e) => {
-        e.preventDefault();
-        window.location.href = isLoggedIn ? "meine-autos.html" : "login.html";
-      });
-    }
-    
-    // Smooth Scroll
-    const searchLink = document.querySelector('a[href="#search-section"]');
-    if (searchLink) {
-      searchLink.addEventListener("click", (e) => {
-        e.preventDefault();
-        document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
-      });
-    }
+
+    // Nur Desktop zentrieren (Mobile = position:static)
+    const isMobile = window.matchMedia("(max-width: 900px)").matches;
+    if (!isMobile) requestAnimationFrame(() => positionMenu(li));
+  }
+
+  function toggleDropdown(trigger) {
+    const li = trigger.closest(".dropdown");
+    li.classList.contains("open") ? closeAllDropdowns() : openDropdown(trigger);
+  }
+
+  // --- Hamburger ---
+  hamburger?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const willOpen = !navLinks.classList.contains("active");
+    navLinks.classList.toggle("active");
+    closeAllDropdowns();
+    hamburger.setAttribute("aria-expanded", willOpen ? "true" : "false");
   });
-  
+
+  // --- Dropdowns per Klick (kein Hover) ---
+  dropdownLinks.forEach(link => {
+    link.setAttribute("aria-expanded", "false");
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleDropdown(link);
+    });
+  });
+
+  // --- Outside Click ---
+  document.addEventListener("click", () => {
+    navLinks?.classList.remove("active");
+    closeAllDropdowns();
+  });
+
+  // --- Reposition on resize/scroll ---
+  const repositionOpen = () =>
+    document.querySelectorAll(".dropdown.open").forEach(positionMenu);
+  window.addEventListener("resize", repositionOpen);
+  window.addEventListener("scroll", repositionOpen);
+
+  // ===== Auth-UI: Login-Link -> Abmelden (nur auf Suchkriterien-Seite erlaubt) =====
+  if (authLinkLi) {
+    fetch("/getNutzerInfo", { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        if (data?.eingeloggt) {
+          authLinkLi.innerHTML = `
+            <a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>
+          `;
+          document.getElementById("logout-link")?.addEventListener("click", (e) => {
+            e.preventDefault();
+            fetch("/logout", { method: "POST", credentials: "include" })
+              .then(() => { localStorage.clear(); location.reload(); })
+              .catch(() => alert("Abmelden fehlgeschlagen."));
+          });
+        }
+      })
+      .catch(() => {});
+  }
+
+  // ===== Login-abhängige Weiterleitungen zu Übersicht-Tabs =====
+  const savedCarsLink = document.getElementById("saved-cars-link");
+  const myCarsLink    = document.getElementById("my-cars-link");
+  const soldCarsLink  = document.getElementById("sold-cars-link");
+  const messagesLink  = document.getElementById("messages-link");
+
+  function gotoUebersicht(targetHash) {
+    fetch("/getNutzerInfo", { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        if (data.eingeloggt) {
+          window.location.href = `übersicht.html${targetHash}`;
+        } else {
+          localStorage.setItem("redirectAfterLogin", `übersicht.html${targetHash}`);
+          window.location.href = "login.html";
+        }
+      })
+      .catch(() => {
+        localStorage.setItem("redirectAfterLogin", `übersicht.html${targetHash}`);
+        window.location.href = "login.html";
+      });
+  }
+
+  savedCarsLink?.addEventListener("click", (e) => { e.preventDefault(); gotoUebersicht("#saved"); });
+  myCarsLink?.addEventListener("click",    (e) => { e.preventDefault(); gotoUebersicht("#my-cars"); });
+  soldCarsLink?.addEventListener("click",  (e) => { e.preventDefault(); gotoUebersicht("#sold"); });
+  messagesLink?.addEventListener("click",  (e) => { e.preventDefault(); gotoUebersicht("#chats"); });
+
+  // ===== Smooth Scroll (nur wenn Sektionen existieren) =====
+  document.querySelector('a[href="#search-section"]')?.addEventListener("click", (e) => {
+    e.preventDefault();
+    document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
+  });
+});
+
   
   
   
