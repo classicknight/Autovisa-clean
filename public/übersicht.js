@@ -208,139 +208,190 @@ title.innerHTML = '<i class="fas fa-car"></i> Meine Autos';
   });
 
 
+// uebersicht.js
+document.documentElement.classList.remove('no-js');
 
+document.addEventListener("DOMContentLoaded", () => {
+  const navLinks      = document.getElementById("nav-links");
+  const hamburger     = document.getElementById("hamburger");
+  const dropdownLinks = document.querySelectorAll(".dropdown > a");
+  const dropdownLis   = document.querySelectorAll(".dropdown");
 
-document.addEventListener('DOMContentLoaded', () => {
-  const navLinks = document.getElementById('nav-links');
-  const hamburger = document.getElementById('hamburger');
-  const dropdownLinks = document.querySelectorAll('.dropdown > a');
+  // --- Helpers ---
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
-  // Hamburger-Menü ein-/ausblenden
-  hamburger.addEventListener('click', (e) => {
-    e.stopPropagation(); // Verhindert Konflikte bei Klicks außerhalb
-    navLinks.classList.toggle('active');
+  function closeAllDropdowns(except = null) {
+    dropdownLis.forEach(li => {
+      if (li !== except) {
+        li.classList.remove("open");
+        const trigger = li.querySelector('a[aria-haspopup="true"]');
+        const menu    = li.querySelector(".dropdown-menu");
+        if (trigger) trigger.setAttribute("aria-expanded", "false");
+        if (menu) {
+          menu.classList.remove("show");
+          menu.style.left = "";
+          [...menu.children].forEach(item => (item.style.transitionDelay = ""));
+        }
+      }
+    });
+  }
+
+  function positionMenu(li) {
+    const trigger = li.querySelector('a[aria-haspopup="true"]');
+    const menu    = li.querySelector('.dropdown-menu');
+    if (!trigger || !menu) return;
+
+    const tRect = trigger.getBoundingClientRect();
+    const mRect = menu.getBoundingClientRect();
+    const liRect = li.getBoundingClientRect();
+    const vw = window.innerWidth;
+
+    const center  = tRect.left + tRect.width / 2;
+    let leftAbs   = center - mRect.width / 2;
+    leftAbs       = clamp(leftAbs, 16, vw - mRect.width - 16);
+    const relLeft = leftAbs - liRect.left;
+
+    menu.style.left = `${relLeft}px`;
+  }
+
+  function openDropdown(trigger) {
+    const li   = trigger.closest(".dropdown");
+    const menu = trigger.nextElementSibling;
+    closeAllDropdowns(li);
+
+    li.classList.add("open");
+    trigger.setAttribute("aria-expanded", "true");
+    menu.classList.add("show");
+
+    // Stagger
+    [...menu.children].forEach((item, i) => {
+      item.style.transitionDelay = `${i * 25}ms`;
+    });
+
+    // Nur Desktop zentrieren
+    const isMobile = window.matchMedia("(max-width: 900px)").matches;
+    if (!isMobile) requestAnimationFrame(() => positionMenu(li));
+  }
+
+  function toggleDropdown(trigger) {
+    const li = trigger.closest(".dropdown");
+    li.classList.contains("open") ? closeAllDropdowns() : openDropdown(trigger);
+  }
+
+  // --- Hamburger ---
+  hamburger?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const willOpen = !navLinks.classList.contains("active");
+    navLinks.classList.toggle("active");
+    closeAllDropdowns();
+    hamburger.setAttribute("aria-expanded", willOpen ? "true" : "false");
   });
 
-  // Schließen des Menüs bei Klick außerhalb
-  document.addEventListener('click', () => {
-    navLinks.classList.remove('active');
+  // --- Dropdowns per Klick ---
+  dropdownLinks.forEach(link => {
+    link.setAttribute("aria-expanded", "false");
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleDropdown(link);
+    });
+  });
+
+  // --- Optional: Hover auf Desktop (kein Touch) ---
+  const isCoarse = matchMedia("(pointer: coarse)").matches;
+  if (!isCoarse) {
+    dropdownLis.forEach(li => {
+      const trigger = li.querySelector('a[aria-haspopup="true"]');
+      const menu = li.querySelector(".dropdown-menu");
+      if (!trigger || !menu) return;
+      li.addEventListener("mouseenter", () => openDropdown(trigger));
+      li.addEventListener("mouseleave", () => closeAllDropdowns());
+    });
+  }
+
+  // --- Outside Click ---
+  document.addEventListener("click", () => {
+    navLinks.classList.remove("active");
     closeAllDropdowns();
   });
 
-  // Dropdown-Logik
-  dropdownLinks.forEach((link) => {
-    const menu = link.nextElementSibling;
+  // --- Reposition on resize/scroll ---
+  const repositionOpen = () => document.querySelectorAll(".dropdown.open").forEach(positionMenu);
+  window.addEventListener("resize", repositionOpen);
+  window.addEventListener("scroll", repositionOpen);
 
-    link.addEventListener('click', (e) => {
-      e.preventDefault(); // Verhindert den Standard-Link-Klick
-      e.stopPropagation();
+  // ===== Login-abhängige Weiterleitungen zu Tabs der Übersicht =====
+  const savedCarsLink = document.getElementById("saved-cars-link");
+  const myCarsLink    = document.getElementById("my-cars-link");
+  const soldCarsLink  = document.getElementById("sold-cars-link");
+  const messagesLink  = document.getElementById("messages-link");
 
-      const isMobile = window.matchMedia('(max-width: 768px)').matches;
-
-      if (isMobile) {
-        // Handy-Modus: Einfach ein-/ausblenden
-        closeAllDropdowns(); // Schließt andere Dropdowns
-        menu.classList.toggle('show'); // Sichtbarkeit umschalten
-      } else {
-        // Desktop-/Tablet: Standardverhalten
-        closeAllDropdowns(); // Schließt andere Dropdowns
-        menu.classList.toggle('show'); // Sichtbarkeit umschalten
-      }
-    });
-  });
-
-  // Funktion zum Schließen aller Dropdowns
-  function closeAllDropdowns() {
-    document.querySelectorAll('.dropdown-menu').forEach((menu) => {
-      menu.classList.remove('show'); // Entfernt die "show"-Klasse
-    });
+  function checkLoginAndRedirect(targetHash) {
+    fetch("/getNutzerInfo", { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        if (data.eingeloggt) {
+          window.location.href = `übersicht.html${targetHash}`;
+        } else {
+          // nach Login wieder hierher (inkl. gewünschtem Tab)
+          localStorage.setItem("redirectAfterLogin", `übersicht.html${targetHash}`);
+          window.location.href = "login.html";
+        }
+      })
+      .catch(() => {
+        // Fallback: sicherheitshalber zum Login
+        localStorage.setItem("redirectAfterLogin", `übersicht.html${targetHash}`);
+        window.location.href = "login.html";
+      });
   }
-});
 
-document.addEventListener('DOMContentLoaded', () => {
-  // Simulierte Login-Status (ersetze das später durch eine echte Authentifizierungsprüfung)
-  const isLoggedIn = false; // Ändere auf `true`, wenn der Benutzer eingeloggt ist
+  savedCarsLink?.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("#saved"); });
+  myCarsLink?.addEventListener("click",    (e) => { e.preventDefault(); checkLoginAndRedirect("#my-cars"); });
+  soldCarsLink?.addEventListener("click",  (e) => { e.preventDefault(); checkLoginAndRedirect("#sold"); });
+  messagesLink?.addEventListener("click",  (e) => { e.preventDefault(); checkLoginAndRedirect("#chats"); });
 
-  // Links zu Gespeicherten Autos und Meinen Autos
-  const savedCarsLink = document.getElementById('saved-cars-link');
-  const myCarsLink = document.getElementById('my-cars-link');
-
-  // Event-Listener für Gespeicherte Autos
-  savedCarsLink.addEventListener('click', (e) => {
-    e.preventDefault(); // Verhindert Standardaktion
-    if (!isLoggedIn) {
-      window.location.href = 'login.html'; // Weiterleitung zur Login-Seite
-    } else {
-      window.location.href = 'gespeicherte-autos.html'; // Weiterleitung zur richtigen Seite
-    }
+  // ===== Smooth Scroll (falls section existiert) =====
+  const searchLink = document.querySelector('a[href="#search-section"]');
+  searchLink?.addEventListener("click", (e) => {
+    e.preventDefault();
+    document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
   });
 
-  // Event-Listener für Meine Autos
-  myCarsLink.addEventListener('click', (e) => {
-    e.preventDefault(); // Verhindert Standardaktion
-    if (!isLoggedIn) {
-      window.location.href = 'login.html'; // Weiterleitung zur Login-Seite
-    } else {
-      window.location.href = 'meine-autos.html'; // Weiterleitung zur richtigen Seite
-    }
-  });
-});
-
-document.querySelector('a[href="#search-section"]').addEventListener('click', function(e) {
-  e.preventDefault(); // Standardverhalten verhindern
-  document.querySelector('#search-section').scrollIntoView({ behavior: 'smooth' });
-});
-
-
-document.addEventListener("DOMContentLoaded", () => {
-  const makeInput = document.getElementById("make");
+  // ===== Titel-Autofill (falls Inputs vorhanden) =====
+  const makeInput  = document.getElementById("make");
   const modelInput = document.getElementById("model");
   const titleInput = document.getElementById("title");
-
   function updateTitle() {
-    const make = makeInput.value.trim();
+    if (!makeInput || !modelInput || !titleInput) return;
+    const make  = makeInput.value.trim();
     const model = modelInput.value.trim();
-    if (make || model) {
-      titleInput.value = `${make} ${model}`.trim();
-    }
+    if (make || model) titleInput.value = `${make} ${model}`.trim();
   }
+  makeInput?.addEventListener("input", updateTitle);
+  modelInput?.addEventListener("input", updateTitle);
 
-  makeInput.addEventListener("input", updateTitle);
-  modelInput.addEventListener("input", updateTitle);
-
-  // Hamburger Menü
-  const hamburger = document.getElementById("hamburger");
-  const navLinks = document.getElementById("nav-links");
-
-  hamburger.addEventListener("click", () => {
-    navLinks.classList.toggle("active");
-  });
+  // ===== Navbar Login/Logout (auth-link Umschreiben) =====
+  const authLink = document.getElementById("auth-link");
+  if (authLink) {
+    fetch("/getNutzerInfo", { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        if (data.eingeloggt) {
+          authLink.innerHTML = `<a href="#" id="logout-link">
+            <i class="fas fa-sign-out-alt"></i> Abmelden
+          </a>`;
+          document.getElementById("logout-link")?.addEventListener("click", (e) => {
+            e.preventDefault();
+            fetch("/logout", { method: "POST", credentials: "include" })
+              .then(() => { localStorage.clear(); location.reload(); })
+              .catch(() => alert("Abmelden fehlgeschlagen."));
+          });
+        }
+      })
+      .catch(() => {});
+  }
 });
 
-
-
-
-
-document.addEventListener("DOMContentLoaded", () => {
-  const hamburger = document.getElementById("hamburger");
-  const navLinks = document.getElementById("nav-links");
-
-  // Hamburger-Menü ein-/ausblenden
-  hamburger.addEventListener("click", () => {
-    navLinks.classList.toggle("active");
-  });
-});
-
-
-document.addEventListener("DOMContentLoaded", () => {
-  const hamburger = document.getElementById("hamburger");
-  const navLinks = document.getElementById("nav-links");
-
-  // Hamburger-Menü ein-/ausblenden
-  hamburger.addEventListener("click", () => {
-    navLinks.classList.toggle("active");
-  });
-});
 
 
 
