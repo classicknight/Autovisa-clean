@@ -10,63 +10,75 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
-    <!-- Slim Select v2.6.0 – für korrektes Custom-Styling -->
+
+  <!-- Slim Select v2.6.0 – für korrektes Custom-Styling -->
   <link href="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.min.js"></script>
 </head>
 <body>
+
+
+    
+    <div id="password-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a2733; color: white; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+        <h2>Autovisa – Geschützte Vorschau</h2>
+        <input type="password" id="password-input" placeholder="Passwort eingeben" style="padding: 10px; font-size: 1rem; border-radius: 5px; border: none;">
+        <button onclick="checkPassword()" style="margin-top: 10px; padding: 8px 16px; font-size: 1rem;">Weiter</button>
+        <p id="wrong-password" style="color: red; display: none; margin-top: 10px;">Falsches Passwort</p>
+      </div>
+
+      
+
 
 <!-- Navbar -->
 <nav class="navbar">
   <div class="logo-container">
     <img src="AUTOVISA LOGO.PNG" alt="Autovisa Logo" class="logo" />
   </div>
-  
+
+  <!-- Mobile Icons + Hamburger -->
   <div class="navbar-right-mobile">
     <div class="mobile-shortcuts">
-      <a href="gespeicherte-autos.html" aria-label="Gespeicherte Autos">
-        <i class="fas fa-heart"></i>
-      </a>
-      <a href="nachrichten.html" aria-label="Nachrichten">
-        <i class="fas fa-comments"></i>
-      </a>
+      <a href="gespeicherte-autos.html" aria-label="Gespeicherte Autos"><i class="fas fa-heart"></i></a>
+      <a href="nachrichten.html" aria-label="Nachrichten"><i class="fas fa-comments"></i></a>
     </div>
-    
+
     <button class="hamburger" id="hamburger" aria-label="Menü öffnen" aria-expanded="false" aria-controls="nav-links">
       <i class="fas fa-bars"></i>
     </button>
-    
+
+    <!-- Navigationslinks -->
     <ul class="nav-links" id="nav-links">
+
       <!-- Home -->
       <li class="dropdown">
         <a href="#" id="dropdown-home-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-home">
-          Home <i class="fas fa-chevron-down"></i>
+          Home <span class="nav-arrow" aria-hidden="true"></span>
         </a>
         <ul class="dropdown-menu" id="dropdown-home">
           <li><a href="index.html"><i class="fas fa-house"></i> Startseite</a></li>
-        <li><a href="index.html#search-section"><i class="fas fa-search"></i> Fahrzeug suchen</a></li>
-          <li><a href="index.html#results-section"><i class="fas fa-car"></i> Inserate anzeigen</a></li>
-          <li><a href="login.html"><i class="fas fa-sign-in-alt"></i> Login / Registrierung</a></li>
+          <li><a href="#search-section"><i class="fas fa-search"></i> Fahrzeug suchen</a></li>
+          <li><a href="#results-section"><i class="fas fa-car"></i> Inserate anzeigen</a></li>
+          <li id="auth-link"><a href="login.html"><i class="fas fa-sign-in-alt"></i> Login / Registrierung</a></li>
         </ul>
       </li>
-      
+
       <!-- Meine Autos -->
       <li class="dropdown">
         <a href="#" id="dropdown-autos-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-autos">
-          Meine Autos <i class="fas fa-chevron-down"></i>
+          Meine Autos <span class="nav-arrow" aria-hidden="true"></span>
         </a>
         <ul class="dropdown-menu" id="dropdown-autos">
-          <li><a href="nachrichten.html"><i class="fas fa-comments"></i> Nachrichten</a></li>
+          <li><a href="#" id="messages-link"><i class="fas fa-comments"></i> Nachrichten</a></li>
           <li><a href="#" id="saved-cars-link"><i class="fas fa-heart"></i> Gespeicherte Autos</a></li>
           <li><a href="#" id="my-cars-link"><i class="fas fa-car"></i> Eigene Inserate</a></li>
-          <li><a href="verkaufte-autos.html"><i class="fas fa-check-circle"></i> Verkaufte Autos</a></li>
+          <li><a href="#" id="sold-cars-link"><i class="fas fa-check-circle"></i> Verkaufte Autos</a></li>
         </ul>
       </li>
-      
+
       <!-- Infos -->
       <li class="dropdown">
         <a href="#" id="dropdown-info-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-info">
-          Infos <i class="fas fa-chevron-down"></i>
+          Infos <span class="nav-arrow" aria-hidden="true"></span>
         </a>
         <ul class="dropdown-menu" id="dropdown-info">
           <li><a href="ueber-uns.html"><i class="fas fa-users"></i> Über uns</a></li>
@@ -74,11 +86,11 @@
           <li><a href="preise.html"><i class="fas fa-euro-sign"></i> Tarife & Preise</a></li>
         </ul>
       </li>
-      
+
       <!-- Kontakt -->
       <li class="dropdown">
         <a href="#" id="dropdown-contact-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-contact">
-          Kontakt <i class="fas fa-chevron-down"></i>
+          Kontakt <span class="nav-arrow" aria-hidden="true"></span>
         </a>
         <ul class="dropdown-menu" id="dropdown-contact">
           <li><a href="kontakt.html"><i class="fas fa-comments"></i> Kontaktformular</a></li>
@@ -86,14 +98,15 @@
           <li><a href="mailto:business@autovisa.de"><i class="fas fa-briefcase"></i> business@autovisa.de</a></li>
         </ul>
       </li>
-      
-      <!-- Auto verkaufen -->
+
+      <!-- Call to Action -->
       <li class="active">
         <a href="verkaufen.html" class="highlight-link"><i class="fas fa-plus-circle"></i> Auto verkaufen</a>
       </li>
     </ul>
   </div>
 </nav>
+
 
 
 
