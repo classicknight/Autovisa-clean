@@ -365,10 +365,98 @@ transporter.verify((error, success) => {
   }
 });
 
+// === 🔧 Email-Template Helper (einmalig definieren) ===
+function buildAutovisaEmail({
+  subject = "Autovisa Nachricht",
+  logoUrl,
+  greeting = "",
+  title = "",
+  htmlText = "",
+  buttonText = "",
+  buttonUrl = "",
+  footerNote = "Wenn du diese E-Mail nicht erwartet hast, kannst du sie ignorieren."
+}) {
+  const preheader = (greeting || title).slice(0, 120);
+
+  return `
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="x-apple-disable-message-reformatting">
+  <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
+  <title>${subject}</title>
+</head>
+<body style="margin:0; padding:0; background:#f5f8fc; font-family:Arial,Helvetica,sans-serif; color:#1a2a33;">
+  <!-- Preheader (hidden) -->
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
+    ${preheader}
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f8fc; padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px; background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 6px 30px rgba(0,0,0,0.06);">
+          <!-- Header / Logo -->
+          <tr>
+            <td align="center" style="padding:24px; background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);">
+              ${logoUrl
+                ? `<img src="${logoUrl}" alt="Autovisa" width="140" style="display:block; border:0; outline:none; text-decoration:none; max-width:140px;">`
+                : `<div style="font-weight:700; font-size:22px; color:#fff;">AUTOVISA</div>`}
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding:28px 28px 8px;">
+              ${greeting ? `<div style="font-size:16px; margin-bottom:8px;">${greeting}</div>` : ""}
+              ${title ? `<h1 style="margin:0 0 12px; font-size:22px; line-height:1.3; color:#1a2a33;">${title}</h1>` : ""}
+              ${htmlText ? `<div style="font-size:15px; line-height:1.6; color:#37444f;">${htmlText}</div>` : ""}
+            </td>
+          </tr>
+
+          ${buttonText && buttonUrl ? `
+          <!-- Button -->
+          <tr>
+            <td align="center" style="padding:16px 28px 6px;">
+              <a href="${buttonUrl}"
+                 style="display:inline-block; text-decoration:none; font-weight:600; padding:12px 20px; border-radius:8px; background:#00b8a9; color:#ffffff;">
+                ${buttonText}
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 28px 8px;">
+              <div style="font-size:12px; line-height:1.5; color:#6b7a86; word-break:break-all;">
+                Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:<br>
+                <a href="${buttonUrl}" style="color:#0f7a70;">${buttonUrl}</a>
+              </div>
+            </td>
+          </tr>` : ""}
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:18px 28px 28px;">
+              <div style="border-top:1px solid #e3e9ef; padding-top:14px; font-size:12px; color:#6b7a86;">
+                ${footerNote}
+              </div>
+              <div style="margin-top:6px; font-size:12px; color:#6b7a86;">
+                © ${new Date().getFullYear()} Autovisa
+              </div>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
 // === 📝 Registrierung mit Verifizierungslink ===
 app.post("/register", async (req, res) => {
   const { name, email, password } = req.body;
-
   if (!name || !email || !password) {
     return res.status(400).json({ error: "Alle Felder sind erforderlich." });
   }
@@ -386,85 +474,85 @@ app.post("/register", async (req, res) => {
       id: Date.now().toString(),
       name,
       email,
-      password, // 🔒 später mit bcrypt hashen!
+      password, // TODO: später bcrypt
       verified: false,
       token,
-      role: "privat"
+      role: "privat",
+      createdAt: new Date()
     };
 
     await nutzerColl.insertOne(neuerNutzer);
 
     const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
     const verifyLink = `${baseUrl}/verify?token=${token}`;
+    const logoUrl = `${baseUrl}/${encodeURIComponent("AUTOVISA LOGO.PNG")}`;
+
+    const subject = "Bitte bestätige deine Registrierung";
+    const html = buildAutovisaEmail({
+      subject,
+      logoUrl,
+      greeting: `Willkommen bei Autovisa, ${name}!`,
+      title: "E-Mail-Adresse bestätigen",
+      htmlText: "Klicke auf den Button, um deine Registrierung abzuschließen.",
+      buttonText: "E-Mail bestätigen",
+      buttonUrl: verifyLink,
+      footerNote: "Wenn du dich nicht bei Autovisa registriert hast, kannst du diese E-Mail ignorieren."
+    });
+    const text =
+`Willkommen bei Autovisa, ${name}!
+Bitte bestätige deine E-Mail, um die Registrierung abzuschließen:
+${verifyLink}
+
+Wenn du dich nicht registriert hast, ignoriere diese E-Mail.`;
 
     const mailOptions = {
       from: '"Autovisa" <autovisa0607@gmail.com>',
       to: email,
-      subject: "Bitte bestätige deine Registrierung",
-      html: `
-        <div style="font-family:Arial,sans-serif;padding:20px;">
-          <h2>Willkommen bei Autovisa, ${name}!</h2>
-          <p>Klicke auf den folgenden Link, um deine Registrierung zu bestätigen:</p>
-          <div style="margin:20px 0;">
-            <a href="${verifyLink}" style="display:inline-block;padding:10px 20px;background-color:#00b8a9;color:#fff;text-decoration:none;border-radius:5px;">
-              E-Mail bestätigen
-            </a>
-          </div>
-          <p>Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:</p>
-          <p style="font-size:12px;color:#555;">${verifyLink}</p>
-          <br>
-          <p>Dein Autovisa-Team</p>
-        </div>
-      `
+      subject,
+      html,
+      text
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Bestätigungsmail gesendet:", info.response);
-    res.json({ success: true, message: "E-Mail zur Bestätigung wurde gesendet." });
+    try {
+      const info = await transporter.sendMail(mailOptions);
+      console.log("✅ Bestätigungsmail gesendet:", info.response);
+      return res.json({ success: true, message: "E-Mail zur Bestätigung wurde gesendet." });
+    } catch (mailErr) {
+      console.error("❌ SMTP-Fehler beim Senden:", mailErr);
+      // Optionales Aufräumen:
+      await nutzerColl.deleteOne({ email });
+      return res.status(500).json({ error: "E-Mail-Versand fehlgeschlagen. Bitte später erneut versuchen." });
+    }
 
   } catch (err) {
     console.error("❌ Fehler bei Registrierung:", err);
-    res.status(500).json({ error: "Interner Serverfehler." });
+    return res.status(500).json({ error: "Interner Serverfehler." });
   }
 });
-
-// === ✅ Verifikations-Route ===
-app.get("/verify", async (req, res) => {
-  const { token } = req.query;
-  if (!token) return res.send("❌ Ungültiger Link.");
-
-  try {
-    const nutzerColl = db.collection("nutzer");
-
-    const user = await nutzerColl.findOne({ token });
-    if (!user) return res.send("❌ Token ungültig oder bereits bestätigt.");
-
-    await nutzerColl.updateOne(
-      { token },
-      { $set: { verified: true }, $unset: { token: "" } }
-    );
-
-    res.send("✅ Deine E-Mail wurde erfolgreich bestätigt. Du kannst dich jetzt einloggen.");
-  } catch (err) {
-    console.error("❌ Fehler bei /verify:", err);
-    res.status(500).send("❌ Interner Fehler bei der Verifikation.");
-  }
-});
-
-
-// === Login-Route mit MongoDB ===
+// === Login-Route mit MongoDB (plain + bcrypt unterstützt) ===
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
-
   if (!email || !password) {
     return res.status(400).json({ error: "❌ E-Mail und Passwort erforderlich." });
   }
 
   try {
     const nutzerColl = db.collection("nutzer");
-    const user = await nutzerColl.findOne({ email, password }); // 🔒 später bcrypt
-
+    const user = await nutzerColl.findOne({ email });
     if (!user) {
+      return res.status(401).json({ error: "❌ E-Mail oder Passwort falsch." });
+    }
+
+    // Passwort prüfen (bietet sanften Übergang auf bcrypt)
+    let passOK = false;
+    if (typeof user.password === "string" && user.password.startsWith("$2")) {
+      // bcrypt-Hash erkannt
+      passOK = await bcrypt.compare(password, user.password);
+    } else {
+      // aktuell noch Klartext
+      passOK = user.password === password;
+    }
+    if (!passOK) {
       return res.status(401).json({ error: "❌ E-Mail oder Passwort falsch." });
     }
 
@@ -472,25 +560,32 @@ app.post("/login", async (req, res) => {
       return res.status(403).json({ error: "❌ Bitte bestätige zuerst deine E-Mail." });
     }
 
+    const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+    const isSecureCookie = baseUrl.startsWith("https") || process.env.NODE_ENV === "production";
+
+    // Sichere Session-Cookies setzen
     res.cookie("nutzer", JSON.stringify({
       id: user.id,
       role: user.role || "privat",
       email: user.email
     }), {
-      httpOnly: false,
+      httpOnly: true,
       sameSite: "Lax",
-      maxAge: 1000 * 60 * 60 * 24
+      secure: isSecureCookie,
+      maxAge: 1000 * 60 * 60 * 24,
+      path: "/"
     });
-    
-    // === ➡️ Das hier NEU hinzufügen
+
+    // Optional (Frontend nutzt ohnehin localStorage) – nur lassen, wenn du es wirklich brauchst:
     res.cookie("isLoggedIn", "true", {
       httpOnly: false,
       sameSite: "Lax",
-      maxAge: 1000 * 60 * 60 * 24
+      secure: isSecureCookie,
+      maxAge: 1000 * 60 * 60 * 24,
+      path: "/"
     });
-    
 
-    res.json({
+    return res.json({
       success: true,
       role: user.role || "privat",
       id: user.id,
@@ -499,37 +594,47 @@ app.post("/login", async (req, res) => {
 
   } catch (err) {
     console.error("❌ Fehler beim Login:", err);
-    res.status(500).json({ error: "❌ Interner Serverfehler." });
+    return res.status(500).json({ error: "❌ Interner Serverfehler." });
   }
 });
 
+
+// === Nutzer-Info aus Cookie ===
 app.get("/getNutzerInfo", async (req, res) => {
   try {
     const cookie = req.cookies.nutzer;
     if (!cookie) return res.json({ eingeloggt: false });
 
-    const nutzer = JSON.parse(cookie);
+    let nutzer;
+    try {
+      nutzer = JSON.parse(cookie);
+    } catch {
+      return res.json({ eingeloggt: false });
+    }
     if (!nutzer?.id) return res.json({ eingeloggt: false });
 
     const nutzerColl = db.collection("nutzer");
-    const user = await nutzerColl.findOne({ id: nutzer.id });
-
+    const user = await nutzerColl.findOne(
+      { id: nutzer.id },
+      { projection: { id: 1, role: 1, name: 1, firma: 1 } }
+    );
     if (!user) return res.json({ eingeloggt: false });
 
-    res.json({
+    return res.json({
       eingeloggt: true,
       nutzerId: user.id,
-      rolle: user.role,
+      rolle: user.role || "privat",
       name: user.name || user.firma || "Unbekannt"
     });
   } catch (err) {
     console.error("❌ Fehler bei getNutzerInfo:", err);
-    res.status(500).json({ error: "Interner Serverfehler." });
+    return res.status(500).json({ error: "Interner Serverfehler." });
   }
 });
 
 
-// === Händlerregistrierung mit MongoDB ===
+
+// === Händlerregistrierung mit MongoDB (mit Template-Mail) ===
 app.post("/haendler-registrieren", async (req, res) => {
   const {
     firma, strasse, hausnummer, plz, ort, land, telefon, telefon2,
@@ -537,9 +642,15 @@ app.post("/haendler-registrieren", async (req, res) => {
     impressum, agb, datenschutz, password, confirmPassword, role
   } = req.body;
 
-  // Pflichtfelder prüfen
+  // Pflichtfelder + Basis-Checks
   if (!firma || !email || !password || !agb || !datenschutz) {
     return res.status(400).json({ error: "Bitte füllen Sie alle Pflichtfelder aus." });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: "Das Passwort muss mindestens 8 Zeichen lang sein." });
+  }
+  if (confirmPassword && confirmPassword !== password) {
+    return res.status(400).json({ error: "Passwörter stimmen nicht überein." });
   }
 
   try {
@@ -554,70 +665,83 @@ app.post("/haendler-registrieren", async (req, res) => {
 
     const neuerHaendler = {
       id: Date.now().toString(),
-      firma,
-      strasse,
-      hausnummer,
-      plz,
-      ort,
-      land,
-      telefon,
-      telefon2,
-      email,
-      whatsapp: whatsapp === "on",
-      tarif,
-      zahlungsmethode,
-      kontoinhaber,
-      iban,
-      bic,
-      impressum,
-      agb,
-      datenschutz,
-      password, // 🔐 später bcrypt
+      // Stammdaten
+      role: role || "haendler",
       verified: false,
       token,
-      role
+      createdAt: new Date(),
+      // Firma / Kontakt
+      firma,
+      strasse: strasse || "",
+      hausnummer: hausnummer || "",
+      plz: plz || "",
+      ort: ort || "",
+      land: land || "",
+      telefon: telefon || "",
+      telefon2: telefon2 || "",
+      email,
+      whatsapp: (whatsapp === true || whatsapp === "true" || whatsapp === "on" || whatsapp === 1),
+      // Tarif / Zahlung
+      tarif: tarif || "",
+      zahlungsmethode: zahlungsmethode || "",
+      kontoinhaber: kontoinhaber || "",
+      iban: iban || "",
+      bic: bic || "",
+      // Rechtliches
+      impressum: impressum || "",
+      agb: !!agb,
+      datenschutz: !!datenschutz,
+      // Auth (später bcrypt)
+      password // TODO: bcrypt.hash(...)
     };
 
     await nutzerColl.insertOne(neuerHaendler);
 
     const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
     const verifyLink = `${baseUrl}/verify?token=${token}`;
+    const logoUrl = `${baseUrl}/${encodeURIComponent("AUTOVISA LOGO.PNG")}`;
+
+    const subject = "Bitte bestätigen Sie Ihre Händlerregistrierung";
+    const html = buildAutovisaEmail({
+      subject,
+      logoUrl,
+      greeting: `Hallo ${firma},`,
+      title: "Händlerkonto bestätigen",
+      htmlText: "Bitte bestätigen Sie Ihre E-Mail-Adresse, um Ihr Händlerkonto zu aktivieren.",
+      buttonText: "Händlerkonto bestätigen",
+      buttonUrl: verifyLink,
+      footerNote: "Wenn Sie sich nicht bei Autovisa registriert haben, können Sie diese E-Mail ignorieren."
+    });
+    const text =
+`Hallo ${firma},
+bitte bestätigen Sie Ihre E-Mail-Adresse, um Ihr Händlerkonto bei Autovisa zu aktivieren:
+${verifyLink}
+
+Wenn Sie sich nicht registriert haben, ignorieren Sie diese E-Mail.`;
 
     const mailOptions = {
       from: '"Autovisa" <autovisa0607@gmail.com>',
       to: email,
-      subject: "Bitte bestätigen Sie Ihre Händlerregistrierung",
-      html: `
-        <div style="font-family:Arial,sans-serif;padding:20px;">
-          <h2>Herzlich willkommen bei Autovisa, ${firma}!</h2>
-          <p>Klicken Sie auf den folgenden Link, um Ihre Registrierung zu bestätigen:</p>
-          <div style="margin:20px 0;">
-            <a href="${verifyLink}" style="display:inline-block;padding:10px 20px;background-color:#00b8a9;color:#fff;text-decoration:none;border-radius:5px;">
-              Händlerkonto bestätigen
-            </a>
-          </div>
-          <p>Falls der Button nicht funktioniert, kopieren Sie diesen Link in den Browser:</p>
-          <p style="font-size:12px;color:#555;">${verifyLink}</p>
-          <br>
-          <p>Ihr Autovisa-Team</p>
-        </div>
-      `
+      subject,
+      html,
+      text
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Händler-Mail gesendet:", info.response);
-
-    res.json({ success: true, message: "Händlerregistrierung erfolgreich. E-Mail wurde versendet." });
+    try {
+      const info = await transporter.sendMail(mailOptions);
+      console.log("✅ Händler-Mail gesendet:", info.response);
+      return res.json({ success: true, message: "Händlerregistrierung erfolgreich. E-Mail wurde versendet." });
+    } catch (mailErr) {
+      console.error("❌ SMTP-Fehler beim Senden (Händler):", mailErr);
+      // Aufräumen, damit kein unbestätigter Account ohne Mail hängen bleibt
+      await nutzerColl.deleteOne({ email });
+      return res.status(500).json({ error: "E-Mail-Versand fehlgeschlagen. Bitte später erneut versuchen." });
+    }
 
   } catch (err) {
     console.error("❌ Fehler bei /haendler-registrieren:", err);
-    res.status(500).json({ error: "Interner Fehler bei der Registrierung." });
+    return res.status(500).json({ error: "Interner Fehler bei der Registrierung." });
   }
-});
-
-// === Händler-Formular anzeigen ===
-app.get("/haendler-registrieren", (req, res) => {
-  res.sendFile(path.join(__dirname, "händlerformular.html"));
 });
 
 // === Nachricht senden ===
@@ -733,11 +857,11 @@ app.get("/fahrzeuge-online", async (req, res) => {
 
 // === Logout ===
 app.post("/logout", (req, res) => {
-  res.clearCookie("nutzer");
-  res.json({ success: true });
-});
+  const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+  const isSecureCookie = baseUrl.startsWith("https") || process.env.NODE_ENV === "production";
 
-// === Server starten ===
-app.listen(PORT, () => {
-  console.log(`✅ Server läuft auf Port ${PORT}`);
+  res.clearCookie("nutzer", { httpOnly: true, sameSite: "Lax", secure: isSecureCookie, path: "/" });
+  res.clearCookie("isLoggedIn", { httpOnly: false, sameSite: "Lax", secure: isSecureCookie, path: "/" });
+
+  res.json({ success: true });
 });
