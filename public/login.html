@@ -14,45 +14,47 @@
     <div class="auth-box">
       <img src="AUTOVISA LOGO.PNG" alt="Autovisa Logo" class="auth-logo" />
 
+<!-- Tabs: Inline onclicks raus -->
 <div class="tab-buttons">
-  <button id="loginTab" class="active" onclick="showTab('login')">
+  <button id="loginTab" class="active">
     <i class="fa-solid fa-right-to-bracket"></i> Login
   </button>
-  <button id="registerTab" onclick="showTab('register')">
+  <button id="registerTab">
     <i class="fa-solid fa-user-plus"></i> Registrieren
   </button>
 </div>
 
+<!-- LOGIN -->
 <div class="tab-content" id="login">
-  <form onsubmit="return false">
+  <form id="loginForm">
     <label for="loginEmail">E-Mail</label>
     <input type="email" id="loginEmail" placeholder="name@domain.de" required />
-    
+
     <label for="loginPassword">Passwort</label>
     <div class="password-wrapper">
       <input type="password" id="loginPassword" placeholder="●●●●●●●●" required />
       <i class="fa-solid fa-eye toggle-password" data-target="loginPassword"></i>
     </div>
-    
+
     <div class="forgot-link"><a href="#">Passwort vergessen?</a></div>
-    
     <button type="submit" class="submit-btn">Einloggen</button>
   </form>
 </div>
 
+<!-- REGISTRIEREN -->
 <div class="tab-content hidden" id="register">
-  <form onsubmit="return false">
+  <form id="registerForm">
     <div class="alt-registration">
       <p>Sie sind Händler?</p>
       <a href="händlerweb.html" class="dealer-btn">Jetzt als Händler registrieren</a>
     </div>
-    
+
     <label for="registerName">Name</label>
     <input type="text" id="registerName" placeholder="Max Mustermann" required />
-    
+
     <label for="registerEmail">E-Mail</label>
     <input type="email" id="registerEmail" placeholder="name@domain.de" required />
-    
+
     <label for="registerPassword">Passwort</label>
     <div class="password-wrapper">
       <input type="password" id="registerPassword" required minlength="8" />
@@ -61,21 +63,22 @@
     <small class="password-hint">
       Mindestens 8 Zeichen, empfohlen 12+ inkl. Groß-/Kleinbuchstaben, Zahl & Sonderzeichen
     </small>
-    
+
     <label for="registerPasswordRepeat">Passwort wiederholen</label>
     <div class="password-wrapper">
       <input type="password" id="registerPasswordRepeat" required minlength="8" />
       <i class="fa-solid fa-eye toggle-password" data-target="registerPasswordRepeat"></i>
     </div>
-    
-    <label class="checkbox-label">
-      <input type="checkbox" required />
+
+    <label class="checkbox-label" for="agbCheck">
+      <input type="checkbox" id="agbCheck" name="agb" required />
       Ich akzeptiere die <a href="#">AGB</a> & <a href="#">Datenschutz</a>
     </label>
-    
+
     <button type="submit" class="submit-btn">Registrieren</button>
   </form>
 </div>
+
     </div>
   </div>
 
