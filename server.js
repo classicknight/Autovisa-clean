@@ -8,6 +8,7 @@ const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');     // ⬅️ hinzugefügt
 const cloudinary = require('cloudinary').v2;
+const crypto = require('crypto');
 
 // === Express Initialisierung ===
 const app = express();
