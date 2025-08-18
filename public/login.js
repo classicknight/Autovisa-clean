@@ -5,21 +5,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const registerContent = document.getElementById("register");
 
   // === Tabs umschalten ===
-  if (loginTab && registerTab && loginContent && registerContent) {
-    loginTab.addEventListener("click", () => {
+  function showTab(tab) {
+    if (tab === "login") {
       loginTab.classList.add("active");
       registerTab.classList.remove("active");
       loginContent.classList.remove("hidden");
       registerContent.classList.add("hidden");
-    });
-
-    registerTab.addEventListener("click", () => {
+    } else {
       registerTab.classList.add("active");
       loginTab.classList.remove("active");
       registerContent.classList.remove("hidden");
       loginContent.classList.add("hidden");
-    });
+    }
   }
+
+  loginTab?.addEventListener("click", () => showTab("login"));
+  registerTab?.addEventListener("click", () => showTab("register"));
 
   // === LOGIN senden ===
   const loginForm = document.getElementById("loginForm");
@@ -29,7 +30,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const email = document.getElementById("loginEmail").value.trim();
       const password = document.getElementById("loginPassword").value;
-
       const loginBtn = loginForm.querySelector("button[type='submit']");
       if (loginBtn) loginBtn.disabled = true;
 
@@ -92,7 +92,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const email = document.getElementById("registerEmail").value.trim();
       const password = document.getElementById("registerPassword").value;
       const passwordRepeat = document.getElementById("registerPasswordRepeat").value;
-      const agbChecked = document.querySelector('input[name="agb"]').checked;
+      const agbChecked = document.querySelector('input[name="agb"]')?.checked;
+
+      if (password.length < 8) {
+        return alert("❌ Das Passwort muss mindestens 8 Zeichen lang sein!");
+      }
 
       if (password !== passwordRepeat) {
         return alert("❌ Passwörter stimmen nicht überein!");
@@ -124,4 +128,19 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  // === Toggle Passwort-Sichtbarkeit ===
+  document.querySelectorAll(".toggle-password").forEach(icon => {
+    icon.addEventListener("click", () => {
+      const targetId = icon.getAttribute("data-target");
+      const input = document.getElementById(targetId);
+      if (!input) return;
+
+      const isHidden = input.type === "password";
+      input.type = isHidden ? "text" : "password";
+      icon.classList.toggle("fa-eye", !isHidden);
+      icon.classList.toggle("fa-eye-slash", isHidden);
+      icon.setAttribute("aria-label", isHidden ? "Passwort verbergen" : "Passwort anzeigen");
+    });
+  });
 });

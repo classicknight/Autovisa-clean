@@ -1,164 +1,359 @@
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-  
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 30px 20px;
+  color: #1a2a33;
+}
+
+/* Wrapper */
+.auth-wrapper {
+  width: 100%;
+  max-width: 460px;
+}
+
+/* Box */
+.auth-box {
+  background: #ffffff;
+  padding: 40px 32px;
+  border-radius: 20px;
+  box-shadow: 0 15px 45px rgba(0, 0, 0, 0.25);
+  margin: auto;
+  position: relative;
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from {opacity: 0; transform: translateY(25px);}
+  to {opacity: 1; transform: translateY(0);}
+}
+
+/* Logo */
+.auth-logo {
+  display: block;
+  max-width: 170px;
+  margin: 0 auto 28px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  background-color: #1a2733;
+}
+
+/* Tabs */
+.tab-buttons {
+  display: flex;
+  border-radius: 12px;
+  border: 1px solid #e3e9ef;
+  overflow: hidden;
+  margin-bottom: 28px;
+}
+
+.tab-buttons button {
+  flex: 1;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  background: #f5f8fc;
+  color: #1a2a33;
+  border: none;
+  cursor: pointer;
+  transition: background 0.3s, color 0.3s, transform 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.tab-buttons button i {
+  font-size: 16px;
+}
+
+.tab-buttons button:hover {
+  background: #e8f3f1;
+}
+
+.tab-buttons button.active {
+  background: #00b8a9;
+  color: #fff;
+}
+
+/* Tabs Content */
+.tab-content {
+  display: block;
+  animation: fadeIn 0.3s ease;
+}
+
+.tab-content.hidden {
+  display: none;
+}
+
+/* Form */
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #37444f;
+}
+
+input {
+  padding: 12px;
+  border: 1.6px solid #e3e9ef;
+  border-radius: 10px;
+  font-size: 15px;
+  transition: border 0.3s, box-shadow 0.3s;
+}
+
+input:focus {
+  border-color: #00b8a9;
+  box-shadow: 0 0 0 3px rgba(0, 184, 169, 0.25);
+  outline: none;
+}
+
+/* Checkbox (modern tile style) */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #4a5a68;
+  position: relative;
+  line-height: 1.4;
+}
+
+.checkbox-label input {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #cfdce8;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.checkbox-label input:checked {
+  border-color: #00b8a9;
+  background: #00b8a9;
+}
+
+.checkbox-label input:checked::after {
+  content: "✓";
+  position: absolute;
+  font-size: 14px;
+  color: #fff;
+  left: 4px;
+  top: 0px;
+}
+
+.checkbox-label a {
+  color: #00b8a9;
+  text-decoration: none;
+}
+
+/* Buttons */
+.submit-btn {
+  background-color: #00b8a9;
+  color: white;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.3s;
+}
+
+.submit-btn:hover {
+  background-color: #009d94;
+  transform: translateY(-2px);
+}
+
+.forgot-link {
+  text-align: right;
+  margin-top: -6px;
+}
+
+.forgot-link a {
+  font-size: 13px;
+  color: #00b8a9;
+  text-decoration: none;
+}
+
+
+
+.alt-registration p {
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.dealer-btn {
+  display: inline-block;
+  padding: 10px 20px;
+  background-color: transparent;
+  color: #00b8a9;
+  font-weight: 600;
+  border: 2px solid #00b8a9;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  font-size: 14px;
+}
+
+.dealer-btn:hover {
+  background-color: rgba(0, 184, 169, 0.08);
+  border-color: #00a093;
+  color: #009e92;
+}
+
+/* --- Mobile Optimierungen --- */
+@media (max-width: 600px) {
   body {
-    font-family: 'Poppins', sans-serif;
-    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
+    padding: 20px 12px;
+    align-items: flex-start;
   }
-  
-  .auth-wrapper {
-    width: 100%;
-    padding: 20px;
-  }
-  
+
   .auth-box {
-    background: #ffffff;
-    padding: 32px;
-    border-radius: 16px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-    max-width: 420px;
-    margin: auto;
+    padding: 28px 22px;
   }
-  
+
   .auth-logo {
-    display: block;
-    max-width: 180px;
-    margin: 0 auto 28px;
-    background-color: #1a2733;
-    padding: 12px 18px;
-    border-radius: 8px;
+    max-width: 140px;
+    margin-bottom: 20px;
   }
-  
-  .tab-buttons {
-    display: flex;
-    overflow: hidden;
-    border-radius: 8px;
-    border: 1px solid #e3e9ef;
-    margin-bottom: 24px;
-  }
-  
-  .tab-buttons button {
-    flex: 1;
-    padding: 12px;
-    font-size: 16px;
-    font-weight: 600;
-    background: #e3e9ef;
-    color: #1a2a33;
-    border: none;
-    cursor: pointer;
-    transition: background 0.3s;
-  }
-  
-  .tab-buttons button.active {
-    background: #00b8a9;
-    color: white;
-  }
-  
-  .tab-content {
-    display: block;
-  }
-  
-  .tab-content.hidden {
-    display: none;
-  }
-  
-  form {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-  
-  label {
-    font-size: 14px;
-    color: #37444f;
-  }
-  
-  input {
-    padding: 10px;
-    border: 1.5px solid #e3e9ef;
-    border-radius: 6px;
-    font-size: 15px;
-  }
-  
-  input:focus {
-    border-color: #00b8a9;
-    box-shadow: 0 0 0 3px rgba(0, 184, 169, 0.2);
-    outline: none;
-  }
-  
+
   .submit-btn {
-    background-color: #00b8a9;
-    color: white;
+    font-size: 15px;
     padding: 12px;
-    border: none;
-    border-radius: 6px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.3s;
   }
-  
-  .submit-btn:hover {
-    background-color: #009d94;
-  }
-  
-  .forgot-link {
-    text-align: right;
-    margin-top: -10px;
-  }
-  
-  .forgot-link a {
-    font-size: 13px;
-    color: #00b8a9;
-    text-decoration: none;
-  }
-  
-  .checkbox-label {
-    font-size: 13px;
-    color: #4a5a68;
-  }
-  
-  .checkbox-label a {
-    color: #00b8a9;
-    text-decoration: none;
-  }
-  
-  
-  
-  
-  
-  
-  
-  
-  .alt-registration {
-    text-align: center;
-    margin-top: 20px;
-    font-size: 13.5px;
-    color: #cfdce8;
-  }
-  
-  .dealer-btn {
-    display: inline-block;
-    margin-top: 6px;
-    padding: 8px 16px;
-    background-color: transparent;
-    color: #00b8a9;
-    font-weight: 600;
-    border: 1.8px solid #00b8a9;
-    border-radius: 6px;
-    text-decoration: none;
-    transition: all 0.25s ease;
-    font-size: 13.5px;
-  }
-  
-  .dealer-btn:hover {
-    background-color: rgba(0, 184, 169, 0.08);
-    border-color: #00a093;
-    color: #00e0c0;
-  }
+}
+
+
+
+
+
+
+/* Händler-Box */
+.alt-registration {
+  margin: 20px 0 28px;
+  text-align: center;
+}
+
+.alt-registration p {
+  font-size: 15px;
+  font-weight: 600;
+  color: #9aa8b5; /* deutlich helleres Grau */
+  margin-bottom: 10px;
+}
+
+.dealer-btn {
+  display: inline-block;
+  padding: 10px 22px;
+  background-color: transparent;
+  color: #00b8a9;
+  font-weight: 600;
+  border: 2px solid #00b8a9;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  font-size: 14px;
+}
+
+.dealer-btn:hover {
+  background-color: #00b8a9;
+  color: #fff;
+  transform: translateY(-2px);
+}
+
+
+
+
+
+
+
+
+/* Passwortfeld mit Auge */
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-wrapper input {
+  width: 100%;
+  padding-right: 40px; /* Platz fürs Auge */
+  box-sizing: border-box;
+}
+
+/* Auge sitzt im Feld rechts drin */
+.password-wrapper .toggle-password {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  font-size: 18px;
+  color: #7d8a96;
+  user-select: none;
+  line-height: 1;
+  transition: color 0.2s ease, transform 0.1s ease;
+  pointer-events: auto; /* Klickbar innerhalb des Feldes */
+}
+
+.password-wrapper .toggle-password:hover {
+  color: #00b8a9;
+}
+
+.password-wrapper .toggle-password:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+
+
+
+
+
+
+.password-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-container input {
+  flex: 1;
+}
+
+.password-container .toggle-password {
+  position: absolute;
+  right: 12px;
+  cursor: pointer;
+  color: #7a8a9a;
+  font-size: 16px;
+  transition: color 0.3s;
+}
+
+.password-container .toggle-password:hover {
+  color: #00b8a9;
+}
+
+.password-hint {
+  font-size: 12px;
+  color: #6c7a89;
+  margin-top: -10px;
+  margin-bottom: 10px;
+}
