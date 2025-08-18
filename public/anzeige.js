@@ -561,40 +561,122 @@ function setupSlider() {
     selectedRating = 0;
     updateStarDisplay();
   }
-  
   // ---------------------- Navbar Interaktion ----------------------
-  function setupNavbar() {
-    const navLinks = document.getElementById("nav-links");
-    const hamburger = document.getElementById("hamburger");
-    const dropdownLinks = document.querySelectorAll(".dropdown > a");
-  
-    // Burger & Dropdowns
-    hamburger?.addEventListener("click", (e) => {
+function setupNavbar() {
+  const navLinks      = document.getElementById("nav-links");
+  const hamburger     = document.getElementById("hamburger");
+  const dropdownLinks = document.querySelectorAll(".dropdown > a");
+  const dropdownLis   = document.querySelectorAll(".dropdown");
+
+  // --- Helpers ---
+  const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+
+  function closeAllDropdowns(except = null) {
+    dropdownLis.forEach(li => {
+      if (li !== except) {
+        li.classList.remove("open");
+        const trigger = li.querySelector('a[aria-haspopup="true"]');
+        const menu    = li.querySelector(".dropdown-menu");
+        if (trigger) trigger.setAttribute("aria-expanded", "false");
+        if (menu) {
+          menu.classList.remove("show");
+          menu.style.left = "";
+          [...menu.children].forEach(item => (item.style.transitionDelay = ""));
+        }
+      }
+    });
+  }
+
+  function positionMenu(li) {
+    const trigger = li.querySelector('a[aria-haspopup="true"]');
+    const menu    = li.querySelector(".dropdown-menu");
+    if (!trigger || !menu) return;
+
+    const tRect  = trigger.getBoundingClientRect();
+    const mRect  = menu.getBoundingClientRect();
+    const liRect = li.getBoundingClientRect();
+    const vw     = window.innerWidth;
+
+    // Menü unter dem Trigger zentrieren, am Viewport clampen (16px Rand)
+    const center  = tRect.left + tRect.width / 2;
+    let leftAbs   = center - mRect.width / 2;
+    leftAbs       = clamp(leftAbs, 16, vw - mRect.width - 16);
+    const relLeft = leftAbs - liRect.left;
+
+    menu.style.left = `${relLeft}px`;
+  }
+
+  function openDropdown(trigger) {
+    const li   = trigger.closest(".dropdown");
+    const menu = trigger.nextElementSibling;
+    if (!li || !menu) return;
+
+    closeAllDropdowns(li);
+
+    li.classList.add("open");
+    trigger.setAttribute("aria-expanded", "true");
+    menu.classList.add("show");
+
+    // Stagger-Animation
+    [...menu.children].forEach((item, i) => {
+      item.style.transitionDelay = `${i * 25}ms`;
+    });
+
+    // Nur Desktop zentrieren (mobil = position: static)
+    const isMobile = window.matchMedia("(max-width: 900px)").matches;
+    if (!isMobile) requestAnimationFrame(() => positionMenu(li));
+  }
+
+  function toggleDropdown(trigger) {
+    const li = trigger.closest(".dropdown");
+    if (!li) return;
+    li.classList.contains("open") ? closeAllDropdowns() : openDropdown(trigger);
+  }
+
+  // --- Hamburger ---
+  hamburger?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const willOpen = !navLinks.classList.contains("active");
+    navLinks.classList.toggle("active");
+    closeAllDropdowns();
+    hamburger.setAttribute("aria-expanded", willOpen ? "true" : "false");
+  });
+
+  // --- Dropdowns nur per Klick (KEIN Hover) ---
+  dropdownLinks.forEach(link => {
+    link.setAttribute("aria-expanded", "false");
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
       e.stopPropagation();
-      navLinks?.classList.toggle("active");
-      closeAllDropdowns();
+      toggleDropdown(link);
     });
-  
-    dropdownLinks.forEach(link => {
-      const menu = link.nextElementSibling;
-      link.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        document.querySelectorAll(".dropdown-menu").forEach(m => {
-          if (m !== menu) m.classList.remove("show");
-        });
-        menu.classList.toggle("show");
-      });
-    });
-  
-    document.addEventListener("click", () => {
+  });
+
+  // --- Outside Click schließt (nur wenn außerhalb der Navbar geklickt wird) ---
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".navbar")) {
       navLinks?.classList.remove("active");
+      hamburger?.setAttribute("aria-expanded", "false");
       closeAllDropdowns();
-    });
-  
-    function closeAllDropdowns() {
-      document.querySelectorAll(".dropdown-menu").forEach(m => m.classList.remove("show"));
     }
+  });
+
+  // --- ESC schließt ---
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      navLinks?.classList.remove("active");
+      hamburger?.setAttribute("aria-expanded", "false");
+      closeAllDropdowns();
+    }
+  });
+
+  // --- Reposition bei Resize/Scroll (Desktop) ---
+  const repositionOpen = () =>
+    document.querySelectorAll(".dropdown.open").forEach(positionMenu);
+  window.addEventListener("resize", repositionOpen);
+  window.addEventListener("scroll", repositionOpen);
+}
+
   
     // 🔒 Login/Logout + geschützte Links
     fetch("/getNutzerInfo", { credentials: "include" })
@@ -636,7 +718,7 @@ function setupSlider() {
       e.preventDefault();
       document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
     });
-  }
+  
   
   
   // ---------------------- Lightbox mit Swipe ----------------------
