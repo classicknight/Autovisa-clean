@@ -12,7 +12,9 @@ const crypto = require('crypto');
 
 // === Express Initialisierung ===
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
+app.set("trust proxy", 1);
+
 
 // === MongoDB Konfiguration ===
 const mongoUri = process.env.MONGODB_URI;
@@ -210,23 +212,23 @@ app.get('/getVehicleData', checkLogin, async (req, res) => {
   }
 });
 
-
-// === ❌ Abbrechen-Logik ===
-app.post('/abbrechen', async (req, res) => {
+app.post('/abbrechen', checkLogin, async (req, res) => {
   try {
     const collection = db.collection("fahrzeugeEntwurf");
-    const letzter = await collection.findOne({}, { sort: { _id: -1 } });
-
+    const letzter = await collection.findOne(
+      { nutzerId: req.nutzer.id },
+      { sort: { _id: -1 } }
+    );
     if (!letzter) return res.json({ message: 'Keine Fahrzeuge vorhanden.' });
 
-    await collection.deleteOne({ _id: letzter._id });
+    await collection.deleteOne({ _id: letzter._id, nutzerId: req.nutzer.id });
     res.json({ success: true });
-
   } catch (err) {
     console.error("❌ Fehler beim Abbrechen:", err);
     res.status(500).json({ error: 'Fehler beim Abbrechen.' });
   }
 });
+
 
 // === 📄 Tarif temporär speichern (noch lokal) ===
 const tarifPath = path.join(__dirname, "nutzerTarif.json");
@@ -293,19 +295,18 @@ function getZufaelligeAusstattung(ausstattungArray) {
   return gefiltert.sort(() => 0.5 - Math.random()).slice(0, 3).join(" • ");
 }
 
-// === Fahrzeug veröffentlichen ===
-app.post('/veroeffentlichen', async (req, res) => {
+app.post('/veroeffentlichen', checkLogin, async (req, res) => {
   const { verkaeuferId } = req.body;
-
-  if (!verkaeuferId) {
-    return res.status(400).send("Verkäufer-ID fehlt.");
-  }
+  if (!verkaeuferId) return res.status(400).send("Verkäufer-ID fehlt.");
 
   try {
     const entwurfCollection = db.collection("fahrzeugeEntwurf");
     const inserateCollection = db.collection("inserate");
 
-    const lastVehicle = await entwurfCollection.findOne({}, { sort: { _id: -1 } });
+    const lastVehicle = await entwurfCollection.findOne(
+      { nutzerId: req.nutzer.id },
+      { sort: { _id: -1 } }
+    );
     if (!lastVehicle) return res.status(400).send("Kein Fahrzeug zum Veröffentlichen gefunden.");
 
     const neuesInserat = {
@@ -320,15 +321,15 @@ app.post('/veroeffentlichen', async (req, res) => {
     };
 
     await inserateCollection.insertOne(neuesInserat);
-    await entwurfCollection.deleteOne({ _id: lastVehicle._id });
+    await entwurfCollection.deleteOne({ _id: lastVehicle._id, nutzerId: req.nutzer.id });
 
     res.send("Inserat erfolgreich veröffentlicht.");
-
   } catch (err) {
     console.error("❌ Fehler bei Veröffentlichung:", err);
     res.status(500).send("Fehler beim Veröffentlichen.");
   }
 });
+
 
 // === 🛡️ Login-Prüfung Middleware ===
 app.use(cookieParser());
@@ -862,6 +863,21 @@ app.post("/logout", (req, res) => {
 
   res.clearCookie("nutzer", { httpOnly: true, sameSite: "Lax", secure: isSecureCookie, path: "/" });
   res.clearCookie("isLoggedIn", { httpOnly: false, sameSite: "Lax", secure: isSecureCookie, path: "/" });
-
   res.json({ success: true });
+});
+
+// === Healthcheck & Server starten ===
+app.get("/healthz", (req, res) => res.status(200).send("ok"));
+
+console.log("Render PORT env =", process.env.PORT); // Debug
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`✅ Server läuft auf Port ${PORT} (host 0.0.0.0)`);
+});
+
+process.on("unhandledRejection", (err) => {
+  console.error("❌ UnhandledRejection:", err);
+});
+process.on("uncaughtException", (err) => {
+  console.error("❌ UncaughtException:", err);
 });
