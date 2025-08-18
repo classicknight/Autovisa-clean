@@ -744,6 +744,56 @@ Wenn Sie sich nicht registriert haben, ignorieren Sie diese E-Mail.`;
     return res.status(500).json({ error: "Interner Fehler bei der Registrierung." });
   }
 });
+// === ✅ Verifikations-Route ===
+app.get("/verify", async (req, res) => {
+  const { token } = req.query;
+  if (!token || typeof token !== "string") {
+    return res.status(400).send("❌ Ungültiger oder fehlender Link.");
+  }
+
+  try {
+    const nutzerColl = db.collection("nutzer");
+
+    // Token suchen
+    const user = await nutzerColl.findOne({ token });
+    if (!user) {
+      return res.status(400).send("❌ Token ungültig oder bereits bestätigt.");
+    }
+
+    // Verifizieren & Token entfernen
+    await nutzerColl.updateOne(
+      { _id: user._id },
+      { $set: { verified: true, verifiedAt: new Date() }, $unset: { token: "" } }
+    );
+
+    // Option A: direkt schöne Bestätigungsseite zurückgeben
+    return res.send(`
+      <!doctype html>
+      <meta charset="utf-8">
+      <title>Verifizierung erfolgreich</title>
+      <meta http-equiv="refresh" content="2;url=/login.html">
+      <style>
+        body{font-family:Arial,Helvetica,sans-serif;background:#f5f8fc;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+        .card{background:#fff;padding:24px 28px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.08);text-align:center}
+        h1{margin:0 0 8px;font-size:20px}
+        p{margin:0 0 12px;color:#475a6a}
+        a.button{display:inline-block;padding:10px 16px;border-radius:8px;background:#00b8a9;color:#fff;text-decoration:none;font-weight:600}
+      </style>
+      <div class="card">
+        <h1>✅ E-Mail bestätigt</h1>
+        <p>Dein Konto ist jetzt freigeschaltet.</p>
+        <a class="button" href="/login.html">Zum Login</a>
+      </div>
+    `);
+
+    // Option B (alternativ): nur umleiten
+    // return res.redirect("/login.html?verified=1");
+
+  } catch (err) {
+    console.error("❌ Fehler bei /verify:", err);
+    return res.status(500).send("❌ Interner Fehler bei der Verifikation.");
+  }
+});
 
 // === Nachricht senden ===
 app.post("/nachricht-senden", async (req, res) => {
@@ -881,3 +931,16 @@ process.on("unhandledRejection", (err) => {
 process.on("uncaughtException", (err) => {
   console.error("❌ UncaughtException:", err);
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
