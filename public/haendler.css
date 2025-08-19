@@ -399,3 +399,42 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
     font-weight: 500;
   }
   
+
+
+
+
+
+
+
+
+  /* Toasts */
+#toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toast {
+  opacity: 0;
+  transform: translateY(-8px);
+  background: #1a2a33;
+  color: #fff;
+  padding: 12px 14px;
+  border-radius: 10px;
+  box-shadow: 0 10px 22px rgba(0,0,0,.15);
+  transition: all .25s ease;
+  font-size: 14px;
+  max-width: 280px;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast.success { background: #00b8a9; }
+.toast.error   { background: #d64545; }
