@@ -232,18 +232,38 @@ function sammleAusstattung() {
     .map(e => e.label);
 }
 
-// 🔁 Fallbacks, falls haendler.js auf der Seite nicht geladen ist
+// ===== Fallbacks, falls haendler.js nicht geladen ist =====
 function safeToast(message, type = "success") {
-  if (window.showToast) return window.showToast(message, type);
-  if (type === "error") console.error(message);
-  else console.log(message);
-  try { alert(message); } catch {}
+  // immer einen Toast-Container haben (passt zu deinem CSS)
+  let container = document.getElementById("toast-container");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toast-container";
+    document.body.appendChild(container);
+  }
+  const t = document.createElement("div");
+  t.className = `toast ${type}`;
+  t.textContent = message;
+  container.appendChild(t);
+  requestAnimationFrame(() => t.classList.add("show"));
+  setTimeout(() => {
+    t.classList.remove("show");
+    t.addEventListener("transitionend", () => t.remove(), { once: true });
+  }, 3000);
 }
+
 function safeMarkStepDone(step) {
-  if (window.markStepDone) return window.markStepDone(step);
-  const box = document.querySelector(`.step-box[data-step="${step}"]`);
-  if (!box) return;
-  box.classList.add("completed");
-  const status = box.querySelector(".step-status");
-  if (status) status.textContent = "✔️";
+  // 1) Persistieren, damit haendler.html den Status lesen kann
+  try {
+    const KEY = "haendlerSteps";
+    const obj = JSON.parse(localStorage.getItem(KEY) || "{}");
+    obj[String(step)] = true;            // Schritt als erledigt markieren
+    localStorage.setItem(KEY, JSON.stringify(obj));
+  } catch {}
+
+  // 2) Wenn haendler.js geladen ist, zusätzlich dessen UI-Update nutzen
+  if (window.markStepDone) {
+    try { window.markStepDone(step); } catch {}
+  }
 }
+
