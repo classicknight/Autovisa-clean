@@ -1,4 +1,5 @@
 // haendler.js — EINHEITLICH
+// haendler.js — EINHEITLICH
 document.documentElement.classList.remove("no-js");
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -67,7 +68,9 @@ document.addEventListener("DOMContentLoaded", () => {
   dropdownLinks.forEach(link => {
     link.setAttribute("aria-expanded", "false");
     link.addEventListener("click", (e) => {
-      e.preventDefault(); e.stopPropagation(); toggleDropdown(link);
+      e.preventDefault();
+      e.stopPropagation();
+      toggleDropdown(link);
     });
   });
   document.addEventListener("click", (e) => {
@@ -102,6 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
         window.location.href = "verkaufen.html";
         return;
       }
+
       initAuthDisplay(user);
       savedCarsLink?.addEventListener("click", (e) => { e.preventDefault(); window.location.href = "gespeicherte-autos.html"; });
       myCarsLink?.addEventListener("click",    (e) => { e.preventDefault(); window.location.href = "meine-autos.html"; });
@@ -120,21 +124,39 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ---------- Wizard / Steps / Tarif ----------
   const STEP_STATE_KEY = "haendlerSteps";
-  const TARIF_KEY = "haendlerTarif";
-  const stepsState = loadSteps();
+  const TARIF_KEY      = "haendlerTarif";
+  const stepsState     = loadSteps();
 
-  // Globale APIs
-  window.markStepDone = markStepDone;
-  window.showToast = showToast;
-  window.toggleTarife = toggleTarife;
+  // Exponiere Mini-APIs für andere Seiten
+  window.markStepDone  = markStepDone;
+  window.showToast     = showToast;
+  window.toggleTarife  = toggleTarife;
 
   renderStepsFromState();
   wireStepNavigation();
   setupToasts();
   setupTarif();
 
-  function initWizard(user) {
-    // ggf. weitere Initialisierung abhängig von user
+  // Prüft Publish-Flag & Drafts
+  async function initWizard(user) {
+    if (!document.getElementById("toast-container")) setupToasts();
+
+    // A) Direkt nach dem Veröffentlichen?
+    if (sessionStorage.getItem("resetWizard") === "1") {
+      clearWizardState();
+      sessionStorage.removeItem("resetWizard");
+      showToast("Inserat veröffentlicht – Assistent zurückgesetzt ✅");
+      return;
+    }
+
+    // B) Kein Draft mehr vorhanden? → zurücksetzen
+    try {
+      const drafts = await fetch("/getVehicleData", { credentials: "include" }).then(r => r.json());
+      const hasDraft = Array.isArray(drafts) && drafts.some(v => !v.status || v.status === "draft");
+      if (!hasDraft) clearWizardState();
+    } catch (e) {
+      console.warn("Entwurfs-Check fehlgeschlagen:", e);
+    }
   }
 
   function wireStepNavigation() {
@@ -145,7 +167,7 @@ document.addEventListener("DOMContentLoaded", () => {
           1: "fahrzeugdaten.html",
           2: "fahrzeugdetails.html",
           3: "medien.html",
-          4: "vorschau.html"
+          4: "vorschau.html",
         };
         if (targets[step]) window.location.href = targets[step];
       });
@@ -156,7 +178,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const grid = document.getElementById("tarifGrid");
     if (!grid) return;
 
-    // Restore Auswahl
+    // Restore
     const saved = safeGet(TARIF_KEY, "");
     if (saved) {
       const el = grid.querySelector(`.tarif-box[data-tarif="${cssEscape(saved)}"]`);
@@ -165,7 +187,6 @@ document.addEventListener("DOMContentLoaded", () => {
         el.classList.add("selected");
       }
     } else {
-      // Falls nichts gespeichert: erste Box wählen + speichern
       const first = grid.querySelector(".tarif-box");
       if (first) {
         first.classList.add("selected");
@@ -181,18 +202,17 @@ document.addEventListener("DOMContentLoaded", () => {
       grid.querySelectorAll(".tarif-box").forEach(b => b.classList.remove("selected"));
       box.classList.add("selected");
 
-      const tarifCode = box.dataset.tarif; // z.B. "0-3", "4-10", "100+"
-      // Server speichern
+      const code = box.dataset.tarif;
       try {
         const res = await fetch("/saveTarif", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ tarif: humanTarifLabel(tarifCode) }) // Server speichert nur Text; Label ist hübscher
+          body: JSON.stringify({ tarif: humanTarifLabel(code) }),
         });
         const data = await res.json();
         if (res.ok && data.success) {
-          persistTarif(tarifCode);
+          persistTarif(code);
           markStepDone(4);
           showToast("Tarif gespeichert ✅");
         } else {
@@ -209,18 +229,17 @@ document.addEventListener("DOMContentLoaded", () => {
     safeSet(TARIF_KEY, code);
     updateNavbarTarif();
   }
-
   function updateNavbarTarif() {
-    const tarifBadge = document.getElementById("tarifAnzeige");
-    if (!tarifBadge) return;
-    const code = safeGet(TARIF_KEY, "");
-    if (!code) { tarifBadge.textContent = ""; return; }
+    const badge = document.getElementById("tarifAnzeige");
+    if (!badge) return;
+    const code  = safeGet(TARIF_KEY, "");
+    if (!code) { badge.textContent = ""; return; }
     const label = humanTarifLabel(code);
     const price = tarifPrice(label);
-    tarifBadge.innerHTML = `<i class="fas fa-tag"></i> Aktiver Tarif: ${label}${price ? " – " + price : ""}`;
+    badge.innerHTML = `<i class="fas fa-tag"></i> Aktiver Tarif: ${label}${price ? " – " + price : ""}`;
   }
 
-  // ---------- Steps speichern / wiederherstellen ----------
+  // Steps
   function markStepDone(step) {
     const box = document.querySelector(`.step-box[data-step="${step}"]`);
     if (box) {
@@ -249,22 +268,22 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem(STEP_STATE_KEY, JSON.stringify(stepsState));
   }
 
-  // ---------- Toasts ----------
+  // Toasts
   function setupToasts() {
-    let toastContainer = document.getElementById("toast-container");
-    if (!toastContainer) {
-      toastContainer = document.createElement("div");
-      toastContainer.id = "toast-container";
-      document.body.appendChild(toastContainer);
+    let c = document.getElementById("toast-container");
+    if (!c) {
+      c = document.createElement("div");
+      c.id = "toast-container";
+      document.body.appendChild(c);
     }
   }
   function showToast(message, type = "success") {
-    const container = document.getElementById("toast-container");
-    if (!container) return;
+    const c = document.getElementById("toast-container");
+    if (!c) return;
     const t = document.createElement("div");
     t.className = `toast ${type}`;
     t.textContent = message;
-    container.appendChild(t);
+    c.appendChild(t);
     requestAnimationFrame(() => t.classList.add("show"));
     setTimeout(() => {
       t.classList.remove("show");
@@ -272,29 +291,24 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 3000);
   }
 
-  // ---------- Mobile Tarife togglen ----------
+  // Mobile Tarife togglen
   function toggleTarife() {
-    document.querySelectorAll(".tarif-grid .hide-mobile").forEach(el => {
-      el.classList.toggle("hide-mobile");
-    });
+    document.querySelectorAll(".tarif-grid .hide-mobile").forEach(el => el.classList.toggle("hide-mobile"));
     const btn = document.querySelector(".tarif-toggle-btn.mobile-only");
     if (btn) {
-      btn.textContent = btn.textContent.includes("Mehr")
-        ? "Weniger Tarife anzeigen"
-        : "Mehr Tarife anzeigen";
+      btn.textContent = btn.textContent.includes("Mehr") ? "Weniger Tarife anzeigen" : "Mehr Tarife anzeigen";
     }
   }
 
-  // ---------- Helper ----------
+  // Helper
   function humanTarifLabel(code) {
-    // Mappe data-tarif ("0-3") auf sichtbares Label mit En-Dash und "Fahrzeuge"
     const map = {
       "0-3":  "0–3 Fahrzeuge",
       "4-10": "4–10 Fahrzeuge",
       "11-25":"11–25 Fahrzeuge",
       "26-50":"26–50 Fahrzeuge",
       "51-100":"51–100 Fahrzeuge",
-      "100+": "100+ Fahrzeuge"
+      "100+": "100+ Fahrzeuge",
     };
     return map[code] || code;
   }
@@ -305,7 +319,7 @@ document.addEventListener("DOMContentLoaded", () => {
       "11–25 Fahrzeuge": "9,90 € / Monat",
       "26–50 Fahrzeuge": "17,90 € / Monat",
       "51–100 Fahrzeuge":"29,90 € / Monat",
-      "100+ Fahrzeuge":  "Auf Anfrage"
+      "100+ Fahrzeuge":  "Auf Anfrage",
     };
     return preisMap[label] || "";
   }
@@ -319,4 +333,25 @@ document.addEventListener("DOMContentLoaded", () => {
   function safeSet(key, val) {
     try { localStorage.setItem(key, val); } catch {}
   }
-});
+}); // ✅ DOMContentLoaded HIER schließen!
+
+// Wizard & lokale Draft-Daten zurücksetzen (global)
+function clearWizardState() {
+  localStorage.removeItem("haendlerSteps");     // Steps
+  localStorage.removeItem("fahrzeugdaten");     // Step 1
+  try {
+    Object.keys(localStorage).forEach(k => {    // Step 2 (alle details_)
+      if (k.startsWith("details_")) localStorage.removeItem(k);
+    });
+  } catch {}
+
+  sessionStorage.removeItem("inseratGestartet");
+  sessionStorage.removeItem("hatGespeichert");
+
+  // UI sofort neutralisieren (falls haendler.html offen ist)
+  document.querySelectorAll(".step-box").forEach(b => {
+    b.classList.remove("completed");
+    const s = b.querySelector(".step-status");
+    if (s) s.textContent = "";
+  });
+}

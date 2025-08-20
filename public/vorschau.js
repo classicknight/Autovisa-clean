@@ -823,31 +823,29 @@ if (hatAusstattung) {
     }
   });
   document.addEventListener("DOMContentLoaded", async () => {
-    let nutzer = null; // ✅ globaler Zugriff
+    let nutzer = null; // global verfügbar
   
-    const publishBtn = document.querySelector(".publish-button");
+    const publishBtn     = document.querySelector(".publish-button");
     const kontaktOverlay = document.getElementById("kontaktOverlay");
-    const kontaktForm = document.getElementById("kontaktForm");
+    const kontaktForm    = document.getElementById("kontaktForm");
   
+    // Klick auf "Veröffentlichen" -> Kontakt-Overlay öffnen + Felder vorausfüllen
     publishBtn?.addEventListener("click", async () => {
-      const verkaeuferId = localStorage.getItem("nutzerId");
-      if (!verkaeuferId) {
-        alert("❌ Du bist nicht eingeloggt!");
-        return;
-      }
-  
       try {
-        const res = await fetch("/nutzer.json");
-        const nutzerListe = await res.json();
-        nutzer = nutzerListe.find(n => n.id === verkaeuferId); // ✅ global speichern
-  
-        if (nutzer) {
-          document.getElementById("kontaktNameInput").value = nutzer.firma || nutzer.name || "";
-          document.getElementById("kontaktStrasseInput").value = nutzer.strasse || "";
-          document.getElementById("kontaktPlzInput").value = nutzer.plz || "";
-          document.getElementById("kontaktOrtInput").value = nutzer.ort || "";
-          document.getElementById("kontaktTelefonInput").value = nutzer.telefon || "";
+        const info = await fetch("/getNutzerInfo", { credentials: "include" }).then(r => r.json());
+        if (!info?.eingeloggt) {
+          alert("❌ Du bist nicht eingeloggt!");
+          window.location.href = "login.html";
+          return;
         }
+        nutzer = info;
+  
+        // Felder befüllen
+        document.getElementById("kontaktNameInput").value    = nutzer.firma || nutzer.name || "";
+        document.getElementById("kontaktStrasseInput").value = nutzer.strasse || "";
+        document.getElementById("kontaktPlzInput").value     = nutzer.plz || "";
+        document.getElementById("kontaktOrtInput").value     = nutzer.ort || "";
+        document.getElementById("kontaktTelefonInput").value = nutzer.telefon || "";
       } catch (err) {
         console.error("Fehler beim Laden der Nutzerdaten:", err);
       }
@@ -855,52 +853,63 @@ if (hatAusstattung) {
       kontaktOverlay.style.display = "flex";
     });
   
-    kontaktForm.addEventListener("submit", async (e) => {
+    // Formular im Overlay -> Publish
+    kontaktForm?.addEventListener("submit", async (e) => {
       e.preventDefault();
   
-      const verkaeuferId = localStorage.getItem("nutzerId");
-  
       const kontaktDaten = {
-        verkaeuferId,
-        name: document.getElementById("kontaktNameInput").value.trim(),
+        verkaeuferId: nutzer?.id || nutzer?._id || "",
+  
+        name:    document.getElementById("kontaktNameInput").value.trim(),
         strasse: document.getElementById("kontaktStrasseInput").value.trim(),
-        plz: document.getElementById("kontaktPlzInput").value.trim(),
-        ort: document.getElementById("kontaktOrtInput").value.trim(),
+        plz:     document.getElementById("kontaktPlzInput").value.trim(),
+        ort:     document.getElementById("kontaktOrtInput").value.trim(),
         telefon: document.getElementById("kontaktTelefonInput").value.trim(),
   
-        verkauf_verkaeufer: nutzer?.role === "haendler" ? "Händler" : "Privatverkäufer",
+        // ⚠️ Beachte: Backend nutzt i.d.R. "rolle" (nicht "role")
+        verkauf_verkaeufer: (nutzer?.rolle === "haendler") ? "Händler" : "Privatverkäufer",
         verkauf_name: document.getElementById("kontaktNameInput").value.trim(),
         standort: `${document.getElementById("kontaktPlzInput").value.trim()} ${document.getElementById("kontaktOrtInput").value.trim()}`
       };
   
       try {
-        const res = await fetch("/veroeffentlichen", {
+        const res  = await fetch("/veroeffentlichen", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify(kontaktDaten)
         });
-  
         const text = await res.text();
+  
         if (res.ok) {
+          // 🔑 Signal an haendler.html: Wizard zurücksetzen
+          sessionStorage.setItem("resetWizard", "1");
+  
+          // (optional) Sofort lokal aufräumen – fühlt sich noch „snappier“ an:
+          try {
+            localStorage.removeItem("haendlerSteps");
+            localStorage.removeItem("fahrzeugdaten");
+            Object.keys(localStorage).forEach(k => { if (k.startsWith("details_")) localStorage.removeItem(k); });
+            sessionStorage.removeItem("inseratGestartet");
+            sessionStorage.removeItem("hatGespeichert");
+          } catch {}
+  
           alert("✅ Inserat veröffentlicht!");
-          localStorage.removeItem("fahrzeugId");
-          window.location.href = "übersicht.html";
+          // Wichtig: Zurück auf haendler.html, dort greift der Reset automatisch
+          window.location.href = "haendler.html";
         } else {
           alert("❌ Fehler beim Veröffentlichen:\n" + text);
         }
       } catch (err) {
+        console.error("❌ Netzwerkfehler beim Veröffentlichen:", err);
         alert("Netzwerkfehler beim Veröffentlichen.");
-        console.error(err);
       }
     });
   });
   
-  
   function closeKontaktPopup() {
     document.getElementById("kontaktOverlay").style.display = "none";
   }
-  
-  
   
   
   
@@ -976,3 +985,9 @@ if (hatAusstattung) {
     subtitle.textContent = getZufaelligeAusstattung(last.verkauf_ausstattung);
   }
   
+
+
+
+
+
+
