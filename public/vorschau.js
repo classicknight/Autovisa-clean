@@ -823,13 +823,13 @@ if (hatAusstattung) {
     }
   });
   document.addEventListener("DOMContentLoaded", async () => {
-    let nutzer = null; // global verfügbar
+    let nutzer = null;
+    let sellerId = null; // 👈 hier puffern
   
     const publishBtn     = document.querySelector(".publish-button");
     const kontaktOverlay = document.getElementById("kontaktOverlay");
     const kontaktForm    = document.getElementById("kontaktForm");
   
-    // Klick auf "Veröffentlichen" -> Kontakt-Overlay öffnen + Felder vorausfüllen
     publishBtn?.addEventListener("click", async () => {
       try {
         const info = await fetch("/getNutzerInfo", { credentials: "include" }).then(r => r.json());
@@ -840,25 +840,47 @@ if (hatAusstattung) {
         }
         nutzer = info;
   
-        // Felder befüllen
-        document.getElementById("kontaktNameInput").value    = nutzer.firma || nutzer.name || "";
-        document.getElementById("kontaktStrasseInput").value = nutzer.strasse || "";
-        document.getElementById("kontaktPlzInput").value     = nutzer.plz || "";
-        document.getElementById("kontaktOrtInput").value     = nutzer.ort || "";
-        document.getElementById("kontaktTelefonInput").value = nutzer.telefon || "";
+        // 🔑 Robust alle gängigen Felder probieren
+        sellerId =
+          info.id ||
+          info._id ||
+          info.userId ||
+          info.userid ||
+          info.nutzerId ||
+          (info.user && (info.user.id || info.user._id)) ||
+          null;
+  
+        // Falls noch nicht gefunden: lieber stoppen statt kaputt veröffentlichen
+        if (!sellerId) {
+          console.warn("Konnte sellerId aus /getNutzerInfo nicht ermitteln:", info);
+          alert("❌ Verkäufer-ID konnte nicht ermittelt werden. Bitte neu einloggen.");
+          return;
+        }
+  
+        // Felder füllen
+        document.getElementById("kontaktNameInput").value    = info.firma || info.name || "";
+        document.getElementById("kontaktStrasseInput").value = info.strasse || "";
+        document.getElementById("kontaktPlzInput").value     = info.plz || "";
+        document.getElementById("kontaktOrtInput").value     = info.ort || "";
+        document.getElementById("kontaktTelefonInput").value = info.telefon || "";
+  
+        kontaktOverlay.style.display = "flex";
       } catch (err) {
         console.error("Fehler beim Laden der Nutzerdaten:", err);
+        alert("❌ Konnte Nutzerdaten nicht laden.");
       }
-  
-      kontaktOverlay.style.display = "flex";
     });
   
-    // Formular im Overlay -> Publish
     kontaktForm?.addEventListener("submit", async (e) => {
       e.preventDefault();
   
+      if (!sellerId) {
+        alert("❌ Verkäufer-ID fehlt. Bitte Seite neu laden und erneut versuchen.");
+        return;
+      }
+  
       const kontaktDaten = {
-        verkaeuferId: nutzer?.id || nutzer?._id || "",
+        verkaeuferId: sellerId, // 👈 jetzt sicher vorhanden
   
         name:    document.getElementById("kontaktNameInput").value.trim(),
         strasse: document.getElementById("kontaktStrasseInput").value.trim(),
@@ -866,7 +888,6 @@ if (hatAusstattung) {
         ort:     document.getElementById("kontaktOrtInput").value.trim(),
         telefon: document.getElementById("kontaktTelefonInput").value.trim(),
   
-        // ⚠️ Beachte: Backend nutzt i.d.R. "rolle" (nicht "role")
         verkauf_verkaeufer: (nutzer?.rolle === "haendler") ? "Händler" : "Privatverkäufer",
         verkauf_name: document.getElementById("kontaktNameInput").value.trim(),
         standort: `${document.getElementById("kontaktPlzInput").value.trim()} ${document.getElementById("kontaktOrtInput").value.trim()}`
@@ -882,10 +903,7 @@ if (hatAusstattung) {
         const text = await res.text();
   
         if (res.ok) {
-          // 🔑 Signal an haendler.html: Wizard zurücksetzen
           sessionStorage.setItem("resetWizard", "1");
-  
-          // (optional) Sofort lokal aufräumen – fühlt sich noch „snappier“ an:
           try {
             localStorage.removeItem("haendlerSteps");
             localStorage.removeItem("fahrzeugdaten");
@@ -895,7 +913,6 @@ if (hatAusstattung) {
           } catch {}
   
           alert("✅ Inserat veröffentlicht!");
-          // Wichtig: Zurück auf haendler.html, dort greift der Reset automatisch
           window.location.href = "haendler.html";
         } else {
           alert("❌ Fehler beim Veröffentlichen:\n" + text);
@@ -910,7 +927,6 @@ if (hatAusstattung) {
   function closeKontaktPopup() {
     document.getElementById("kontaktOverlay").style.display = "none";
   }
-  
   
   
 

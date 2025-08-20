@@ -294,34 +294,39 @@ function getZufaelligeAusstattung(ausstattungArray) {
   if (gefiltert.length === 0) return "Besondere Ausstattung";
   return gefiltert.sort(() => 0.5 - Math.random()).slice(0, 3).join(" • ");
 }
-
 app.post('/veroeffentlichen', checkLogin, async (req, res) => {
-  const { verkaeuferId } = req.body;
-  if (!verkaeuferId) return res.status(400).send("Verkäufer-ID fehlt.");
-
   try {
-    const entwurfCollection = db.collection("fahrzeugeEntwurf");
-    const inserateCollection = db.collection("inserate");
+    // ✅ IMMER aus der Session ableiten, Client-Wert nur als Fallback akzeptieren
+    const sellerId =
+      req.nutzer?.id ||
+      (req.nutzer?._id && req.nutzer._id.toString && req.nutzer._id.toString()) ||
+      req.body.verkaeuferId || null;
 
+    if (!sellerId) return res.status(400).send("Verkäufer-ID fehlt.");
+
+    const entwurfCollection   = db.collection("fahrzeugeEntwurf");
+    const inserateCollection  = db.collection("inserate");
+
+    // Achte darauf, dass 'nutzerId' in deinen Entwurfs-Dokumenten als string = sellerId gespeichert wird
     const lastVehicle = await entwurfCollection.findOne(
-      { nutzerId: req.nutzer.id },
+      { nutzerId: sellerId },
       { sort: { _id: -1 } }
     );
     if (!lastVehicle) return res.status(400).send("Kein Fahrzeug zum Veröffentlichen gefunden.");
 
     const neuesInserat = {
       ...lastVehicle,
-      verkaeuferId,
+      verkaeuferId: sellerId,
       status: "online",
       verkauf_kurzbeschreibung: getZufaelligeAusstattung(lastVehicle.verkauf_ausstattung || []),
       verkauf_verkaeufer: req.body.verkauf_verkaeufer || "Privatverkäufer",
       verkauf_name: req.body.name || "Unbekannt",
-      standort: req.body.plz && req.body.ort ? `${req.body.plz} ${req.body.ort}` : "Nicht angegeben",
+      standort: (req.body.plz && req.body.ort) ? `${req.body.plz} ${req.body.ort}` : "Nicht angegeben",
       telefon: req.body.telefon || ""
     };
 
     await inserateCollection.insertOne(neuesInserat);
-    await entwurfCollection.deleteOne({ _id: lastVehicle._id, nutzerId: req.nutzer.id });
+    await entwurfCollection.deleteOne({ _id: lastVehicle._id, nutzerId: sellerId });
 
     res.send("Inserat erfolgreich veröffentlicht.");
   } catch (err) {
@@ -329,6 +334,7 @@ app.post('/veroeffentlichen', checkLogin, async (req, res) => {
     res.status(500).send("Fehler beim Veröffentlichen.");
   }
 });
+
 
 
 // === 🛡️ Login-Prüfung Middleware ===
