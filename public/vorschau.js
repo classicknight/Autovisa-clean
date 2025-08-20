@@ -913,7 +913,7 @@ if (hatAusstattung) {
           } catch {}
   
           alert("✅ Inserat veröffentlicht!");
-          window.location.href = "haendler.html";
+          window.location.href = "übersicht.html";
         } else {
           alert("❌ Fehler beim Veröffentlichen:\n" + text);
         }

@@ -876,41 +876,77 @@ app.get("/chat", async (req, res) => {
   }
 });
 
-// === Inserat veröffentlichen ===
-app.post("/inserat-veroeffentlichen", async (req, res) => {
+const { ObjectId } = require("mongodb");
+
+// === Inserat veröffentlichen (von Übersicht aus) ===
+app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
   const { id } = req.body;
   if (!id) return res.status(400).send("ID fehlt.");
 
+  let _id;
+  try {
+    _id = new ObjectId(id);
+  } catch {
+    return res.status(400).send("Ungültige ID.");
+  }
+
   try {
     const meineInserate = db.collection("meineInserate");
-    const vehicles = db.collection("fahrzeuge");
+    const fahrzeugePublik = db.collection("fahrzeuge"); // optional, siehe Kommentar unten
 
-    const inserat = await meineInserate.findOne({ id });
+    // Prüfe Besitz + Existenz
+    const inserat = await meineInserate.findOne({ _id, nutzerId: req.nutzer.id });
     if (!inserat) return res.status(404).send("Inserat nicht gefunden.");
 
-    await meineInserate.updateOne({ id }, { $set: { status: "online" } });
-    await vehicles.insertOne(inserat);
+    // Auf online setzen
+    await meineInserate.updateOne(
+      { _id, nutzerId: req.nutzer.id },
+      { $set: { status: "online", veroeffentlichtAm: new Date() } }
+    );
+
+    // OPTIONAL: in öffentliche Sammlung spiegeln (falls suche.html daraus liest)
+    // upsert = true -> Einfügen falls nicht vorhanden; gleiche _id wiederverwenden
+    await fahrzeugePublik.updateOne(
+      { _id },
+      { $set: { ...inserat, status: "online", veroeffentlichtAm: new Date() } },
+      { upsert: true }
+    );
 
     res.send("Inserat erfolgreich veröffentlicht.");
-
   } catch (err) {
     console.error("❌ Fehler beim Veröffentlichen des Inserats:", err);
     res.status(500).send("Fehler beim Veröffentlichen.");
   }
 });
 
-// === Online-Fahrzeuge abrufen ===
+// === Öffentliche Fahrzeuge abrufen ===
+// Variante A: aus der *öffentlichen* Sammlung 'fahrzeuge'
 app.get("/fahrzeuge-online", async (req, res) => {
   try {
-    const meineInserate = db.collection("meineInserate");
-    const onlineFahrzeuge = await meineInserate.find({ status: "online" }).toArray();
-    res.json(onlineFahrzeuge);
-
+    const fahrzeugePublik = db.collection("fahrzeuge");
+    const docs = await fahrzeugePublik.find({ status: "online" }).toArray();
+    res.json(docs);
   } catch (err) {
     console.error("❌ Fehler beim Abrufen der Online-Fahrzeuge:", err);
     res.status(500).send("Fehler beim Abrufen der Daten.");
   }
 });
+
+/*
+// Variante B: wenn du NICHT spiegeln willst, dann lies direkt aus 'meineInserate'.
+// Dann kannst du das Update/Upsert in 'fahrzeuge' oben weglassen.
+app.get("/fahrzeuge-online", async (req, res) => {
+  try {
+    const meineInserate = db.collection("meineInserate");
+    const docs = await meineInserate.find({ status: "online" }).toArray();
+    res.json(docs);
+  } catch (err) {
+    console.error("❌ Fehler beim Abrufen der Online-Fahrzeuge:", err);
+    res.status(500).send("Fehler beim Abrufen der Daten.");
+  }
+});
+*/
+
 
 // === Logout ===
 app.post("/logout", (req, res) => {

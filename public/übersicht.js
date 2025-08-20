@@ -649,18 +649,15 @@ initializeSlider(wrapper);
 
 
 
-
-
   document.addEventListener("click", async (e) => {
     const button = e.target.closest(".publish-btn");
     if (!button) return;
   
     const card = button.closest(".car-card-wrapper");
-    const inseratId = card?.dataset.id;
-    const verkaeuferId = localStorage.getItem("nutzerId");
+    const inseratId = card?.dataset.id; // <- MUSS das echte _id sein!
   
-    if (!inseratId || !verkaeuferId) {
-      alert("❌ Inserat-ID oder Verkäufer-ID fehlt.");
+    if (!inseratId) {
+      alert("❌ Inserat-ID fehlt.");
       return;
     }
   
@@ -668,17 +665,21 @@ initializeSlider(wrapper);
       const res = await fetch("/inserat-veroeffentlichen", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: inseratId, verkaeuferId })
+        credentials: "include", // wichtig, wenn checkLogin im Backend
+        body: JSON.stringify({ id: inseratId })
       });
   
       const text = await res.text();
   
       if (res.ok) {
-        alert("✅ Inserat ist jetzt online!");
-        // ✅ Button visuell anpassen
+        // UI updaten
         button.textContent = "Veröffentlicht";
         button.classList.add("published");
         button.disabled = true;
+        alert("✅ Inserat ist jetzt online!");
+  
+        // Optional: Karte aus Liste „Entwürfe“ entfernen
+        // card.remove();
       } else {
         alert("❌ Fehler: " + text);
       }
