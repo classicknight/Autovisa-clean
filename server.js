@@ -3,10 +3,10 @@ const express = require('express');
 const multer = require('multer');
 const cookieParser = require('cookie-parser');
 const path = require('path');
-const fs = require('fs');                     // ⬅️ hinzugefügt
+const fs = require('fs');                     // ⬅️ benötigt für Temp-Files
 const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcryptjs');
-const nodemailer = require('nodemailer');     // ⬅️ hinzugefügt
+const nodemailer = require('nodemailer');     // ⬅️ bereits vorhanden
 const cloudinary = require('cloudinary').v2;
 const crypto = require('crypto');
 
@@ -14,7 +14,6 @@ const crypto = require('crypto');
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 app.set("trust proxy", 1);
-
 
 // === MongoDB Konfiguration ===
 const mongoUri = process.env.MONGODB_URI;
@@ -37,37 +36,65 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// === Middleware ===
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body-Limits nur für Text (Dateien sind davon unberührt)
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+
 app.use(cookieParser());
 
 // === Statische Dateien ausliefern ===
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/data', express.static(path.join(__dirname, 'data')));
+app.use('/data', express.static(path.join(__dirname, 'data'), {
+  dotfiles: 'ignore',
+  etag: true,
+  maxAge: '1d'
+}));
 
 // === Startseite ===
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// === Multer: In-Memory Storage (wir streamen zu Cloudinary) ===
-const upload = multer({
-  storage: multer.memoryStorage(),
-  fileFilter: (req, file, cb) => {
-    const ok = file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/');
-    cb(null, ok);
+// === Multer: Disk Storage (keine MB-Grenze); Mengenlimit: 20 Bilder + 1 Video ===
+const TMP_DIR = path.join(__dirname, 'uploads_tmp');
+if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, TMP_DIR),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '';
+    const base = path.basename(file.originalname, ext).replace(/\s+/g, '_').slice(0, 60);
+    cb(null, `${Date.now()}_${Math.random().toString(36).slice(2,8)}_${base}${ext}`);
   }
 });
 
-// Helper: Datei zu Cloudinary hochladen (stream-basiert)
-function uploadToCloudinary(file, { folder, resource_type }) {
-  return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { folder, resource_type },
-      (err, result) => (err ? reject(err) : resolve(result))
-    );
-    stream.end(file.buffer);
+const upload = multer({
+  storage,
+  limits: {
+    files: 21 // 20 Bilder + 1 Video pro Request
+  },
+  fileFilter: (req, file, cb) => {
+    const isImage = file.mimetype.startsWith('image/');
+    const isVideo = file.mimetype.startsWith('video/');
+    if (!isImage && !isVideo) {
+      return cb(new Error('Nur Bild- oder Videodateien sind erlaubt.'), false);
+    }
+    cb(null, true);
+  }
+});
+
+// Helper: Datei-Pfad zu Cloudinary hochladen (Bilder normal, Videos chunked)
+async function uploadFileToCloudinary(filePath, { folder, resource_type }) {
+  if (resource_type === 'video') {
+    return cloudinary.uploader.upload_large(filePath, {
+      folder,
+      resource_type: 'video',
+      chunk_size: 20 * 1024 * 1024 // 20 MB pro Chunk
+    });
+  }
+  return cloudinary.uploader.upload(filePath, {
+    folder,
+    resource_type: 'image'
   });
 }
 
@@ -129,12 +156,26 @@ app.post(
         { sort: { _id: -1 } }
       );
       if (!letzter) {
+        // Aufräumen der temporären Dateien (falls gesetzt)
+        const files = req.files || {};
+        for (const group of Object.values(files)) {
+          for (const f of group) { try { fs.unlinkSync(f.path); } catch {} }
+        }
         return res.status(400).json({ error: 'Kein Fahrzeug gefunden.' });
       }
 
       const files = req.files || {};
       const imageFiles = Array.isArray(files.images) ? files.images : [];
-      const videoFile  = Array.isArray(files.video) && files.video[0] ? files.video[0] : null;
+      const videoFile  = Array.isArray(files.video) ? (files.video[0] || null) : null;
+
+      // === Mengen-Limits über ALLE Uploads hinweg prüfen ===
+      const existingImages = Array.isArray(letzter.images) ? letzter.images.length : 0;
+      if (imageFiles.length && existingImages + imageFiles.length > 20) {
+        for (const f of imageFiles) { try { fs.unlinkSync(f.path); } catch {} }
+        if (videoFile) { try { fs.unlinkSync(videoFile.path); } catch {} }
+        return res.status(400).json({ error: 'Maximal 20 Bilder pro Inserat.' });
+      }
+      // Video wird ersetzt → kein zusätzliches Mengenlimit nötig
 
       // Ordner nach Nutzer strukturieren (übersichtlich in Cloudinary)
       const baseFolder = `autovisa/${req.nutzer.id}`;
@@ -142,21 +183,31 @@ app.post(
       // 1) Bilder zu Cloudinary (parallel)
       let uploadedImageUrls = [];
       if (imageFiles.length > 0) {
-        const uploads = imageFiles.map(f =>
-          uploadToCloudinary(f, { folder: `${baseFolder}/images`, resource_type: 'image' })
-            .then(r => r.secure_url)
-        );
-        uploadedImageUrls = await Promise.all(uploads);
+        try {
+          const results = await Promise.all(
+            imageFiles.map(f =>
+              uploadFileToCloudinary(f.path, { folder: `${baseFolder}/images`, resource_type: 'image' })
+            )
+          );
+          uploadedImageUrls = results.map(r => r.secure_url);
+        } finally {
+          // tmp-Dateien IMMER entfernen
+          for (const f of imageFiles) { try { fs.unlinkSync(f.path); } catch {} }
+        }
       }
 
       // 2) Video zu Cloudinary (ersetzt vorhandenes)
       let uploadedVideoUrl = null;
       if (videoFile) {
-        const r = await uploadToCloudinary(videoFile, {
-          folder: `${baseFolder}/videos`,
-          resource_type: 'video'
-        });
-        uploadedVideoUrl = r.secure_url;
+        try {
+          const r = await uploadFileToCloudinary(videoFile.path, {
+            folder: `${baseFolder}/videos`,
+            resource_type: 'video'
+          });
+          uploadedVideoUrl = r.secure_url;
+        } finally {
+          try { fs.unlinkSync(videoFile.path); } catch {}
+        }
       }
 
       // Nichts neu? -> nichts ändern
@@ -196,7 +247,6 @@ app.post(
     }
   }
 );
-
 
 
 
@@ -272,7 +322,13 @@ app.get("/getTarif", (req, res) => {
 app.get("/meineInserate.json", async (req, res) => {
   try {
     const inserateCollection = db.collection("inserate");
-    const inserate = await inserateCollection.find({}).toArray();
+    const inserate = await inserateCollection
+      .find({ status: "online" })
+      .project({
+        token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0 // sicherheitshalber ausblenden
+      })
+      .sort({ veroeffentlichtAm: -1, _id: -1 })
+      .toArray();
     res.json(inserate);
   } catch (err) {
     console.error("❌ Fehler beim Laden der veröffentlichten Inserate:", err);
@@ -294,20 +350,16 @@ function getZufaelligeAusstattung(ausstattungArray) {
   if (gefiltert.length === 0) return "Besondere Ausstattung";
   return gefiltert.sort(() => 0.5 - Math.random()).slice(0, 3).join(" • ");
 }
+
 app.post('/veroeffentlichen', checkLogin, async (req, res) => {
   try {
-    // ✅ IMMER aus der Session ableiten, Client-Wert nur als Fallback akzeptieren
-    const sellerId =
-      req.nutzer?.id ||
-      (req.nutzer?._id && req.nutzer._id.toString && req.nutzer._id.toString()) ||
-      req.body.verkaeuferId || null;
-
+    // ✅ Verkäufer ausschließlich aus Session (Cookie)
+    const sellerId = req.nutzer?.id || null;
     if (!sellerId) return res.status(400).send("Verkäufer-ID fehlt.");
 
     const entwurfCollection   = db.collection("fahrzeugeEntwurf");
     const inserateCollection  = db.collection("inserate");
 
-    // Achte darauf, dass 'nutzerId' in deinen Entwurfs-Dokumenten als string = sellerId gespeichert wird
     const lastVehicle = await entwurfCollection.findOne(
       { nutzerId: sellerId },
       { sort: { _id: -1 } }
@@ -318,6 +370,7 @@ app.post('/veroeffentlichen', checkLogin, async (req, res) => {
       ...lastVehicle,
       verkaeuferId: sellerId,
       status: "online",
+      veroeffentlichtAm: new Date(),
       verkauf_kurzbeschreibung: getZufaelligeAusstattung(lastVehicle.verkauf_ausstattung || []),
       verkauf_verkaeufer: req.body.verkauf_verkaeufer || "Privatverkäufer",
       verkauf_name: req.body.name || "Unbekannt",
@@ -336,9 +389,8 @@ app.post('/veroeffentlichen', checkLogin, async (req, res) => {
 });
 
 
-
 // === 🛡️ Login-Prüfung Middleware ===
-app.use(cookieParser());
+// (zweites app.use(cookieParser()) entfernt – cookieParser ist oben bereits aktiv)
 
 function checkLogin(req, res, next) {
   try {
@@ -356,12 +408,12 @@ function checkLogin(req, res, next) {
 }
 
 // === 📧 Nodemailer-Konfiguration ===
+const smtpUser = process.env.SMTP_USER || "autovisa0607@gmail.com";
+const smtpPass = process.env.SMTP_PASS || "inhnziikdkyqtdmy"; // ⚠️ nur Dev-Fallback
+
 const transporter = nodemailer.createTransport({
   service: "gmail",
-  auth: {
-    user: "autovisa0607@gmail.com",
-    pass: "inhnziikdkyqtdmy" // App-spezifisches Passwort
-  }
+  auth: { user: smtpUser, pass: smtpPass }
 });
 
 transporter.verify((error, success) => {
@@ -463,9 +515,16 @@ function buildAutovisaEmail({
 
 // === 📝 Registrierung mit Verifizierungslink ===
 app.post("/register", async (req, res) => {
-  const { name, email, password } = req.body;
+  let { name, email, password } = req.body;
+
+  name = (name || "").trim();
+  email = (email || "").trim().toLowerCase();
+
   if (!name || !email || !password) {
     return res.status(400).json({ error: "Alle Felder sind erforderlich." });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: "Passwort muss mindestens 8 Zeichen haben." });
   }
 
   try {
@@ -477,11 +536,13 @@ app.post("/register", async (req, res) => {
     }
 
     const token = crypto.randomBytes(20).toString("hex");
+    const hash = await bcrypt.hash(password, 12);
+
     const neuerNutzer = {
-      id: Date.now().toString(),
+      id: Date.now().toString(),   // intern genutzte ID (string)
       name,
       email,
-      password, // TODO: später bcrypt
+      password: hash,              // ✅ gehasht
       verified: false,
       token,
       role: "privat",
@@ -513,7 +574,7 @@ ${verifyLink}
 Wenn du dich nicht registriert hast, ignoriere diese E-Mail.`;
 
     const mailOptions = {
-      from: '"Autovisa" <autovisa0607@gmail.com>',
+      from: `"Autovisa" <${smtpUser}>`, // ✅ nutzt ENV/Fallback aus obiger Transporter-Konfig
       to: email,
       subject,
       html,
@@ -526,7 +587,7 @@ Wenn du dich nicht registriert hast, ignoriere diese E-Mail.`;
       return res.json({ success: true, message: "E-Mail zur Bestätigung wurde gesendet." });
     } catch (mailErr) {
       console.error("❌ SMTP-Fehler beim Senden:", mailErr);
-      // Optionales Aufräumen:
+      // Aufräumen: unbestätigtes Konto löschen
       await nutzerColl.deleteOne({ email });
       return res.status(500).json({ error: "E-Mail-Versand fehlgeschlagen. Bitte später erneut versuchen." });
     }
@@ -536,9 +597,13 @@ Wenn du dich nicht registriert hast, ignoriere diese E-Mail.`;
     return res.status(500).json({ error: "Interner Serverfehler." });
   }
 });
+
+
 // === Login-Route mit MongoDB (plain + bcrypt unterstützt) ===
 app.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+  let { email, password } = req.body;
+
+  email = (email || "").trim().toLowerCase();
   if (!email || !password) {
     return res.status(400).json({ error: "❌ E-Mail und Passwort erforderlich." });
   }
@@ -550,15 +615,19 @@ app.post("/login", async (req, res) => {
       return res.status(401).json({ error: "❌ E-Mail oder Passwort falsch." });
     }
 
-    // Passwort prüfen (bietet sanften Übergang auf bcrypt)
+    // Passwort prüfen (sanfte Migration auf bcrypt)
     let passOK = false;
     if (typeof user.password === "string" && user.password.startsWith("$2")) {
-      // bcrypt-Hash erkannt
       passOK = await bcrypt.compare(password, user.password);
     } else {
-      // aktuell noch Klartext
       passOK = user.password === password;
+      if (passOK) {
+        // ✅ sofortige Migration auf Hash
+        const newHash = await bcrypt.hash(password, 12);
+        await nutzerColl.updateOne({ _id: user._id }, { $set: { password: newHash } });
+      }
     }
+
     if (!passOK) {
       return res.status(401).json({ error: "❌ E-Mail oder Passwort falsch." });
     }
@@ -583,7 +652,7 @@ app.post("/login", async (req, res) => {
       path: "/"
     });
 
-    // Optional (Frontend nutzt ohnehin localStorage) – nur lassen, wenn du es wirklich brauchst:
+    // Optional (nur falls Frontend es wirklich nutzt)
     res.cookie("isLoggedIn", "true", {
       httpOnly: false,
       sameSite: "Lax",
@@ -641,16 +710,37 @@ app.get("/getNutzerInfo", async (req, res) => {
 
 
 
+
 // === Händlerregistrierung mit MongoDB (mit Template-Mail) ===
 app.post("/haendler-registrieren", async (req, res) => {
   const {
     firma, strasse, hausnummer, plz, ort, land, telefon, telefon2,
     email, whatsapp, tarif, zahlungsmethode, kontoinhaber, iban, bic,
-    impressum, agb, datenschutz, password, confirmPassword, role
+    impressum, agb, datenschutz, password, confirmPassword
+    // role  ⬅️ wird NICHT aus dem Body übernommen (Sicherheitsrisiko)
   } = req.body;
 
+  // Normalisierung / Sanitizing
+  const _firma = (firma || "").trim();
+  const _email = (email || "").trim().toLowerCase();
+  const _strasse = (strasse || "").trim();
+  const _hausnummer = (hausnummer || "").trim();
+  const _plz = (plz || "").trim();
+  const _ort = (ort || "").trim();
+  const _land = (land || "").trim();
+  const _telefon = (telefon || "").trim();
+  const _telefon2 = (telefon2 || "").trim();
+  const _tarif = (tarif || "").trim();
+  const _zahlungsmethode = (zahlungsmethode || "").trim();
+  const _kontoinhaber = (kontoinhaber || "").trim();
+  const _iban = (iban || "").replace(/\s+/g, "").toUpperCase();
+  const _bic = (bic || "").replace(/\s+/g, "").toUpperCase();
+  const _impressum = (impressum || "").trim();
+  const _whatsapp =
+    whatsapp === true || whatsapp === "true" || whatsapp === "on" || whatsapp === 1 || whatsapp === "1";
+
   // Pflichtfelder + Basis-Checks
-  if (!firma || !email || !password || !agb || !datenschutz) {
+  if (!_firma || !_email || !password || !agb || !datenschutz) {
     return res.status(400).json({ error: "Bitte füllen Sie alle Pflichtfelder aus." });
   }
   if (password.length < 8) {
@@ -663,43 +753,43 @@ app.post("/haendler-registrieren", async (req, res) => {
   try {
     const nutzerColl = db.collection("nutzer");
 
-    const existiert = await nutzerColl.findOne({ email });
+    const existiert = await nutzerColl.findOne({ email: _email });
     if (existiert) {
       return res.status(400).json({ error: "E-Mail bereits registriert." });
     }
 
     const token = crypto.randomBytes(20).toString("hex");
+    const hash = await bcrypt.hash(password, 12);
 
     const neuerHaendler = {
       id: Date.now().toString(),
-      // Stammdaten
-      role: role || "haendler",
+      role: "haendler",           // ⬅️ fest vorgegeben
       verified: false,
       token,
       createdAt: new Date(),
       // Firma / Kontakt
-      firma,
-      strasse: strasse || "",
-      hausnummer: hausnummer || "",
-      plz: plz || "",
-      ort: ort || "",
-      land: land || "",
-      telefon: telefon || "",
-      telefon2: telefon2 || "",
-      email,
-      whatsapp: (whatsapp === true || whatsapp === "true" || whatsapp === "on" || whatsapp === 1),
+      firma: _firma,
+      strasse: _strasse,
+      hausnummer: _hausnummer,
+      plz: _plz,
+      ort: _ort,
+      land: _land,
+      telefon: _telefon,
+      telefon2: _telefon2,
+      email: _email,
+      whatsapp: _whatsapp,
       // Tarif / Zahlung
-      tarif: tarif || "",
-      zahlungsmethode: zahlungsmethode || "",
-      kontoinhaber: kontoinhaber || "",
-      iban: iban || "",
-      bic: bic || "",
+      tarif: _tarif,
+      zahlungsmethode: _zahlungsmethode,
+      kontoinhaber: _kontoinhaber,
+      iban: _iban,
+      bic: _bic,
       // Rechtliches
-      impressum: impressum || "",
+      impressum: _impressum,
       agb: !!agb,
       datenschutz: !!datenschutz,
-      // Auth (später bcrypt)
-      password // TODO: bcrypt.hash(...)
+      // Auth
+      password: hash              // ✅ gehasht
     };
 
     await nutzerColl.insertOne(neuerHaendler);
@@ -712,7 +802,7 @@ app.post("/haendler-registrieren", async (req, res) => {
     const html = buildAutovisaEmail({
       subject,
       logoUrl,
-      greeting: `Hallo ${firma},`,
+      greeting: `Hallo ${_firma},`,
       title: "Händlerkonto bestätigen",
       htmlText: "Bitte bestätigen Sie Ihre E-Mail-Adresse, um Ihr Händlerkonto zu aktivieren.",
       buttonText: "Händlerkonto bestätigen",
@@ -720,15 +810,15 @@ app.post("/haendler-registrieren", async (req, res) => {
       footerNote: "Wenn Sie sich nicht bei Autovisa registriert haben, können Sie diese E-Mail ignorieren."
     });
     const text =
-`Hallo ${firma},
+`Hallo ${_firma},
 bitte bestätigen Sie Ihre E-Mail-Adresse, um Ihr Händlerkonto bei Autovisa zu aktivieren:
 ${verifyLink}
 
 Wenn Sie sich nicht registriert haben, ignorieren Sie diese E-Mail.`;
 
     const mailOptions = {
-      from: '"Autovisa" <autovisa0607@gmail.com>',
-      to: email,
+      from: `"Autovisa" <${smtpUser}>`,
+      to: _email,
       subject,
       html,
       text
@@ -741,7 +831,7 @@ Wenn Sie sich nicht registriert haben, ignorieren Sie diese E-Mail.`;
     } catch (mailErr) {
       console.error("❌ SMTP-Fehler beim Senden (Händler):", mailErr);
       // Aufräumen, damit kein unbestätigter Account ohne Mail hängen bleibt
-      await nutzerColl.deleteOne({ email });
+      await nutzerColl.deleteOne({ email: _email });
       return res.status(500).json({ error: "E-Mail-Versand fehlgeschlagen. Bitte später erneut versuchen." });
     }
 
@@ -750,6 +840,7 @@ Wenn Sie sich nicht registriert haben, ignorieren Sie diese E-Mail.`;
     return res.status(500).json({ error: "Interner Fehler bei der Registrierung." });
   }
 });
+
 // === ✅ Verifikations-Route ===
 app.get("/verify", async (req, res) => {
   const { token } = req.query;
@@ -772,7 +863,7 @@ app.get("/verify", async (req, res) => {
       { $set: { verified: true, verifiedAt: new Date() }, $unset: { token: "" } }
     );
 
-    // Option A: direkt schöne Bestätigungsseite zurückgeben
+    // Schöne Bestätigungsseite
     return res.send(`
       <!doctype html>
       <meta charset="utf-8">
@@ -791,8 +882,7 @@ app.get("/verify", async (req, res) => {
         <a class="button" href="/login.html">Zum Login</a>
       </div>
     `);
-
-    // Option B (alternativ): nur umleiten
+    // Alternativ:
     // return res.redirect("/login.html?verified=1");
 
   } catch (err) {
@@ -802,11 +892,16 @@ app.get("/verify", async (req, res) => {
 });
 
 // === Nachricht senden ===
-app.post("/nachricht-senden", async (req, res) => {
-  const { senderId, empfaengerId, fahrzeugId, absenderName, nachricht } = req.body;
+// Sicherheitsänderung: Sender NUR aus Session, nicht aus Body
+app.post("/nachricht-senden", checkLogin, async (req, res) => {
+  const { empfaengerId, fahrzeugId, absenderName, nachricht } = req.body;
+  const senderId = req.nutzer.id;
 
   if (!senderId || !empfaengerId || !fahrzeugId || !nachricht || !absenderName) {
     return res.status(400).json({ error: "Fehlende Felder." });
+  }
+  if (senderId === empfaengerId) {
+    return res.status(400).json({ error: "Absender und Empfänger dürfen nicht identisch sein." });
   }
 
   try {
@@ -815,10 +910,10 @@ app.post("/nachricht-senden", async (req, res) => {
     const neueNachricht = {
       id: Date.now().toString(),
       senderId,
-      empfaengerId,
-      fahrzeugId,
-      absenderName,
-      nachricht,
+      empfaengerId: String(empfaengerId),
+      fahrzeugId: String(fahrzeugId),
+      absenderName: String(absenderName).trim().slice(0, 128),
+      nachricht: String(nachricht).trim().slice(0, 5000),
       zeit: new Date().toISOString(),
       gelesen: false
     };
@@ -833,16 +928,22 @@ app.post("/nachricht-senden", async (req, res) => {
 });
 
 // === Nachrichten für Empfänger abrufen ===
-app.get("/nachrichten/:empfaengerId", async (req, res) => {
+// Sicherheitsänderung: Nur der eingeloggte Nutzer darf seine Nachrichten abrufen
+app.get("/nachrichten/:empfaengerId", checkLogin, async (req, res) => {
   const { empfaengerId } = req.params;
-
   if (!empfaengerId) return res.status(400).json({ error: "Keine ID übergeben." });
+
+  if (req.nutzer.id !== empfaengerId) {
+    return res.status(403).json({ error: "Zugriff verweigert." });
+  }
 
   try {
     const nachrichtenColl = db.collection("nachrichten");
-    const empfangene = await nachrichtenColl.find({ empfaengerId }).toArray();
+    const empfangene = await nachrichtenColl
+      .find({ empfaengerId: String(empfaengerId) })
+      .sort({ zeit: 1 })
+      .toArray();
     res.json(empfangene);
-
   } catch (err) {
     console.error("❌ Fehler beim Abrufen der Nachrichten:", err);
     res.status(500).json({ error: "Fehler beim Abrufen der Nachrichten." });
@@ -850,11 +951,17 @@ app.get("/nachrichten/:empfaengerId", async (req, res) => {
 });
 
 // === Chatverlauf abrufen ===
-app.get("/chat", async (req, res) => {
+app.get("/chat", checkLogin, async (req, res) => {
   const { user1, user2, fahrzeugId } = req.query;
 
   if (!user1 || !user2 || !fahrzeugId) {
     return res.status(400).json({ error: "Unvollständige Anfrage." });
+  }
+
+  // Sicherheitscheck: nur Teilnehmer dürfen ihren Chat sehen
+  const requester = req.nutzer.id;
+  if (requester !== user1 && requester !== user2) {
+    return res.status(403).json({ error: "Zugriff verweigert." });
   }
 
   try {
@@ -862,10 +969,10 @@ app.get("/chat", async (req, res) => {
 
     const verlauf = await nachrichtenColl.find({
       $or: [
-        { senderId: user1, empfaengerId: user2 },
-        { senderId: user2, empfaengerId: user1 }
+        { senderId: String(user1), empfaengerId: String(user2) },
+        { senderId: String(user2), empfaengerId: String(user1) }
       ],
-      fahrzeugId
+      fahrzeugId: String(fahrzeugId)
     }).sort({ zeit: 1 }).toArray();
 
     res.json(verlauf);
@@ -876,9 +983,9 @@ app.get("/chat", async (req, res) => {
   }
 });
 
-const { ObjectId } = require("mongodb");
 
 // === Inserat veröffentlichen (von Übersicht aus) ===
+// Hinweis: bleibt kompatibel, spiegelt aber in die öffentliche Sammlung 'inserate'
 app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
   const { id } = req.body;
   if (!id) return res.status(400).send("ID fehlt.");
@@ -892,21 +999,20 @@ app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
 
   try {
     const meineInserate = db.collection("meineInserate");
-    const fahrzeugePublik = db.collection("fahrzeuge"); // optional, siehe Kommentar unten
+    const inseratePublic = db.collection("inserate"); // öffentliche Sammlung (einheitlich)
 
     // Prüfe Besitz + Existenz
     const inserat = await meineInserate.findOne({ _id, nutzerId: req.nutzer.id });
     if (!inserat) return res.status(404).send("Inserat nicht gefunden.");
 
-    // Auf online setzen
+    // Auf online setzen (private Sammlung)
     await meineInserate.updateOne(
       { _id, nutzerId: req.nutzer.id },
       { $set: { status: "online", veroeffentlichtAm: new Date() } }
     );
 
-    // OPTIONAL: in öffentliche Sammlung spiegeln (falls suche.html daraus liest)
-    // upsert = true -> Einfügen falls nicht vorhanden; gleiche _id wiederverwenden
-    await fahrzeugePublik.updateOne(
+    // In öffentliche Sammlung spiegeln (Upsert mit gleicher _id)
+    await inseratePublic.updateOne(
       { _id },
       { $set: { ...inserat, status: "online", veroeffentlichtAm: new Date() } },
       { upsert: true }
@@ -919,33 +1025,44 @@ app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
   }
 });
 
-// === Öffentliche Fahrzeuge abrufen ===
-// Variante A: aus der *öffentlichen* Sammlung 'fahrzeuge'
-app.get("/fahrzeuge-online", async (req, res) => {
+
+// === Öffentliche Fahrzeuge/Inserts abrufen (NEU, mit Pagination) ===
+app.get("/inserate", async (req, res) => {
   try {
-    const fahrzeugePublik = db.collection("fahrzeuge");
-    const docs = await fahrzeugePublik.find({ status: "online" }).toArray();
-    res.json(docs);
+    const page  = Math.max(parseInt(req.query.page)  || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const skip  = (page - 1) * limit;
+
+    // einfache Filter (kannst du später erweitern: marke, modell, preisrange, PLZ usw.)
+    const q = { status: "online" };
+
+    const coll = db.collection("inserate");
+    const [items, total] = await Promise.all([
+      coll.find(q)
+          .project({
+            token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0 // sensible Felder ausblenden
+          })
+          .sort({ veroeffentlichtAm: -1, _id: -1 })
+          .skip(skip).limit(limit).toArray(),
+      coll.countDocuments(q)
+    ]);
+
+    res.json({ page, limit, total, items });
   } catch (err) {
-    console.error("❌ Fehler beim Abrufen der Online-Fahrzeuge:", err);
+    console.error("❌ Fehler beim Abrufen der Inserate:", err);
     res.status(500).send("Fehler beim Abrufen der Daten.");
   }
 });
 
-/*
-// Variante B: wenn du NICHT spiegeln willst, dann lies direkt aus 'meineInserate'.
-// Dann kannst du das Update/Upsert in 'fahrzeuge' oben weglassen.
-app.get("/fahrzeuge-online", async (req, res) => {
-  try {
-    const meineInserate = db.collection("meineInserate");
-    const docs = await meineInserate.find({ status: "online" }).toArray();
-    res.json(docs);
-  } catch (err) {
-    console.error("❌ Fehler beim Abrufen der Online-Fahrzeuge:", err);
-    res.status(500).send("Fehler beim Abrufen der Daten.");
-  }
+// Legacy-Route (Kompatibilität): leitet auf /inserate um
+app.get("/fahrzeuge-online", (req, res) => {
+  const { page, limit } = req.query;
+  const qs = new URLSearchParams();
+  if (page) qs.set("page", page);
+  if (limit) qs.set("limit", limit);
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  return res.redirect(302, `/inserate${suffix}`);
 });
-*/
 
 
 // === Logout ===
@@ -973,10 +1090,6 @@ process.on("unhandledRejection", (err) => {
 process.on("uncaughtException", (err) => {
   console.error("❌ UncaughtException:", err);
 });
-
-
-
-
 
 
 
