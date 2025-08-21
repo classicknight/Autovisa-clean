@@ -987,9 +987,47 @@ app.get("/chat", checkLogin, async (req, res) => {
   }
 });
 
+// ========== VERÖFFENTLICHEN: Wizard/Vorschau (nimmt den letzten Entwurf des eingeloggten Nutzers) ==========
+app.post("/veroeffentlichen", checkLogin, async (req, res) => {
+  try {
+    const sellerId = req.nutzer?.id;
+    if (!sellerId) return res.status(401).send("Nicht eingeloggt.");
 
-// === Inserat veröffentlichen (von Übersicht aus) ===
-// Hinweis: bleibt kompatibel, spiegelt aber in die öffentliche Sammlung 'inserate'
+    const entwurfColl  = db.collection("fahrzeugeEntwurf");
+    const inserateColl = db.collection("inserate");
+
+    // letzten Entwurf holen
+    const lastVehicle = await entwurfColl.findOne(
+      { nutzerId: sellerId },
+      { sort: { _id: -1 } }
+    );
+    if (!lastVehicle) return res.status(400).send("Kein Fahrzeug zum Veröffentlichen gefunden.");
+
+    const neuesInserat = {
+      ...lastVehicle,
+      verkaeuferId: sellerId,
+      status: "online",
+      veroeffentlichtAm: new Date(),
+      verkauf_kurzbeschreibung: getZufaelligeAusstattung(lastVehicle.verkauf_ausstattung || []),
+      // Werte aus Request als Fallback erlaubt – ansonsten Draft-Werte oder Defaults
+      verkauf_verkaeufer: req.body?.verkauf_verkaeufer || lastVehicle.verkauf_verkaeufer || "Privatverkäufer",
+      verkauf_name:       req.body?.name || lastVehicle.verkauf_name || "Unbekannt",
+      standort:           (req.body?.plz && req.body?.ort) ? `${req.body.plz} ${req.body.ort}` : (lastVehicle.standort || "Nicht angegeben"),
+      telefon:            req.body?.telefon || lastVehicle.telefon || ""
+    };
+
+    await inserateColl.insertOne(neuesInserat);
+    await entwurfColl.deleteOne({ _id: lastVehicle._id, nutzerId: sellerId });
+
+    res.send("Inserat erfolgreich veröffentlicht.");
+  } catch (err) {
+    console.error("❌ Fehler bei /veroeffentlichen:", err);
+    res.status(500).send("Fehler beim Veröffentlichen.");
+  }
+});
+
+
+// ========== VERÖFFENTLICHEN: Aus der Übersicht (konkrete Entwurfs-ID aus fahrzeugeEntwurf) ==========
 app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
   const { id } = req.body;
   if (!id) return res.status(400).send("ID fehlt.");
@@ -1002,71 +1040,69 @@ app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
   }
 
   try {
-    const meineInserate = db.collection("meineInserate");
-    const inseratePublic = db.collection("inserate"); // öffentliche Sammlung (einheitlich)
+    const sellerId      = req.nutzer?.id;
+    const entwurfColl   = db.collection("fahrzeugeEntwurf"); // <-- Quelle: Entwürfe
+    const inserateColl  = db.collection("inserate");         // <-- Ziel: öffentlich
 
-    // Prüfe Besitz + Existenz
-    const inserat = await meineInserate.findOne({ _id, nutzerId: req.nutzer.id });
-    if (!inserat) return res.status(404).send("Inserat nicht gefunden.");
+    // Entwurf prüfen (Besitz + Existenz)
+    const draft = await entwurfColl.findOne({ _id, nutzerId: sellerId });
+    if (!draft) return res.status(404).send("Entwurf nicht gefunden.");
 
-    // Auf online setzen (private Sammlung)
-    await meineInserate.updateOne(
-      { _id, nutzerId: req.nutzer.id },
-      { $set: { status: "online", veroeffentlichtAm: new Date() } }
-    );
+    const neuesInserat = {
+      ...draft,
+      verkaeuferId: sellerId,
+      status: "online",
+      veroeffentlichtAm: new Date(),
+      verkauf_kurzbeschreibung: getZufaelligeAusstattung(draft.verkauf_ausstattung || []),
+      verkauf_verkaeufer: draft.verkauf_verkaeufer || "Privatverkäufer",
+      verkauf_name:       draft.verkauf_name || "Unbekannt",
+      standort:           draft.standort || "Nicht angegeben",
+      telefon:            draft.telefon || ""
+    };
 
-    // In öffentliche Sammlung spiegeln (Upsert mit gleicher _id)
-    await inseratePublic.updateOne(
-      { _id },
-      { $set: { ...inserat, status: "online", veroeffentlichtAm: new Date() } },
-      { upsert: true }
-    );
+    await inserateColl.insertOne(neuesInserat);
+    await entwurfColl.deleteOne({ _id, nutzerId: sellerId });
 
     res.send("Inserat erfolgreich veröffentlicht.");
   } catch (err) {
-    console.error("❌ Fehler beim Veröffentlichen des Inserats:", err);
+    console.error("❌ Fehler bei /inserat-veroeffentlichen:", err);
     res.status(500).send("Fehler beim Veröffentlichen.");
   }
 });
 
 
-// === Öffentliche Fahrzeuge/Inserts abrufen (NEU, mit Pagination) ===
+// ========== ÖFFENTLICHE INSERATE: Für suche.html (Pagination) ==========
 app.get("/inserate", async (req, res) => {
   try {
     const page  = Math.max(parseInt(req.query.page)  || 1, 1);
-    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
     const skip  = (page - 1) * limit;
-
-    // einfache Filter (kannst du später erweitern: marke, modell, preisrange, PLZ usw.)
-    const q = { status: "online" };
 
     const coll = db.collection("inserate");
     const [items, total] = await Promise.all([
-      coll.find(q)
-          .project({
-            token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0 // sensible Felder ausblenden
-          })
+      coll.find({ status: "online" })
+          .project({ token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0 })
           .sort({ veroeffentlichtAm: -1, _id: -1 })
           .skip(skip).limit(limit).toArray(),
-      coll.countDocuments(q)
+      coll.countDocuments({ status: "online" })
     ]);
 
     res.json({ page, limit, total, items });
   } catch (err) {
-    console.error("❌ Fehler beim Abrufen der Inserate:", err);
-    res.status(500).send("Fehler beim Abrufen der Daten.");
+    console.error("❌ Fehler bei GET /inserate:", err);
+    res.status(500).json({ error: "Fehler beim Abrufen der Inserate." });
   }
 });
 
-// Legacy-Route (Kompatibilität): leitet auf /inserate um
+// (optional) Legacy-Weiterleitung:
 app.get("/fahrzeuge-online", (req, res) => {
   const { page, limit } = req.query;
   const qs = new URLSearchParams();
   if (page) qs.set("page", page);
   if (limit) qs.set("limit", limit);
-  const suffix = qs.toString() ? `?${qs.toString()}` : "";
-  return res.redirect(302, `/inserate${suffix}`);
+  res.redirect(302, `/inserate${qs.toString() ? `?${qs}` : ""}`);
 });
+
 
 
 // === Logout ===
