@@ -475,176 +475,67 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
     flex: 1;
   }
   
-  /* Fahrzeugkarte */
-  
-  /* === FAHRZEUGKARTE (KORRIGIERT) === */
-  
-  .car-card {
-  
-    display: grid;
-    grid-template-columns: 320px 1fr;
-    min-height: 220px;
-    max-height: 280px;
-    background: #ffffff;
-    border-radius: 14px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.04);
-    overflow: hidden;
-    border: 1px solid #e3e9ef;
-    transition: transform 0.25s ease, box-shadow 0.3s ease;
-    margin-bottom: 20px;
-  }
-  
-  .car-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
-  }
-  
-  /* === Bildbereich === */
-  .car-card-media {
-    width: 100%;
-    height: 100%;
-    background-color: #f3f6f9;
-    overflow: hidden;
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.3s ease;
-  }
-  
-  .media-container {
-    overflow: hidden;
-    position: relative;
-    width: 100%;
-    height: 100%;
-    flex-shrink: 0;
-    /* NEU (wichtig!): */
-    display: flex;
-  }
-  
-  .slides {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    transition: transform 0.5s ease-in-out;
-    
-    /* NEU: */
-    will-change: transform;
-  }
-  
-  .slide {
-    flex: 0 0 100%;
-    width: 100%;
-    height: 100%;
-    
-    /* NEU: */
-    min-width: 100%;
-    box-sizing: border-box;
-  }
-  
-  .slide.active {
-    display: block;
-  }
-  
-  .slide img,
-  .slide video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    display: block;
-    transition: transform 0.3s ease;
-  }
-  
-  
-  
-  /* === Details === */
-  .car-details {
-    padding: 24px 28px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    gap: 10px;
-    overflow: hidden;
-  }
-  
-  .car-top-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: nowrap; /* ❗️Kein Umbruch, Preis bleibt rechts */
-  }
-  
-  .car-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: #1a2a33;
-    margin: 0;
-  
-    flex-grow: 1;     /* nimmt restlichen Platz */
-    flex-shrink: 1;   /* darf schrumpfen */
-    flex-basis: 0;    /* verteilt gleichmäßig */
-    min-width: 0;     /* ❗️notwendig für Textkürzung */
-  
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-  
-  .car-price {
-    font-size: 17px;
-    padding: 6px 10px;
-    background: #e6f0f4;
-    border-radius: 8px;
-    color: #1a2a33;
-    font-weight: 600;
-  
-    white-space: nowrap;
-    flex-shrink: 0;       /* ❗️Preis bleibt immer sichtbar */
-    line-height: 1.3;
-    text-align: center;
-    min-width: 76px;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
-  }
-  
-  .car-subtitle {
-    font-size: 14px;
-    color: #6c7a89;
-    margin-bottom: 10px;
-  }
-  
-  /* === Info-Grid === */
-  .car-info-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px 20px;
-    font-size: 14px;
-    color: #37444f;
-    border-top: 1px solid #f0f2f5;
-    padding-top: 10px;
-  }
-  
-  .car-info-grid p {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  
-  .car-info-grid i {
-    color: #00b8a9;
-    font-size: 13px;
-  }
-  
-  /* === Händlerinfo === */
-  .dealer-info {
-    margin-top: 14px;
-    padding-top: 10px;
-    border-top: 1px solid #e6eaf0;
-    font-size: 13px;
-    color: #6b7a88;
-    font-style: italic;
-    line-height: 1.4;
-  }
+/* === FAHRZEUGKARTE === */
+.car-card{
+  display:grid;
+  grid-template-columns:320px 1fr;
+  min-height:220px;
+  max-height:280px;           /* willst du variable Höhe? -> diese Zeile entfernen */
+  background:#fff;
+  border-radius:14px;
+  box-shadow:0 6px 18px rgba(0,0,0,.04);
+  overflow:hidden;
+  border:1px solid #e3e9ef;
+  transition:transform .25s ease, box-shadow .3s ease;
+  margin-bottom:20px;
+}
+.car-card:hover{ transform:translateY(-4px); box-shadow:0 12px 30px rgba(0,0,0,.08); }
+
+/* Bildbereich */
+.car-card-media{ width:100%; height:100%; background:#f3f6f9; position:relative; display:flex; align-items:center; justify-content:center; }
+.media-container{ position:relative; width:100%; height:100%; overflow:hidden; display:flex; }
+.slides{ width:100%; height:100%; display:flex; transition:transform .5s ease-in-out; will-change:transform; }
+.slide{
+  flex:0 0 100%;
+  min-width:100%;
+  width:100%;
+  height:100%;
+  display:block;
+  box-sizing:border-box;
+  /* WICHTIG: object-fit direkt auf dem <img>/<video class="slide"> */
+  object-fit:cover;
+  object-position:center;
+}
+
+/* Details */
+.car-details{
+  padding:24px 28px;
+  display:flex;
+  flex-direction:column;
+  /* statt space-between → keine Lücken mehr in der Mitte */
+  justify-content:flex-start;
+  gap:12px;
+  overflow:hidden;
+}
+.car-top-row{ display:flex; align-items:center; gap:10px; flex-wrap:nowrap; }
+.car-title{
+  font-size:18px; font-weight:600; color:#1a2a33; margin:0;
+  flex:1 1 0; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+}
+.car-price{
+  font-size:17px; padding:6px 10px; background:#e6f0f4; border-radius:8px; color:#1a2a33; font-weight:600;
+  white-space:nowrap; flex-shrink:0; line-height:1.3; text-align:center; min-width:76px;
+}
+.car-subtitle{ font-size:14px; color:#6c7a89; margin:0; }              /* etwas straffer */
+.car-info-grid{
+  display:grid; grid-template-columns:repeat(3,1fr); gap:10px 20px; font-size:14px; color:#37444f;
+  border-top:1px solid #f0f2f5; padding-top:10px;
+}
+.car-info-grid p{ display:flex; align-items:center; gap:6px; margin:0; }
+.car-info-grid i{ color:#00b8a9; font-size:13px; }
+
+.dealer-info{ margin-top:8px; padding-top:10px; border-top:1px solid #e6eaf0; font-size:13px; color:#6b7a88; font-style:italic; line-height:1.4; }
+
   
   
   @media screen and (max-width: 900px) {

@@ -12,8 +12,9 @@ let container;
 
 async function fetchMedia() {
   try {
-    const res = await fetch("/getVehicleData");
+    const res  = await fetch("/getVehicleData", { credentials: "include" });
     const data = await res.json();
+    
     if (!Array.isArray(data) || data.length === 0) return;
     const lastVehicle = data[data.length - 1];
     if (Array.isArray(lastVehicle.images)) {

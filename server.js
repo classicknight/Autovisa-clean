@@ -140,6 +140,16 @@ app.post('/saveDetails', checkLogin, async (req, res) => {
     res.status(500).json({ error: 'Fehler beim Speichern der Details.' });
   }
 });
+// Helper: Buffer → Cloudinary (image|video)
+function uploadBufferToCloudinary(file, { folder, resource_type }) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder, resource_type },
+      (err, result) => err ? reject(err) : resolve(result)
+    );
+    stream.end(file.buffer); // <- wichtig bei memoryStorage
+  });
+}
 
 // === Schritt 3: Medien speichern (Cloudinary; Bilder anhängen, Video ersetzen) ===
 app.post(
@@ -156,62 +166,44 @@ app.post(
         { sort: { _id: -1 } }
       );
       if (!letzter) {
-        // Aufräumen der temporären Dateien (falls gesetzt)
-        const files = req.files || {};
-        for (const group of Object.values(files)) {
-          for (const f of group) { try { fs.unlinkSync(f.path); } catch {} }
-        }
         return res.status(400).json({ error: 'Kein Fahrzeug gefunden.' });
       }
 
       const files = req.files || {};
       const imageFiles = Array.isArray(files.images) ? files.images : [];
-      const videoFile  = Array.isArray(files.video) ? (files.video[0] || null) : null;
+      const videoFile  = Array.isArray(files.video)  ? (files.video[0] || null) : null;
 
-      // === Mengen-Limits über ALLE Uploads hinweg prüfen ===
+      // Mengenlimit Bilder (max. 20)
       const existingImages = Array.isArray(letzter.images) ? letzter.images.length : 0;
       if (imageFiles.length && existingImages + imageFiles.length > 20) {
-        for (const f of imageFiles) { try { fs.unlinkSync(f.path); } catch {} }
-        if (videoFile) { try { fs.unlinkSync(videoFile.path); } catch {} }
         return res.status(400).json({ error: 'Maximal 20 Bilder pro Inserat.' });
       }
-      // Video wird ersetzt → kein zusätzliches Mengenlimit nötig
 
-      // Ordner nach Nutzer strukturieren (übersichtlich in Cloudinary)
       const baseFolder = `autovisa/${req.nutzer.id}`;
 
-      // 1) Bilder zu Cloudinary (parallel)
+      // 1) Bilder hochladen
       let uploadedImageUrls = [];
-      if (imageFiles.length > 0) {
-        try {
-          const results = await Promise.all(
-            imageFiles.map(f =>
-              uploadFileToCloudinary(f.path, { folder: `${baseFolder}/images`, resource_type: 'image' })
-            )
-          );
-          uploadedImageUrls = results.map(r => r.secure_url);
-        } finally {
-          // tmp-Dateien IMMER entfernen
-          for (const f of imageFiles) { try { fs.unlinkSync(f.path); } catch {} }
-        }
+      if (imageFiles.length) {
+        const results = await Promise.all(
+          imageFiles.map(f =>
+            uploadBufferToCloudinary(f, { folder: `${baseFolder}/images`, resource_type: 'image' })
+          )
+        );
+        uploadedImageUrls = results.map(r => r.secure_url);
       }
 
-      // 2) Video zu Cloudinary (ersetzt vorhandenes)
+      // 2) Video hochladen (ersetzt vorhandenes)
       let uploadedVideoUrl = null;
       if (videoFile) {
-        try {
-          const r = await uploadFileToCloudinary(videoFile.path, {
-            folder: `${baseFolder}/videos`,
-            resource_type: 'video'
-          });
-          uploadedVideoUrl = r.secure_url;
-        } finally {
-          try { fs.unlinkSync(videoFile.path); } catch {}
-        }
+        const r = await uploadBufferToCloudinary(videoFile, {
+          folder: `${baseFolder}/videos`,
+          resource_type: 'video'
+        });
+        uploadedVideoUrl = r.secure_url; // Format kann .mp4/.mov/... sein
       }
 
-      // Nichts neu? -> nichts ändern
-      if (uploadedImageUrls.length === 0 && !uploadedVideoUrl) {
+      // nichts neu?
+      if (!uploadedImageUrls.length && !uploadedVideoUrl) {
         return res.json({
           success: true,
           message: 'Keine neuen Dateien – bestehende Medien unverändert.',
@@ -220,20 +212,16 @@ app.post(
         });
       }
 
-      // Bilder anhängen, Video ggf. ersetzen
+      // Update-Dokument bauen
       const updateDoc = {};
-      if (uploadedImageUrls.length > 0) {
-        const mergedImages = Array.isArray(letzter.images)
+      if (uploadedImageUrls.length) {
+        updateDoc.images = Array.isArray(letzter.images)
           ? [...letzter.images, ...uploadedImageUrls]
           : [...uploadedImageUrls];
-        updateDoc.images = mergedImages;
       }
       if (uploadedVideoUrl) updateDoc.video = uploadedVideoUrl;
 
-      await collection.updateOne(
-        { _id: letzter._id },
-        { $set: updateDoc }
-      );
+      await collection.updateOne({ _id: letzter._id }, { $set: updateDoc });
 
       res.json({
         success: true,
@@ -247,7 +235,6 @@ app.post(
     }
   }
 );
-
 
 
 // === Vorschau: Nur Fahrzeuge dieses Nutzers laden ===
