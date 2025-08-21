@@ -678,6 +678,20 @@ app.post("/login", async (req, res) => {
   }
 });
 
+// Meine veröffentlichten Inserate (nur eigene) – für übersicht.html
+app.get("/meine-inserate", checkLogin, async (req, res) => {
+  try {
+    const userId = req.nutzer.id;
+    const inserate = await db.collection("inserate")
+      .find({ verkaeuferId: userId })     // ggf. zusätzlich { status: "online" }
+      .sort({ veroeffentlichtAm: -1, _id: -1 })
+      .toArray();
+    res.json(inserate);
+  } catch (err) {
+    console.error("❌ Fehler bei /meine-inserate:", err);
+    res.status(500).json({ error: "Fehler beim Laden der veröffentlichten Inserate." });
+  }
+});
 
 // === Nutzer-Info aus Cookie ===
 app.get("/getNutzerInfo", async (req, res) => {

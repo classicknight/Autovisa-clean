@@ -428,14 +428,8 @@ document.querySelectorAll('.remove-saved-btn').forEach(button => {
 
 
 
-
-
-
-
-
-
 document.addEventListener("DOMContentLoaded", async () => {
-  // 🔹 Preis hübsch formatieren
+  // Preis hübsch formatieren
   function formatEUR(value) {
     if (value == null || value === "") return null;
     const num = parseFloat(String(value).replace(/\./g, "").replace(",", "."));
@@ -443,7 +437,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return String(value) + " €";
   }
 
-  // 🔹 Echte Mongo-ID aus Dokument ziehen (deckt verschiedene Formen ab)
+  // Echte Mongo-ID aus Dokument ziehen
   function extractMongoId(doc) {
     if (!doc) return null;
     if (typeof doc._id === "string") return doc._id;
@@ -456,36 +450,51 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   try {
     // Login prüfen
-    const nutzerRes = await fetch("/getNutzerInfo", { credentials: "include" });
+    const nutzerRes  = await fetch("/getNutzerInfo", { credentials: "include" });
     const nutzerData = await nutzerRes.json();
-
     if (!nutzerData.eingeloggt || !nutzerData.nutzerId) {
       alert("❌ Du bist nicht eingeloggt. Bitte logge dich zuerst ein.");
       window.location.href = "login.html";
       return;
     }
 
-    // Entwürfe des eingeloggten Nutzers laden
-    const res = await fetch("/getVehicleData", { credentials: "include" });
-    const inserate = await res.json();
+    // Beide Quellen parallel laden
+    const [draftRes, onlineRes] = await Promise.all([
+      fetch("/getVehicleData",   { credentials: "include" }), // Entwürfe (fahrzeugeEntwurf)
+      fetch("/meine-inserate",   { credentials: "include" })  // Online (inserate)
+    ]);
 
-    if (!Array.isArray(inserate) || inserate.length === 0) {
+    const drafts = await draftRes.json();   // Array
+    const online = await onlineRes.json();  // Array
+
+    // Vereinheitlichen + Status mitgeben
+    const items = [
+      ...(Array.isArray(drafts) ? drafts.map(d => ({ ...d, __status: "draft" })) : []),
+      ...(Array.isArray(online) ? online.map(o => ({ ...o, __status: "online" })) : [])
+    ];
+
+    if (!items.length) {
       carList.innerHTML = "<p>Keine Inserate gefunden.</p>";
       return;
     }
 
     carList.innerHTML = "";
 
-    inserate.forEach((inserat) => {
+    items.forEach((inserat) => {
       const wrapper = document.createElement("div");
       wrapper.className = "car-card-wrapper";
 
       const realId = extractMongoId(inserat);
-      wrapper.dataset.id = realId || ""; // MUSS echte Mongo-ObjectId sein (24 Hex)
+      wrapper.dataset.id = realId || "";         // echte MongoID
+      wrapper.dataset.status = inserat.__status; // "draft" | "online"
+
+      const isOnline = inserat.__status === "online";
+      const publishBtnLabel = isOnline ? "Online" : "Veröffentlichen";
+      const publishBtnAttrs = isOnline ? 'disabled class="publish-btn published"' : 'class="publish-btn"';
 
       wrapper.innerHTML = `
         <div class="car-card-actions mobile-only">
-          <button class="publish-btn"><i class="fas fa-globe"></i> Veröffentlichen</button>
+          <button ${publishBtnAttrs}><i class="fas fa-globe"></i> ${publishBtnLabel}</button>
           <button class="edit-btn"><i class="fas fa-pen"></i> Bearbeiten</button>
           <button class="remove-saved-btn"><i class="fas fa-trash"></i> Entfernen</button>
         </div>
@@ -511,6 +520,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 "Preis fehlt"
               }</p>
             </div>
+
             <p class="car-subtitle">${inserat.verkauf_kurzbeschreibung || "Besondere Ausstattung"}</p>
 
             <div class="car-info-grid">
@@ -534,51 +544,42 @@ document.addEventListener("DOMContentLoaded", async () => {
         </div>
 
         <div class="car-card-actions desktop-only">
-          <button class="publish-btn"><i class="fas fa-globe"></i> Veröffentlichen</button>
+          <button ${publishBtnAttrs}><i class="fas fa-globe"></i> ${publishBtnLabel}</button>
           <button class="edit-btn"><i class="fas fa-pen"></i> Bearbeiten</button>
           <button class="remove-saved-btn"><i class="fas fa-trash"></i> Entfernen</button>
         </div>
       `;
 
-      // 📦 Klick auf Karte → zur Detailseite (aber NICHT bei Buttons/Arrows)
+      // Karte klickbar (außer Buttons/Arrows)
       wrapper.addEventListener("click", (e) => {
         const isActionButton = e.target.closest(".car-card-actions button");
         const isArrow = e.target.closest(".media-arrow");
         if (isActionButton || isArrow) return;
-
         localStorage.setItem("ausgewaehltesInserat", JSON.stringify(inserat));
         window.location.href = "anzeige.html";
       });
 
       carList.appendChild(wrapper);
-
-      // Slides & Pfeile initialisieren
       initializeSlider(wrapper);
 
-      // ✅ Hochformat-Erkennung pro Wrapper
+      // Hochformat-Erkennung
       wrapper.querySelectorAll(".slide").forEach((media) => {
         if (media.tagName === "VIDEO") {
           media.addEventListener("loadedmetadata", () => {
-            if (media.videoHeight > media.videoWidth) {
-              media.classList.add("portrait-zoom");
-            }
+            if (media.videoHeight > media.videoWidth) media.classList.add("portrait-zoom");
           });
         } else if (media.tagName === "IMG") {
           media.addEventListener("load", () => {
-            if (media.naturalHeight > media.naturalWidth) {
-              media.classList.add("portrait-zoom");
-            }
+            if (media.naturalHeight > media.naturalWidth) media.classList.add("portrait-zoom");
           });
         }
       });
 
-      // 🗑️ Entfernen-Button (nur UI)
-      wrapper.querySelectorAll(".remove-saved-btn").forEach((button) => {
-        button.addEventListener("click", (e) => {
+      // Entfernen (nur UI)
+      wrapper.querySelectorAll(".remove-saved-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
           e.stopPropagation();
-          if (confirm("Möchtest du dieses Fahrzeug wirklich entfernen?")) {
-            wrapper.remove();
-          }
+          if (confirm("Möchtest du dieses Fahrzeug wirklich entfernen?")) wrapper.remove();
         });
       });
     });
@@ -587,16 +588,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 });
 
-// 🔁 Slides erstellen (Bilder + Video)
+// Slides erstellen (Bilder + Video)
 function generateSlides(inserat) {
   const slides = [];
-
   if (Array.isArray(inserat.images)) {
-    inserat.images.forEach((bild) => {
-      slides.push(`<img src="${bild}" alt="Bild" class="slide">`);
-    });
+    inserat.images.forEach((bild) => slides.push(`<img src="${bild}" alt="Bild" class="slide">`));
   }
-
   if (inserat.video && String(inserat.video).trim() !== "") {
     slides.push(`
       <video class="slide" controls muted playsinline preload="metadata">
@@ -604,7 +601,6 @@ function generateSlides(inserat) {
       </video>
     `);
   }
-
   return slides.join("");
 }
 
@@ -613,72 +609,47 @@ function initializeSlider(wrapper) {
   const slides = wrapper.querySelectorAll(".slide");
   const leftArrow = wrapper.querySelector(".media-arrow.left");
   const rightArrow = wrapper.querySelector(".media-arrow.right");
-
   if (!slidesContainer || slides.length === 0) return;
-
   let currentIndex = 0;
-
   function updateSlide() {
-    const offset = -currentIndex * 100;
-    slidesContainer.style.transform = `translateX(${offset}%)`;
+    slidesContainer.style.transform = `translateX(${-currentIndex * 100}%)`;
   }
-
-  leftArrow?.addEventListener("click", (e) => {
-    e.stopPropagation(); // verhindert, dass der Kartenklick auslöst
-    if (currentIndex > 0) {
-      currentIndex--;
-      updateSlide();
-    }
-  });
-
-  rightArrow?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (currentIndex < slides.length - 1) {
-      currentIndex++;
-      updateSlide();
-    }
-  });
-
-  // Initialer Zustand
+  leftArrow?.addEventListener("click", (e) => { e.stopPropagation(); if (currentIndex > 0) { currentIndex--; updateSlide(); }});
+  rightArrow?.addEventListener("click", (e) => { e.stopPropagation(); if (currentIndex < slides.length - 1) { currentIndex++; updateSlide(); }});
   updateSlide();
 }
 
-// 🌍 Publish-Handler (global)
+// Veröffentlichen (nur für Entwürfe)
 document.addEventListener("click", async (e) => {
   const button = e.target.closest(".publish-btn");
   if (!button) return;
 
   const card = button.closest(".car-card-wrapper");
-  const inseratId = card?.dataset.id; // echte Mongo _id (24 Hex)
+  const inseratId = card?.dataset.id;
+  const status    = card?.dataset.status;
 
-  if (!inseratId) {
-    alert("❌ Inserat-ID fehlt.");
-    return;
-  }
+  if (status !== "draft") return; // bereits online
 
-  // Optional: einfache Plausibilitätsprüfung
-  if (!/^[a-f\d]{24}$/i.test(inseratId)) {
+  if (!inseratId || !/^[a-f\d]{24}$/i.test(inseratId)) {
     alert("❌ Ungültige Inserat-ID.");
     return;
   }
 
   try {
-    const res = await fetch(`/entwurf/${encodeURIComponent(inseratId)}/publish`, {
+    const res  = await fetch("/inserat-veroeffentlichen", {
       method: "POST",
-      credentials: "include"
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ id: inseratId })
     });
-
     const text = await res.text();
 
     if (res.ok) {
-      // UI updaten
-      button.textContent = "Veröffentlicht";
+      button.textContent = "Online";
       button.classList.add("published");
       button.disabled = true;
+      card.dataset.status = "online";
       alert("✅ Inserat ist jetzt online!");
-
-      // Optional: Karte aus der Entwurfs-Liste entfernen
-      // card.remove();
     } else {
       alert("❌ Fehler: " + text);
     }
