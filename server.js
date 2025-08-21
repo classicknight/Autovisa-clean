@@ -351,40 +351,44 @@ function getZufaelligeAusstattung(ausstattungArray) {
   return gefiltert.sort(() => 0.5 - Math.random()).slice(0, 3).join(" • ");
 }
 
-app.post('/veroeffentlichen', checkLogin, async (req, res) => {
+// Entwurf -> veröffentlichen (ID-basiert, sicher)
+app.post("/entwurf/:id/publish", checkLogin, async (req, res) => {
+  const { id } = req.params;
+
+  let _id;
   try {
-    // ✅ Verkäufer ausschließlich aus Session (Cookie)
-    const sellerId = req.nutzer?.id || null;
-    if (!sellerId) return res.status(400).send("Verkäufer-ID fehlt.");
+    _id = new ObjectId(id);
+  } catch {
+    return res.status(400).send("Ungültige ID.");
+  }
 
-    const entwurfCollection   = db.collection("fahrzeugeEntwurf");
-    const inserateCollection  = db.collection("inserate");
+  try {
+    const entwurfCollection  = db.collection("fahrzeugeEntwurf");
+    const inserateCollection = db.collection("inserate");
 
-    const lastVehicle = await entwurfCollection.findOne(
-      { nutzerId: sellerId },
-      { sort: { _id: -1 } }
-    );
-    if (!lastVehicle) return res.status(400).send("Kein Fahrzeug zum Veröffentlichen gefunden.");
+    // Entwurf muss dem eingeloggten Nutzer gehören
+    const draft = await entwurfCollection.findOne({ _id, nutzerId: req.nutzer.id });
+    if (!draft) return res.status(404).send("Entwurf nicht gefunden.");
 
     const neuesInserat = {
-      ...lastVehicle,
-      verkaeuferId: sellerId,
+      ...draft,
+      verkaeuferId: req.nutzer.id,
       status: "online",
       veroeffentlichtAm: new Date(),
-      verkauf_kurzbeschreibung: getZufaelligeAusstattung(lastVehicle.verkauf_ausstattung || []),
-      verkauf_verkaeufer: req.body.verkauf_verkaeufer || "Privatverkäufer",
-      verkauf_name: req.body.name || "Unbekannt",
-      standort: (req.body.plz && req.body.ort) ? `${req.body.plz} ${req.body.ort}` : "Nicht angegeben",
-      telefon: req.body.telefon || ""
+      // Kurzbeschreibung aus erlaubten Ausstattungen generieren
+      verkauf_kurzbeschreibung: getZufaelligeAusstattung(draft.verkauf_ausstattung || [])
     };
 
-    await inserateCollection.insertOne(neuesInserat);
-    await entwurfCollection.deleteOne({ _id: lastVehicle._id, nutzerId: sellerId });
+    // neue _id in der öffentlichen Sammlung verwenden
+    delete neuesInserat._id;
 
-    res.send("Inserat erfolgreich veröffentlicht.");
+    await inserateCollection.insertOne(neuesInserat);
+    await entwurfCollection.deleteOne({ _id });
+
+    return res.json({ success: true, message: "Inserat erfolgreich veröffentlicht." });
   } catch (err) {
-    console.error("❌ Fehler bei Veröffentlichung:", err);
-    res.status(500).send("Fehler beim Veröffentlichen.");
+    console.error("❌ Fehler bei /entwurf/:id/publish:", err);
+    return res.status(500).send("Fehler beim Veröffentlichen.");
   }
 });
 

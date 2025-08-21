@@ -104,51 +104,48 @@
 
 
 
-
-
   <!-- Filterbutton für Mobilgeräte -->
   <button class="toggle-filters" id="toggleFiltersBtn">
     <i class="fas fa-sliders-h"></i> Filter anzeigen
   </button>
 
   <div class="search-layout">
-    <aside class="filter-sidebar">
+    <aside class="filter-sidebar" id="filterSidebar">
       <h2>Filter</h2>
 
-      <!-- Filtergruppen -->
       <div class="filter-group">
         <label for="priceFrom">Preis (€)</label>
         <div class="range-inputs">
-          <input type="number" id="priceFrom" placeholder="von">
-          <input type="number" id="priceTo" placeholder="bis">
+          <input type="number" id="priceFrom" placeholder="von" min="0" />
+          <input type="number" id="priceTo" placeholder="bis" min="0" />
         </div>
       </div>
 
       <div class="filter-group">
         <label for="firstRegFrom">Erstzulassung</label>
         <div class="range-inputs">
-          <input type="month" id="firstRegFrom">
+          <input type="month" id="firstRegFrom" />
         </div>
       </div>
 
       <div class="filter-group">
         <label for="mileageFrom">Kilometerstand</label>
         <div class="range-inputs">
-          <input type="number" id="mileageFrom" placeholder="von">
-          <input type="number" id="mileageTo" placeholder="bis">
+          <input type="number" id="mileageFrom" placeholder="von" min="0" />
+          <input type="number" id="mileageTo" placeholder="bis" min="0" />
         </div>
       </div>
 
       <div class="filter-group">
         <label for="powerFrom">Leistung (PS)</label>
         <div class="range-inputs">
-          <input type="number" id="powerFrom" placeholder="von">
-          <input type="number" id="powerTo" placeholder="bis">
+          <input type="number" id="powerFrom" placeholder="von" min="0" />
+          <input type="number" id="powerTo" placeholder="bis" min="0" />
         </div>
       </div>
 
       <div class="filter-group">
-        <label>Kraftstoff</label>
+        <label for="fuelType">Kraftstoff</label>
         <select id="fuelType">
           <option>Beliebig</option>
           <option>Benzin</option>
@@ -160,7 +157,7 @@
       </div>
 
       <div class="filter-group">
-        <label>Getriebe</label>
+        <label for="transmission">Getriebe</label>
         <select id="transmission">
           <option>Beliebig</option>
           <option>Manuell</option>
@@ -169,7 +166,7 @@
       </div>
 
       <div class="filter-group">
-        <label>Fahrzeugtyp</label>
+        <label for="vehicleType">Fahrzeugtyp</label>
         <select id="vehicleType">
           <option>Beliebig</option>
           <option>Limousine</option>
@@ -184,7 +181,7 @@
       </div>
 
       <div class="filter-group">
-        <label>Farbe</label>
+        <label for="color">Farbe</label>
         <select id="color">
           <option>Beliebig</option>
           <option>Schwarz</option>
@@ -198,27 +195,27 @@
         </select>
       </div>
 
-<div class="filter-group center-checkbox">
-  <label for="accidentFree">Nur unfallfreie Fahrzeuge</label>
-  <input type="checkbox" id="accidentFree" />
-</div>
+      <div class="filter-group center-checkbox">
+        <label for="accidentFree">Nur unfallfreie Fahrzeuge</label>
+        <input type="checkbox" id="accidentFree" />
+      </div>
 
-<div class="filter-group">
-  <label for="inspectionUntil">HU gültig bis</label>
-  <input type="month" id="inspectionUntil">
-</div>
+      <div class="filter-group">
+        <label for="inspectionUntil">HU gültig bis</label>
+        <input type="month" id="inspectionUntil" />
+      </div>
 
-<div class="filter-button-wrapper">
-  <button class="more-filters-button" id="moreFiltersBtn">Weitere Filter</button>
-  <button class="filter-button">Anwenden</button>
-</div>
+      <div class="filter-button-wrapper">
+        <button class="more-filters-button" id="moreFiltersBtn">Weitere Filter</button>
+        <button class="filter-button" id="applyFiltersBtn">Anwenden</button>
+      </div>
     </aside>
 
     <div class="results-container">
       <div class="sort-wrapper">
         <div class="sort-bar">
           <label for="sortBy"><i class="fas fa-sort-amount-down-alt"></i> Sortieren nach:</label>
-          <select id="sortBy" onchange="sortResults()">
+          <select id="sortBy">
             <option value="relevance">Relevanz</option>
             <option value="price-asc">Preis aufsteigend</option>
             <option value="price-desc">Preis absteigend</option>
@@ -227,19 +224,16 @@
           </select>
         </div>
       </div>
+
       <section class="results-section">
         <div class="car-results" id="carResults">
-          <!-- Fahrzeugkarten werden hier per suche.js eingefügt -->
+          <!-- Fahrzeugkarten per JS -->
         </div>
+        <div class="pager" id="pager"></div>
       </section>
-      
+    </div>
+  </div>
 
-
-      </section>
-
-    </div> <!-- results-container -->
-  </div> <!-- search-layout -->
-
-  <script src="suche.js"></script>
+  <script src="suche.js" defer></script>
 </body>
 </html>

@@ -434,11 +434,8 @@ document.querySelectorAll('.remove-saved-btn').forEach(button => {
 
 
 
-
-
 document.addEventListener("DOMContentLoaded", async () => {
-
-  // 🔹 Hilfsfunktion zum sicheren Formatieren von Preisen
+  // 🔹 Preis hübsch formatieren
   function formatEUR(value) {
     if (value == null || value === "") return null;
     const num = parseFloat(String(value).replace(/\./g, "").replace(",", "."));
@@ -446,8 +443,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     return String(value) + " €";
   }
 
-  const carlist = document.querySelector(".car-list");
+  // 🔹 Echte Mongo-ID aus Dokument ziehen (deckt verschiedene Formen ab)
+  function extractMongoId(doc) {
+    if (!doc) return null;
+    if (typeof doc._id === "string") return doc._id;
+    if (doc._id && typeof doc._id === "object" && typeof doc._id.$oid === "string") return doc._id.$oid;
+    if (typeof doc.id === "string") return doc.id;
+    return null;
+  }
+
+  const carList = document.querySelector(".car-list");
+
   try {
+    // Login prüfen
     const nutzerRes = await fetch("/getNutzerInfo", { credentials: "include" });
     const nutzerData = await nutzerRes.json();
 
@@ -457,26 +465,23 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    const userId = nutzerData.nutzerId;
-
-    const res = await fetch("/meineInserate.json");
-    const alleInserate = await res.json();
-
-    // ✅ Zeige nur die Inserate, die zu diesem User gehören
-    const inserate = alleInserate.filter(i => i.verkaeuferId === userId);
+    // Entwürfe des eingeloggten Nutzers laden
+    const res = await fetch("/getVehicleData", { credentials: "include" });
+    const inserate = await res.json();
 
     if (!Array.isArray(inserate) || inserate.length === 0) {
-      document.querySelector(".car-list").innerHTML = "<p>Keine Inserate gefunden.</p>";
+      carList.innerHTML = "<p>Keine Inserate gefunden.</p>";
       return;
     }
 
-    const carList = document.querySelector(".car-list");
     carList.innerHTML = "";
 
-    inserate.forEach((inserat, index) => {
+    inserate.forEach((inserat) => {
       const wrapper = document.createElement("div");
       wrapper.className = "car-card-wrapper";
-      wrapper.dataset.id = inserat.id || `inserat-${index}`;
+
+      const realId = extractMongoId(inserat);
+      wrapper.dataset.id = realId || ""; // MUSS echte Mongo-ObjectId sein (24 Hex)
 
       wrapper.innerHTML = `
         <div class="car-card-actions mobile-only">
@@ -509,16 +514,17 @@ document.addEventListener("DOMContentLoaded", async () => {
             <p class="car-subtitle">${inserat.verkauf_kurzbeschreibung || "Besondere Ausstattung"}</p>
 
             <div class="car-info-grid">
-              <p><i class="fas fa-road"></i> ${inserat.verkauf_kilometer || "—"} km</p>
+              <p><i class="fas fa-road"></i> ${inserat.verkauf_kilometer ?? "—"} km</p>
               <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.verkauf_erstzulassung || "—"}</p>
               <p><i class="fas fa-gas-pump"></i> ${inserat.verkauf_kraftstoff || "—"}</p>
-              <p><i class="fas fa-gauge-high"></i> ${inserat.verkauf_leistung || "—"} PS</p>
+              <p><i class="fas fa-gauge-high"></i> ${inserat.verkauf_leistung ?? "—"} PS</p>
               <p><i class="fas fa-gears"></i> ${inserat.verkauf_getriebe || "—"}</p>
               <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "—"} l/100 km</p>
             </div>
+
             <div class="dealer-info">
               ${
-                inserat.verkauf_verkaeufer?.toLowerCase() === "händler"
+                String(inserat.verkauf_verkaeufer || "").toLowerCase() === "händler"
                   ? `<div><strong>${inserat.verkauf_name || "Unbekannt"}</strong></div>`
                   : `<div><span class="seller-label">Privatanbieter</span></div>`
               }
@@ -534,158 +540,150 @@ document.addEventListener("DOMContentLoaded", async () => {
         </div>
       `;
 
+      // 📦 Klick auf Karte → zur Detailseite (aber NICHT bei Buttons/Arrows)
+      wrapper.addEventListener("click", (e) => {
+        const isActionButton = e.target.closest(".car-card-actions button");
+        const isArrow = e.target.closest(".media-arrow");
+        if (isActionButton || isArrow) return;
 
+        localStorage.setItem("ausgewaehltesInserat", JSON.stringify(inserat));
+        window.location.href = "anzeige.html";
+      });
 
-  
+      carList.appendChild(wrapper);
 
-        // 📦 Klick auf Fahrzeugkarte → Inserat speichern + Weiterleitung
-wrapper.addEventListener("click", (e) => {
-    const isActionButton = e.target.closest(".car-card-actions button");
-    if (!isActionButton) {
-      localStorage.setItem("ausgewaehltesInserat", JSON.stringify(inserat));
-      window.location.href = "anzeige.html";
-    }
-  });
-  
-        carList.appendChild(wrapper);
-// Slides & Pfeile initialisieren
-initializeSlider(wrapper);
+      // Slides & Pfeile initialisieren
+      initializeSlider(wrapper);
 
-
-
-  
-        // ✅ Hochformat-Erkennung pro Wrapper
-        wrapper.querySelectorAll(".slide").forEach(media => {
-          if (media.tagName === "VIDEO") {
-            media.addEventListener("loadedmetadata", () => {
-              if (media.videoHeight > media.videoWidth) {
-                media.classList.add("portrait-zoom");
-              }
-            });
-          } else if (media.tagName === "IMG") {
-            media.addEventListener("load", () => {
-              if (media.naturalHeight > media.naturalWidth) {
-                media.classList.add("portrait-zoom");
-              }
-            });
-          }
-        });
-  
-        // 🗑️ Entfernen-Button aktivieren
-        wrapper.querySelectorAll(".remove-saved-btn").forEach(button => {
-          button.addEventListener("click", () => {
-            if (confirm("Möchtest du dieses Fahrzeug wirklich entfernen?")) {
-              wrapper.remove();
+      // ✅ Hochformat-Erkennung pro Wrapper
+      wrapper.querySelectorAll(".slide").forEach((media) => {
+        if (media.tagName === "VIDEO") {
+          media.addEventListener("loadedmetadata", () => {
+            if (media.videoHeight > media.videoWidth) {
+              media.classList.add("portrait-zoom");
             }
           });
+        } else if (media.tagName === "IMG") {
+          media.addEventListener("load", () => {
+            if (media.naturalHeight > media.naturalWidth) {
+              media.classList.add("portrait-zoom");
+            }
+          });
+        }
+      });
+
+      // 🗑️ Entfernen-Button (nur UI)
+      wrapper.querySelectorAll(".remove-saved-btn").forEach((button) => {
+        button.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (confirm("Möchtest du dieses Fahrzeug wirklich entfernen?")) {
+            wrapper.remove();
+          }
         });
       });
-    } catch (error) {
-      console.error("Fehler beim Laden der Inserate:", error);
+    });
+  } catch (error) {
+    console.error("Fehler beim Laden der Inserate:", error);
+  }
+});
+
+// 🔁 Slides erstellen (Bilder + Video)
+function generateSlides(inserat) {
+  const slides = [];
+
+  if (Array.isArray(inserat.images)) {
+    inserat.images.forEach((bild) => {
+      slides.push(`<img src="${bild}" alt="Bild" class="slide">`);
+    });
+  }
+
+  if (inserat.video && String(inserat.video).trim() !== "") {
+    slides.push(`
+      <video class="slide" controls muted playsinline preload="metadata">
+        <source src="${inserat.video}" type="video/mp4">
+      </video>
+    `);
+  }
+
+  return slides.join("");
+}
+
+function initializeSlider(wrapper) {
+  const slidesContainer = wrapper.querySelector(".slides");
+  const slides = wrapper.querySelectorAll(".slide");
+  const leftArrow = wrapper.querySelector(".media-arrow.left");
+  const rightArrow = wrapper.querySelector(".media-arrow.right");
+
+  if (!slidesContainer || slides.length === 0) return;
+
+  let currentIndex = 0;
+
+  function updateSlide() {
+    const offset = -currentIndex * 100;
+    slidesContainer.style.transform = `translateX(${offset}%)`;
+  }
+
+  leftArrow?.addEventListener("click", (e) => {
+    e.stopPropagation(); // verhindert, dass der Kartenklick auslöst
+    if (currentIndex > 0) {
+      currentIndex--;
+      updateSlide();
     }
   });
-  
-  // 🔁 Slides erstellen (Bilder + Video)
-  function generateSlides(inserat) {
-    const slides = [];
-  
-    if (Array.isArray(inserat.images)) {
-      inserat.images.forEach(bild => {
-        slides.push(`<img src="${bild}" alt="Bild" class="slide">`);
-      });
-    }
-  
-    if (inserat.video && inserat.video.trim() !== "") {
-      slides.push(`
-        <video class="slide" controls muted playsinline preload="metadata">
-          <source src="${inserat.video}" type="video/mp4">
-        </video>
-      `);
-    }
-  
-    return slides.join("");
-  }
-  
 
-
-
-  function initializeSlider(wrapper) {
-    const slidesContainer = wrapper.querySelector(".slides");
-    const slides = wrapper.querySelectorAll(".slide");
-    const leftArrow = wrapper.querySelector(".media-arrow.left");
-    const rightArrow = wrapper.querySelector(".media-arrow.right");
-  
-    if (!slidesContainer || slides.length === 0) return;
-  
-    let currentIndex = 0;
-  
-    function updateSlide() {
-      const offset = -currentIndex * 100;
-      slidesContainer.style.transform = `translateX(${offset}%)`;
-    }
-  
-    leftArrow?.addEventListener("click", () => {
-      if (currentIndex > 0) {
-        currentIndex--;
-        updateSlide();
-      }
-    });
-  
-    rightArrow?.addEventListener("click", () => {
-      if (currentIndex < slides.length - 1) {
-        currentIndex++;
-        updateSlide();
-      }
-    });
-  
-    // Initialer Zustand
-    updateSlide();
-  }
-  
-
-
-
-
-
-
-
-  document.addEventListener("click", async (e) => {
-    const button = e.target.closest(".publish-btn");
-    if (!button) return;
-  
-    const card = button.closest(".car-card-wrapper");
-    const inseratId = card?.dataset.id; // <- MUSS das echte _id sein!
-  
-    if (!inseratId) {
-      alert("❌ Inserat-ID fehlt.");
-      return;
-    }
-  
-    try {
-      const res = await fetch("/inserat-veroeffentlichen", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // wichtig, wenn checkLogin im Backend
-        body: JSON.stringify({ id: inseratId })
-      });
-  
-      const text = await res.text();
-  
-      if (res.ok) {
-        // UI updaten
-        button.textContent = "Veröffentlicht";
-        button.classList.add("published");
-        button.disabled = true;
-        alert("✅ Inserat ist jetzt online!");
-  
-        // Optional: Karte aus Liste „Entwürfe“ entfernen
-        // card.remove();
-      } else {
-        alert("❌ Fehler: " + text);
-      }
-    } catch (err) {
-      console.error("Netzwerkfehler:", err);
-      alert("❌ Netzwerkfehler beim Veröffentlichen.");
+  rightArrow?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (currentIndex < slides.length - 1) {
+      currentIndex++;
+      updateSlide();
     }
   });
-  
+
+  // Initialer Zustand
+  updateSlide();
+}
+
+// 🌍 Publish-Handler (global)
+document.addEventListener("click", async (e) => {
+  const button = e.target.closest(".publish-btn");
+  if (!button) return;
+
+  const card = button.closest(".car-card-wrapper");
+  const inseratId = card?.dataset.id; // echte Mongo _id (24 Hex)
+
+  if (!inseratId) {
+    alert("❌ Inserat-ID fehlt.");
+    return;
+  }
+
+  // Optional: einfache Plausibilitätsprüfung
+  if (!/^[a-f\d]{24}$/i.test(inseratId)) {
+    alert("❌ Ungültige Inserat-ID.");
+    return;
+  }
+
+  try {
+    const res = await fetch(`/entwurf/${encodeURIComponent(inseratId)}/publish`, {
+      method: "POST",
+      credentials: "include"
+    });
+
+    const text = await res.text();
+
+    if (res.ok) {
+      // UI updaten
+      button.textContent = "Veröffentlicht";
+      button.classList.add("published");
+      button.disabled = true;
+      alert("✅ Inserat ist jetzt online!");
+
+      // Optional: Karte aus der Entwurfs-Liste entfernen
+      // card.remove();
+    } else {
+      alert("❌ Fehler: " + text);
+    }
+  } catch (err) {
+    console.error("Netzwerkfehler:", err);
+    alert("❌ Netzwerkfehler beim Veröffentlichen.");
+  }
+});
