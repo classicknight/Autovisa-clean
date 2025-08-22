@@ -948,8 +948,6 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   
   
   
-  
-  
   /* === Wrapper (nur Breite/Abstand) === */
 .results-section{
   max-width:1280px;
@@ -1019,14 +1017,17 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   height:100%;
   box-sizing:border-box;
   display:block;
-}
-.slide img,
-.slide video{
+
+  /* direkt auf dem <img>/<video class="slide"> zentrieren */
   width:100%;
-  height:100%;
-  object-fit:cover;                /* immer mittig und randlos */
-  object-position:center;
-  display:block;
+  object-fit:cover;               /* füllt den Frame, schneidet ggf. */
+  object-position:center;         /* Mitte statt Oberkante */
+}
+
+/* (optional) Hochkant ohne Beschnitt anzeigen, wenn Klasse gesetzt */
+.slide.portrait-safe{
+  object-fit:contain;
+  background:#0b1117;
 }
 
 /* Pfeile immer perfekt zentriert */
@@ -1173,7 +1174,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   position:absolute;
   top:10px;
   right:10px;
-  z-index:7;                 /* über den Pfeilen (z-index:5) */
+  z-index:7;                      /* über den Pfeilen (z-index:5) */
   display:flex;
   gap:10px;
 }
@@ -1201,20 +1202,18 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 @media (max-width:900px){
   .car-info-grid{ grid-template-columns:repeat(2,1fr); }
   .media-arrow{ font-size:16px; padding:8px 10px; }
-  /* mobile overlay sichtbar, desktop buttons aus */
-  .desktop-only{ display:none; }
+  .desktop-only{ display:none; }                 /* mobil: nur Overlay-Icons */
 }
 
 @media (min-width:901px){
-  /* overlay im Bild aus, Desktop-Buttons an */
-  .car-card-media .mobile-only{ display:none; }
+  .car-card-media .mobile-only{ display:none; }  /* Desktop: Icons unten rechts im Dealer-Row */
   .desktop-only{ display:flex; gap:10px; margin-top:8px; }
 }
 
 @media (max-width:600px){
   .results-section{ padding:0 12px; }
   #carResults, .car-results{ grid-template-columns:1fr; gap:20px; }
-  .media-container{ aspect-ratio:4/3; }      /* etwas höher auf Handy */
+  .media-container{ aspect-ratio:4/3; }          /* etwas höher auf Handy */
   .car-title{ font-size:16px; }
   .car-price{ font-size:16px; padding:5px 10px; }
   .car-subtitle{ -webkit-line-clamp:2; }
@@ -1227,9 +1226,14 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   .car-card, .slides{ transition:none !important; }
 }
 
+/* Harte Grid-Breakpoints für saubere 3/4 Spalten */
+@media (min-width:1200px){
+  #carResults, .car-results{ grid-template-columns:repeat(3,1fr); }
+}
+@media (min-width:1600px){
+  #carResults, .car-results{ grid-template-columns:repeat(4,1fr); }
+}
 
-  
-  
   
   
   
