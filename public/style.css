@@ -954,14 +954,21 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   
   
   
-  /* === Kartenlayout (Grid) === */
+/* === Wrapper (nur Breite/Abstand) === */
 .results-section{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(340px,1fr));
-  gap:24px;
-  padding:0 16px;
   max-width:1280px;
   margin:32px auto;
+  padding:0 16px;
+}
+
+/* === Kartenlayout (GRID) – auf dem Container mit den Karten === */
+#carResults,
+.car-results{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(340px, 1fr));
+  gap:24px;
+  width:100%;
+  align-items:stretch;
 }
 
 /* === Fahrzeugkarte (vertikal) === */
@@ -988,7 +995,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 .media-container{
   position:relative;
   width:100%;
-  aspect-ratio:16/9;            /* <- moderne Browser */
+  aspect-ratio:16/9;            /* moderne Browser */
   overflow:hidden;
   display:flex;                  /* für Slides */
 }
@@ -1118,7 +1125,8 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 }
 
 @media (max-width: 600px){
-  .results-section{ grid-template-columns:1fr; gap:20px; padding:0 12px; }
+  .results-section{ padding:0 12px; }
+  #carResults, .car-results{ grid-template-columns:1fr; gap:20px; }
   .media-container{ aspect-ratio:4/3; }      /* etwas höher auf Handy */
   .car-title{ font-size:16px; }
   .car-price{ font-size:16px; padding:5px 10px; }
@@ -1132,7 +1140,6 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   .car-card, .slides{ transition:none !important; }
 }
 
-  
   
   
   
