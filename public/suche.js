@@ -416,82 +416,107 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
   }
+// Helper: echte Mongo-ID herausziehen (string, {_id: "..."} oder {$oid: "..."})
+function getMongoId(doc) {
+  if (!doc) return null;
+  if (doc._id && typeof doc._id === "object" && typeof doc._id.$oid === "string") return doc._id.$oid;
+  if (typeof doc._id === "string") return doc._id;
+  if (typeof doc.id === "string") return doc.id;
+  return null;
+}
+function renderItems() {
+  if (!container) return;
+  container.innerHTML = "";
 
-  function renderItems() {
-    if (!container) return;
-    container.innerHTML = "";
+  // Client-Pagination
+  const total = filteredItems.length;
+  const start = (page - 1) * pageSize;
+  const end   = Math.min(start + pageSize, total);
+  const view  = filteredItems.slice(start, end);
 
-    // Client-Pagination
-    const total = filteredItems.length;
-    const start = (page - 1) * pageSize;
-    const end   = Math.min(start + pageSize, total);
-    const view  = filteredItems.slice(start, end);
+  if (!view.length) {
+    container.innerHTML = "<p>❌ Keine Fahrzeuge gefunden.</p>";
+    renderPager(total);
+    return;
+  }
 
-    if (!view.length) {
-      container.innerHTML = "<p>❌ Keine Fahrzeuge gefunden.</p>";
-      renderPager(total);
-      return;
-    }
+  view.forEach(inserat => {
+    const imgs = Array.isArray(inserat.images) ? inserat.images : [];
+    const tel  = sanitizePhone(inserat.telefon);
 
-    view.forEach(inserat => {
-      const imgs = Array.isArray(inserat.images) ? inserat.images : [];
-      const tel  = sanitizePhone(inserat.telefon);
-
-      const card = document.createElement("div");
-      card.className = "car-card horizontal";
-      card.innerHTML = `
-        <div class="car-card-media">
-          <div class="card-actions mobile-only">
+    const card = document.createElement("div");
+    card.className = "car-card horizontal";
+    card.innerHTML = `
+      <div class="car-card-media">
+        <div class="card-actions mobile-only">
+          <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
+          <a href="${tel ? `tel:${tel}` : '#'}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${tel ? "" : "aria-disabled='true'"} >
+            <i class="fas fa-phone"></i>
+          </a>
+        </div>
+        <div class="media-container">
+          <div class="slides">
+            ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
+            ${inserat.video ? `<video class="slide" controls muted playsinline preload="metadata"><source src="${inserat.video}" type="video/mp4"></video>` : ""}
+          </div>
+          <button class="media-arrow left"  type="button"><i class="fas fa-chevron-left"></i></button>
+          <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
+        </div>
+      </div>
+      <div class="car-details">
+        <div class="car-top-row">
+          <h2 class="car-title">${inserat.titel || "Unbekanntes Fahrzeug"}</h2>
+          <p class="car-price">${fmtEUR(inserat.verkauf_brutto ?? inserat.verkauf_preis ?? inserat.preis)}</p>
+        </div>
+        <p class="car-subtitle">${inserat.verkauf_kurzbeschreibung || ""}</p>
+        <div class="car-info-grid">
+          <p><i class="fas fa-road"></i> ${inserat.verkauf_kilometer ?? "?"} km</p>
+          <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.verkauf_erstzulassung || "?"}</p>
+          <p><i class="fas fa-gas-pump"></i> ${inserat.verkauf_kraftstoff || "?"}</p>
+          <p><i class="fas fa-gauge-high"></i> ${inserat.verkauf_leistung ?? "?"} PS</p>
+          <p><i class="fas fa-gears"></i> ${inserat.verkauf_getriebe || "?"}</p>
+          <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "?"} l/100 km</p>
+        </div>
+        <div class="dealer-info-row">
+          <div class="dealer-info-text">
+            ${String(inserat.verkauf_verkaeufer || "").toLowerCase() === "händler"
+              ? `<strong>${inserat.verkauf_name || "Autohaus"}</strong><br>${inserat.standort || ""}`
+              : `Privatanbieter<br>${inserat.standort || ""}`
+            }
+          </div>
+          <div class="card-actions desktop-only">
             <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
             <a href="${tel ? `tel:${tel}` : '#'}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${tel ? "" : "aria-disabled='true'"} >
               <i class="fas fa-phone"></i>
             </a>
           </div>
-          <div class="media-container">
-            <div class="slides">
-              ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
-              ${inserat.video ? `<video class="slide" controls muted playsinline preload="metadata"><source src="${inserat.video}" type="video/mp4"></video>` : ""}
-            </div>
-            <button class="media-arrow left"  type="button"><i class="fas fa-chevron-left"></i></button>
-            <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
-          </div>
         </div>
-        <div class="car-details">
-          <div class="car-top-row">
-            <h2 class="car-title">${inserat.titel || "Unbekanntes Fahrzeug"}</h2>
-            <p class="car-price">${fmtEUR(inserat.verkauf_brutto ?? inserat.verkauf_preis ?? inserat.preis)}</p>
-          </div>
-          <p class="car-subtitle">${inserat.verkauf_kurzbeschreibung || ""}</p>
-          <div class="car-info-grid">
-            <p><i class="fas fa-road"></i> ${inserat.verkauf_kilometer ?? "?"} km</p>
-            <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.verkauf_erstzulassung || "?"}</p>
-            <p><i class="fas fa-gas-pump"></i> ${inserat.verkauf_kraftstoff || "?"}</p>
-            <p><i class="fas fa-gauge-high"></i> ${inserat.verkauf_leistung ?? "?"} PS</p>
-            <p><i class="fas fa-gears"></i> ${inserat.verkauf_getriebe || "?"}</p>
-            <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "?"} l/100 km</p>
-          </div>
-          <div class="dealer-info-row">
-            <div class="dealer-info-text">
-              ${String(inserat.verkauf_verkaeufer || "").toLowerCase() === "händler"
-                ? `<strong>${inserat.verkauf_name || "Autohaus"}</strong><br>${inserat.standort || ""}`
-                : `Privatanbieter<br>${inserat.standort || ""}`
-              }
-            </div>
-            <div class="card-actions desktop-only">
-              <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
-              <a href="${tel ? `tel:${tel}` : '#'}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${tel ? "" : "aria-disabled='true'"} >
-                <i class="fas fa-phone"></i>
-              </a>
-            </div>
-          </div>
-        </div>
-      `;
-      container.appendChild(card);
-      initMediaSlider(card.querySelector(".media-container"));
-    });
+      </div>
+    `;
 
-    renderPager(total);
-  }
+    // Karte einsetzen
+    container.appendChild(card);
+
+    // Medien-Slider aktivieren
+    initMediaSlider(card.querySelector(".media-container"));
+
+    // 👉 Weiterleitung auf anzeige.html beim Klick auf die Karte
+    const realId = getMongoId(inserat);
+    card.dataset.id = realId || "";
+
+    card.addEventListener("click", (e) => {
+      // Interaktive Elemente (Buttons, Links, Slider-Pfeile) ignorieren
+      if (e.target.closest("button, a, .media-arrow")) return;
+
+      try { localStorage.setItem("ausgewaehltesInserat", JSON.stringify(inserat)); } catch {}
+      const qs = realId ? `?id=${encodeURIComponent(realId)}` : "";
+      window.location.href = `anzeige.html${qs}`;
+    });
+  });
+
+  renderPager(total);
+}
+
 
   // ===== Load + First Render =====
   async function loadAndRender() {

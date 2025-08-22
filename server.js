@@ -324,9 +324,39 @@ app.get("/meineInserate.json", async (req, res) => {
 
 // Erlaubte Ausstattungseinträge für Kurzbeschreibung
 const erlaubteAusstattungen = [
-  "Gepäckraumabtrennung", "Skisack", "Schiebedach", "Panorama-Dach", "Dachreling",
-  "Behindertengerecht", "Taxi", "Winterpaket", "Raucherpaket",
-  "Sportpaket", "Sportfahrwerk", "Luftfederung"
+ 
+  "Gepäckraumabtrennung",
+  "Skisack",
+  "Schiebedach",
+  "Panorama-Dach",
+  "Dachreling",
+  "Behindertengerecht",
+  "Taxi",
+  "Winterpaket",
+  "Raucherpaket",
+  "Sportpaket",
+  "Sportfahrwerk",
+  "Luftfederung",
+  "TV",
+  "Navigationssystem",
+  "Soundsystem",
+  "Touchscreen",
+  "Sprachsteuerung",
+  "Multifunktionslenkrad",
+  "Bluetooth",
+  "Apple CarPlay",
+  "Android Auto",
+  "WLAN / Wifi Hotspot",
+  "Musikstreaming integriert",
+  "Induktionsladen für Smartphones",
+  "Bordcomputer",
+  "Head-up Display",
+  "Volldigitales Kombiinstrument",
+  "Leichtmetallfelgen",
+  "Sommerreifen",
+  "Winterreifen",
+  "Allwetterreifen"
+
 ];
 
 // Funktion: 3 zufällige erlaubte Ausstattungen auswählen
