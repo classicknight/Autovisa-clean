@@ -950,11 +950,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   
   
   
-  
-  
-  
-  
-/* === Wrapper (nur Breite/Abstand) === */
+  /* === Wrapper (nur Breite/Abstand) === */
 .results-section{
   max-width:1280px;
   margin:32px auto;
@@ -982,11 +978,14 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   box-shadow:0 6px 18px rgba(0,0,0,.04);
   transition:transform .25s ease, box-shadow .3s ease;
 }
-.car-card:hover{ transform:translateY(-3px); box-shadow:0 12px 30px rgba(0,0,0,.08); }
+.car-card:hover{
+  transform:translateY(-3px);
+  box-shadow:0 12px 30px rgba(0,0,0,.08);
+}
 
 /* === Medienbereich === */
 .car-card-media{
-  position:relative;
+  position:relative;              /* wichtig für Overlays */
   background:#f3f6f9;
   border-bottom:1px solid #e3e9ef;
 }
@@ -995,9 +994,9 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 .media-container{
   position:relative;
   width:100%;
-  aspect-ratio:16/9;            /* moderne Browser */
+  aspect-ratio:16/9;              /* moderne Browser */
   overflow:hidden;
-  display:flex;                  /* für Slides */
+  display:flex;                   /* für Slides */
 }
 
 /* Fallback für alte Browser ohne aspect-ratio */
@@ -1025,7 +1024,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 .slide video{
   width:100%;
   height:100%;
-  object-fit:cover;              /* immer mittig und randlos */
+  object-fit:cover;                /* immer mittig und randlos */
   object-position:center;
   display:block;
 }
@@ -1110,6 +1109,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 .car-info-grid p{ margin:0; display:flex; align-items:center; gap:6px; }
 .car-info-grid i{ color:#00b8a9; font-size:13px; }
 
+/* Händlerinfo (Basis) */
 .dealer-info{
   font-size:13px;
   color:#6b7a88;
@@ -1118,13 +1118,100 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   border-top:1px solid #e6eaf0;
 }
 
-/* === Responsive Tweaks === */
-@media (max-width: 900px){
-  .car-info-grid{ grid-template-columns:repeat(2,1fr); }
-  .media-arrow{ font-size:16px; padding:8px 10px; }
+/* ===== Aktions-Buttons (Speichern, Telefon) ===== */
+
+/* runde Icon-Buttons */
+.card-actions{
+  display:flex;
+  gap:10px;
+}
+.card-actions button,
+.save-btn,
+.clean-phone{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:36px;
+  height:36px;
+  background:rgba(0,184,169,0.0);
+  border:1px solid #ccd5df;
+  border-radius:50%;
+  padding:0;
+  font-size:16px;
+  cursor:pointer;
+  text-decoration:none;
+  color:inherit;
+  box-shadow:0 2px 5px rgba(0,0,0,.06);
+  transition:background .2s ease, color .2s ease, border-color .2s ease;
+}
+.card-actions button:hover,
+.save-btn:hover,
+.clean-phone:hover{
+  background:#00b8a9;
+  color:#fff;
+  border-color:#00b8a9;
+}
+.card-actions button i,
+.save-btn i,
+.clean-phone i{
+  color:#1a2a33;
+  transition:color .2s ease;
+}
+.card-actions button:hover i,
+.save-btn:hover i,
+.clean-phone:hover i{ color:#fff; }
+
+/* deaktivierter Telefon-Link (wenn aria-disabled="true") */
+.clean-phone[aria-disabled="true"]{
+  opacity:.35;
+  pointer-events:none;
+  cursor:not-allowed;
 }
 
-@media (max-width: 600px){
+/* Overlay-Buttons NUR mobil oben rechts im Bild */
+.car-card-media .mobile-only{
+  position:absolute;
+  top:10px;
+  right:10px;
+  z-index:7;                 /* über den Pfeilen (z-index:5) */
+  display:flex;
+  gap:10px;
+}
+.desktop-only{ display:none; }
+
+/* Händlerbereich + Desktop-Buttons in einer Zeile */
+.dealer-info-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:14px;
+  margin-top:14px;
+  padding-top:10px;
+  border-top:1px solid #e6eaf0;
+}
+.dealer-info-text{
+  font-size:13px;
+  color:#6b7a88;
+  font-style:italic;
+  line-height:1.4;
+  flex:1;
+}
+
+/* === Responsive Tweaks === */
+@media (max-width:900px){
+  .car-info-grid{ grid-template-columns:repeat(2,1fr); }
+  .media-arrow{ font-size:16px; padding:8px 10px; }
+  /* mobile overlay sichtbar, desktop buttons aus */
+  .desktop-only{ display:none; }
+}
+
+@media (min-width:901px){
+  /* overlay im Bild aus, Desktop-Buttons an */
+  .car-card-media .mobile-only{ display:none; }
+  .desktop-only{ display:flex; gap:10px; margin-top:8px; }
+}
+
+@media (max-width:600px){
   .results-section{ padding:0 12px; }
   #carResults, .car-results{ grid-template-columns:1fr; gap:20px; }
   .media-container{ aspect-ratio:4/3; }      /* etwas höher auf Handy */
@@ -1139,6 +1226,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 @media (prefers-reduced-motion: reduce){
   .car-card, .slides{ transition:none !important; }
 }
+
 
   
   
