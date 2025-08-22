@@ -948,7 +948,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   
   
   
-  /* === Wrapper (nur Breite/Abstand) === */
+/* === Wrapper (nur Breite/Abstand) === */
 .results-section{
   max-width:1280px;
   margin:32px auto;
@@ -1020,17 +1020,11 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 
   /* direkt auf dem <img>/<video class="slide"> zentrieren */
   width:100%;
-  object-fit:cover;               /* füllt den Frame, schneidet ggf. */
-  object-position:center;         /* Mitte statt Oberkante */
+  object-fit:cover;
+  object-position:center;
 }
 
-/* (optional) Hochkant ohne Beschnitt anzeigen, wenn Klasse gesetzt */
-.slide.portrait-safe{
-  object-fit:contain;
-  background:#0b1117;
-}
-
-/* Pfeile immer perfekt zentriert */
+/* Pfeile */
 .media-arrow{
   position:absolute;
   top:50%;
@@ -1086,7 +1080,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   flex-shrink:0;
 }
 
-/* Untertitel auf 2 Zeilen clampen, damit Kartenhöhen stabil bleiben */
+/* Untertitel auf 2 Zeilen clampen */
 .car-subtitle{
   font-size:14px;
   color:#6c7a89;
@@ -1097,7 +1091,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   overflow:hidden;
 }
 
-/* Info-Grid: Desktop 3 Spalten, sonst 2 */
+/* Info-Grid */
 .car-info-grid{
   display:grid;
   grid-template-columns:repeat(3,1fr);
@@ -1110,7 +1104,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 .car-info-grid p{ margin:0; display:flex; align-items:center; gap:6px; }
 .car-info-grid i{ color:#00b8a9; font-size:13px; }
 
-/* Händlerinfo (Basis) */
+/* Händlerinfo */
 .dealer-info{
   font-size:13px;
   color:#6b7a88;
@@ -1119,13 +1113,11 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   border-top:1px solid #e6eaf0;
 }
 
-/* ===== Aktions-Buttons (Speichern, Telefon) ===== */
+/* ===== Aktions-Buttons (Herz, Telefon) – OVERLAY OBEN RECHTS ===== */
+
+.card-actions{ display:flex; gap:10px; }
 
 /* runde Icon-Buttons */
-.card-actions{
-  display:flex;
-  gap:10px;
-}
 .card-actions button,
 .save-btn,
 .clean-phone{
@@ -1162,25 +1154,25 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 .save-btn:hover i,
 .clean-phone:hover i{ color:#fff; }
 
-/* deaktivierter Telefon-Link (wenn aria-disabled="true") */
+/* deaktivierter Telefon-Link */
 .clean-phone[aria-disabled="true"]{
   opacity:.35;
   pointer-events:none;
   cursor:not-allowed;
 }
 
-/* Overlay-Buttons NUR mobil oben rechts im Bild */
+/* ✅ Overlay-Buttons auf ALLEN Breakpoints sichtbar */
 .car-card-media .mobile-only{
   position:absolute;
   top:10px;
   right:10px;
-  z-index:7;                      /* über den Pfeilen (z-index:5) */
+  z-index:7;         /* über den Pfeilen */
   display:flex;
   gap:10px;
 }
-.desktop-only{ display:none; }
 
-/* Händlerbereich + Desktop-Buttons in einer Zeile */
+/* Buttons unten rechts (nur Desktop, optional) */
+.desktop-only{ display:none; }
 .dealer-info-row{
   display:flex;
   justify-content:space-between;
@@ -1202,18 +1194,17 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 @media (max-width:900px){
   .car-info-grid{ grid-template-columns:repeat(2,1fr); }
   .media-arrow{ font-size:16px; padding:8px 10px; }
-  .desktop-only{ display:none; }                 /* mobil: nur Overlay-Icons */
 }
 
 @media (min-width:901px){
-  .car-card-media .mobile-only{ display:none; }  /* Desktop: Icons unten rechts im Dealer-Row */
+  /* Desktop: zusätzlich die unteren Buttons anzeigen (optional) */
   .desktop-only{ display:flex; gap:10px; margin-top:8px; }
 }
 
 @media (max-width:600px){
   .results-section{ padding:0 12px; }
   #carResults, .car-results{ grid-template-columns:1fr; gap:20px; }
-  .media-container{ aspect-ratio:4/3; }          /* etwas höher auf Handy */
+  .media-container{ aspect-ratio:4/3; }
   .car-title{ font-size:16px; }
   .car-price{ font-size:16px; padding:5px 10px; }
   .car-subtitle{ -webkit-line-clamp:2; }
@@ -1221,12 +1212,12 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   .dealer-info{ font-size:12.5px; }
 }
 
-/* Barrierefreiheit: Weniger Bewegung respektieren */
+/* Weniger Bewegung */
 @media (prefers-reduced-motion: reduce){
   .car-card, .slides{ transition:none !important; }
 }
 
-/* Harte Grid-Breakpoints für saubere 3/4 Spalten */
+/* Saubere Spalten-Anzahl an großen Breakpoints */
 @media (min-width:1200px){
   #carResults, .car-results{ grid-template-columns:repeat(3,1fr); }
 }
