@@ -1043,3 +1043,209 @@ function checkPassword() {
   }
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// main.js – Startseite: Neueste Inserate + Slider + Click-through zu anzeige.html
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadHomeListings();
+});
+
+// ===== Helpers =====
+function fmtEUR(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toLocaleString("de-DE") + " €" : "Preis n. a.";
+}
+function sanitizePhone(raw) {
+  if (!raw) return "";
+  return String(raw).replace(/[^\d+]/g, "");
+}
+function getDocId(doc) {
+  if (!doc) return null;
+  if (doc._id && typeof doc._id === "object" && typeof doc._id.$oid === "string") return doc._id.$oid;
+  if (typeof doc._id === "string") return doc._id;
+  if (typeof doc.id === "string") return doc.id;
+  return null;
+}
+
+// ===== Server laden (holt online-Inserate) =====
+async function fetchInserate(page = 1, limit = 8) {
+  const url = `/inserate?page=${encodeURIComponent(page)}&limit=${encodeURIComponent(limit)}`;
+  const res = await fetch(url, { credentials: "omit" });
+  if (!res.ok) throw new Error("Fetch /inserate fehlgeschlagen");
+  return res.json(); // { page, limit, total, items }
+}
+
+// ===== Medien-Slider (wie auf Suche) =====
+function initMediaSlider(mediaContainer) {
+  if (!mediaContainer) return;
+  const slidesWrapper = mediaContainer.querySelector(".slides");
+  if (!slidesWrapper) return;
+
+  const slides = Array.from(slidesWrapper.children);
+  const state = {
+    currentIndex: 0,
+    isDragging: false,
+    startPos: 0,
+    currentTranslate: 0,
+    prevTranslate: 0,
+    animationID: null,
+  };
+
+  slidesWrapper.style.display = "flex";
+  slidesWrapper.style.transition = "transform 0.3s ease";
+  slidesWrapper.style.willChange = "transform";
+  slides.forEach(slide => { slide.style.flex = "0 0 100%"; slide.style.minWidth = "100%"; });
+
+  const getX = (ev) => (typeof ev.clientX === "number" ? ev.clientX : (ev.touches && ev.touches[0]?.clientX) || 0);
+
+  function setSliderPosition() { slidesWrapper.style.transform = `translateX(${state.currentTranslate}px)`; }
+  function animation() { setSliderPosition(); if (state.isDragging) requestAnimationFrame(animation); }
+
+  function pointerDown(ev) {
+    state.isDragging = true;
+    state.startPos = getX(ev);
+    state.animationID = requestAnimationFrame(animation);
+  }
+  function pointerMove(ev) {
+    if (!state.isDragging) return;
+    const currentPosition = getX(ev);
+    state.currentTranslate = state.prevTranslate + currentPosition - state.startPos;
+  }
+  function pointerUp() {
+    if (!state.isDragging) return;
+    state.isDragging = false;
+    cancelAnimationFrame(state.animationID);
+    const movedBy = state.currentTranslate - state.prevTranslate;
+    if (movedBy < -50 && state.currentIndex < slides.length - 1) state.currentIndex++;
+    else if (movedBy > 50 && state.currentIndex > 0) state.currentIndex--;
+    updateSlidePosition();
+  }
+  function updateSlidePosition() {
+    const width = mediaContainer.clientWidth;
+    state.currentTranslate = -state.currentIndex * width;
+    state.prevTranslate = state.currentTranslate;
+    setSliderPosition();
+  }
+
+  // Events
+  ["pointerdown", "touchstart", "mousedown"].forEach(ev => slidesWrapper.addEventListener(ev, pointerDown));
+  ["pointermove", "touchmove", "mousemove"].forEach(ev => slidesWrapper.addEventListener(ev, pointerMove));
+  ["pointerup", "pointerleave", "pointercancel", "touchend", "mouseup", "mouseleave"].forEach(ev => slidesWrapper.addEventListener(ev, pointerUp));
+
+  mediaContainer.querySelector(".media-arrow.right")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (state.currentIndex < slides.length - 1) { state.currentIndex++; updateSlidePosition(); }
+  });
+  mediaContainer.querySelector(".media-arrow.left")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (state.currentIndex > 0) { state.currentIndex--; updateSlidePosition(); }
+  });
+
+  window.addEventListener("resize", updateSlidePosition);
+  updateSlidePosition();
+}
+
+// ===== Render auf der Startseite =====
+async function loadHomeListings() {
+  const container = document.getElementById("homeResults");
+  if (!container) return;
+
+  container.innerHTML = "<p style='opacity:.7'>Lade Inserate…</p>";
+
+  try {
+    // Hole z.B. die 8 neusten
+    const { items } = await fetchInserate(1, 8);
+    const list = Array.isArray(items) ? items : [];
+
+    if (!list.length) {
+      container.innerHTML = "<p>Aktuell sind keine Fahrzeuge online.</p>";
+      return;
+    }
+
+    container.innerHTML = "";
+    list.forEach(inserat => {
+      const imgs = Array.isArray(inserat.images) ? inserat.images : [];
+      const tel  = sanitizePhone(inserat.telefon);
+      const titel = inserat.titel || "Unbekanntes Fahrzeug";
+      const preis = fmtEUR(inserat.verkauf_brutto ?? inserat.verkauf_preis ?? inserat.preis);
+      const kurz  = inserat.verkauf_kurzbeschreibung || "";
+      const _id   = getDocId(inserat) || "";
+
+      const card = document.createElement("div");
+      card.className = "car-card horizontal";
+      card.innerHTML = `
+        <div class="car-card-media">
+          <div class="card-actions mobile-only">
+            <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
+            <a href="${tel ? `tel:${tel}` : '#'}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${tel ? "" : "aria-disabled='true'"} >
+              <i class="fas fa-phone"></i>
+            </a>
+          </div>
+          <div class="media-container">
+            <div class="slides">
+              ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
+              ${inserat.video ? `<video class="slide" controls muted playsinline preload="metadata"><source src="${inserat.video}" type="video/mp4"></video>` : ""}
+            </div>
+            <button class="media-arrow left"  type="button"><i class="fas fa-chevron-left"></i></button>
+            <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
+          </div>
+        </div>
+        <div class="car-details">
+          <div class="car-top-row">
+            <h2 class="car-title">${titel}</h2>
+            <p class="car-price">${preis}</p>
+          </div>
+          <p class="car-subtitle">${kurz}</p>
+          <div class="car-info-grid">
+            <p><i class="fas fa-road"></i> ${inserat.verkauf_kilometer ?? "?"} km</p>
+            <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.verkauf_erstzulassung || "?"}</p>
+            <p><i class="fas fa-gas-pump"></i> ${inserat.verkauf_kraftstoff || "?"}</p>
+            <p><i class="fas fa-gauge-high"></i> ${inserat.verkauf_leistung ?? "?"} PS</p>
+            <p><i class="fas fa-gears"></i> ${inserat.verkauf_getriebe || "?"}</p>
+            <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "?"} l/100 km</p>
+          </div>
+          <div class="dealer-info">
+            ${String(inserat.verkauf_verkaeufer || "").toLowerCase() === "händler"
+              ? `<strong>${inserat.verkauf_name || "Autohaus"}</strong><br>${inserat.standort || ""}`
+              : `Privatanbieter<br>${inserat.standort || ""}`
+            }
+          </div>
+        </div>
+      `;
+
+      // Klick auf Karte → Detailseite (aber NICHT auf Buttons/Arrows)
+      card.addEventListener("click", (e) => {
+        const isAction = e.target.closest(".card-actions button, .card-actions a, .media-arrow");
+        if (isAction) return;
+
+        // für Detailseite bereitstellen
+        try { localStorage.setItem("ausgewaehltesInserat", JSON.stringify(inserat)); } catch {}
+        if (_id) {
+          window.location.href = `anzeige.html?id=${encodeURIComponent(_id)}`;
+        } else {
+          window.location.href = `anzeige.html`;
+        }
+      });
+
+      container.appendChild(card);
+      initMediaSlider(card.querySelector(".media-container"));
+    });
+  } catch (err) {
+    console.error("Fehler beim Laden der Start-Inserate:", err);
+    container.innerHTML = "<p>🚫 Fehler beim Laden der Inserate.</p>";
+  }
+}
