@@ -14,9 +14,11 @@ const QP = (() => {
     getriebe: (sp.get("getriebe") || "").toLowerCase(),
     kraftstoff: (sp.get("kraftstoff") || "").toLowerCase(),
     ort: sp.get("ort") || "",
-    umkreis: sp.get("umkreis") || ""
+    umkreis: sp.get("umkreis") || "",
+    sort: sp.get("sort") || ""         // <-- NEU
   };
 })();
+
 
 const norm = (s) => String(s || "").toLowerCase();
 const toNum = (v) => {
@@ -76,6 +78,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (gearEl && QP.getriebe)   gearEl.value = QP.getriebe;
 
     if (firstRegFromEl && QP.ezFrom) firstRegFromEl.value = QP.ezFrom;
+// Sortierung aus URL auf das Select mappen
+if (sortBy) {
+  if (QP.sort === "preis_asc")      sortBy.value = "price-asc";
+  else if (QP.sort === "preis_desc")sortBy.value = "price-desc";
+  else if (QP.sort)                 sortBy.value = "date-desc"; // Fallback bei unbekanntem Wert
+}
 
     if (QP.ezFrom && firstRegMonthEl && firstRegYearEl) {
       const [y,m] = QP.ezFrom.split("-");
@@ -83,12 +91,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (m) firstRegMonthEl.value = m;
     }
   })();
+// ===== State =====
+let filteredItems = [];   // enthält IMMER nur die aktuelle Server-Seite (nach normalize)
+let page = 1;
+const pageSize = 20;
+let serverTotal = 0;      // Gesamtanzahl vom Server für den Pager
 
-  // ===== State =====
-  let allItems = [];              // Server-Rohdaten (kommen im 2. Teil)
-  let filteredItems = [];
-  let page = 1;
-  const pageSize = 20;
 
   // ===== Helpers =====
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -402,15 +410,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   // --- Ende initMediaSlider ---
 
-  // ===== Server-Daten laden =====
-  async function fetchInserate(p = 1, limit = pageSize) {
-    const url = `/inserate?page=${encodeURIComponent(p)}&limit=${encodeURIComponent(limit)}`;
-    const res = await fetch(url, { credentials: "omit" });
-    if (!res.ok) throw new Error("Fetch /inserate fehlgeschlagen");
-    const data = await res.json(); // { page, limit, total, items }
-    return data;
+  async function fetchSearch(p = 1, limit = pageSize) {
+    const params = new URLSearchParams(window.location.search);
+    params.set("page", String(p));
+    params.set("limit", String(limit));
+    const res = await fetch(`/api/search?${params.toString()}`, { credentials: "omit" });
+    if (!res.ok) throw new Error("Fetch /api/search fehlgeschlagen");
+    return res.json(); // { page, limit, total, results }
   }
-
+  
   // ---- DB -> UI Normalform (einheitliche Feldnamen) ----
   function normalizeItem(raw) {
     // EZ: bevorzugt 'erstzulassung' (YYYY-MM); sonst aus jahr/monat zusammensetzen
@@ -594,205 +602,263 @@ document.addEventListener("DOMContentLoaded", () => {
       return true;
     });
   }
+// ===== Sortierung (auf Normalform) =====
+// (optional – wird aktuell NICHT mehr in den Events benutzt, weil der Server sortiert.
+//  Lass es drin, falls du zusätzlich clientseitig sortieren willst.)
+function sortItems(items) {
+  const v = sortBy?.value || "relevance";
+  const copy = items.slice();
 
-  // ===== Sortierung (auf Normalform) =====
-  function sortItems(items) {
-    const v = sortBy?.value || "relevance";
-    const copy = items.slice();
+  switch (v) {
+    case "price-asc":
+      copy.sort((a,b) => (toNum(a.preis) || Infinity) - (toNum(b.preis) || Infinity));
+      break;
+    case "price-desc":
+      copy.sort((a,b) => (toNum(b.preis) || -Infinity) - (toNum(a.preis) || -Infinity));
+      break;
+    case "date-desc": {
+      const getDate = (x) => (x?.raw?.veroeffentlichtAm ? new Date(x.raw.veroeffentlichtAm)
+                           : x?._id?.$date ? new Date(x._id.$date)
+                           : new Date(0));
+      copy.sort((a,b) => getDate(b) - getDate(a));
+      break;
+    }
+    case "mileage-asc":
+      copy.sort((a,b) => (toNum(a.kilometer) || Infinity) - (toNum(b.kilometer) || Infinity));
+      break;
+    default: // relevance
+      // no-op (Platz für Scoring)
+      break;
+  }
+  return copy;
+}
 
-    switch (v) {
-      case "price-asc":
-        copy.sort((a,b) => (toNum(a.preis) || Infinity) - (toNum(b.preis) || Infinity));
-        break;
-      case "price-desc":
-        copy.sort((a,b) => (toNum(b.preis) || -Infinity) - (toNum(a.preis) || -Infinity));
-        break;
-      case "date-desc": {
-        const getDate = (x) => (x?.raw?.veroeffentlichtAm ? new Date(x.raw.veroeffentlichtAm)
-                             : x?._id?.$date ? new Date(x._id.$date)
-                             : new Date(0));
-        copy.sort((a,b) => getDate(b) - getDate(a));
-        break;
+function renderPager(totalCount) {
+  if (!pager) return;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const current    = clamp(page, 1, totalPages);
+
+  if (totalPages <= 1) {
+    pager.innerHTML = "";
+    return;
+  }
+
+  let html = `<button class="pager-btn" data-page="${current - 1}" ${current === 1 ? "disabled" : ""}>« Zurück</button>`;
+  const windowSize = 5;
+  const start = Math.max(1, current - Math.floor(windowSize / 2));
+  const end   = Math.min(totalPages, start + windowSize - 1);
+  for (let p = start; p <= end; p++) {
+    html += `<button class="pager-btn ${p === current ? "active" : ""}" data-page="${p}">${p}</button>`;
+  }
+  html += `<button class="pager-btn" data-page="${current + 1}" ${current === totalPages ? "disabled" : ""}>Weiter »</button>`;
+  pager.innerHTML = html;
+
+  // Serverseitig blättern + Page in der URL mitführen
+  pager.querySelectorAll(".pager-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const target = Number(e.currentTarget.getAttribute("data-page"));
+      if (!isNaN(target)) {
+        page = clamp(target, 1, totalPages);
+
+        const params = new URLSearchParams(window.location.search);
+        params.set("page", String(page));
+        history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
+
+        loadAndRender(page);
       }
-      case "mileage-asc":
-        copy.sort((a,b) => (toNum(a.kilometer) || Infinity) - (toNum(b.kilometer) || Infinity));
-        break;
-      default: // relevance
-        // no-op (Platz für Scoring)
-        break;
-    }
-    return copy;
-  }
-
-  // ===== Rendering =====
-  function renderPager(totalCount) {
-    if (!pager) return;
-    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-    page = clamp(page, 1, totalPages);
-
-    if (totalPages <= 1) {
-      pager.innerHTML = "";
-      return;
-    }
-
-    let html = `<button class="pager-btn" data-page="${page - 1}" ${page === 1 ? "disabled" : ""}>« Zurück</button>`;
-    const windowSize = 5;
-    const start = Math.max(1, page - Math.floor(windowSize / 2));
-    const end   = Math.min(totalPages, start + windowSize - 1);
-    for (let p = start; p <= end; p++) {
-      html += `<button class="pager-btn ${p === page ? "active" : ""}" data-page="${p}">${p}</button>`;
-    }
-    html += `<button class="pager-btn" data-page="${page + 1}" ${page === totalPages ? "disabled" : ""}>Weiter »</button>`;
-    pager.innerHTML = html;
-
-    pager.querySelectorAll(".pager-btn").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        const target = Number(e.currentTarget.getAttribute("data-page"));
-        if (!isNaN(target)) {
-          page = clamp(target, 1, totalPages);
-          renderItems(); // clientseitig blättern
-        }
-      });
     });
+  });
+}
+
+// Helper: echte Mongo-ID herausziehen (string, {_id: "..."} oder {$oid: "..."})
+function getMongoId(doc) {
+  if (!doc) return null;
+  if (doc._id && typeof doc._id === "object" && typeof doc._id.$oid === "string") return doc._id.$oid;
+  if (typeof doc._id === "string") return doc._id;
+  if (typeof doc.id === "string") return doc.id;
+  return null;
+}
+
+function renderItems() {
+  if (!container) return;
+  container.innerHTML = "";
+
+  // Server liefert *nur die aktuelle Seite*:
+  const view = filteredItems;
+
+  if (!view.length) {
+    container.innerHTML = "<p>❌ Keine Fahrzeuge gefunden.</p>";
+    renderPager(serverTotal); // Gesamttreffer aus Server
+    return;
   }
 
-  // Helper: echte Mongo-ID herausziehen (string, {_id: "..."} oder {$oid: "..."})
-  function getMongoId(doc) {
-    if (!doc) return null;
-    if (doc._id && typeof doc._id === "object" && typeof doc._id.$oid === "string") return doc._id.$oid;
-    if (typeof doc._id === "string") return doc._id;
-    if (typeof doc.id === "string") return doc.id;
-    return null;
-  }
+  view.forEach(inserat => {
+    const imgs = Array.isArray(inserat.images) ? inserat.images : [];
+    const tel  = sanitizePhone(inserat.telefon);
 
-  function renderItems() {
-    if (!container) return;
-    container.innerHTML = "";
+    const priceNum = toNum(inserat.preis);
+    const kmNum    = toNum(inserat.kilometer);
 
-    // Client-Pagination
-    const total = filteredItems.length;
-    const start = (page - 1) * pageSize;
-    const end   = Math.min(start + pageSize, total);
-    const view  = filteredItems.slice(start, end);
-
-    if (!view.length) {
-      container.innerHTML = "<p>❌ Keine Fahrzeuge gefunden.</p>";
-      renderPager(total);
-      return;
-    }
-
-    view.forEach(inserat => {
-      const imgs = Array.isArray(inserat.images) ? inserat.images : [];
-      const tel  = sanitizePhone(inserat.telefon);
-
-      const priceNum = toNum(inserat.preis);
-      const kmNum    = toNum(inserat.kilometer);
-
-      const card = document.createElement("div");
-      card.className = "car-card horizontal";
-      card.innerHTML = `
-        <div class="car-card-media">
-          <div class="card-actions mobile-only">
+    const card = document.createElement("div");
+    card.className = "car-card horizontal";
+    card.innerHTML = `
+      <div class="car-card-media">
+        <div class="card-actions mobile-only">
+          <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
+          <a href="${tel ? `tel:${tel}` : '#'}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${tel ? "" : "aria-disabled='true'"} >
+            <i class="fas fa-phone"></i>
+          </a>
+        </div>
+        <div class="media-container">
+          <div class="slides">
+            ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
+            ${inserat.video ? `<video class="slide" controls muted playsinline preload="metadata"><source src="${inserat.video}" type="video/mp4"></video>` : ""}
+          </div>
+          <button class="media-arrow left"  type="button"><i class="fas fa-chevron-left"></i></button>
+          <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
+        </div>
+      </div>
+      <div class="car-details">
+        <div class="car-top-row">
+          <h2 class="car-title">${inserat.titel || "Unbekanntes Fahrzeug"}</h2>
+          <p class="car-price">${isNaN(priceNum) ? "Preis n. a." : priceNum.toLocaleString("de-DE") + " €"}</p>
+        </div>
+        <p class="car-subtitle">${inserat.raw?.verkauf_kurzbeschreibung || ""}</p>
+        <div class="car-info-grid">
+          <p><i class="fas fa-road"></i> ${isNaN(kmNum) ? "?" : kmNum.toLocaleString("de-DE")} km</p>
+          <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.erstzulassung || "?"}</p>
+          <p><i class="fas fa-gas-pump"></i> ${inserat.kraftstoff || "?"}</p>
+          <p><i class="fas fa-gauge-high"></i> ${inserat.leistung || "?"} PS</p>
+          <p><i class="fas fa-gears"></i> ${inserat.getriebe || "?"}</p>
+          <p><i class="fas fa-tint"></i> ${inserat.verbrauch_kombiniert || "?"} l/100 km</p>
+        </div>
+        <div class="dealer-info-row">
+          <div class="dealer-info-text">
+            ${String(inserat.verkaeufer || "").toLowerCase() === "händler"
+              ? `<strong>${inserat.name || "Autohaus"}</strong><br>${inserat.standort || ""}`
+              : `Privatanbieter<br>${inserat.standort || ""}`
+            }
+          </div>
+          <div class="card-actions desktop-only">
             <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
             <a href="${tel ? `tel:${tel}` : '#'}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${tel ? "" : "aria-disabled='true'"} >
               <i class="fas fa-phone"></i>
             </a>
           </div>
-          <div class="media-container">
-            <div class="slides">
-              ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
-              ${inserat.video ? `<video class="slide" controls muted playsinline preload="metadata"><source src="${inserat.video}" type="video/mp4"></video>` : ""}
-            </div>
-            <button class="media-arrow left"  type="button"><i class="fas fa-chevron-left"></i></button>
-            <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
-          </div>
         </div>
-        <div class="car-details">
-          <div class="car-top-row">
-            <h2 class="car-title">${inserat.titel || "Unbekanntes Fahrzeug"}</h2>
-            <p class="car-price">${isNaN(priceNum) ? "Preis n. a." : priceNum.toLocaleString("de-DE") + " €"}</p>
-          </div>
-          <p class="car-subtitle">${inserat.raw?.verkauf_kurzbeschreibung || ""}</p>
-          <div class="car-info-grid">
-            <p><i class="fas fa-road"></i> ${isNaN(kmNum) ? "?" : kmNum.toLocaleString("de-DE")} km</p>
-            <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.erstzulassung || "?"}</p>
-            <p><i class="fas fa-gas-pump"></i> ${inserat.kraftstoff || "?"}</p>
-            <p><i class="fas fa-gauge-high"></i> ${inserat.leistung || "?"} PS</p>
-            <p><i class="fas fa-gears"></i> ${inserat.getriebe || "?"}</p>
-            <p><i class="fas fa-tint"></i> ${inserat.verbrauch_kombiniert || "?"} l/100 km</p>
-          </div>
-          <div class="dealer-info-row">
-            <div class="dealer-info-text">
-              ${String(inserat.verkaeufer || "").toLowerCase() === "händler"
-                ? `<strong>${inserat.name || "Autohaus"}</strong><br>${inserat.standort || ""}`
-                : `Privatanbieter<br>${inserat.standort || ""}`
-              }
-            </div>
-            <div class="card-actions desktop-only">
-              <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
-              <a href="${tel ? `tel:${tel}` : '#'}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${tel ? "" : "aria-disabled='true'"} >
-                <i class="fas fa-phone"></i>
-              </a>
-            </div>
-          </div>
-        </div>
-      `;
+      </div>
+    `;
 
-      container.appendChild(card);
-      initMediaSlider(card.querySelector(".media-container"));
+    container.appendChild(card);
+    initMediaSlider(card.querySelector(".media-container"));
 
-      // 👉 Weiterleitung auf anzeige.html beim Klick auf die Karte
-      const realId = getMongoId(inserat);
-      card.dataset.id = realId || "";
-
-      card.addEventListener("click", (e) => {
-        if (e.target.closest("button, a, .media-arrow")) return;
-        try { localStorage.setItem("ausgewaehltesInserat", JSON.stringify(inserat)); } catch {}
-        const qs = realId ? `?id=${encodeURIComponent(realId)}` : "";
-        window.location.href = `anzeige.html${qs}`;
-      });
+    // Karte klickbar
+    const realId = getMongoId(inserat);
+    card.dataset.id = realId || "";
+    card.addEventListener("click", (e) => {
+      if (e.target.closest("button, a, .media-arrow")) return;
+      try { localStorage.setItem("ausgewaehltesInserat", JSON.stringify(inserat)); } catch {}
+      const qs = realId ? `?id=${encodeURIComponent(realId)}` : "";
+      window.location.href = `anzeige.html${qs}`;
     });
-
-    renderPager(total);
-  }
-
-  // ===== Load + First Render =====
-  async function loadAndRender() {
-    try {
-      // Bis zu 200 laden; anschließend clientseitig filtern/sortieren
-      const { items } = await fetchInserate(1, 200);
-      // >>> Normalisieren <<<
-      allItems = Array.isArray(items) ? items.map(normalizeItem) : [];
-      filteredItems = applyClientFilters(allItems);
-      filteredItems = sortItems(filteredItems);
-      page = 1;
-      renderItems();
-    } catch (err) {
-      console.error("Fehler beim Laden der Inserate:", err);
-      if (container) container.innerHTML = "<p>🚫 Fehler beim Laden der Inserate.</p>";
-    }
-  }
-
-  // ===== Events: Filter & Sort =====
-  applyFilters?.addEventListener("click", () => {
-    filteredItems = applyClientFilters(allItems);
-    filteredItems = sortItems(filteredItems);
-    page = 1;
-    renderItems();
   });
 
-  sortBy?.addEventListener("change", () => {
-    filteredItems = sortItems(filteredItems);
-    page = 1;
-    renderItems();
-  });
+  renderPager(serverTotal); // Wichtig: Gesamttreffer vom Server
+}
 
-  // ===== Init =====
-  loadAndRender();
+async function loadAndRender(p = 1) {
+  try {
+    const { page: serverPage, limit: serverLimit, total, results } = await fetchSearch(p, pageSize);
+    serverTotal   = total;                               // Gesamtzahl vom Server (für Pager)
+    filteredItems = Array.isArray(results) ? results.map(normalizeItem) : [];
+    page          = Number(serverPage) || 1;             // aktuelle Seite setzen
+
+    // Optional: falls du zusätzliche Client-Feinfilter/Sort noch anwenden willst:
+    // filteredItems = applyClientFilters(filteredItems);
+    // filteredItems = sortItems(filteredItems);
+
+    renderItems();
+  } catch (err) {
+    console.error("Fehler beim Laden der Suche:", err);
+    if (container) container.innerHTML = "<p>🚫 Fehler beim Laden der Ergebnisse.</p>";
+  }
+}
+
+// ===== Events: Filter & Sort =====
+function setOrDelete(params, key, val) {
+  if (val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0)) {
+    params.delete(key);
+  } else {
+    params.set(key, String(val));
+  }
+}
+function mapSortSelectToParam(v) {
+  if (v === "price-asc")  return "preis_asc";
+  if (v === "price-desc") return "preis_desc";
+  return "neueste"; // "date-desc" und alles andere
+}
+function updateUrlFromUiAndReload() {
+  const params = new URLSearchParams(window.location.search);
+
+  // Marke/Modell
+  const markeEl  = document.getElementById("marke");
+  const modellEl = document.getElementById("modell");
+  setOrDelete(params, "marke", markeEl?.value || "");
+  if (modellEl && modellEl.options) {
+    const selected = [...modellEl.options].filter(o => o.selected).map(o => o.value).filter(Boolean);
+    setOrDelete(params, "modell", selected.length ? selected.join(",") : "");
+  }
+
+  // EZ (type="month" oder Jahr/Monat)
+  const firstRegFromEl  = document.getElementById("firstRegFrom");
+  const firstRegMonthEl = document.getElementById("first-registration-month");
+  const firstRegYearEl  = document.getElementById("first-registration-year");
+  const ez =
+    (firstRegFromEl?.value) ||
+    (firstRegYearEl?.value && firstRegMonthEl?.value
+      ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2,"0")}`
+      : "");
+  setOrDelete(params, "ezFrom", ez);
+
+  // Preis/KM bis
+  const priceToEl   = document.getElementById("priceTo");
+  const mileageToEl = document.getElementById("mileageTo");
+  setOrDelete(params, "price_max", priceToEl?.value || "");
+  setOrDelete(params, "km_max",    mileageToEl?.value || "");
+
+  // Kraftstoff/Getriebe
+  const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
+  const gearEl = document.getElementById("transmission") || document.getElementById("gear");
+  setOrDelete(params, "kraftstoff", (fuelEl?.value || "").toLowerCase());
+  setOrDelete(params, "getriebe",   (gearEl?.value || "").toLowerCase());
+
+  // Sortierung -> Serverparam
+  const sortSelectVal = sortBy?.value || "";
+  if (sortSelectVal) params.set("sort", mapSortSelectToParam(sortSelectVal));
+  else params.delete("sort");
+
+  // Bei Filteränderung auf Seite 1 springen
+  params.delete("page");
+
+  history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
+  loadAndRender(1);
+}
+
+applyFilters?.addEventListener("click", (e) => {
+  e.preventDefault();
+  updateUrlFromUiAndReload();
 });
 
+sortBy?.addEventListener("change", () => {
+  updateUrlFromUiAndReload();
+});
+
+// ===== Init =====
+const initialPage = Math.max(parseInt(new URLSearchParams(window.location.search).get("page") || "1", 10), 1);
+loadAndRender(initialPage);
 
 
+});
 
 
 

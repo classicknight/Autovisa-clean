@@ -1167,123 +1167,148 @@ process.on("uncaughtException", (err) => {
 
 // === Helper zum sicheren Regex-Bau ===
 const escapeRegex = (s = "") => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
 // === SUCHE: /api/search ===
 // GET /api/search?marke=Audi&modell=A4,A6&ezFrom=2018-01&km_max=100000&price_max=30000&getriebe=automatik&kraftstoff=diesel&sort=preis_asc&page=1&limit=20
 app.get("/api/search", async (req, res) => {
   try {
     const {
-      marke,
-      modell,           // kommasepariert
-      ezFrom,           // 'YYYY-MM'
-      km_max,
-      price_max,
-      getriebe,         // 'manuell' | 'automatik'
-      kraftstoff,       // 'benzin' | 'diesel' | 'elektro' | 'hybrid' | ...
-      // ort, umkreis    // TODO: Geokodierung (derzeit ignoriert)
-      sort,             // 'preis_asc' | 'preis_desc' | 'neueste'
-      page = "1",
-      limit = "20",
+      marke, modell, ezFrom, km_max, price_max,
+      getriebe, kraftstoff, sort,
+      page = "1", limit = "20"
     } = req.query;
 
-    const p = Math.max(parseInt(page, 10) || 1, 1);
+    const p   = Math.max(parseInt(page, 10)  || 1, 1);
     const lim = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
     const skip = (p - 1) * lim;
 
     // String-Matches
-    const baseMatch = {};
+    const baseMatch = { status: "online" };
     if (marke) {
       baseMatch.marke = { $regex: `^${escapeRegex(marke)}$`, $options: "i" };
     }
     if (modell) {
       const arr = String(modell)
         .split(",")
-        .map((m) => m.trim())
+        .map(m => m.trim())
         .filter(Boolean)
-        .map((m) => new RegExp(`^${escapeRegex(m)}$`, "i"));
+        .map(m => new RegExp(`^${escapeRegex(m)}$`, "i"));
       if (arr.length) baseMatch.modell = { $in: arr };
     }
-    if (ezFrom) {
-      // 'erstzulassung' im Format 'YYYY-MM'
-      baseMatch.erstzulassung = { $gte: ezFrom };
-    }
-    if (getriebe) {
-      baseMatch.verkauf_getriebe = { $regex: `^${escapeRegex(getriebe)}`, $options: "i" };
-    }
-    if (kraftstoff) {
-      // enthält 'hybrid', 'benzin', 'diesel', 'elektro' etc.
-      baseMatch.verkauf_kraftstoff = { $regex: escapeRegex(kraftstoff), $options: "i" };
-    }
+    if (ezFrom)     baseMatch.erstzulassung     = { $gte: ezFrom }; // 'YYYY-MM'
+    if (getriebe)   baseMatch.verkauf_getriebe  = { $regex: `^${escapeRegex(getriebe)}`, $options: "i" };
+    if (kraftstoff) baseMatch.verkauf_kraftstoff= { $regex: escapeRegex(kraftstoff),    $options: "i" };
 
-    // Aggregation: numerische Felder sicher casten
+    // Aggregation
     const pipeline = [
+      // 1) Preis/KM robust bereinigen und in int wandeln
       {
         $addFields: {
-          preis_num: {
-            $toInt: {
-              $ifNull: ["$brutto-preis", "$preis"], // nimm brutto, sonst preis
-            },
-          },
-          km_num: {
-            $toInt: { $ifNull: ["$verkauf_kilometer", "$kilometer", "$km"] },
-          },
-        },
+          _preis_raw: { $ifNull: ["$brutto-preis", "$preis"] },
+          _km_raw:    { $ifNull: ["$verkauf_kilometer", "$kilometer", "$km"] }
+        }
       },
+      {
+        $addFields: {
+          _preis_clean: {
+            $replaceAll: {
+              input: {
+                $replaceAll: {
+                  input: {
+                    $replaceAll: {
+                      input: {
+                        $replaceAll: {
+                          input: { $trim: { input: { $toString: "$_preis_raw" } } },
+                          find: ".", replacement: ""
+                        }
+                      },
+                      find: " ", replacement: ""
+                    }
+                  },
+                  find: "€", replacement: ""
+                }
+              },
+              find: ",", replacement: ""
+            }
+          },
+          _km_clean: {
+            $replaceAll: {
+              input: {
+                $replaceAll: {
+                  input: { $trim: { input: { $toString: "$_km_raw" } } },
+                  find: ".", replacement: ""
+                }
+              },
+              find: " ", replacement: ""
+            }
+          }
+        }
+      },
+      {
+        $addFields: {
+          preis_num: { $convert: { input: "$_preis_clean", to: "int", onError: null, onNull: null } },
+          km_num:    { $convert: { input: "$_km_clean",    to: "int", onError: null, onNull: null } }
+        }
+      },
+
+      // 2) Grundfilter
       { $match: baseMatch },
-    ];
 
-    // Zahlen-Grenzen
-    if (price_max) {
-      pipeline.push({
-        $match: { $expr: { $lte: ["$preis_num", parseInt(price_max, 10)] } },
-      });
-    }
-    if (km_max) {
-      pipeline.push({
-        $match: { $expr: { $lte: ["$km_num", parseInt(km_max, 10)] } },
-      });
-    }
+      // 3) Zahlen-Grenzen (nur wenn tatsächlich Zahl vorhanden)
+      ...(price_max ? [{ $match: { preis_num: { $ne: null, $lte: parseInt(price_max, 10) } } }] : []),
+      ...(km_max    ? [{ $match: { km_num:    { $ne: null, $lte: parseInt(km_max, 10)    } } }] : []),
 
-    // Sortierung
-    if (sort === "preis_asc") {
-      pipeline.push({ $sort: { preis_num: 1, _id: -1 } });
-    } else if (sort === "preis_desc") {
-      pipeline.push({ $sort: { preis_num: -1, _id: -1 } });
-    } else {
-      // "neueste" oder default: neueste zuerst (falls es createdAt gibt, sonst _id)
-      pipeline.push({ $sort: { createdAt: -1, _id: -1 } });
-    }
+      // 4) Sortierung (Null-Preise ans Ende bei Preis-Sortierungen)
+      ...(sort === "preis_asc"
+        ? [
+            { $addFields: { _preis_null: { $cond: [{ $eq: ["$preis_num", null] }, 1, 0] } } },
+            { $sort: { _preis_null: 1, preis_num: 1, _id: -1 } }
+          ]
+        : sort === "preis_desc"
+        ? [
+            { $addFields: { _preis_null: { $cond: [{ $eq: ["$preis_num", null] }, 1, 0] } } },
+            { $sort: { _preis_null: 1, preis_num: -1, _id: -1 } }
+          ]
+        : [{ $sort: { veroeffentlichtAm: -1, _id: -1 } }]
+      ),
 
-    // Pagination + Count
-    pipeline.push(
+      // 5) Paginierung + Count (+ sensible Felder & Hilfsfelder ausblenden)
       {
         $facet: {
-          data: [{ $skip: skip }, { $limit: lim }],
-          total: [{ $count: "count" }],
-        },
+          data: [
+            {
+              $project: {
+                token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0,
+                _preis_raw: 0, _km_raw: 0, _preis_clean: 0, _km_clean: 0, _preis_null: 0
+              }
+            },
+            { $skip: skip },
+            { $limit: lim }
+          ],
+          total: [{ $count: "count" }]
+        }
       },
       {
         $project: {
           data: 1,
-          total: { $ifNull: [{ $arrayElemAt: ["$total.count", 0] }, 0] },
-        },
+          total: { $ifNull: [{ $arrayElemAt: ["$total.count", 0] }, 0] }
+        }
       }
-    );
+    ];
 
-    const cursor = db.collection("fahrzeuge").aggregate(pipeline);
-    const [{ data, total } = { data: [], total: 0 }] = await cursor.toArray();
+    const [{ data, total } = { data: [], total: 0 }] =
+      await db.collection("inserate").aggregate(pipeline).toArray();
 
-    res.json({
-      page: p,
-      limit: lim,
-      total,
-      results: data,
-    });
+    res.json({ page: p, limit: lim, total, results: data });
   } catch (err) {
     console.error("Search error:", err);
     res.status(500).json({ error: "Interner Fehler bei der Suche." });
   }
 });
+
+
+
+
+
 
 
 

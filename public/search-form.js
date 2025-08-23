@@ -3,7 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const form = document.querySelector("#search-section .search-form");
     if (!form) return;
   
-    // === Refs (können auf manchen Seiten fehlen) ===
+    // === Refs (können je Seite fehlen) ===
     const markeSel    = document.getElementById("marke");
     const modellSel   = document.getElementById("modell");
     const monthSel    = document.getElementById("first-registration-month");
@@ -12,11 +12,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const kmCustom    = document.getElementById("kilometer-custom");
     const priceSel    = document.getElementById("price-select");
     const priceCustom = document.getElementById("price-custom");
-    const gearSel     = document.getElementById("gear");
-    const fuelSel     = document.getElementById("fuel");
+    const gearSel     = document.getElementById("gear") || document.getElementById("transmission");
+    const fuelSel     = document.getElementById("fuel") || document.getElementById("fuelType");
     const locInput    = document.getElementById("location");
     const distSel     = document.getElementById("distance-select");
     const distCustom  = document.getElementById("distance-custom");
+    const sortSel     = document.getElementById("sortBy") || document.getElementById("sort");
   
     // === Jahre befüllen (aktuell -> 1980) ===
     if (yearSel) {
@@ -29,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   
-    // === Modelle pro Marke (kurze Beispiel-Liste) ===
+    // === Modelle pro Marke (Kurzliste) ===
     const brandToModels = {
       "Audi": ["A1","A3","A4","A6","Q2","Q3","Q5","Q7","TT","e-tron"],
       "BMW": ["1er","2er","3er","4er","5er","7er","X1","X3","X5","i3"],
@@ -99,7 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Modelle bei Markenwechsel aktualisieren
     markeSel?.addEventListener("change", () => rebuildModelOptions(markeSel.value));
   
-    // Falls Marke bereits vorausgewählt ist (z. B. Prefill): Modelle initial füllen
+    // Falls Marke bereits vorausgewählt ist (Prefill): Modelle initial füllen
     if (markeSel && markeSel.value) rebuildModelOptions(markeSel.value);
   
     // === Custom-Felder togglen (km/price/distance) ===
@@ -133,6 +134,14 @@ document.addEventListener("DOMContentLoaded", () => {
     locInput?.addEventListener("input", syncDistanceEnabled);
     syncDistanceEnabled();
   
+    // === Sort-Mapping (optional Select vorhanden) ===
+    function mapSortToServer(val) {
+      if (val === "price-asc")  return "preis_asc";
+      if (val === "price-desc") return "preis_desc";
+      if (val === "date-desc")  return "neueste";
+      return ""; // kein Sort-Param
+    }
+  
     // === Submit → suche.html mit Query-Parametern ===
     form.addEventListener("submit", (e) => {
       e.preventDefault();
@@ -149,35 +158,48 @@ document.addEventListener("DOMContentLoaded", () => {
         if (models.length) qs.set("modell", models.join(","));
       }
   
+      // EZ ab (YYYY-MM, Monat immer 2-stellig)
       const y = yearSel?.value || "";
       const m = monthSel?.value || "";
-      if (y && m) qs.set("ezFrom", `${y}-${m}`);
+      if (y && m) qs.set("ezFrom", `${y}-${String(m).padStart(2, "0")}`);
   
       // km max
       if (kmSel) {
-        const kmMax = kmSel.value === "custom" ? (kmCustom?.value || "") : kmSel.value;
-        if (kmMax) qs.set("km_max", String(parseInt(kmMax, 10)));
+        const kmMaxRaw = kmSel.value === "custom" ? (kmCustom?.value || "") : kmSel.value;
+        const kmMax = parseInt(kmMaxRaw, 10);
+        if (!Number.isNaN(kmMax) && kmMax > 0) qs.set("km_max", String(kmMax));
       }
   
       // price max
       if (priceSel) {
-        const pMax = priceSel.value === "custom" ? (priceCustom?.value || "") : priceSel.value;
-        if (pMax) qs.set("price_max", String(parseInt(pMax, 10)));
+        const pMaxRaw = priceSel.value === "custom" ? (priceCustom?.value || "") : priceSel.value;
+        const pMax = parseInt(pMaxRaw, 10);
+        if (!Number.isNaN(pMax) && pMax > 0) qs.set("price_max", String(pMax));
       }
   
-      const gear = (gearSel?.value || "").toLowerCase();
+      const gear = (gearSel?.value || "").toLowerCase().trim();
       if (gear) qs.set("getriebe", gear);
   
-      const fuel = (fuelSel?.value || "").toLowerCase();
+      const fuel = (fuelSel?.value || "").toLowerCase().trim();
       if (fuel) qs.set("kraftstoff", fuel);
   
       const loc = (locInput?.value || "").trim();
       if (loc) qs.set("ort", loc);
   
       if (distSel && !distSel.disabled) {
-        const distVal = distSel.value === "custom" ? (distCustom?.value || "") : distSel.value;
-        if (distVal) qs.set("umkreis", String(parseInt(distVal, 10)));
+        const dRaw = distSel.value === "custom" ? (distCustom?.value || "") : distSel.value;
+        const d = parseInt(dRaw, 10);
+        if (!Number.isNaN(d) && d > 0 && d !== 999) qs.set("umkreis", String(d));
       }
+  
+      // Sort (falls Select vorhanden)
+      if (sortSel && sortSel.value) {
+        const mapped = mapSortToServer(sortSel.value);
+        if (mapped) qs.set("sort", mapped);
+      }
+  
+      // Immer auf Seite 1 starten
+      qs.delete("page");
   
       window.location.href = `suche.html?${qs.toString()}`;
     });
