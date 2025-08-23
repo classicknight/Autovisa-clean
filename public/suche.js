@@ -1,21 +1,20 @@
-
-// suche.js (komplett)
-// Entfernt "no-js" Klasse, falls im HTML gesetzt
+// suche.js — TEIL 1 (korrigiert bis inkl. initMediaSlider)
 document.documentElement.classList.remove("no-js");
-// === Query-Params + Utils (ganz oben einfügen) ===
+
+// === Query-Params + Utils ===
 const QP = (() => {
   const sp = new URLSearchParams(location.search);
   const arr = (v) => (v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : []);
   return {
     marke: sp.get("marke") || "",
-    modell: arr(sp.get("modell")),        // "Golf,Passat"
-    ezFrom: sp.get("ezFrom") || "",       // "YYYY-MM"
+    modell: arr(sp.get("modell")),
+    ezFrom: sp.get("ezFrom") || "",
     km_max: sp.get("km_max") || "",
     price_max: sp.get("price_max") || "",
     getriebe: (sp.get("getriebe") || "").toLowerCase(),
     kraftstoff: (sp.get("kraftstoff") || "").toLowerCase(),
     ort: sp.get("ort") || "",
-    umkreis: sp.get("umkreis") || ""      // derzeit ungenutzt (kein Geocode)
+    umkreis: sp.get("umkreis") || ""
   };
 })();
 
@@ -24,7 +23,6 @@ const toNum = (v) => {
   if (v === null || v === undefined || v === "") return NaN;
   return Number(String(v).replace(/\./g, "").replace(",", "."));
 };
-
 
 document.addEventListener("DOMContentLoaded", () => {
   // ===== DOM Refs =====
@@ -49,59 +47,52 @@ document.addEventListener("DOMContentLoaded", () => {
   const sortBy        = document.getElementById("sortBy");
   const applyFilters  = document.getElementById("applyFiltersBtn");
 
-
-
   // --- Prefill aus URL in die UI ---
-(function prefillFromQuery(){
-  // Felder greifen (nur setzen, wenn vorhanden)
-  const markeEl   = document.getElementById("marke");
-  const modellEl  = document.getElementById("modell");
+  (function prefillFromQuery(){
+    const markeEl   = document.getElementById("marke");
+    const modellEl  = document.getElementById("modell");
 
-  const priceToEl = document.getElementById("priceTo");
-  const kmToEl    = document.getElementById("mileageTo");
+    const priceToEl = document.getElementById("priceTo");
+    const kmToEl    = document.getElementById("mileageTo");
 
-  const fuelEl    = document.getElementById("fuelType") || document.getElementById("fuel");
-  const gearEl    = document.getElementById("transmission") || document.getElementById("gear");
+    const fuelEl    = document.getElementById("fuelType") || document.getElementById("fuel");
+    const gearEl    = document.getElementById("transmission") || document.getElementById("gear");
 
-  const firstRegMonthEl = document.getElementById("first-registration-month");
-  const firstRegYearEl  = document.getElementById("first-registration-year");
-  const firstRegFromEl  = document.getElementById("firstRegFrom"); // <input type="month"> (falls vorhanden)
+    const firstRegMonthEl = document.getElementById("first-registration-month");
+    const firstRegYearEl  = document.getElementById("first-registration-year");
+    const firstRegFromEl  = document.getElementById("firstRegFrom"); // <input type="month">
 
-  if (markeEl && QP.marke) markeEl.value = QP.marke;
+    if (markeEl && QP.marke) markeEl.value = QP.marke;
 
-  // multiple Select für Modell
-  if (modellEl && Array.isArray(QP.modell) && QP.modell.length){
-    const set = new Set(QP.modell.map(v => v.toLowerCase()));
-    [...modellEl.options].forEach(opt => { opt.selected = set.has(String(opt.value).toLowerCase()); });
-  }
+    if (modellEl && Array.isArray(QP.modell) && QP.modell.length){
+      const set = new Set(QP.modell.map(v => v.toLowerCase()));
+      [...modellEl.options].forEach(opt => { opt.selected = set.has(String(opt.value).toLowerCase()); });
+    }
 
-  if (priceToEl && QP.price_max) priceToEl.value = QP.price_max;
-  if (kmToEl && QP.km_max)       kmToEl.value    = QP.km_max;
+    if (priceToEl && QP.price_max) priceToEl.value = QP.price_max;
+    if (kmToEl && QP.km_max)       kmToEl.value    = QP.km_max;
 
-  if (fuelEl && QP.kraftstoff) fuelEl.value = QP.kraftstoff;
-  if (gearEl && QP.getriebe)   gearEl.value = QP.getriebe;
+    if (fuelEl && QP.kraftstoff) fuelEl.value = QP.kraftstoff;
+    if (gearEl && QP.getriebe)   gearEl.value = QP.getriebe;
 
-  // Erstzulassung (Variante A: type="month")
-  if (firstRegFromEl && QP.ezFrom) firstRegFromEl.value = QP.ezFrom;
+    if (firstRegFromEl && QP.ezFrom) firstRegFromEl.value = QP.ezFrom;
 
-  // Erstzulassung (Variante B: getrenntes Monat/Jahr)
-  if (QP.ezFrom && firstRegMonthEl && firstRegYearEl) {
-    const [y,m] = QP.ezFrom.split("-");
-    if (y) firstRegYearEl.value  = y;
-    if (m) firstRegMonthEl.value = m;
-  }
-})();
-
+    if (QP.ezFrom && firstRegMonthEl && firstRegYearEl) {
+      const [y,m] = QP.ezFrom.split("-");
+      if (y) firstRegYearEl.value  = y;
+      if (m) firstRegMonthEl.value = m;
+    }
+  })();
 
   // ===== State =====
-  let allItems = [];              // Vom Server (ungefiltert)
-  let filteredItems = [];         // Nach Client-Filtern
-  let page = 1;                   // Aktuelle Seite (Client-Pager)
-  const pageSize = 20;            // Server-limit (auch für Client-Pager genutzt)
+  let allItems = [];              // Server-Rohdaten (kommen im 2. Teil)
+  let filteredItems = [];
+  let page = 1;
+  const pageSize = 20;
 
   // ===== Helpers =====
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-const fmtEUR = (v) => {
+  const fmtEUR = (v) => {
     const n = toNum(v);
     return isNaN(n) ? "Preis n. a." : n.toLocaleString("de-DE") + " €";
   };
@@ -150,12 +141,10 @@ const fmtEUR = (v) => {
     trigger.setAttribute("aria-expanded", "true");
     menu.classList.add("show");
 
-    // Stagger
     [...menu.children].forEach((item, i) => {
       item.style.transitionDelay = `${i * 25}ms`;
     });
 
-    // Nur Desktop zentrieren
     const isMobile = window.matchMedia("(max-width: 900px)").matches;
     if (!isMobile) requestAnimationFrame(() => positionMenu(li));
   }
@@ -228,7 +217,7 @@ const fmtEUR = (v) => {
   makeInput?.addEventListener("input", updateTitle);
   modelInput?.addEventListener("input", updateTitle);
 
-  // ===== Navbar Login/Logout: Abmelden-Link setzen, wenn eingeloggt =====
+  // ===== Navbar Login/Logout =====
   (async () => {
     const authLi = document.getElementById("auth-link");
     if (!authLi) return;
@@ -251,12 +240,10 @@ const fmtEUR = (v) => {
           }
         });
       }
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   })();
 
-  // ===== Login-Redirects für gespeicherte/meine Autos =====
+  // ===== Login-Redirects =====
   function checkLoginAndGo(targetUrl) {
     fetch("/getNutzerInfo", { credentials: "include" })
       .then(res => res.json())
@@ -276,76 +263,144 @@ const fmtEUR = (v) => {
   document.getElementById("saved-cars-link")?.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndGo("gespeicherte-autos.html"); });
   document.getElementById("my-cars-link")?.addEventListener("click",    (e) => { e.preventDefault(); checkLoginAndGo("meine-autos.html"); });
 
-  // ===== Medien-Slider =====
+  // ===== Medien-Slider (Pointer Events, sauberer Drag) =====
   function initMediaSlider(mediaContainer) {
     if (!mediaContainer) return;
     const slidesWrapper = mediaContainer.querySelector(".slides");
     if (!slidesWrapper) return;
+
     const slides = Array.from(slidesWrapper.children);
+    const btnLeft  = mediaContainer.querySelector(".media-arrow.left");
+    const btnRight = mediaContainer.querySelector(".media-arrow.right");
+
+    // Keine Slider-Controls nötig bei 0/1 Slide
+    const hasMultiple = slides.length > 1;
+    if (!hasMultiple) {
+      btnLeft?.setAttribute("disabled", "true");
+      btnRight?.setAttribute("disabled", "true");
+    }
+
+    // Grundlayout
+    slidesWrapper.style.display = "flex";
+    slidesWrapper.style.willChange = "transform";
+    slidesWrapper.style.transition = "transform 0.3s ease";
+    slidesWrapper.style.touchAction = "pan-y"; // Scrollen vertikal erlauben
+    slides.forEach(slide => {
+      slide.style.flex = "0 0 100%";
+      slide.style.minWidth = "100%";
+      slide.addEventListener("dragstart", e => e.preventDefault());
+    });
 
     const state = {
-      currentIndex: 0,
+      idx: 0,
       isDragging: false,
-      startPos: 0,
+      pointerId: null,
+      startX: 0,
+      prevX: 0,
+      startTranslate: 0,
       currentTranslate: 0,
-      prevTranslate: 0,
-      animationID: null,
+      hasMoved: false
     };
 
-    slidesWrapper.style.display = "flex";
-    slidesWrapper.style.transition = "transform 0.3s ease";
-    slidesWrapper.style.willChange = "transform";
-    slides.forEach(slide => { slide.style.flex = "0 0 100%"; slide.style.minWidth = "100%"; });
+    const width = () => mediaContainer.clientWidth;
+    const snap = () => {
+      state.currentTranslate = -state.idx * width();
+      slidesWrapper.style.transition = "transform 0.3s ease";
+      setTransform(state.currentTranslate);
+    };
+    const clampIndex = (i) => clamp(i, 0, Math.max(0, slides.length - 1));
+    const setTransform = (x) => { slidesWrapper.style.transform = `translateX(${x}px)`; };
 
-    function setSliderPosition() {
-      slidesWrapper.style.transform = `translateX(${state.currentTranslate}px)`;
+    function goTo(i) {
+      state.idx = clampIndex(i);
+      snap();
+      updateArrows();
     }
-    function animation() {
-      setSliderPosition();
-      if (state.isDragging) requestAnimationFrame(animation);
+
+    function updateArrows() {
+      if (!hasMultiple) return;
+      if (btnLeft)  btnLeft.disabled  = state.idx <= 0;
+      if (btnRight) btnRight.disabled = state.idx >= slides.length - 1;
     }
-    function pointerDown(event) {
+    updateArrows();
+
+    // === Pointer Events ===
+    function onPointerDown(e) {
+      if (!hasMultiple) return;
       state.isDragging = true;
-      state.startPos = event.clientX ?? event.touches?.[0]?.clientX ?? 0;
-      state.animationID = requestAnimationFrame(animation);
+      state.pointerId = e.pointerId ?? null;
+      slidesWrapper.setPointerCapture?.(state.pointerId);
+      state.startX = e.clientX;
+      state.prevX = e.clientX;
+      state.startTranslate = state.currentTranslate;
+      state.hasMoved = false;
+      slidesWrapper.style.transition = "none";
+      document.body.style.userSelect = "none";
     }
-    function pointerMove(event) {
+
+    function onPointerMove(e) {
       if (!state.isDragging) return;
-      const currentPosition = event.clientX ?? event.touches?.[0]?.clientX ?? 0;
-      state.currentTranslate = state.prevTranslate + currentPosition - state.startPos;
+      const dx = e.clientX - state.prevX;
+      state.prevX = e.clientX;
+      if (Math.abs(e.clientX - state.startX) > 2) state.hasMoved = true;
+      // leichte Gummi-Zone am Rand
+      const maxTranslate = 0;
+      const minTranslate = -(slides.length - 1) * width();
+      let next = state.currentTranslate + dx;
+      if (next > maxTranslate) next = maxTranslate + (next - maxTranslate) * 0.35;
+      if (next < minTranslate) next = minTranslate + (next - minTranslate) * 0.35;
+      state.currentTranslate = next;
+      setTransform(state.currentTranslate);
     }
-    function pointerUp() {
+
+    function onPointerUpOrCancel() {
       if (!state.isDragging) return;
       state.isDragging = false;
-      cancelAnimationFrame(state.animationID);
-      const movedBy = state.currentTranslate - state.prevTranslate;
-      if (movedBy < -50 && state.currentIndex < slides.length - 1) state.currentIndex++;
-      else if (movedBy > 50 && state.currentIndex > 0) state.currentIndex--;
-      updateSlidePosition();
-    }
-    function updateSlidePosition() {
-      const width = mediaContainer.clientWidth;
-      state.currentTranslate = -state.currentIndex * width;
-      state.prevTranslate = state.currentTranslate;
-      setSliderPosition();
+      document.body.style.userSelect = "";
+
+      // snap nach Threshold
+      const moved = state.currentTranslate - state.startTranslate;
+      const threshold = Math.max(40, width() * 0.18);
+      if (moved <= -threshold) state.idx = clampIndex(state.idx + 1);
+      else if (moved >= threshold) state.idx = clampIndex(state.idx - 1);
+
+      snap();
     }
 
-    ["pointerdown","touchstart","mousedown"].forEach(ev => slidesWrapper.addEventListener(ev, pointerDown));
-    ["pointermove","touchmove","mousemove"].forEach(ev => slidesWrapper.addEventListener(ev, pointerMove));
-    ["pointerup","pointerleave","pointercancel","touchend","mouseup","mouseleave"].forEach(ev => slidesWrapper.addEventListener(ev, pointerUp));
+    slidesWrapper.addEventListener("pointerdown", onPointerDown, { passive: true });
+    slidesWrapper.addEventListener("pointermove", onPointerMove, { passive: true });
+    slidesWrapper.addEventListener("pointerup", onPointerUpOrCancel, { passive: true });
+    slidesWrapper.addEventListener("pointercancel", onPointerUpOrCancel, { passive: true });
+    slidesWrapper.addEventListener("pointerleave", onPointerUpOrCancel, { passive: true });
 
-    mediaContainer.querySelector(".media-arrow.right")?.addEventListener("click", (e) => {
+    // Klicks nach Drag nicht durchlassen (z. B. Card-Click)
+    slidesWrapper.addEventListener("click", (e) => {
+      if (state.hasMoved) e.stopPropagation();
+    }, true);
+
+    // Pfeile
+    btnRight?.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (state.currentIndex < slides.length - 1) { state.currentIndex++; updateSlidePosition(); }
+      goTo(state.idx + 1);
     });
-    mediaContainer.querySelector(".media-arrow.left")?.addEventListener("click", (e) => {
+    btnLeft?.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (state.currentIndex > 0) { state.currentIndex--; updateSlidePosition(); }
+      goTo(state.idx - 1);
     });
 
-    window.addEventListener("resize", updateSlidePosition);
-    updateSlidePosition();
+    // Resize
+    let ro;
+    if ("ResizeObserver" in window) {
+      ro = new ResizeObserver(() => snap());
+      ro.observe(mediaContainer);
+    } else {
+      window.addEventListener("resize", snap);
+    }
+
+    // Initial
+    snap();
   }
+  // --- Ende initMediaSlider ---
 
   // ===== Server-Daten laden =====
   async function fetchInserate(p = 1, limit = pageSize) {
@@ -355,6 +410,60 @@ const fmtEUR = (v) => {
     const data = await res.json(); // { page, limit, total, items }
     return data;
   }
+
+  // ---- DB -> UI Normalform (einheitliche Feldnamen) ----
+  function normalizeItem(raw) {
+    // EZ: bevorzugt 'erstzulassung' (YYYY-MM); sonst aus jahr/monat zusammensetzen
+    const ez =
+      raw.erstzulassung ||
+      (raw.verkauf_ez_jahr && raw.verkauf_ez_monat
+        ? `${String(raw.verkauf_ez_jahr)}-${String(raw.verkauf_ez_monat).padStart(2, "0")}`
+        : "");
+
+    // Preis: nimm brutto zuerst, sonst preis
+    const preis =
+      raw["brutto-preis"] ??
+      raw.brutto_preis ??
+      raw.verkauf_brutto ??
+      raw.preis ??
+      raw.verkauf_preis ?? "";
+
+    return {
+      // ID bleibt wie geliefert (getMongoId() kümmert sich später)
+      _id: raw._id,
+
+      // Basis
+      titel: raw.titel || [raw.marke, raw.modell].filter(Boolean).join(" ").trim(),
+      marke: raw.marke || "",
+      modell: raw.modell || "",
+
+      // Normalisierte Kernwerte als String (wir parsen on-the-fly mit toNum)
+      preis,
+      kilometer: raw.verkauf_kilometer ?? raw.kilometer ?? raw.km ?? "",
+      erstzulassung: ez,
+      kraftstoff: raw.verkauf_kraftstoff ?? raw.kraftstoff ?? "",
+      getriebe: raw.verkauf_getriebe ?? raw.getriebe ?? "",
+      leistung: raw.verkauf_leistung ?? raw.leistung ?? raw.ps ?? "",
+      verbrauch_kombiniert: raw.verbrauch_kombiniert ?? raw.verkauf_verbrauch_kombiniert ?? "",
+
+      // Metadaten/Anbieter
+      verkaeufer: raw.verkauf_verkaeufer ?? raw.verkaeufer ?? "",
+      name: raw.verkauf_name ?? raw.name ?? "",
+      standort: raw.standort ?? "",
+      telefon: raw.telefon ?? raw.phone ?? "",
+
+      // Medien (Strings bevorzugt)
+      images: Array.isArray(raw.images) ? raw.images
+            : Array.isArray(raw.fotos)  ? raw.fotos
+            : Array.isArray(raw.media)  ? raw.media.map(m => m.url || m)
+            : [],
+      video: raw.video || "",
+
+      // optional alles Rohdaten falls woanders gebraucht
+      raw
+    };
+  }
+
   function applyClientFilters(items) {
     // Sidebar-/Form-Felder (nur verwenden, wenn vorhanden)
     const priceFromEl      = document.getElementById("priceFrom");
@@ -363,24 +472,23 @@ const fmtEUR = (v) => {
     const mileageToEl      = document.getElementById("mileageTo");
     const powerFromEl      = document.getElementById("powerFrom");
     const powerToEl        = document.getElementById("powerTo");
-  
+
     // IDs: auf Suche-Seite evtl. fuelType/transmission, auf Startseite fuel/gear
     const fuelTypeEl       = document.getElementById("fuelType") || document.getElementById("fuel");
     const transmissionEl   = document.getElementById("transmission") || document.getElementById("gear");
-  
+
     const accidentFreeEl   = document.getElementById("accidentFree");
     const inspectionUntilEl= document.getElementById("inspectionUntil");
-  
-    // Erstzulassung: EITHER <input type="month" id="firstRegFrom">
-    // OR two selects: #first-registration-year + #first-registration-month
+
+    // Erstzulassung UI
     const firstRegFromEl   = document.getElementById("firstRegFrom");
     const firstRegMonthEl  = document.getElementById("first-registration-month");
     const firstRegYearEl   = document.getElementById("first-registration-year");
-  
+
     // Marke/Modell Felder (UI kann Vorrang vor URL haben)
     const markeEl          = document.getElementById("marke");
     const modellEl         = document.getElementById("modell");
-  
+
     // --- UI lesen ---
     const priceFrom     = toNum(priceFromEl?.value ?? "");
     const priceTo       = toNum(priceToEl?.value   ?? "");
@@ -388,28 +496,28 @@ const fmtEUR = (v) => {
     const mileageTo     = toNum(mileageToEl?.value   ?? "");
     const powerFrom     = toNum(powerFromEl?.value ?? "");
     const powerTo       = toNum(powerToEl?.value   ?? "");
-  
+
     const fuelTypeUI    = (fuelTypeEl?.value ? String(fuelTypeEl.value) : "Beliebig").toLowerCase();
     const transmissionUI= (transmissionEl?.value ? String(transmissionEl.value) : "Beliebig").toLowerCase();
-  
+
     const accidentFree  = !!accidentFreeEl?.checked;
     const inspectionUntil = inspectionUntilEl?.value || ""; // YYYY-MM
-  
+
     // Erstzulassung aus UI zusammensetzen
     const firstRegFromUI =
       (firstRegFromEl?.value) ||
       (firstRegYearEl?.value && firstRegMonthEl?.value
         ? `${firstRegYearEl.value}-${firstRegMonthEl.value}`
         : "");
-  
+
     // --- Fallbacks aus URL (wenn UI leer) ---
     const priceToEff     = (!isNaN(priceTo)   && priceTo   > 0) ? priceTo   : toNum(QP.price_max);
     const mileageToEff   = (!isNaN(mileageTo) && mileageTo > 0) ? mileageTo : toNum(QP.km_max);
     const firstRegEff    = firstRegFromUI || QP.ezFrom;
-  
+
     const fuelEff        = (fuelTypeUI !== "beliebig")     ? fuelTypeUI     : (QP.kraftstoff || "beliebig");
     const gearEff        = (transmissionUI !== "beliebig") ? transmissionUI : (QP.getriebe   || "beliebig");
-  
+
     // Marke/Modell: UI > URL
     let brandEff  = QP.marke ? norm(QP.marke) : "";
     let modelsEff = Array.isArray(QP.modell) ? QP.modell.map(norm) : [];
@@ -418,97 +526,99 @@ const fmtEUR = (v) => {
       const selected = [...modellEl.options].filter(o => o.selected).map(o => norm(o.value));
       if (selected.length) modelsEff = selected;
     }
-  
-    // --- Filtern ---
+
+    // --- Filtern (auf Normalform) ---
     return items.filter(i => {
       // Marke/Modell/Titel
-      const iBrand = norm(i.verkauf_marke || i.marke || "");
-      const iModel = norm(i.verkauf_modell || i.modell || "");
+      const iBrand = norm(i.marke);
+      const iModel = norm(i.modell);
       const iTitle = norm(i.titel || "");
-  
+
       if (brandEff && iBrand !== brandEff) return false;
       if (modelsEff.length) {
         const hit = modelsEff.some(m => iModel.includes(m) || iTitle.includes(m));
         if (!hit) return false;
       }
-  
+
       // Preis
-      const preis = toNum(i.verkauf_brutto ?? i.verkauf_preis ?? i.preis);
+      const preis = toNum(i.preis);
       if (!isNaN(priceFrom) && priceFrom > 0 && !(preis >= priceFrom)) return false;
       if (!isNaN(priceToEff) && priceToEff > 0 && !(preis <= priceToEff)) return false;
-  
+
       // Kilometer
-      const km = toNum(i.verkauf_kilometer ?? i.km);
+      const km = toNum(i.kilometer);
       if (!isNaN(mileageFrom) && mileageFrom > 0 && !(km >= mileageFrom)) return false;
       if (!isNaN(mileageToEff) && mileageToEff > 0 && !(km <= mileageToEff)) return false;
-  
-      // Leistung
-      const ps = toNum(i.verkauf_leistung ?? i.ps);
+
+      // Leistung (PS)
+      const ps = toNum(i.leistung);
       if (!isNaN(powerFrom) && powerFrom > 0 && !(ps >= powerFrom)) return false;
       if (!isNaN(powerTo)   && powerTo   > 0 && !(ps <= powerTo))   return false;
-  
+
       // Kraftstoff/Getriebe
       if (fuelEff !== "beliebig") {
-        const ft = norm(i.verkauf_kraftstoff || i.kraftstoff || "");
+        const ft = norm(i.kraftstoff || "");
         if (!ft.includes(fuelEff)) return false;
       }
       if (gearEff !== "beliebig") {
-        const tr = norm(i.verkauf_getriebe || i.getriebe || "");
+        const tr = norm(i.getriebe || "");
         if (!tr.includes(gearEff)) return false;
       }
-  
-      // Unfallfrei (nur UI)
+
+      // Unfallfrei (nur UI; heuristisch)
       if (accidentFree) {
-        const flag = i.unfallfrei === true ||
-          (Array.isArray(i.verkauf_ausstattung) && i.verkauf_ausstattung.some(a => norm(a).includes("unfall")));
+        const flag = i.raw?.unfallfrei === true ||
+          (Array.isArray(i.raw?.verkauf_ausstattung) &&
+           i.raw.verkauf_ausstattung.some(a => norm(a).includes("unfall")));
         if (!flag) return false;
       }
-  
+
       // HU bis
       if (inspectionUntil) {
-        const hu = String(i.hu || i.verkauf_hu || "");
+        const hu = String(i.raw?.hu || i.raw?.verkauf_hu || "");
         if (hu && hu.length >= 7 && hu < inspectionUntil) return false;
       }
-  
+
       // Erstzulassung ab
       if (firstRegEff) {
-        const ez = String(i.verkauf_erstzulassung || "");
+        const ez = String(i.erstzulassung || "");
         if (ez && ez.length >= 7 && ez < firstRegEff) return false;
       }
-  
+
       // Ort (Textmatch; echter Radius später via Geocoding)
       if (QP.ort) {
         const standort = norm(i.standort || "");
         if (!standort.includes(norm(QP.ort))) return false;
       }
-  
+
       return true;
     });
   }
-  
-  
-  // ===== Sortierung =====
+
+  // ===== Sortierung (auf Normalform) =====
   function sortItems(items) {
     const v = sortBy?.value || "relevance";
     const copy = items.slice();
 
     switch (v) {
       case "price-asc":
-        copy.sort((a,b) => (toNum(a.verkauf_brutto ?? a.verkauf_preis ?? a.preis) || Infinity) - (toNum(b.verkauf_brutto ?? b.verkauf_preis ?? b.preis) || Infinity));
+        copy.sort((a,b) => (toNum(a.preis) || Infinity) - (toNum(b.preis) || Infinity));
         break;
       case "price-desc":
-        copy.sort((a,b) => (toNum(b.verkauf_brutto ?? b.verkauf_preis ?? b.preis) || -Infinity) - (toNum(a.verkauf_brutto ?? a.verkauf_preis ?? a.preis) || -Infinity));
+        copy.sort((a,b) => (toNum(b.preis) || -Infinity) - (toNum(a.preis) || -Infinity));
         break;
       case "date-desc": {
-        const getDate = (x) => (x?.veroeffentlichtAm ? new Date(x.veroeffentlichtAm) : x?._id?.$date ? new Date(x._id.$date) : new Date(0));
+        const getDate = (x) => (x?.raw?.veroeffentlichtAm ? new Date(x.raw.veroeffentlichtAm)
+                             : x?._id?.$date ? new Date(x._id.$date)
+                             : new Date(0));
         copy.sort((a,b) => getDate(b) - getDate(a));
         break;
       }
       case "mileage-asc":
-        copy.sort((a,b) => (toNum(a.verkauf_kilometer ?? a.km) || Infinity) - (toNum(b.verkauf_kilometer ?? b.km) || Infinity));
+        copy.sort((a,b) => (toNum(a.kilometer) || Infinity) - (toNum(b.kilometer) || Infinity));
         break;
       default: // relevance
-        // no-op (kannst du später mit Scoring befüllen)
+        // no-op (Platz für Scoring)
         break;
     }
     return copy;
@@ -545,117 +655,115 @@ const fmtEUR = (v) => {
       });
     });
   }
-// Helper: echte Mongo-ID herausziehen (string, {_id: "..."} oder {$oid: "..."})
-function getMongoId(doc) {
-  if (!doc) return null;
-  if (doc._id && typeof doc._id === "object" && typeof doc._id.$oid === "string") return doc._id.$oid;
-  if (typeof doc._id === "string") return doc._id;
-  if (typeof doc.id === "string") return doc.id;
-  return null;
-}
-function renderItems() {
-  if (!container) return;
-  container.innerHTML = "";
 
-  // Client-Pagination
-  const total = filteredItems.length;
-  const start = (page - 1) * pageSize;
-  const end   = Math.min(start + pageSize, total);
-  const view  = filteredItems.slice(start, end);
-
-  if (!view.length) {
-    container.innerHTML = "<p>❌ Keine Fahrzeuge gefunden.</p>";
-    renderPager(total);
-    return;
+  // Helper: echte Mongo-ID herausziehen (string, {_id: "..."} oder {$oid: "..."})
+  function getMongoId(doc) {
+    if (!doc) return null;
+    if (doc._id && typeof doc._id === "object" && typeof doc._id.$oid === "string") return doc._id.$oid;
+    if (typeof doc._id === "string") return doc._id;
+    if (typeof doc.id === "string") return doc.id;
+    return null;
   }
 
-  view.forEach(inserat => {
-    const imgs = Array.isArray(inserat.images) ? inserat.images : [];
-    const tel  = sanitizePhone(inserat.telefon);
+  function renderItems() {
+    if (!container) return;
+    container.innerHTML = "";
 
-    const card = document.createElement("div");
-    card.className = "car-card horizontal";
-    card.innerHTML = `
-      <div class="car-card-media">
-        <div class="card-actions mobile-only">
-          <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
-          <a href="${tel ? `tel:${tel}` : '#'}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${tel ? "" : "aria-disabled='true'"} >
-            <i class="fas fa-phone"></i>
-          </a>
-        </div>
-        <div class="media-container">
-          <div class="slides">
-            ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
-            ${inserat.video ? `<video class="slide" controls muted playsinline preload="metadata"><source src="${inserat.video}" type="video/mp4"></video>` : ""}
-          </div>
-          <button class="media-arrow left"  type="button"><i class="fas fa-chevron-left"></i></button>
-          <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
-        </div>
-      </div>
-      <div class="car-details">
-        <div class="car-top-row">
-          <h2 class="car-title">${inserat.titel || "Unbekanntes Fahrzeug"}</h2>
-          <p class="car-price">${fmtEUR(inserat.verkauf_brutto ?? inserat.verkauf_preis ?? inserat.preis)}</p>
-        </div>
-        <p class="car-subtitle">${inserat.verkauf_kurzbeschreibung || ""}</p>
-        <div class="car-info-grid">
-          <p><i class="fas fa-road"></i> ${inserat.verkauf_kilometer ?? "?"} km</p>
-          <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.verkauf_erstzulassung || "?"}</p>
-          <p><i class="fas fa-gas-pump"></i> ${inserat.verkauf_kraftstoff || "?"}</p>
-          <p><i class="fas fa-gauge-high"></i> ${inserat.verkauf_leistung ?? "?"} PS</p>
-          <p><i class="fas fa-gears"></i> ${inserat.verkauf_getriebe || "?"}</p>
-          <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "?"} l/100 km</p>
-        </div>
-        <div class="dealer-info-row">
-          <div class="dealer-info-text">
-            ${String(inserat.verkauf_verkaeufer || "").toLowerCase() === "händler"
-              ? `<strong>${inserat.verkauf_name || "Autohaus"}</strong><br>${inserat.standort || ""}`
-              : `Privatanbieter<br>${inserat.standort || ""}`
-            }
-          </div>
-          <div class="card-actions desktop-only">
+    // Client-Pagination
+    const total = filteredItems.length;
+    const start = (page - 1) * pageSize;
+    const end   = Math.min(start + pageSize, total);
+    const view  = filteredItems.slice(start, end);
+
+    if (!view.length) {
+      container.innerHTML = "<p>❌ Keine Fahrzeuge gefunden.</p>";
+      renderPager(total);
+      return;
+    }
+
+    view.forEach(inserat => {
+      const imgs = Array.isArray(inserat.images) ? inserat.images : [];
+      const tel  = sanitizePhone(inserat.telefon);
+
+      const priceNum = toNum(inserat.preis);
+      const kmNum    = toNum(inserat.kilometer);
+
+      const card = document.createElement("div");
+      card.className = "car-card horizontal";
+      card.innerHTML = `
+        <div class="car-card-media">
+          <div class="card-actions mobile-only">
             <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
             <a href="${tel ? `tel:${tel}` : '#'}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${tel ? "" : "aria-disabled='true'"} >
               <i class="fas fa-phone"></i>
             </a>
           </div>
+          <div class="media-container">
+            <div class="slides">
+              ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
+              ${inserat.video ? `<video class="slide" controls muted playsinline preload="metadata"><source src="${inserat.video}" type="video/mp4"></video>` : ""}
+            </div>
+            <button class="media-arrow left"  type="button"><i class="fas fa-chevron-left"></i></button>
+            <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
+          </div>
         </div>
-      </div>
-    `;
+        <div class="car-details">
+          <div class="car-top-row">
+            <h2 class="car-title">${inserat.titel || "Unbekanntes Fahrzeug"}</h2>
+            <p class="car-price">${isNaN(priceNum) ? "Preis n. a." : priceNum.toLocaleString("de-DE") + " €"}</p>
+          </div>
+          <p class="car-subtitle">${inserat.raw?.verkauf_kurzbeschreibung || ""}</p>
+          <div class="car-info-grid">
+            <p><i class="fas fa-road"></i> ${isNaN(kmNum) ? "?" : kmNum.toLocaleString("de-DE")} km</p>
+            <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.erstzulassung || "?"}</p>
+            <p><i class="fas fa-gas-pump"></i> ${inserat.kraftstoff || "?"}</p>
+            <p><i class="fas fa-gauge-high"></i> ${inserat.leistung || "?"} PS</p>
+            <p><i class="fas fa-gears"></i> ${inserat.getriebe || "?"}</p>
+            <p><i class="fas fa-tint"></i> ${inserat.verbrauch_kombiniert || "?"} l/100 km</p>
+          </div>
+          <div class="dealer-info-row">
+            <div class="dealer-info-text">
+              ${String(inserat.verkaeufer || "").toLowerCase() === "händler"
+                ? `<strong>${inserat.name || "Autohaus"}</strong><br>${inserat.standort || ""}`
+                : `Privatanbieter<br>${inserat.standort || ""}`
+              }
+            </div>
+            <div class="card-actions desktop-only">
+              <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
+              <a href="${tel ? `tel:${tel}` : '#'}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${tel ? "" : "aria-disabled='true'"} >
+                <i class="fas fa-phone"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+      `;
 
-    // Karte einsetzen
-    container.appendChild(card);
+      container.appendChild(card);
+      initMediaSlider(card.querySelector(".media-container"));
 
-    // Medien-Slider aktivieren
-    initMediaSlider(card.querySelector(".media-container"));
+      // 👉 Weiterleitung auf anzeige.html beim Klick auf die Karte
+      const realId = getMongoId(inserat);
+      card.dataset.id = realId || "";
 
-    // 👉 Weiterleitung auf anzeige.html beim Klick auf die Karte
-    const realId = getMongoId(inserat);
-    card.dataset.id = realId || "";
-
-    card.addEventListener("click", (e) => {
-      // Interaktive Elemente (Buttons, Links, Slider-Pfeile) ignorieren
-      if (e.target.closest("button, a, .media-arrow")) return;
-
-      try { localStorage.setItem("ausgewaehltesInserat", JSON.stringify(inserat)); } catch {}
-      const qs = realId ? `?id=${encodeURIComponent(realId)}` : "";
-      window.location.href = `anzeige.html${qs}`;
+      card.addEventListener("click", (e) => {
+        if (e.target.closest("button, a, .media-arrow")) return;
+        try { localStorage.setItem("ausgewaehltesInserat", JSON.stringify(inserat)); } catch {}
+        const qs = realId ? `?id=${encodeURIComponent(realId)}` : "";
+        window.location.href = `anzeige.html${qs}`;
+      });
     });
-  });
 
-  renderPager(total);
-}
-
+    renderPager(total);
+  }
 
   // ===== Load + First Render =====
   async function loadAndRender() {
     try {
-      // Server holt "frisch", aber wir paginieren clientseitig für schnelles Filtern
-      const { items } = await fetchInserate(1, 200); // bis zu 200 laden; anpassen nach Bedarf
-      allItems = Array.isArray(items) ? items : [];
-      // Erstfilterung (leer -> alles)
+      // Bis zu 200 laden; anschließend clientseitig filtern/sortieren
+      const { items } = await fetchInserate(1, 200);
+      // >>> Normalisieren <<<
+      allItems = Array.isArray(items) ? items.map(normalizeItem) : [];
       filteredItems = applyClientFilters(allItems);
-      // Sortieren
       filteredItems = sortItems(filteredItems);
       page = 1;
       renderItems();
@@ -682,6 +790,7 @@ function renderItems() {
   // ===== Init =====
   loadAndRender();
 });
+
 
 
 

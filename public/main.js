@@ -1249,3 +1249,14 @@ async function loadHomeListings() {
     container.innerHTML = "<p>🚫 Fehler beim Laden der Inserate.</p>";
   }
 }
+
+
+
+
+
+
+
+
+
+
+window.location.href = `suche.html?${qs.toString()}`;
