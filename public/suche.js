@@ -1,6 +1,30 @@
+
 // suche.js (komplett)
 // Entfernt "no-js" Klasse, falls im HTML gesetzt
 document.documentElement.classList.remove("no-js");
+// === Query-Params + Utils (ganz oben einfügen) ===
+const QP = (() => {
+  const sp = new URLSearchParams(location.search);
+  const arr = (v) => (v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : []);
+  return {
+    marke: sp.get("marke") || "",
+    modell: arr(sp.get("modell")),        // "Golf,Passat"
+    ezFrom: sp.get("ezFrom") || "",       // "YYYY-MM"
+    km_max: sp.get("km_max") || "",
+    price_max: sp.get("price_max") || "",
+    getriebe: (sp.get("getriebe") || "").toLowerCase(),
+    kraftstoff: (sp.get("kraftstoff") || "").toLowerCase(),
+    ort: sp.get("ort") || "",
+    umkreis: sp.get("umkreis") || ""      // derzeit ungenutzt (kein Geocode)
+  };
+})();
+
+const norm = (s) => String(s || "").toLowerCase();
+const toNum = (v) => {
+  if (v === null || v === undefined || v === "") return NaN;
+  return Number(String(v).replace(/\./g, "").replace(",", "."));
+};
+
 
 document.addEventListener("DOMContentLoaded", () => {
   // ===== DOM Refs =====
@@ -13,8 +37,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const sidebar       = document.querySelector(".filter-sidebar");
 
   const searchLink    = document.querySelector('a[href="#search-section"]');
-  const makeInput     = document.getElementById("make");
-  const modelInput    = document.getElementById("model");
+  const makeInput     = document.getElementById("marke");
+  const modelInput    = document.getElementById("modell");
   const titleInput    = document.getElementById("title");
 
   const savedCarsLink = document.getElementById("saved-cars-link");
@@ -25,6 +49,50 @@ document.addEventListener("DOMContentLoaded", () => {
   const sortBy        = document.getElementById("sortBy");
   const applyFilters  = document.getElementById("applyFiltersBtn");
 
+
+
+  // --- Prefill aus URL in die UI ---
+(function prefillFromQuery(){
+  // Felder greifen (nur setzen, wenn vorhanden)
+  const markeEl   = document.getElementById("marke");
+  const modellEl  = document.getElementById("modell");
+
+  const priceToEl = document.getElementById("priceTo");
+  const kmToEl    = document.getElementById("mileageTo");
+
+  const fuelEl    = document.getElementById("fuelType") || document.getElementById("fuel");
+  const gearEl    = document.getElementById("transmission") || document.getElementById("gear");
+
+  const firstRegMonthEl = document.getElementById("first-registration-month");
+  const firstRegYearEl  = document.getElementById("first-registration-year");
+  const firstRegFromEl  = document.getElementById("firstRegFrom"); // <input type="month"> (falls vorhanden)
+
+  if (markeEl && QP.marke) markeEl.value = QP.marke;
+
+  // multiple Select für Modell
+  if (modellEl && Array.isArray(QP.modell) && QP.modell.length){
+    const set = new Set(QP.modell.map(v => v.toLowerCase()));
+    [...modellEl.options].forEach(opt => { opt.selected = set.has(String(opt.value).toLowerCase()); });
+  }
+
+  if (priceToEl && QP.price_max) priceToEl.value = QP.price_max;
+  if (kmToEl && QP.km_max)       kmToEl.value    = QP.km_max;
+
+  if (fuelEl && QP.kraftstoff) fuelEl.value = QP.kraftstoff;
+  if (gearEl && QP.getriebe)   gearEl.value = QP.getriebe;
+
+  // Erstzulassung (Variante A: type="month")
+  if (firstRegFromEl && QP.ezFrom) firstRegFromEl.value = QP.ezFrom;
+
+  // Erstzulassung (Variante B: getrenntes Monat/Jahr)
+  if (QP.ezFrom && firstRegMonthEl && firstRegYearEl) {
+    const [y,m] = QP.ezFrom.split("-");
+    if (y) firstRegYearEl.value  = y;
+    if (m) firstRegMonthEl.value = m;
+  }
+})();
+
+
   // ===== State =====
   let allItems = [];              // Vom Server (ungefiltert)
   let filteredItems = [];         // Nach Client-Filtern
@@ -33,8 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ===== Helpers =====
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-  const toNum = (v) => (v === null || v === undefined || v === "" ? NaN : Number(String(v).replace(/\./g, "").replace(",", ".")));
-  const fmtEUR = (v) => {
+const fmtEUR = (v) => {
     const n = toNum(v);
     return isNaN(n) ? "Preis n. a." : n.toLocaleString("de-DE") + " €";
   };
@@ -288,76 +355,138 @@ document.addEventListener("DOMContentLoaded", () => {
     const data = await res.json(); // { page, limit, total, items }
     return data;
   }
-
-  // ===== Client-Filter =====
   function applyClientFilters(items) {
-    const priceFromEl = document.getElementById("priceFrom");
-    const priceToEl   = document.getElementById("priceTo");
-    const mileageFromEl = document.getElementById("mileageFrom");
-    const mileageToEl   = document.getElementById("mileageTo");
-    const powerFromEl = document.getElementById("powerFrom");
-    const powerToEl   = document.getElementById("powerTo");
-    const fuelTypeEl  = document.getElementById("fuelType");
-    const transmissionEl = document.getElementById("transmission");
-    const accidentFreeEl = document.getElementById("accidentFree");
-    const inspectionUntilEl = document.getElementById("inspectionUntil");
-    const firstRegFromEl    = document.getElementById("firstRegFrom");
-
-    const priceFrom = toNum(priceFromEl?.value ?? "");
-    const priceTo   = toNum(priceToEl?.value ?? "");
-    const mileageFrom = toNum(mileageFromEl?.value ?? "");
-    const mileageTo   = toNum(mileageToEl?.value ?? "");
-    const powerFrom = toNum(powerFromEl?.value ?? "");
-    const powerTo   = toNum(powerToEl?.value ?? "");
-    const fuelType  = String(fuelTypeEl?.value || "Beliebig").toLowerCase();
-    const transmission = String(transmissionEl?.value || "Beliebig").toLowerCase();
-    const accidentFree = !!accidentFreeEl?.checked;
+    // Sidebar-/Form-Felder (nur verwenden, wenn vorhanden)
+    const priceFromEl      = document.getElementById("priceFrom");
+    const priceToEl        = document.getElementById("priceTo");
+    const mileageFromEl    = document.getElementById("mileageFrom");
+    const mileageToEl      = document.getElementById("mileageTo");
+    const powerFromEl      = document.getElementById("powerFrom");
+    const powerToEl        = document.getElementById("powerTo");
+  
+    // IDs: auf Suche-Seite evtl. fuelType/transmission, auf Startseite fuel/gear
+    const fuelTypeEl       = document.getElementById("fuelType") || document.getElementById("fuel");
+    const transmissionEl   = document.getElementById("transmission") || document.getElementById("gear");
+  
+    const accidentFreeEl   = document.getElementById("accidentFree");
+    const inspectionUntilEl= document.getElementById("inspectionUntil");
+  
+    // Erstzulassung: EITHER <input type="month" id="firstRegFrom">
+    // OR two selects: #first-registration-year + #first-registration-month
+    const firstRegFromEl   = document.getElementById("firstRegFrom");
+    const firstRegMonthEl  = document.getElementById("first-registration-month");
+    const firstRegYearEl   = document.getElementById("first-registration-year");
+  
+    // Marke/Modell Felder (UI kann Vorrang vor URL haben)
+    const markeEl          = document.getElementById("marke");
+    const modellEl         = document.getElementById("modell");
+  
+    // --- UI lesen ---
+    const priceFrom     = toNum(priceFromEl?.value ?? "");
+    const priceTo       = toNum(priceToEl?.value   ?? "");
+    const mileageFrom   = toNum(mileageFromEl?.value ?? "");
+    const mileageTo     = toNum(mileageToEl?.value   ?? "");
+    const powerFrom     = toNum(powerFromEl?.value ?? "");
+    const powerTo       = toNum(powerToEl?.value   ?? "");
+  
+    const fuelTypeUI    = (fuelTypeEl?.value ? String(fuelTypeEl.value) : "Beliebig").toLowerCase();
+    const transmissionUI= (transmissionEl?.value ? String(transmissionEl.value) : "Beliebig").toLowerCase();
+  
+    const accidentFree  = !!accidentFreeEl?.checked;
     const inspectionUntil = inspectionUntilEl?.value || ""; // YYYY-MM
-    const firstRegFrom    = firstRegFromEl?.value || "";    // YYYY-MM
-
+  
+    // Erstzulassung aus UI zusammensetzen
+    const firstRegFromUI =
+      (firstRegFromEl?.value) ||
+      (firstRegYearEl?.value && firstRegMonthEl?.value
+        ? `${firstRegYearEl.value}-${firstRegMonthEl.value}`
+        : "");
+  
+    // --- Fallbacks aus URL (wenn UI leer) ---
+    const priceToEff     = (!isNaN(priceTo)   && priceTo   > 0) ? priceTo   : toNum(QP.price_max);
+    const mileageToEff   = (!isNaN(mileageTo) && mileageTo > 0) ? mileageTo : toNum(QP.km_max);
+    const firstRegEff    = firstRegFromUI || QP.ezFrom;
+  
+    const fuelEff        = (fuelTypeUI !== "beliebig")     ? fuelTypeUI     : (QP.kraftstoff || "beliebig");
+    const gearEff        = (transmissionUI !== "beliebig") ? transmissionUI : (QP.getriebe   || "beliebig");
+  
+    // Marke/Modell: UI > URL
+    let brandEff  = QP.marke ? norm(QP.marke) : "";
+    let modelsEff = Array.isArray(QP.modell) ? QP.modell.map(norm) : [];
+    if (markeEl && markeEl.value) brandEff = norm(markeEl.value);
+    if (modellEl && modellEl.options) {
+      const selected = [...modellEl.options].filter(o => o.selected).map(o => norm(o.value));
+      if (selected.length) modelsEff = selected;
+    }
+  
+    // --- Filtern ---
     return items.filter(i => {
+      // Marke/Modell/Titel
+      const iBrand = norm(i.verkauf_marke || i.marke || "");
+      const iModel = norm(i.verkauf_modell || i.modell || "");
+      const iTitle = norm(i.titel || "");
+  
+      if (brandEff && iBrand !== brandEff) return false;
+      if (modelsEff.length) {
+        const hit = modelsEff.some(m => iModel.includes(m) || iTitle.includes(m));
+        if (!hit) return false;
+      }
+  
+      // Preis
       const preis = toNum(i.verkauf_brutto ?? i.verkauf_preis ?? i.preis);
       if (!isNaN(priceFrom) && priceFrom > 0 && !(preis >= priceFrom)) return false;
-      if (!isNaN(priceTo)   && priceTo   > 0 && !(preis <= priceTo))   return false;
-
+      if (!isNaN(priceToEff) && priceToEff > 0 && !(preis <= priceToEff)) return false;
+  
+      // Kilometer
       const km = toNum(i.verkauf_kilometer ?? i.km);
       if (!isNaN(mileageFrom) && mileageFrom > 0 && !(km >= mileageFrom)) return false;
-      if (!isNaN(mileageTo)   && mileageTo   > 0 && !(km <= mileageTo))   return false;
-
+      if (!isNaN(mileageToEff) && mileageToEff > 0 && !(km <= mileageToEff)) return false;
+  
+      // Leistung
       const ps = toNum(i.verkauf_leistung ?? i.ps);
       if (!isNaN(powerFrom) && powerFrom > 0 && !(ps >= powerFrom)) return false;
       if (!isNaN(powerTo)   && powerTo   > 0 && !(ps <= powerTo))   return false;
-
-      if (fuelType !== "beliebig") {
-        const ft = String(i.verkauf_kraftstoff || "").toLowerCase();
-        if (!ft.includes(fuelType)) return false;
+  
+      // Kraftstoff/Getriebe
+      if (fuelEff !== "beliebig") {
+        const ft = norm(i.verkauf_kraftstoff || i.kraftstoff || "");
+        if (!ft.includes(fuelEff)) return false;
       }
-
-      if (transmission !== "beliebig") {
-        const tr = String(i.verkauf_getriebe || "").toLowerCase();
-        if (!tr.includes(transmission)) return false;
+      if (gearEff !== "beliebig") {
+        const tr = norm(i.verkauf_getriebe || i.getriebe || "");
+        if (!tr.includes(gearEff)) return false;
       }
-
+  
+      // Unfallfrei (nur UI)
       if (accidentFree) {
         const flag = i.unfallfrei === true ||
-          (Array.isArray(i.verkauf_ausstattung) && i.verkauf_ausstattung.some(a => String(a).toLowerCase().includes("unfall")));
+          (Array.isArray(i.verkauf_ausstattung) && i.verkauf_ausstattung.some(a => norm(a).includes("unfall")));
         if (!flag) return false;
       }
-
+  
+      // HU bis
       if (inspectionUntil) {
         const hu = String(i.hu || i.verkauf_hu || "");
         if (hu && hu.length >= 7 && hu < inspectionUntil) return false;
       }
-
-      if (firstRegFrom) {
+  
+      // Erstzulassung ab
+      if (firstRegEff) {
         const ez = String(i.verkauf_erstzulassung || "");
-        if (ez && ez.length >= 7 && ez < firstRegFrom) return false;
+        if (ez && ez.length >= 7 && ez < firstRegEff) return false;
       }
-
+  
+      // Ort (Textmatch; echter Radius später via Geocoding)
+      if (QP.ort) {
+        const standort = norm(i.standort || "");
+        if (!standort.includes(norm(QP.ort))) return false;
+      }
+  
       return true;
     });
   }
-
+  
+  
   // ===== Sortierung =====
   function sortItems(items) {
     const v = sortBy?.value || "relevance";
@@ -553,3 +682,19 @@ function renderItems() {
   // ===== Init =====
   loadAndRender();
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
