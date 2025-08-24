@@ -1008,3 +1008,63 @@ if (hatAusstattung) {
 
 
 
+
+
+
+
+
+
+
+  
+  function openKontaktPopup() {
+    document.getElementById("kontaktOverlay")?.classList.add("show");
+  }
+  function closeKontaktPopup() {
+    document.getElementById("kontaktOverlay")?.classList.remove("show");
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const form = document.getElementById("kontaktForm");
+    if (!form) return;
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const name    = document.getElementById("kontaktNameInput")?.value.trim()   || "";
+      const strasse = document.getElementById("kontaktStrasseInput")?.value.trim()|| "";
+      const plz     = document.getElementById("kontaktPlzInput")?.value.trim()    || "";
+      const ort     = document.getElementById("kontaktOrtInput")?.value.trim()    || "";
+      const telefon = document.getElementById("kontaktTelefonInput")?.value.trim()|| "";
+
+      // Mini-Validierung
+      if (!name || !telefon) {
+        alert("Bitte Name und Telefonnummer angeben.");
+        return;
+      }
+
+      // Button sperren (Doppelklick verhindern)
+      const submitBtn = form.querySelector('button[type="submit"]');
+      submitBtn.disabled = true; submitBtn.textContent = "Veröffentliche…";
+
+      try {
+        // Das Server-Endpoint /veroeffentlichen nutzt diese Felder bereits.
+        const res = await fetch("/veroeffentlichen", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ name, telefon, plz, ort, strasse })
+        });
+
+        if (!res.ok) throw new Error(await res.text());
+        alert("Inserat wurde veröffentlicht.");
+        closeKontaktPopup();
+        // Zur Übersicht oder Suchseite weiterleiten:
+        window.location.href = "übersicht.html";
+      } catch (err) {
+        console.error(err);
+        alert("Veröffentlichen fehlgeschlagen.");
+      } finally {
+        submitBtn.disabled = false; submitBtn.textContent = "Jetzt veröffentlichen";
+      }
+    });
+  });

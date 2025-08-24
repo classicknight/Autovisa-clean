@@ -856,6 +856,21 @@ if (gearVal && !["beliebig","any","alle","all","-"].includes(gearVal)) {
   params.delete("getriebe");
 }
 
+  // Ort / Umkreis
+  const locEl       = document.getElementById("location");
+  const distSel     = document.getElementById("distance-select");
+  const distCustom  = document.getElementById("distance-custom");
+
+  const locVal = (locEl?.value || "").trim();
+  setOrDelete(params, "ort", locVal);
+
+  if (distSel && !distSel.disabled) {
+    const dRaw = distSel.value === "custom" ? (distCustom?.value || "") : distSel.value;
+    const d = parseInt(dRaw, 10);
+    setOrDelete(params, "umkreis", (!Number.isNaN(d) && d > 0 && d !== 999) ? d : "");
+  } else {
+    params.delete("umkreis");
+  }
 
   // Sortierung -> Serverparam
   const sortSelectVal = sortBy?.value || "";
@@ -884,6 +899,7 @@ loadAndRender(initialPage);
 
 
 });
+
 
 
 

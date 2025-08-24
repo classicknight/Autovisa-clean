@@ -21,13 +21,23 @@ const client = new MongoClient(mongoUri);
 let db;
 
 client.connect()
-  .then(() => {
+  .then(async () => {
     db = client.db("autovisa");
     console.log("✅ MongoDB verbunden");
+
+    // Empfohlen: Indexe für Geocoding & Geo-Suche
+    try {
+      await db.collection("inserate").createIndex({ loc: "2dsphere" });
+      await db.collection("geocache").createIndex({ key: 1 }, { unique: true });
+      console.log("✅ Geo-Index & Geocache-Index gesetzt");
+    } catch (e) {
+      console.warn("⚠️ Konnte Indexe nicht setzen:", e?.message || e);
+    }
   })
   .catch(err => {
     console.error("❌ MongoDB-Verbindung fehlgeschlagen:", err);
   });
+
 
 // === Cloudinary Konfiguration ===
 cloudinary.config({
@@ -1016,6 +1026,35 @@ app.get("/chat", checkLogin, async (req, res) => {
     res.status(500).json({ error: "Fehler beim Abrufen des Chatverlaufs." });
   }
 });
+// === Geocoding mit einfachem Mongo-Cache (Node >= 18: global fetch vorhanden)
+async function geocodeToPoint(query) {
+  const q = String(query || "").trim();
+  if (!q) return null;
+
+  const key = q.toLowerCase();
+  const cacheColl = db.collection("geocache");
+  const cached = await cacheColl.findOne({ key });
+  if (cached?.coords?.type === "Point") return cached.coords;
+
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`;
+  const res = await fetch(url, { headers: { "User-Agent": "autovisa/1.0" } }).catch(() => null);
+  if (!res || !res.ok) return null;
+
+  const arr = await res.json().catch(() => []);
+  const first = Array.isArray(arr) && arr[0];
+  if (!first) return null;
+
+  const lon = parseFloat(first.lon), lat = parseFloat(first.lat);
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
+
+  const coords = { type: "Point", coordinates: [lon, lat] };
+  await cacheColl.updateOne(
+    { key },
+    { $set: { key, coords, display_name: first.display_name || q, updatedAt: new Date() } },
+    { upsert: true }
+  );
+  return coords;
+}
 
 // ========== VERÖFFENTLICHEN: Wizard/Vorschau (nimmt den letzten Entwurf des eingeloggten Nutzers) ==========
 app.post("/veroeffentlichen", checkLogin, async (req, res) => {
@@ -1039,12 +1078,32 @@ app.post("/veroeffentlichen", checkLogin, async (req, res) => {
       status: "online",
       veroeffentlichtAm: new Date(),
       verkauf_kurzbeschreibung: getZufaelligeAusstattung(lastVehicle.verkauf_ausstattung || []),
+
       // Werte aus Request als Fallback erlaubt – ansonsten Draft-Werte oder Defaults
       verkauf_verkaeufer: req.body?.verkauf_verkaeufer || lastVehicle.verkauf_verkaeufer || "Privatverkäufer",
       verkauf_name:       req.body?.name || lastVehicle.verkauf_name || "Unbekannt",
-      standort:           (req.body?.plz && req.body?.ort) ? `${req.body.plz} ${req.body.ort}` : (lastVehicle.standort || "Nicht angegeben"),
+      standort:           (req.body?.plz && req.body?.ort)
+                           ? `${req.body.plz} ${req.body.ort}`
+                           : (lastVehicle.standort || "Nicht angegeben"),
       telefon:            req.body?.telefon || lastVehicle.telefon || ""
     };
+
+    // ---- Geokoordinaten (optional) setzen, wenn Standort vorhanden ----
+    const locString =
+      (req.body?.plz && req.body?.ort)
+        ? `${req.body.plz} ${req.body.ort}`
+        : (neuesInserat.standort || "");
+    if (locString) {
+      try {
+        const point = await geocodeToPoint(locString);
+        if (point) neuesInserat.loc = point;  // { type:"Point", coordinates:[lon,lat] }
+      } catch (e) {
+        console.warn("Geocoding fehlgeschlagen:", e?.message || e);
+      }
+    }
+
+    // neue _id erzeugen (Entwurf-_id nicht übernehmen)
+    delete neuesInserat._id;
 
     await inserateColl.insertOne(neuesInserat);
     await entwurfColl.deleteOne({ _id: lastVehicle._id, nutzerId: sellerId });
@@ -1071,8 +1130,8 @@ app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
 
   try {
     const sellerId      = req.nutzer?.id;
-    const entwurfColl   = db.collection("fahrzeugeEntwurf"); // <-- Quelle: Entwürfe
-    const inserateColl  = db.collection("inserate");         // <-- Ziel: öffentlich
+    const entwurfColl   = db.collection("fahrzeugeEntwurf"); // Quelle: Entwürfe
+    const inserateColl  = db.collection("inserate");         // Ziel: öffentlich
 
     // Entwurf prüfen (Besitz + Existenz)
     const draft = await entwurfColl.findOne({ _id, nutzerId: sellerId });
@@ -1089,6 +1148,20 @@ app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
       standort:           draft.standort || "Nicht angegeben",
       telefon:            draft.telefon || ""
     };
+
+    // ---- Geokoordinaten (optional) setzen, wenn Standort vorhanden ----
+    const locString = neuesInserat.standort || "";
+    if (locString) {
+      try {
+        const point = await geocodeToPoint(locString);
+        if (point) neuesInserat.loc = point;  // { type:"Point", coordinates:[lon,lat] }
+      } catch (e) {
+        console.warn("Geocoding fehlgeschlagen:", e?.message || e);
+      }
+    }
+
+    // neue _id erzeugen (Entwurf-_id nicht übernehmen)
+    delete neuesInserat._id;
 
     await inserateColl.insertOne(neuesInserat);
     await entwurfColl.deleteOne({ _id, nutzerId: sellerId });
@@ -1167,13 +1240,14 @@ process.on("uncaughtException", (err) => {
 
 // === Helper zum sicheren Regex-Bau ===
 const escapeRegex = (s = "") => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-// === SUCHE: /api/search ===
-// GET /api/search?marke=Audi&modell=A4,A6&ezFrom=2018-01&km_max=100000&price_max=30000&getriebe=automatik&kraftstoff=diesel&sort=preis_asc&page=1&limit=20
+// === SUCHE: /api/search (inkl. optionalem Geo-Radius) ===
+// GET /api/search?marke=Audi&modell=A4,A6&ezFrom=2018-01&km_max=100000&price_max=30000&getriebe=automatik&kraftstoff=diesel&ort=10115%20Berlin&umkreis=50&sort=preis_asc&page=1&limit=20
 app.get("/api/search", async (req, res) => {
   try {
     const {
       marke, modell, ezFrom, km_max, price_max,
       getriebe, kraftstoff, sort,
+      ort, umkreis,
       page = "1", limit = "20"
     } = req.query;
 
@@ -1181,7 +1255,6 @@ app.get("/api/search", async (req, res) => {
     const lim = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
     const skip = (p - 1) * lim;
 
-    // String-Matches
     const baseMatch = { status: "online" };
     if (marke) {
       baseMatch.marke = { $regex: `^${escapeRegex(marke)}$`, $options: "i" };
@@ -1194,89 +1267,83 @@ app.get("/api/search", async (req, res) => {
         .map(m => new RegExp(`^${escapeRegex(m)}$`, "i"));
       if (arr.length) baseMatch.modell = { $in: arr };
     }
-    if (ezFrom)     baseMatch.erstzulassung     = { $gte: ezFrom }; // 'YYYY-MM'
-    if (getriebe)   baseMatch.verkauf_getriebe  = { $regex: `^${escapeRegex(getriebe)}`, $options: "i" };
-    if (kraftstoff) baseMatch.verkauf_kraftstoff= { $regex: escapeRegex(kraftstoff),    $options: "i" };
+    if (ezFrom)     baseMatch.erstzulassung      = { $gte: ezFrom };
+    if (getriebe)   baseMatch.verkauf_getriebe   = { $regex: `^${escapeRegex(getriebe)}`, $options: "i" };
+    if (kraftstoff) baseMatch.verkauf_kraftstoff = { $regex: escapeRegex(kraftstoff),   $options: "i" };
 
-    // Aggregation
-    const pipeline = [
-      // 1) Preis/KM robust bereinigen und in int wandeln
-      {
-        $addFields: {
+    // Zahlen-Grenzen vorbereiten
+    const priceMaxNum = parseInt(price_max, 10);
+    const kmMaxNum    = parseInt(km_max, 10);
+
+    // Sortierung vorbereiten (Preis null nach hinten)
+    const sortStages =
+      (sort === "preis_asc")
+        ? [
+            { $addFields: { _preis_null: { $cond: [{ $eq: ["$preis_num", null] }, 1, 0] } } },
+            { $sort: { _preis_null: 1, preis_num: 1, _id: -1 } }
+          ]
+        : (sort === "preis_desc")
+        ? [
+            { $addFields: { _preis_null: { $cond: [{ $eq: ["$preis_num", null] }, 1, 0] } } },
+            { $sort: { _preis_null: 1, preis_num: -1, _id: -1 } }
+          ]
+        : [{ $sort: { veroeffentlichtAm: -1, _id: -1 } }];
+
+    // Preis/KM-Parsing (wird in beiden Pipelines gebraucht)
+    const parseNumberStages = [
+      { $addFields: {
           _preis_raw: { $ifNull: ["$brutto-preis", "$preis"] },
           _km_raw:    { $ifNull: ["$verkauf_kilometer", "$kilometer", "$km"] }
         }
       },
-      {
-        $addFields: {
+      { $addFields: {
           _preis_clean: {
             $replaceAll: {
-              input: {
-                $replaceAll: {
-                  input: {
-                    $replaceAll: {
-                      input: {
-                        $replaceAll: {
-                          input: { $trim: { input: { $toString: "$_preis_raw" } } },
-                          find: ".", replacement: ""
-                        }
-                      },
-                      find: " ", replacement: ""
-                    }
-                  },
-                  find: "€", replacement: ""
-                }
-              },
+              input: { $replaceAll: {
+                input: { $replaceAll: {
+                  input: { $replaceAll: {
+                    input: { $trim: { input: { $toString: "$_preis_raw" } } },
+                    find: ".", replacement: ""
+                  }},
+                  find: " ", replacement: ""
+                }},
+                find: "€", replacement: ""
+              }},
               find: ",", replacement: ""
             }
           },
           _km_clean: {
             $replaceAll: {
-              input: {
-                $replaceAll: {
-                  input: { $trim: { input: { $toString: "$_km_raw" } } },
-                  find: ".", replacement: ""
-                }
-              },
+              input: { $replaceAll: {
+                input: { $trim: { input: { $toString: "$_km_raw" } } },
+                find: ".", replacement: ""
+              }},
               find: " ", replacement: ""
             }
           }
         }
       },
-      {
-        $addFields: {
+      { $addFields: {
           preis_num: { $convert: { input: "$_preis_clean", to: "int", onError: null, onNull: null } },
           km_num:    { $convert: { input: "$_km_clean",    to: "int", onError: null, onNull: null } }
         }
-      },
+      }
+    ];
 
-      // 2) Grundfilter
+    // Grundfilter + optionale Zahlenfilter
+    const numberFilterStages = [
       { $match: baseMatch },
+      ...(Number.isFinite(priceMaxNum) ? [{ $match: { preis_num: { $ne: null, $lte: priceMaxNum } } }] : []),
+      ...(Number.isFinite(kmMaxNum)    ? [{ $match: { km_num:    { $ne: null, $lte: kmMaxNum } } }] : [])
+    ];
 
-      // 3) Zahlen-Grenzen (nur wenn tatsächlich Zahl vorhanden)
-      ...(price_max ? [{ $match: { preis_num: { $ne: null, $lte: parseInt(price_max, 10) } } }] : []),
-      ...(km_max    ? [{ $match: { km_num:    { $ne: null, $lte: parseInt(km_max, 10)    } } }] : []),
-
-      // 4) Sortierung (Null-Preise ans Ende bei Preis-Sortierungen)
-      ...(sort === "preis_asc"
-        ? [
-            { $addFields: { _preis_null: { $cond: [{ $eq: ["$preis_num", null] }, 1, 0] } } },
-            { $sort: { _preis_null: 1, preis_num: 1, _id: -1 } }
-          ]
-        : sort === "preis_desc"
-        ? [
-            { $addFields: { _preis_null: { $cond: [{ $eq: ["$preis_num", null] }, 1, 0] } } },
-            { $sort: { _preis_null: 1, preis_num: -1, _id: -1 } }
-          ]
-        : [{ $sort: { veroeffentlichtAm: -1, _id: -1 } }]
-      ),
-
-      // 5) Paginierung + Count (+ sensible Felder & Hilfsfelder ausblenden)
+    // Projektions- und Facet-Teil (gleich für beide Pfade)
+    const endStages = [
+      ...sortStages,
       {
         $facet: {
           data: [
-            {
-              $project: {
+            { $project: {
                 token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0,
                 _preis_raw: 0, _km_raw: 0, _preis_clean: 0, _km_clean: 0, _preis_null: 0
               }
@@ -1287,15 +1354,43 @@ app.get("/api/search", async (req, res) => {
           total: [{ $count: "count" }]
         }
       },
-      {
-        $project: {
-          data: 1,
-          total: { $ifNull: [{ $arrayElemAt: ["$total.count", 0] }, 0] }
-        }
-      }
+      { $project: { data: 1, total: { $ifNull: [{ $arrayElemAt: ["$total.count", 0] }, 0] } } }
     ];
 
-    const [{ data, total } = { data: [], total: 0 }] =
+    // Optionaler Geo-Teil
+    const ortStr = String(ort || "").trim();
+    const umkreisKm = Math.max(parseInt(umkreis, 10) || 0, 0);
+    let pipeline;
+
+    if (ortStr) {
+      // Koordinaten holen (mit Cache)
+      const point = await geocodeToPoint(ortStr);
+      if (point) {
+        pipeline = [
+          { $geoNear: {
+              near: point,
+              distanceField: "dist",
+              spherical: true,
+              ...(umkreisKm > 0 ? { maxDistance: umkreisKm * 1000 } : {})
+            }
+          },
+          ...parseNumberStages,
+          ...numberFilterStages,
+          ...endStages
+        ];
+      }
+    }
+
+    // Fallback ohne Geo (kein Ort / Geocode fehlgeschlagen)
+    if (!pipeline) {
+      pipeline = [
+        ...parseNumberStages,
+        ...numberFilterStages,
+        ...endStages
+      ];
+    }
+
+    const [{ data = [], total = 0 } = {}] =
       await db.collection("inserate").aggregate(pipeline).toArray();
 
     res.json({ page: p, limit: lim, total, results: data });
@@ -1304,8 +1399,6 @@ app.get("/api/search", async (req, res) => {
     res.status(500).json({ error: "Interner Fehler bei der Suche." });
   }
 });
-
-
 
 
 
