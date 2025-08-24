@@ -163,25 +163,33 @@ document.addEventListener("DOMContentLoaded", () => {
       const m = monthSel?.value || "";
       if (y && m) qs.set("ezFrom", `${y}-${String(m).padStart(2, "0")}`);
   
-      // km max
       if (kmSel) {
-        const kmMaxRaw = kmSel.value === "custom" ? (kmCustom?.value || "") : kmSel.value;
-        const kmMax = parseInt(kmMaxRaw, 10);
-        if (!Number.isNaN(kmMax) && kmMax > 0) qs.set("km_max", String(kmMax));
+        const raw = kmSel.value === "custom" ? (kmCustom?.value || "") : kmSel.value;
+        const n = parseInt(raw, 10);
+        if (!Number.isNaN(n) && n > 0) {
+          qs.set("km_max", String(n));
+        }
       }
-  
-      // price max
+      
       if (priceSel) {
-        const pMaxRaw = priceSel.value === "custom" ? (priceCustom?.value || "") : priceSel.value;
-        const pMax = parseInt(pMaxRaw, 10);
-        if (!Number.isNaN(pMax) && pMax > 0) qs.set("price_max", String(pMax));
+        const raw = priceSel.value === "custom" ? (priceCustom?.value || "") : priceSel.value;
+        const n = parseInt(raw, 10);
+        if (!Number.isNaN(n) && n > 0) {
+          qs.set("price_max", String(n));
+        }
       }
+      
   
       const gear = (gearSel?.value || "").toLowerCase().trim();
-      if (gear) qs.set("getriebe", gear);
-  
+      if (gear && !["beliebig","any","alle","all","-"].includes(gear)) {
+        qs.set("getriebe", gear);
+      }
+      
       const fuel = (fuelSel?.value || "").toLowerCase().trim();
-      if (fuel) qs.set("kraftstoff", fuel);
+      if (fuel && !["beliebig","any","alle","all","-"].includes(fuel)) {
+        qs.set("kraftstoff", fuel);
+      }
+      
   
       const loc = (locInput?.value || "").trim();
       if (loc) qs.set("ort", loc);

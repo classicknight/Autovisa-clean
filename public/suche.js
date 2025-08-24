@@ -820,17 +820,42 @@ function updateUrlFromUiAndReload() {
       : "");
   setOrDelete(params, "ezFrom", ez);
 
-  // Preis/KM bis
-  const priceToEl   = document.getElementById("priceTo");
-  const mileageToEl = document.getElementById("mileageTo");
-  setOrDelete(params, "price_max", priceToEl?.value || "");
-  setOrDelete(params, "km_max",    mileageToEl?.value || "");
+ // Preis/KM bis (nur echte Zahlen > 0 setzen)
+const priceToEl   = document.getElementById("priceTo");
+const mileageToEl = document.getElementById("mileageTo");
 
-  // Kraftstoff/Getriebe
-  const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
-  const gearEl = document.getElementById("transmission") || document.getElementById("gear");
-  setOrDelete(params, "kraftstoff", (fuelEl?.value || "").toLowerCase());
-  setOrDelete(params, "getriebe",   (gearEl?.value || "").toLowerCase());
+const pMax = parseInt(priceToEl?.value || "", 10);
+if (!Number.isNaN(pMax) && pMax > 0) {
+  params.set("price_max", String(pMax));
+} else {
+  params.delete("price_max");
+}
+
+const kmMax = parseInt(mileageToEl?.value || "", 10);
+if (!Number.isNaN(kmMax) && kmMax > 0) {
+  params.set("km_max", String(kmMax));
+} else {
+  params.delete("km_max");
+}
+
+// Kraftstoff/Getriebe (Beliebig/leer NICHT senden)
+const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
+const gearEl = document.getElementById("transmission") || document.getElementById("gear");
+
+const fuelVal = (fuelEl?.value || "").toLowerCase();
+if (fuelVal && !["beliebig","any","alle","all","-"].includes(fuelVal)) {
+  params.set("kraftstoff", fuelVal);
+} else {
+  params.delete("kraftstoff");
+}
+
+const gearVal = (gearEl?.value || "").toLowerCase();
+if (gearVal && !["beliebig","any","alle","all","-"].includes(gearVal)) {
+  params.set("getriebe", gearVal);
+} else {
+  params.delete("getriebe");
+}
+
 
   // Sortierung -> Serverparam
   const sortSelectVal = sortBy?.value || "";
@@ -859,8 +884,6 @@ loadAndRender(initialPage);
 
 
 });
-
-
 
 
 
