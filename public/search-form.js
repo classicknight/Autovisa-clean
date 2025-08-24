@@ -2,7 +2,14 @@
 document.addEventListener("DOMContentLoaded", () => {
     const form = document.querySelector("#search-section .search-form");
     if (!form) return;
-  
+  // Native HTML5-Validierung für die Suchbox abschalten,
+// damit auch ohne Eingaben gesucht werden kann:
+form.noValidate = true;
+
+// Sicherheitsnetz: "required" von ggf. versteckten Feldern entfernen
+["marke","modell","kilometer-select","price-select","distance-select","gear","transmission","fuel","fuelType"]
+  .forEach(id => document.getElementById(id)?.removeAttribute("required"));
+
     // === Refs (können je Seite fehlen) ===
     const markeSel    = document.getElementById("marke");
     const modellSel   = document.getElementById("modell");

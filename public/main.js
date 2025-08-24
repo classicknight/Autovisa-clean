@@ -666,21 +666,6 @@ new SlimSelect({
     });
   }
   
-  // === Standort & Umkreis ===
-  const locationInput = document.getElementById("location");
-  const distanceSelect = document.getElementById("distance");
-  
-  if (locationInput && distanceSelect) {
-    distanceSelect.disabled = !locationInput.value.trim();
-  
-    locationInput.addEventListener("input", () => {
-      distanceSelect.disabled = !locationInput.value.trim();
-      if (!locationInput.value.trim()) {
-        distanceSelect.selectedIndex = 2;
-      }
-    });
-  }
-})
 
 
 
@@ -717,7 +702,7 @@ if (kilometerSelect && kilometerCustom) {
 
 
 
-
+});
 
 
 // === Preis mit SlimSelect und benutzerdefiniertem Wert ===
@@ -1257,6 +1242,3 @@ async function loadHomeListings() {
 
 
 
-
-
-window.location.href = `suche.html?${qs.toString()}`;
