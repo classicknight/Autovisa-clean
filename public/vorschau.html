@@ -290,13 +290,43 @@
       <form id="kontaktForm">
         <label>Name:</label>
         <input type="text" id="kontaktNameInput" required>
-  
-        <label>Adresse:</label>
-        <input type="text" id="kontaktStrasseInput" placeholder="Straße und Hausnummer">
+        <label for="kontaktStrasseInput">Adresse:</label>
+        <input
+          type="text"
+          id="kontaktStrasseInput"
+          name="strasse"
+          placeholder="Straße und Hausnummer"
+          autocomplete="address-line1"
+        />
+        
         <div class="plz-ort-row">
-          <input type="text" id="kontaktPlzInput" placeholder="PLZ">
-          <input type="text" id="kontaktOrtInput" placeholder="Ort">
+          <div>
+            <label for="kontaktPlzInput">PLZ</label>
+            <input
+              type="text"
+              id="kontaktPlzInput"
+              name="plz"
+              inputmode="numeric"
+              pattern="\d{4,5}"
+              placeholder="z. B. 44135"
+              autocomplete="postal-code"
+            />
+          </div>
+        
+          <div>
+            <label for="kontaktOrtInput">Ort</label>
+            <input
+              list="kontaktOrtSuggestions"
+              type="text"
+              id="kontaktOrtInput"
+              name="ort"
+              placeholder="Ort eintippen…"
+              autocomplete="address-level2"
+            />
+            <datalist id="kontaktOrtSuggestions"></datalist>
+          </div>
         </div>
+        
   
         <label>Telefonnummer:</label>
         <input type="tel" id="kontaktTelefonInput" required>

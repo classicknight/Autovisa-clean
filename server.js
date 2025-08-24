@@ -1240,6 +1240,78 @@ process.on("uncaughtException", (err) => {
 
 // === Helper zum sicheren Regex-Bau ===
 const escapeRegex = (s = "") => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// === Geocoding mit einfachem Mongo-Cache (Node >= 18: global fetch vorhanden)
+async function geocodeToPoint(query) {
+  const q = String(query || "").trim();
+  if (!q) return null;
+
+  const key = q.toLowerCase();
+  const cacheColl = db.collection("geocache");
+  const cached = await cacheColl.findOne({ key });
+  if (cached?.coords?.type === "Point") return cached.coords;
+
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`;
+  const res = await fetch(url, { headers: { "User-Agent": "autovisa/1.0" } }).catch(() => null);
+  if (!res || !res.ok) return null;
+
+  const arr = await res.json().catch(() => []);
+  const first = Array.isArray(arr) && arr[0];
+  if (!first) return null;
+
+  const lon = parseFloat(first.lon), lat = parseFloat(first.lat);
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
+
+  const coords = { type: "Point", coordinates: [lon, lat] };
+  await cacheColl.updateOne(
+    { key },
+    { $set: { key, coords, display_name: first.display_name || q, updatedAt: new Date() } },
+    { upsert: true }
+  );
+  return coords;
+}
+
+// === Vorschläge: /api/geosuggest?q=...&limit=6 (DE only)
+app.get("/api/geosuggest", async (req, res) => {
+  try {
+    const q = String(req.query.q || "").trim();
+    if (!q) return res.json({ suggestions: [] });
+
+    const lim = Math.min(Math.max(parseInt(req.query.limit, 10) || 6, 1), 10);
+    const url =
+      `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=de&limit=${lim}&q=${encodeURIComponent(q)}`;
+
+    const r = await fetch(url, { headers: { "User-Agent": "autovisa/1.0" } }).catch(() => null);
+    if (!r || !r.ok) return res.json({ suggestions: [] });
+
+    const arr = await r.json().catch(() => []);
+    const suggestions = (Array.isArray(arr) ? arr : [])
+      .map(item => {
+        const addr = item.address || {};
+        const cityLike = addr.city || addr.town || addr.village || addr.hamlet || addr.suburb || "";
+        const postcode = addr.postcode || "";
+        const state    = addr.state || addr.county || "";
+        const label = [postcode, cityLike].filter(Boolean).join(" ") || item.display_name;
+        return {
+          value: label,
+          label,
+          city: cityLike,
+          postcode,
+          state,
+          lat: parseFloat(item.lat),
+          lon: parseFloat(item.lon),
+        };
+      })
+      .filter((s, i, a) => a.findIndex(x => x.value === s.value) === i)
+      .slice(0, lim);
+
+    res.json({ suggestions });
+  } catch (err) {
+    console.error("❌ /api/geosuggest error:", err);
+    res.json({ suggestions: [] });
+  }
+});
+
 // === SUCHE: /api/search (inkl. optionalem Geo-Radius) ===
 // GET /api/search?marke=Audi&modell=A4,A6&ezFrom=2018-01&km_max=100000&price_max=30000&getriebe=automatik&kraftstoff=diesel&ort=10115%20Berlin&umkreis=50&sort=preis_asc&page=1&limit=20
 app.get("/api/search", async (req, res) => {

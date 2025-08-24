@@ -1068,3 +1068,62 @@ if (hatAusstattung) {
       }
     });
   });
+
+
+
+
+
+
+
+
+
+
+
+
+
+  // --- Geo-Vorschläge (nutzt /api/geosuggest) ---
+(function setupGeoSuggest() {
+  const ortInput = document.getElementById("kontaktOrtInput");
+  const plzInput = document.getElementById("kontaktPlzInput");
+  const datalist = document.getElementById("kontaktOrtSuggestions");
+
+  let debounceTimer = null;
+  let lastItems = [];
+
+  function debounced(fn, ms) {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(fn, ms);
+  }
+
+  ortInput.addEventListener("input", () => {
+    const q = ortInput.value.trim();
+    if (q.length < 2) {
+      datalist.innerHTML = "";
+      lastItems = [];
+      return;
+    }
+    debounced(async () => {
+      try {
+        const res = await fetch(`/api/geosuggest?q=${encodeURIComponent(q)}&limit=6`, { credentials: "omit" });
+        const data = await res.json().catch(() => ({ suggestions: [] }));
+        const items = Array.isArray(data.suggestions) ? data.suggestions : [];
+        lastItems = items;
+        datalist.innerHTML = items.map(s => `<option value="${s.label}"></option>`).join("");
+      } catch {
+        datalist.innerHTML = "";
+        lastItems = [];
+      }
+    }, 180);
+  });
+
+  // Wenn ein Vorschlag gewählt wurde, PLZ nach Möglichkeit automatisch setzen
+  ortInput.addEventListener("change", () => {
+    const val = ortInput.value.trim();
+    if (!val) return;
+    const hit = lastItems.find(x => x.label === val) ||
+                lastItems.find(x => val.toLowerCase().includes(String(x.city || "").toLowerCase()));
+    if (hit?.postcode && !plzInput.value.trim()) {
+      plzInput.value = hit.postcode;
+    }
+  });
+})();
