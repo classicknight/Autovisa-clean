@@ -26,6 +26,8 @@ form.noValidate = true;
     const distCustom  = document.getElementById("distance-custom");
     const sortSel     = document.getElementById("sortBy") || document.getElementById("sort");
   
+   
+
     // === Jahre befüllen (aktuell -> 1980) ===
     if (yearSel) {
       const thisYear = new Date().getFullYear();
@@ -126,97 +128,126 @@ form.noValidate = true;
     bindCustom(kmSel, kmCustom);
     bindCustom(priceSel, priceCustom);
     bindCustom(distSel, distCustom);
-  
-    // Umkreis nur aktiv, wenn Ort/PLZ gesetzt
-    function syncDistanceEnabled() {
-      if (!distSel) return;
-      const hasLoc = !!(locInput && locInput.value.trim());
-      distSel.disabled = !hasLoc;
-      if (!hasLoc && distCustom) {
-        distSel.value = "999";   // "Beliebig"
-        distCustom.value = "";
-        distCustom.style.display = "none";
-      }
+  // Umkreis nur aktiv, wenn Ort/PLZ gesetzt
+function syncDistanceEnabled() {
+    if (!distSel) return;
+    const hasLoc = !!(locInput && locInput.value.trim());
+    distSel.disabled = !hasLoc;
+    if (!hasLoc && distCustom) {
+      distSel.value = "999";   // "Beliebig"
+      distCustom.value = "";
+      distCustom.style.display = "none";
     }
-    locInput?.addEventListener("input", syncDistanceEnabled);
-    syncDistanceEnabled();
+  }
+  locInput?.addEventListener("input", syncDistanceEnabled);
+  syncDistanceEnabled();
   
-    // === Sort-Mapping (optional Select vorhanden) ===
-    function mapSortToServer(val) {
-      if (val === "price-asc")  return "preis_asc";
-      if (val === "price-desc") return "preis_desc";
-      if (val === "date-desc")  return "neueste";
-      return ""; // kein Sort-Param
+  /* === Ortsvorschläge (Nominatim via /api/geosuggest) === */
+  let suggestList = document.getElementById("location-suggest");
+  if (!suggestList) {
+    suggestList = document.createElement("datalist");
+    suggestList.id = "location-suggest";
+    document.body.appendChild(suggestList);
+  }
+  if (locInput && !locInput.getAttribute("list")) {
+    locInput.setAttribute("list", "location-suggest");
+    locInput.setAttribute("autocomplete", "off");
+    locInput.setAttribute("inputmode", "search");
+  }
+  
+  const debounce = (fn, delay = 250) => {
+    let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
+  };
+  
+  async function updateLocationSuggestions(q) {
+    const term = String(q || "").trim();
+    if (term.length < 2) { suggestList.innerHTML = ""; return; }
+    try {
+      const r = await fetch(`/api/geosuggest?q=${encodeURIComponent(term)}&limit=6`, { credentials: "omit" });
+      if (!r.ok) return;
+      const { suggestions = [] } = await r.json();
+      suggestList.innerHTML = suggestions.map(s => {
+        const base = (s.postcode && s.city) ? `${s.postcode} ${s.city}` : (s.city || s.postcode || s.label || "");
+        const show = s.state ? `${base}, ${s.state}` : base;
+        return `<option value="${show}"></option>`;
+      }).join("");
+    } catch {/* silent */}
+  }
+  const debouncedSuggest = debounce(() => updateLocationSuggestions(locInput.value), 250);
+  locInput?.addEventListener("input", debouncedSuggest);
+  locInput?.addEventListener("focus", debouncedSuggest);
+  
+  // === Sort-Mapping (optional Select vorhanden) ===
+  function mapSortToServer(val) {
+    if (val === "price-asc")  return "preis_asc";
+    if (val === "price-desc") return "preis_desc";
+    if (val === "date-desc")  return "neueste";
+    return ""; // kein Sort-Param
+  }
+  
+  // === Submit → suche.html mit Query-Parametern ===
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+  
+    const qs = new URLSearchParams();
+  
+    const brand = markeSel?.value || "";
+    if (brand) qs.set("marke", brand);
+  
+    if (modellSel) {
+      const models = Array.from(modellSel.selectedOptions || [])
+        .map(o => o.value)
+        .filter(Boolean);
+      if (models.length) qs.set("modell", models.join(","));
     }
   
-    // === Submit → suche.html mit Query-Parametern ===
-    form.addEventListener("submit", (e) => {
-      e.preventDefault();
+    // EZ ab (YYYY-MM, Monat immer 2-stellig)
+    const y = yearSel?.value || "";
+    const m = monthSel?.value || "";
+    if (y && m) qs.set("ezFrom", `${y}-${String(m).padStart(2, "0")}`);
   
-      const qs = new URLSearchParams();
+    // km max
+    if (kmSel) {
+      const raw = kmSel.value === "custom" ? (kmCustom?.value || "") : kmSel.value;
+      const n = parseInt(raw, 10);
+      if (!Number.isNaN(n) && n > 0) qs.set("km_max", String(n));
+    }
   
-      const brand = markeSel?.value || "";
-      if (brand) qs.set("marke", brand);
+    // price max
+    if (priceSel) {
+      const raw = priceSel.value === "custom" ? (priceCustom?.value || "") : priceSel.value;
+      const n = parseInt(raw, 10);
+      if (!Number.isNaN(n) && n > 0) qs.set("price_max", String(n));
+    }
   
-      if (modellSel) {
-        const models = Array.from(modellSel.selectedOptions || [])
-          .map(o => o.value)
-          .filter(Boolean);
-        if (models.length) qs.set("modell", models.join(","));
-      }
+    const gear = (gearSel?.value || "").toLowerCase().trim();
+    if (gear && !["beliebig","any","alle","all","-"].includes(gear)) {
+      qs.set("getriebe", gear);
+    }
   
-      // EZ ab (YYYY-MM, Monat immer 2-stellig)
-      const y = yearSel?.value || "";
-      const m = monthSel?.value || "";
-      if (y && m) qs.set("ezFrom", `${y}-${String(m).padStart(2, "0")}`);
+    const fuel = (fuelSel?.value || "").toLowerCase().trim();
+    if (fuel && !["beliebig","any","alle","all","-"].includes(fuel)) {
+      qs.set("kraftstoff", fuel);
+    }
   
-      if (kmSel) {
-        const raw = kmSel.value === "custom" ? (kmCustom?.value || "") : kmSel.value;
-        const n = parseInt(raw, 10);
-        if (!Number.isNaN(n) && n > 0) {
-          qs.set("km_max", String(n));
-        }
-      }
-      
-      if (priceSel) {
-        const raw = priceSel.value === "custom" ? (priceCustom?.value || "") : priceSel.value;
-        const n = parseInt(raw, 10);
-        if (!Number.isNaN(n) && n > 0) {
-          qs.set("price_max", String(n));
-        }
-      }
-      
+    const loc = (locInput?.value || "").trim();
+    if (loc) qs.set("ort", loc);
   
-      const gear = (gearSel?.value || "").toLowerCase().trim();
-      if (gear && !["beliebig","any","alle","all","-"].includes(gear)) {
-        qs.set("getriebe", gear);
-      }
-      
-      const fuel = (fuelSel?.value || "").toLowerCase().trim();
-      if (fuel && !["beliebig","any","alle","all","-"].includes(fuel)) {
-        qs.set("kraftstoff", fuel);
-      }
-      
+    if (distSel && !distSel.disabled) {
+      const dRaw = distSel.value === "custom" ? (distCustom?.value || "") : distSel.value;
+      const d = parseInt(dRaw, 10);
+      if (!Number.isNaN(d) && d > 0 && d !== 999) qs.set("umkreis", String(d));
+    }
   
-      const loc = (locInput?.value || "").trim();
-      if (loc) qs.set("ort", loc);
+    // Sort (falls Select vorhanden)
+    if (sortSel && sortSel.value) {
+      const mapped = mapSortToServer(sortSel.value);
+      if (mapped) qs.set("sort", mapped);
+    }
   
-      if (distSel && !distSel.disabled) {
-        const dRaw = distSel.value === "custom" ? (distCustom?.value || "") : distSel.value;
-        const d = parseInt(dRaw, 10);
-        if (!Number.isNaN(d) && d > 0 && d !== 999) qs.set("umkreis", String(d));
-      }
+    // Immer auf Seite 1 starten
+    qs.delete("page");
   
-      // Sort (falls Select vorhanden)
-      if (sortSel && sortSel.value) {
-        const mapped = mapSortToServer(sortSel.value);
-        if (mapped) qs.set("sort", mapped);
-      }
-  
-      // Immer auf Seite 1 starten
-      qs.delete("page");
-  
-      window.location.href = `suche.html?${qs.toString()}`;
-    });
+    window.location.href = `suche.html?${qs.toString()}`;
   });
-  
+});

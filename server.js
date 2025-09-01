@@ -19,17 +19,20 @@ app.set("trust proxy", 1);
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri);
 let db;
-
 client.connect()
   .then(async () => {
     db = client.db("autovisa");
     console.log("✅ MongoDB verbunden");
 
-    // Empfohlen: Indexe für Geocoding & Geo-Suche
+    // Indexe direkt nach erfolgreichem Connect anlegen (idempotent)
     try {
-      await db.collection("inserate").createIndex({ loc: "2dsphere" });
+      // WICHTIG: Geo-Index auf das Feld, das du im $geoNear -> key: "standortCoords" nutzt
+      await db.collection("inserate").createIndex({ standortCoords: "2dsphere" });
+
+      // Cache für Geocoding (Vorschläge/Geocoding)
       await db.collection("geocache").createIndex({ key: 1 }, { unique: true });
-      console.log("✅ Geo-Index & Geocache-Index gesetzt");
+
+      console.log("✅ 2dsphere-Index auf inserate.standortCoords & Geocache-Index gesetzt");
     } catch (e) {
       console.warn("⚠️ Konnte Indexe nicht setzen:", e?.message || e);
     }
@@ -1440,12 +1443,14 @@ app.get("/api/search", async (req, res) => {
       if (point) {
         pipeline = [
           { $geoNear: {
-              near: point,
-              distanceField: "dist",
-              spherical: true,
-              ...(umkreisKm > 0 ? { maxDistance: umkreisKm * 1000 } : {})
-            }
-          },
+            near: point,
+            key: "standortCoords",          // <— WICHTIG: Feld mit GeoJSON-Point
+            distanceField: "dist",
+            spherical: true,
+            ...(umkreisKm > 0 ? { maxDistance: umkreisKm * 1000 } : {})
+          }
+        },
+        
           ...parseNumberStages,
           ...numberFilterStages,
           ...endStages
@@ -1471,6 +1476,15 @@ app.get("/api/search", async (req, res) => {
     res.status(500).json({ error: "Interner Fehler bei der Suche." });
   }
 });
+
+
+
+
+
+
+
+
+
 
 
 
