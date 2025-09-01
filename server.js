@@ -1240,7 +1240,6 @@ process.on("uncaughtException", (err) => {
 
 
 
-
 // === Helper zum sicheren Regex-Bau ===
 const escapeRegex = (s = "") => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -1274,27 +1273,91 @@ async function geocodeToPoint(query) {
   return coords;
 }
 
-// === Vorschläge: /api/geosuggest?q=...&limit=6 (DE only)
+/* ============================================================
+   SCHNELLE Ortsvorschläge: /api/geosuggest?q=...&limit=6 (DE)
+   - In-Memory-Cache (24h) + Mongo-Cache
+   - kurze Präfixe (<=3) holen mehr Treffer
+   - Timeout/Abort, gefiltert & nach Präfix-Scores sortiert
+   ============================================================ */
+const GEO_TTL_MS = 1000 * 60 * 60 * 24; // 24h
+const geoMem = new Map(); // key -> { v: suggestions, t: timestamp }
+
+const getGeoMem = (key) => {
+  const e = geoMem.get(key);
+  if (!e) return null;
+  if (Date.now() - e.t > GEO_TTL_MS) { geoMem.delete(key); return null; }
+  return e.v;
+};
+const setGeoMem = (key, v) => {
+  geoMem.set(key, { v, t: Date.now() });
+  // kleine LRU-Begrenzung
+  if (geoMem.size > 500) {
+    const firstKey = geoMem.keys().next().value;
+    if (firstKey) geoMem.delete(firstKey);
+  }
+};
+
 app.get("/api/geosuggest", async (req, res) => {
   try {
-    const q = String(req.query.q || "").trim();
-    if (!q) return res.json({ suggestions: [] });
+    const qRaw = String(req.query.q || "").trim();
+    if (!qRaw) return res.json({ suggestions: [] });
 
-    const lim = Math.min(Math.max(parseInt(req.query.limit, 10) || 6, 1), 10);
+    const key = qRaw.toLowerCase();
+    const reqLimit = parseInt(req.query.limit, 10);
+    const lim = Math.min(Math.max((Number.isFinite(reqLimit) ? reqLimit : (key.length <= 3 ? 15 : 8)), 1), 20);
+
+    // 1) In-Memory Cache
+    const mem = getGeoMem(key);
+    if (mem) {
+      res.set("Cache-Control", "public, max-age=120");
+      return res.json({ suggestions: mem.slice(0, lim) });
+    }
+
+    // 2) Mongo Cache
+    const coll = db.collection("geosuggest");
+    const cached = await coll.findOne({ key });
+    if (cached && (Date.now() - new Date(cached.updatedAt).getTime()) < GEO_TTL_MS) {
+      setGeoMem(key, cached.suggestions || []);
+      res.set("Cache-Control", "public, max-age=120");
+      return res.json({ suggestions: (cached.suggestions || []).slice(0, lim) });
+    }
+
+    // 3) Live: Nominatim (DE, gefiltert)
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 1200);
     const url =
-      `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=de&limit=${lim}&q=${encodeURIComponent(q)}`;
+      `https://nominatim.openstreetmap.org/search` +
+      `?format=json&addressdetails=1&countrycodes=de&limit=${lim}&q=${encodeURIComponent(qRaw)}`;
 
-    const r = await fetch(url, { headers: { "User-Agent": "autovisa/1.0" } }).catch(() => null);
-    if (!r || !r.ok) return res.json({ suggestions: [] });
+    const r = await fetch(url, {
+      headers: { "User-Agent": "autovisa/1.0" },
+      signal: ctrl.signal
+    }).catch(() => null);
+    clearTimeout(timer);
+
+    if (!r || !r.ok) {
+      return res.json({ suggestions: [] });
+    }
 
     const arr = await r.json().catch(() => []);
+    const allowedTypes = new Set(["city","town","village","hamlet","suburb","neighbourhood","locality","postcode"]);
+
     const suggestions = (Array.isArray(arr) ? arr : [])
+      .filter(it => it && it.class === "place" && allowedTypes.has(String(it.type || "").toLowerCase()))
       .map(item => {
         const addr = item.address || {};
-        const cityLike = addr.city || addr.town || addr.village || addr.hamlet || addr.suburb || "";
+        const cityLike = addr.city || addr.town || addr.village || addr.hamlet || addr.suburb || addr.neighbourhood || addr.locality || "";
         const postcode = addr.postcode || "";
         const state    = addr.state || addr.county || "";
-        const label = [postcode, cityLike].filter(Boolean).join(" ") || item.display_name;
+        const label    = [postcode, cityLike].filter(Boolean).join(" ") || item.display_name || qRaw;
+
+        const q = key;
+        const cityLc = String(cityLike).toLowerCase();
+        const score =
+          (postcode.startsWith(q) ? 2 : 0) +
+          (cityLc.startsWith(q) ? 2 : 0) +
+          (label.toLowerCase().startsWith(q) ? 1 : 0);
+
         return {
           value: label,
           label,
@@ -1303,15 +1366,26 @@ app.get("/api/geosuggest", async (req, res) => {
           state,
           lat: parseFloat(item.lat),
           lon: parseFloat(item.lon),
+          _score: score
         };
       })
       .filter((s, i, a) => a.findIndex(x => x.value === s.value) === i)
-      .slice(0, lim);
+      .sort((a, b) => (b._score - a._score) || (a.label.length - b.label.length))
+      .slice(0, lim)
+      .map(({ _score, ...rest }) => rest);
 
-    res.json({ suggestions });
+    setGeoMem(key, suggestions);
+    await coll.updateOne(
+      { key },
+      { $set: { key, suggestions, updatedAt: new Date() } },
+      { upsert: true }
+    );
+
+    res.set("Cache-Control", "public, max-age=120");
+    return res.json({ suggestions });
   } catch (err) {
-    console.error("❌ /api/geosuggest error:", err);
-    res.json({ suggestions: [] });
+    console.error("❌ /api/geosuggest error:", err?.name === "AbortError" ? "Timeout" : err);
+    return res.json({ suggestions: [] });
   }
 });
 
@@ -1350,7 +1424,7 @@ app.get("/api/search", async (req, res) => {
     const priceMaxNum = parseInt(price_max, 10);
     const kmMaxNum    = parseInt(km_max, 10);
 
-    // Sortierung vorbereiten (Preis null nach hinten)
+    // Sortierung (Preis-null nach hinten)
     const sortStages =
       (sort === "preis_asc")
         ? [
@@ -1364,11 +1438,22 @@ app.get("/api/search", async (req, res) => {
           ]
         : [{ $sort: { veroeffentlichtAm: -1, _id: -1 } }];
 
-    // Preis/KM-Parsing (wird in beiden Pipelines gebraucht)
+    // Preis/KM-Parsing (in beiden Pipelines)
     const parseNumberStages = [
       { $addFields: {
-          _preis_raw: { $ifNull: ["$brutto-preis", "$preis"] },
-          _km_raw:    { $ifNull: ["$verkauf_kilometer", "$kilometer", "$km"] }
+          _preis_raw: {
+            $ifNull: [
+              "$brutto-preis",
+              { $ifNull: [
+                "$brutto_preis",
+                { $ifNull: [
+                  "$verkauf_brutto",
+                  { $ifNull: [ "$preis", "$verkauf_preis" ] }
+                ] }
+              ] }
+            ]
+          },
+          _km_raw: { $ifNull: ["$verkauf_kilometer", { $ifNull: ["$kilometer", "$km"] }] }
         }
       },
       { $addFields: {
@@ -1412,7 +1497,7 @@ app.get("/api/search", async (req, res) => {
       ...(Number.isFinite(kmMaxNum)    ? [{ $match: { km_num:    { $ne: null, $lte: kmMaxNum } } }] : [])
     ];
 
-    // Projektions- und Facet-Teil (gleich für beide Pfade)
+    // Projektions- und Facet-Teil
     const endStages = [
       ...sortStages,
       {
@@ -1438,19 +1523,17 @@ app.get("/api/search", async (req, res) => {
     let pipeline;
 
     if (ortStr) {
-      // Koordinaten holen (mit Cache)
       const point = await geocodeToPoint(ortStr);
       if (point) {
         pipeline = [
           { $geoNear: {
-            near: point,
-            key: "standortCoords",          // <— WICHTIG: Feld mit GeoJSON-Point
-            distanceField: "dist",
-            spherical: true,
-            ...(umkreisKm > 0 ? { maxDistance: umkreisKm * 1000 } : {})
-          }
-        },
-        
+              near: point,
+              key: "standortCoords",  // <-- GeoJSON Point-Feld, 2dsphere-Index erforderlich
+              distanceField: "dist",
+              spherical: true,
+              ...(umkreisKm > 0 ? { maxDistance: umkreisKm * 1000 } : {})
+            }
+          },
           ...parseNumberStages,
           ...numberFilterStages,
           ...endStages
@@ -1458,7 +1541,7 @@ app.get("/api/search", async (req, res) => {
       }
     }
 
-    // Fallback ohne Geo (kein Ort / Geocode fehlgeschlagen)
+    // Fallback ohne Geo
     if (!pipeline) {
       pipeline = [
         ...parseNumberStages,

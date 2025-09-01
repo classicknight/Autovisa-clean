@@ -142,40 +142,58 @@ function syncDistanceEnabled() {
   locInput?.addEventListener("input", syncDistanceEnabled);
   syncDistanceEnabled();
   
-  /* === Ortsvorschläge (Nominatim via /api/geosuggest) === */
-  let suggestList = document.getElementById("location-suggest");
-  if (!suggestList) {
-    suggestList = document.createElement("datalist");
-    suggestList.id = "location-suggest";
-    document.body.appendChild(suggestList);
+/* === Ortsvorschläge – schnell: Debounce + AbortController === */
+let suggestList = document.getElementById("location-suggest");
+if (!suggestList) {
+  suggestList = document.createElement("datalist");
+  suggestList.id = "location-suggest";
+  document.body.appendChild(suggestList);
+}
+if (locInput && !locInput.getAttribute("list")) {
+  locInput.setAttribute("list", "location-suggest");
+  locInput.setAttribute("autocomplete", "off");
+  locInput.setAttribute("inputmode", "search");
+}
+
+// schnelles Debounce
+const debounce = (fn, delay = 120) => {
+  let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
+};
+
+let geoAbort = null;
+async function updateLocationSuggestionsFast(q) {
+  const term = String(q || "").trim();
+  if (term.length < 2) { suggestList.innerHTML = ""; return; }
+
+  // vorherige Anfrage abbrechen
+  if (geoAbort) geoAbort.abort();
+  geoAbort = new AbortController();
+
+  try {
+    const limit = term.length <= 3 ? 15 : 8; // kurz => mehr Treffer holen
+    const r = await fetch(`/api/geosuggest?q=${encodeURIComponent(term)}&limit=${limit}`, {
+      credentials: "omit",
+      signal: geoAbort.signal
+    });
+    if (!r.ok) return;
+
+    const { suggestions = [] } = await r.json();
+    // in datalist füllen
+    suggestList.innerHTML = suggestions.map(s => {
+      const base = (s.postcode && s.city) ? `${s.postcode} ${s.city}` : (s.city || s.postcode || s.label || "");
+      const show = s.state ? `${base}, ${s.state}` : base;
+      return `<option value="${show}"></option>`;
+    }).join("");
+  } catch (err) {
+    // Abbruch ist ok, sonst still
+    if (err?.name !== "AbortError") { /* no-op */ }
   }
-  if (locInput && !locInput.getAttribute("list")) {
-    locInput.setAttribute("list", "location-suggest");
-    locInput.setAttribute("autocomplete", "off");
-    locInput.setAttribute("inputmode", "search");
-  }
-  
-  const debounce = (fn, delay = 250) => {
-    let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
-  };
-  
-  async function updateLocationSuggestions(q) {
-    const term = String(q || "").trim();
-    if (term.length < 2) { suggestList.innerHTML = ""; return; }
-    try {
-      const r = await fetch(`/api/geosuggest?q=${encodeURIComponent(term)}&limit=6`, { credentials: "omit" });
-      if (!r.ok) return;
-      const { suggestions = [] } = await r.json();
-      suggestList.innerHTML = suggestions.map(s => {
-        const base = (s.postcode && s.city) ? `${s.postcode} ${s.city}` : (s.city || s.postcode || s.label || "");
-        const show = s.state ? `${base}, ${s.state}` : base;
-        return `<option value="${show}"></option>`;
-      }).join("");
-    } catch {/* silent */}
-  }
-  const debouncedSuggest = debounce(() => updateLocationSuggestions(locInput.value), 250);
-  locInput?.addEventListener("input", debouncedSuggest);
-  locInput?.addEventListener("focus", debouncedSuggest);
+}
+
+const debouncedSuggest = debounce(() => updateLocationSuggestionsFast(locInput.value), 120);
+locInput?.addEventListener("input", debouncedSuggest);
+locInput?.addEventListener("focus", debouncedSuggest);
+
   
   // === Sort-Mapping (optional Select vorhanden) ===
   function mapSortToServer(val) {
