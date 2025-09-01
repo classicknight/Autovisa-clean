@@ -24,22 +24,20 @@ client.connect()
     db = client.db("autovisa");
     console.log("✅ MongoDB verbunden");
 
-    // Indexe direkt nach erfolgreichem Connect anlegen (idempotent)
-    try {
-      // WICHTIG: Geo-Index auf das Feld, das du im $geoNear -> key: "standortCoords" nutzt
-      await db.collection("inserate").createIndex({ standortCoords: "2dsphere" });
+    // vorhandene Indexe …
+    await db.collection("inserate").createIndex({ standortCoords: "2dsphere" });
+    await db.collection("geocache").createIndex({ key: 1 }, { unique: true });
 
-      // Cache für Geocoding (Vorschläge/Geocoding)
-      await db.collection("geocache").createIndex({ key: 1 }, { unique: true });
-
-      console.log("✅ 2dsphere-Index auf inserate.standortCoords & Geocache-Index gesetzt");
-    } catch (e) {
-      console.warn("⚠️ Konnte Indexe nicht setzen:", e?.message || e);
-    }
+    // 👉 geosuggest-Indexe (Cache):
+    await db.collection("geosuggest").createIndex({ key: 1 }, { unique: true });
+    await db.collection("geosuggest").createIndex(
+      { updatedAt: 1 },
+      { expireAfterSeconds: 60 * 60 * 24 * 30 } // 30 Tage TTL
+    );
+    console.log("✅ Indexe für geosuggest bereit");
   })
-  .catch(err => {
-    console.error("❌ MongoDB-Verbindung fehlgeschlagen:", err);
-  });
+  .catch(err => console.error("❌ MongoDB-Verbindung fehlgeschlagen:", err));
+
 
 
 // === Cloudinary Konfiguration ===
@@ -1276,118 +1274,125 @@ async function geocodeToPoint(query) {
 /* ============================================================
    SCHNELLE Ortsvorschläge: /api/geosuggest?q=...&limit=6 (DE)
    - In-Memory-Cache (24h) + Mongo-Cache
-   - kurze Präfixe (<=3) holen mehr Treffer
-   - Timeout/Abort, gefiltert & nach Präfix-Scores sortiert
+   - KEIN Caching von leeren Ergebnissen
+   - Timeout/Abort, Accept-Language, “echter” User-Agent
    ============================================================ */
-const GEO_TTL_MS = 1000 * 60 * 60 * 24; // 24h
-const geoMem = new Map(); // key -> { v: suggestions, t: timestamp }
-
-const getGeoMem = (key) => {
-  const e = geoMem.get(key);
-  if (!e) return null;
-  if (Date.now() - e.t > GEO_TTL_MS) { geoMem.delete(key); return null; }
-  return e.v;
-};
-const setGeoMem = (key, v) => {
-  geoMem.set(key, { v, t: Date.now() });
-  // kleine LRU-Begrenzung
-  if (geoMem.size > 500) {
-    const firstKey = geoMem.keys().next().value;
-    if (firstKey) geoMem.delete(firstKey);
-  }
-};
-
-app.get("/api/geosuggest", async (req, res) => {
-  try {
-    const qRaw = String(req.query.q || "").trim();
-    if (!qRaw) return res.json({ suggestions: [] });
-
-    const key = qRaw.toLowerCase();
-    const reqLimit = parseInt(req.query.limit, 10);
-    const lim = Math.min(Math.max((Number.isFinite(reqLimit) ? reqLimit : (key.length <= 3 ? 15 : 8)), 1), 20);
-
-    // 1) In-Memory Cache
-    const mem = getGeoMem(key);
-    if (mem) {
-      res.set("Cache-Control", "public, max-age=120");
-      return res.json({ suggestions: mem.slice(0, lim) });
-    }
-
-    // 2) Mongo Cache
-    const coll = db.collection("geosuggest");
-    const cached = await coll.findOne({ key });
-    if (cached && (Date.now() - new Date(cached.updatedAt).getTime()) < GEO_TTL_MS) {
-      setGeoMem(key, cached.suggestions || []);
-      res.set("Cache-Control", "public, max-age=120");
-      return res.json({ suggestions: (cached.suggestions || []).slice(0, lim) });
-    }
-
-    // 3) Live: Nominatim (DE, gefiltert)
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 1200);
-    const url =
-      `https://nominatim.openstreetmap.org/search` +
-      `?format=json&addressdetails=1&countrycodes=de&limit=${lim}&q=${encodeURIComponent(qRaw)}`;
-
-    const r = await fetch(url, {
-      headers: { "User-Agent": "autovisa/1.0" },
-      signal: ctrl.signal
-    }).catch(() => null);
-    clearTimeout(timer);
-
-    if (!r || !r.ok) {
-      return res.json({ suggestions: [] });
-    }
-
-    const arr = await r.json().catch(() => []);
-    const allowedTypes = new Set(["city","town","village","hamlet","suburb","neighbourhood","locality","postcode"]);
-
-    const suggestions = (Array.isArray(arr) ? arr : [])
-      .filter(it => it && it.class === "place" && allowedTypes.has(String(it.type || "").toLowerCase()))
-      .map(item => {
-        const addr = item.address || {};
-        const cityLike = addr.city || addr.town || addr.village || addr.hamlet || addr.suburb || addr.neighbourhood || addr.locality || "";
-        const postcode = addr.postcode || "";
-        const state    = addr.state || addr.county || "";
-        const label    = [postcode, cityLike].filter(Boolean).join(" ") || item.display_name || qRaw;
-
-        const q = key;
-        const cityLc = String(cityLike).toLowerCase();
-        const score =
-          (postcode.startsWith(q) ? 2 : 0) +
-          (cityLc.startsWith(q) ? 2 : 0) +
-          (label.toLowerCase().startsWith(q) ? 1 : 0);
-
-        return {
-          value: label,
-          label,
-          city: cityLike,
-          postcode,
-          state,
-          lat: parseFloat(item.lat),
-          lon: parseFloat(item.lon),
-          _score: score
-        };
-      })
-      .filter((s, i, a) => a.findIndex(x => x.value === s.value) === i)
-      .sort((a, b) => (b._score - a._score) || (a.label.length - b.label.length))
-      .slice(0, lim)
-      .map(({ _score, ...rest }) => rest);
-
-    setGeoMem(key, suggestions);
-    await coll.updateOne(
-      { key },
-      { $set: { key, suggestions, updatedAt: new Date() } },
-      { upsert: true }
-    );
-
-    res.set("Cache-Control", "public, max-age=120");
-    return res.json({ suggestions });
-  } catch (err) {
-    console.error("❌ /api/geosuggest error:", err?.name === "AbortError" ? "Timeout" : err);
-    return res.json({ suggestions: [] });
-  }
-});
+   const GEO_TTL_MS = 1000 * 60 * 60 * 24; // 24h
+   const NOMINATIM_TIMEOUT_MS = 3500;      // robustes Timeout
+   const geoMem = new Map();               // key -> { v, t }
+   
+   const getGeoMem = (key) => {
+     const e = geoMem.get(key);
+     if (!e) return null;
+     if (Date.now() - e.t > GEO_TTL_MS) { geoMem.delete(key); return null; }
+     return e.v;
+   };
+   const setGeoMem = (key, v) => {
+     geoMem.set(key, { v, t: Date.now() });
+     if (geoMem.size > 500) {
+       const firstKey = geoMem.keys().next().value;
+       if (firstKey) geoMem.delete(firstKey);
+     }
+   };
+   
+   app.get("/api/geosuggest", async (req, res) => {
+     try {
+       const qRaw = String(req.query.q || "").trim();
+       if (!qRaw) return res.json({ suggestions: [] });
+   
+       const key = qRaw.toLowerCase();
+       const reqLimit = parseInt(req.query.limit, 10);
+       const lim = Math.min(Math.max((Number.isFinite(reqLimit) ? reqLimit : (key.length <= 3 ? 20 : 10)), 1), 25);
+   
+       // 1) Memory-Cache
+       const mem = getGeoMem(key);
+       if (mem && mem.length) {
+         res.set("Cache-Control", "public, max-age=120");
+         return res.json({ suggestions: mem.slice(0, lim) });
+       }
+   
+       // 2) Mongo-Cache (aber keine leeren Vorschläge verwenden)
+       const coll = db.collection("geosuggest");
+       const cached = await coll.findOne({ key });
+       if (cached && Array.isArray(cached.suggestions) && cached.suggestions.length &&
+           (Date.now() - new Date(cached.updatedAt).getTime()) < GEO_TTL_MS) {
+         setGeoMem(key, cached.suggestions);
+         res.set("Cache-Control", "public, max-age=120");
+         return res.json({ suggestions: cached.suggestions.slice(0, lim) });
+       }
+   
+       // 3) Live zu Nominatim
+       const ctrl = new AbortController();
+       const timer = setTimeout(() => ctrl.abort(), NOMINATIM_TIMEOUT_MS);
+       const url =
+         `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=de&limit=${lim}&q=${encodeURIComponent(qRaw)}`;
+   
+       const r = await fetch(url, {
+         headers: {
+           "User-Agent": "autovisa/1.0 (contact: info@autovisa.de)",
+           "Accept-Language": "de-DE,de;q=0.9"
+         },
+         signal: ctrl.signal
+       }).catch(() => null);
+       clearTimeout(timer);
+   
+       if (!r || !r.ok) {
+         return res.json({ suggestions: [] });
+       }
+   
+       const arr = await r.json().catch(() => []);
+       const allowedTypes = new Set(["city","town","village","hamlet","suburb","neighbourhood","locality","postcode"]);
+   
+       let suggestions = (Array.isArray(arr) ? arr : [])
+         .filter(it => it && it.class === "place" && allowedTypes.has(String(it.type || "").toLowerCase()))
+         .map(item => {
+           const addr = item.address || {};
+           const cityLike = addr.city || addr.town || addr.village || addr.hamlet || addr.suburb || addr.neighbourhood || addr.locality || "";
+           const postcode = addr.postcode || "";
+           const state    = addr.state || addr.county || "";
+           const label    = [postcode, cityLike].filter(Boolean).join(" ") || item.display_name || qRaw;
+   
+           const q = key;
+           const cityLc = String(cityLike).toLowerCase();
+           const score =
+             (postcode.startsWith(q) ? 2 : 0) +
+             (cityLc.startsWith(q) ? 2 : 0) +
+             (label.toLowerCase().startsWith(q) ? 1 : 0);
+   
+           return {
+             value: label,
+             label,
+             city: cityLike,
+             postcode,
+             state,
+             lat: parseFloat(item.lat),
+             lon: parseFloat(item.lon),
+             _score: score
+           };
+         })
+         .filter((s, i, a) => a.findIndex(x => x.value === s.value) === i)
+         .sort((a, b) => (b._score - a._score) || (a.label.length - b.label.length))
+         .slice(0, lim)
+         .map(({ _score, ...rest }) => rest);
+   
+       // KEINE leeren Ergebnisse cachen
+       if (suggestions.length) {
+         setGeoMem(key, suggestions);
+         await coll.updateOne(
+           { key },
+           { $set: { key, suggestions, updatedAt: new Date() } },
+           { upsert: true }
+         );
+         res.set("Cache-Control", "public, max-age=120");
+       }
+   
+       return res.json({ suggestions });
+     } catch (err) {
+       console.error("❌ /api/geosuggest error:", err?.name === "AbortError" ? "Timeout" : err);
+       return res.json({ suggestions: [] });
+     }
+   });
+   
 
 // === SUCHE: /api/search (inkl. optionalem Geo-Radius) ===
 // GET /api/search?marke=Audi&modell=A4,A6&ezFrom=2018-01&km_max=100000&price_max=30000&getriebe=automatik&kraftstoff=diesel&ort=10115%20Berlin&umkreis=50&sort=preis_asc&page=1&limit=20
@@ -1559,15 +1564,6 @@ app.get("/api/search", async (req, res) => {
     res.status(500).json({ error: "Interner Fehler bei der Suche." });
   }
 });
-
-
-
-
-
-
-
-
-
 
 
 
