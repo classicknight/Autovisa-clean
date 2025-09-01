@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Impressum | Autovisa</title>
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+  <link rel="stylesheet" href="impressum.css" />
+</head>
+<body class="impressum-body">
+  <!-- NAVBAR hier -->
+
+  <main class="impressum-main" id="main">
+    <!-- Hero -->
+    <section class="hero-impressum">
+      <div class="hero-overlay"></div>
+      <div class="container hero-content">
+        <h1><i class="fas fa-gavel"></i> Impressum</h1>
+        <p class="subtitle">Angaben gemäß § 5 TMG</p>
+      </div>
+    </section>
+
+    <!-- Impressum-Inhalt -->
+    <section class="section impressum-section">
+      <div class="container">
+        <h2>Autovisa</h2>
+        <p>
+          <!-- 👉 Deine Straße + Hausnummer -->
+          Deine Straße 123<br>
+          <!-- 👉 Deine Postleitzahl + Stadt -->
+          12345 Deine Stadt<br>
+          Deutschland
+        </p>
+
+        <h3>Vertreten durch</h3>
+        <p>
+          <!-- 👉 Dein vollständiger Name -->
+          Dein Name
+        </p>
+
+        <h3>Kontakt</h3>
+        <p>
+          <!-- 👉 Deine Telefonnummer -->
+          Telefon: +49 (0) XXX XXXXXXX<br>
+          <!-- 👉 Deine geschäftliche E-Mail -->
+          E-Mail: info@autovisa.de
+        </p>
+
+        <h3>Registereintrag</h3>
+        <p>
+          <!-- Wenn vorhanden -->
+          Eintragung im Handelsregister.<br>
+          Registergericht: Amtsgericht [Ort]<br>
+          Registernummer: HRB XXXXX
+        </p>
+
+        <h3>Umsatzsteuer-ID</h3>
+        <p>
+          <!-- Wenn vorhanden -->
+          Umsatzsteuer-Identifikationsnummer gemäß §27 a Umsatzsteuergesetz:<br>
+          DEXXXXXXXXX
+        </p>
+
+        <h3>Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV</h3>
+        <p>
+          <!-- Dein Name & Adresse -->
+          Dein Name, Anschrift wie oben
+        </p>
+
+        <h3>Haftungsausschluss</h3>
+        <p>
+          Trotz sorgfältiger inhaltlicher Kontrolle übernehmen wir keine Haftung für die Inhalte externer Links.  
+          Für den Inhalt der verlinkten Seiten sind ausschließlich deren Betreiber verantwortlich.
+        </p>
+      </div>
+    </section>
+  </main>
+  <!-- FOOTER hier -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="container footer-grid">
+      <section class="footer-brand">
+        <a class="brand" href="index.html" aria-label="Autovisa Startseite">
+          AUTOVISA
+        </a>
+        <p class="brand-sub">Autos kaufen & verkaufen, modern gedacht.</p>
+        <ul class="social" role="list">
+          <li><a href="#" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a></li>
+          <li><a href="#" aria-label="X / Twitter"><i class="fa-brands fa-x-twitter"></i></a></li>
+          <li><a href="#" aria-label="YouTube"><i class="fa-brands fa-youtube"></i></a></li>
+        </ul>
+      </section>
+      
+      <nav class="footer-col" aria-labelledby="f-marktplatz">
+        <h3 id="f-marktplatz">Marktplatz</h3>
+        <ul role="list">
+          <li><a href="suche.html">Fahrzeuge suchen</a></li>
+          <li><a href="verkaufen.html">Fahrzeug inserieren</a></li>
+          <li><a href="haendler.html">Händler</a></li>
+          <li><a href="ueber-uns.html">Über uns</a></li>
+        </ul>
+      </nav>
+      
+      <nav class="footer-col" aria-labelledby="f-support">
+        <h3 id="f-support">Support</h3>
+        <ul role="list">
+          <li><a href="kontakt.html">Kontakt</a></li>
+          <li><a href="faq.html">Hilfe / FAQ</a></li>
+          <li><a href="preise.html">Preise</a></li>
+        </ul>
+      </nav>
+      
+      <nav class="footer-col" aria-labelledby="f-recht">
+        <h3 id="f-recht">Rechtliches</h3>
+        <ul role="list">
+          <li><a href="impressum.html">Impressum</a></li>
+          <li><a href="datenschutz.html">Datenschutz</a></li>
+          <li><a href="agb.html">AGB</a></li>
+          
+        </ul>
+      </nav>
+    </div>
+    
+    <div class="footer-bottom">
+      <div class="container bottom-inner">
+        <p>© <span id="year"></span> Autovisa. Alle Rechte vorbehalten.</p>
+        <a href="#main" class="to-top" aria-label="Nach oben">Nach oben ↑</a>
+      </div>
+    </div>
+  </footer>
+  
+  <!-- Jahr & „Nach oben“ -->
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+  <!-- FOOTER hier -->
+</body>
+</html>
