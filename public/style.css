@@ -1315,7 +1315,24 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
   
   
   
-  
+  /* === Info-Grid mittig zwischen Subtitle und Händlerinfo === */
+.car-details{
+  display:flex;            /* haben wir schon, hier nur zur Sicherheit */
+  flex-direction:column;
+}
+
+.car-info-grid{
+  margin-top:auto;         /* Restabstand von oben aufnehmen */
+  margin-bottom:auto;      /* und unten genauso -> steht mittig */
+}
+
+/* Händlerblock nicht mehr mit auto nach unten drücken,
+   sondern nur kleiner, fixer Abstand */
+.dealer-info,
+.dealer-info-row{
+  margin-top:12px;         /* überschreibt die frühere margin-top:auto */
+}
+
   
   
   
