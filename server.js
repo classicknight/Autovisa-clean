@@ -1038,7 +1038,7 @@ async function geocodeToPoint(query) {
   if (cached?.coords?.type === "Point") return cached.coords;
 
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`;
-  const res = await fetch(url, { headers: { "User-Agent": "autovisa/1.0" } }).catch(() => null);
+  const res = await fetch(url, { headers: { "User-Agent": "autovisa/1.0 (contact: info@autovisa.de)" } }).catch(() => null);
   if (!res || !res.ok) return null;
 
   const arr = await res.json().catch(() => []);
@@ -1057,7 +1057,6 @@ async function geocodeToPoint(query) {
   return coords;
 }
 
-// ========== VERÖFFENTLICHEN: Wizard/Vorschau (nimmt den letzten Entwurf des eingeloggten Nutzers) ==========
 app.post("/veroeffentlichen", checkLogin, async (req, res) => {
   try {
     const sellerId = req.nutzer?.id;
@@ -1066,11 +1065,7 @@ app.post("/veroeffentlichen", checkLogin, async (req, res) => {
     const entwurfColl  = db.collection("fahrzeugeEntwurf");
     const inserateColl = db.collection("inserate");
 
-    // letzten Entwurf holen
-    const lastVehicle = await entwurfColl.findOne(
-      { nutzerId: sellerId },
-      { sort: { _id: -1 } }
-    );
+    const lastVehicle = await entwurfColl.findOne({ nutzerId: sellerId }, { sort: { _id: -1 } });
     if (!lastVehicle) return res.status(400).send("Kein Fahrzeug zum Veröffentlichen gefunden.");
 
     const neuesInserat = {
@@ -1079,33 +1074,21 @@ app.post("/veroeffentlichen", checkLogin, async (req, res) => {
       status: "online",
       veroeffentlichtAm: new Date(),
       verkauf_kurzbeschreibung: getZufaelligeAusstattung(lastVehicle.verkauf_ausstattung || []),
-
-      // Werte aus Request als Fallback erlaubt – ansonsten Draft-Werte oder Defaults
       verkauf_verkaeufer: req.body?.verkauf_verkaeufer || lastVehicle.verkauf_verkaeufer || "Privatverkäufer",
       verkauf_name:       req.body?.name || lastVehicle.verkauf_name || "Unbekannt",
-      standort:           (req.body?.plz && req.body?.ort)
-                           ? `${req.body.plz} ${req.body.ort}`
-                           : (lastVehicle.standort || "Nicht angegeben"),
+      standort:           (req.body?.plz && req.body?.ort) ? `${req.body.plz} ${req.body.ort}` : (lastVehicle.standort || "Nicht angegeben"),
       telefon:            req.body?.telefon || lastVehicle.telefon || ""
     };
 
-    // ---- Geokoordinaten (optional) setzen, wenn Standort vorhanden ----
-    const locString =
-      (req.body?.plz && req.body?.ort)
-        ? `${req.body.plz} ${req.body.ort}`
-        : (neuesInserat.standort || "");
+    const locString = (req.body?.plz && req.body?.ort) ? `${req.body.plz} ${req.body.ort}` : (neuesInserat.standort || "");
     if (locString) {
       try {
         const point = await geocodeToPoint(locString);
-        if (point) neuesInserat.loc = point;  // { type:"Point", coordinates:[lon,lat] }
-      } catch (e) {
-        console.warn("Geocoding fehlgeschlagen:", e?.message || e);
-      }
+        if (point) neuesInserat.standortCoords = point; // GeoJSON Point
+      } catch (e) { console.warn("Geocoding fehlgeschlagen:", e?.message || e); }
     }
 
-    // neue _id erzeugen (Entwurf-_id nicht übernehmen)
     delete neuesInserat._id;
-
     await inserateColl.insertOne(neuesInserat);
     await entwurfColl.deleteOne({ _id: lastVehicle._id, nutzerId: sellerId });
 
@@ -1117,24 +1100,17 @@ app.post("/veroeffentlichen", checkLogin, async (req, res) => {
 });
 
 
-// ========== VERÖFFENTLICHEN: Aus der Übersicht (konkrete Entwurfs-ID aus fahrzeugeEntwurf) ==========
 app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
   const { id } = req.body;
   if (!id) return res.status(400).send("ID fehlt.");
 
-  let _id;
-  try {
-    _id = new ObjectId(id);
-  } catch {
-    return res.status(400).send("Ungültige ID.");
-  }
+  let _id; try { _id = new ObjectId(id); } catch { return res.status(400).send("Ungültige ID."); }
 
   try {
-    const sellerId      = req.nutzer?.id;
-    const entwurfColl   = db.collection("fahrzeugeEntwurf"); // Quelle: Entwürfe
-    const inserateColl  = db.collection("inserate");         // Ziel: öffentlich
+    const sellerId     = req.nutzer?.id;
+    const entwurfColl  = db.collection("fahrzeugeEntwurf");
+    const inserateColl = db.collection("inserate");
 
-    // Entwurf prüfen (Besitz + Existenz)
     const draft = await entwurfColl.findOne({ _id, nutzerId: sellerId });
     if (!draft) return res.status(404).send("Entwurf nicht gefunden.");
 
@@ -1150,20 +1126,15 @@ app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
       telefon:            draft.telefon || ""
     };
 
-    // ---- Geokoordinaten (optional) setzen, wenn Standort vorhanden ----
     const locString = neuesInserat.standort || "";
     if (locString) {
       try {
         const point = await geocodeToPoint(locString);
-        if (point) neuesInserat.loc = point;  // { type:"Point", coordinates:[lon,lat] }
-      } catch (e) {
-        console.warn("Geocoding fehlgeschlagen:", e?.message || e);
-      }
+        if (point) neuesInserat.standortCoords = point;
+      } catch (e) { console.warn("Geocoding fehlgeschlagen:", e?.message || e); }
     }
 
-    // neue _id erzeugen (Entwurf-_id nicht übernehmen)
     delete neuesInserat._id;
-
     await inserateColl.insertOne(neuesInserat);
     await entwurfColl.deleteOne({ _id, nutzerId: sellerId });
 
@@ -1173,6 +1144,8 @@ app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
     res.status(500).send("Fehler beim Veröffentlichen.");
   }
 });
+
+
 
 
 // ========== ÖFFENTLICHE INSERATE: Für suche.html (Pagination) ==========
