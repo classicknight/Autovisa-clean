@@ -201,7 +201,17 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 }
   
   
-  
+  /* Menü links bündig mit dem Link-Pill */
+.dropdown > a { position: relative; }                 /* Referenz fürs Menü/Connector */
+.dropdown-menu{
+  left: 0;                       /* an die linke Kante des <li>/<a> */
+  right: auto;
+  transform: translateY(6px) scale(.98);  /* kein translateX mehr */
+}
+.dropdown-menu.show{
+  transform: translateY(0) scale(1);
+}
+
   
   
   
@@ -1314,24 +1324,6 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
 
   
   
-  
-  /* === Info-Grid mittig zwischen Subtitle und Händlerinfo === */
-.car-details{
-  display:flex;            /* haben wir schon, hier nur zur Sicherheit */
-  flex-direction:column;
-}
-
-.car-info-grid{
-  margin-top:auto;         /* Restabstand von oben aufnehmen */
-  margin-bottom:auto;      /* und unten genauso -> steht mittig */
-}
-
-/* Händlerblock nicht mehr mit auto nach unten drücken,
-   sondern nur kleiner, fixer Abstand */
-.dealer-info,
-.dealer-info-row{
-  margin-top:12px;         /* überschreibt die frühere margin-top:auto */
-}
 
   
   
@@ -1472,6 +1464,15 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
 
 
 
+:root{
+  --accent: #00b8a9;
+  --bg-grad: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+  --surface: rgba(255,255,255,.06);
+  --stroke: rgba(255,255,255,.15);
+  --text: #f5f8fc;
+  --muted: #cbd5e1;
+  --shadow: 0 8px 24px rgba(0,0,0,.45);
+}
 
 
 
