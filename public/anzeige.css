@@ -7,12 +7,18 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 
-/* ==== Navbar ==== */
-.navbar{
-  position:fixed;top:0;left:0;right:0;height:120px;
-  background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
-  display:flex;align-items:center;justify-content:space-between;
-  padding:0 40px;z-index:1000;box-shadow:0 4px 20px rgba(0,0,0,.25)
+.navbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 120px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 40px;
+  z-index: 1000;
+
+  /* Vertikal (oben hell → unten dunkel) + horizontal gespiegelt */
+  background: linear-gradient(180deg, #2c5364 0%, #203a43 60%, #0f2027 100%),
+              linear-gradient(270deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 100%);
+  box-shadow: 0 4px 20px rgba(0,0,0,.35);
 }
 .logo-container{display:flex;align-items:flex-end;height:100%;margin-left:-10px}
 .logo{height:120px;width:auto}
