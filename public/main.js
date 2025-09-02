@@ -1242,3 +1242,10 @@ async function loadHomeListings() {
 
 
 
+
+
+
+
+
+
+document.getElementById('year').textContent = new Date().getFullYear();
