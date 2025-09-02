@@ -294,7 +294,7 @@
     </select>
   </div>
   <div class="form-group">
-  <label for="first-registration-month">Erstzulassung</label>
+  <label for="first-registration-month">Erstzulassung ab:</label>
   <div class="inline-selects">
     <select id="first-registration-month" name="first_registration_month">
       <option value="" disabled selected>Monat</option>
@@ -502,16 +502,57 @@
 
 
 
-<footer class="site-footer">
-  <div class="footer-container">
-    <div class="footer-links">
-      <a href="impressum.html">Impressum</a>
-      <a href="datenschutz.html">Datenschutz</a>
-      <a href="kontakt.html">Kontakt</a>
-      <a href="agb.html">AGB</a>
+<footer class="site-footer" role="contentinfo">
+  <div class="container footer-grid">
+    <section class="footer-brand">
+      <a class="brand" href="index.html" aria-label="Autovisa Startseite">
+        AUTOVISA
+      </a>
+      <p class="brand-sub">Autos kaufen & verkaufen, modern gedacht.</p>
+      <ul class="social" role="list">
+        <li><a href="#" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a></li>
+        <li><a href="#" aria-label="X / Twitter"><i class="fa-brands fa-x-twitter"></i></a></li>
+        <li><a href="#" aria-label="YouTube"><i class="fa-brands fa-youtube"></i></a></li>
+      </ul>
+    </section>
+    
+    <nav class="footer-col" aria-labelledby="f-marktplatz">
+      <h3 id="f-marktplatz">Marktplatz</h3>
+      <ul role="list">
+        <li><a href="suche.html">Fahrzeuge suchen</a></li>
+        <li><a href="verkaufen.html">Fahrzeug inserieren</a></li>
+        <li><a href="haendler.html">Händler</a></li>
+        <li><a href="ueber-uns.html">Über uns</a></li>
+      </ul>
+    </nav>
+    
+    <nav class="footer-col" aria-labelledby="f-support">
+      <h3 id="f-support">Support</h3>
+      <ul role="list">
+        <li><a href="kontakt.html">Kontakt</a></li>
+        <li><a href="faq.html">Hilfe / FAQ</a></li>
+        <li><a href="preise.html">Preise</a></li>
+      </ul>
+    </nav>
+    
+    <nav class="footer-col" aria-labelledby="f-recht">
+      <h3 id="f-recht">Rechtliches</h3>
+      <ul role="list">
+        <li><a href="impressum.html">Impressum</a></li>
+        <li><a href="datenschutz.html">Datenschutz</a></li>
+        <li><a href="agb.html">AGB</a></li>
+        
+      </ul>
+    </nav>
+  </div>
+  
+  <div class="footer-bottom">
+    <div class="container bottom-inner">
+      <p>© <span id="year"></span> Autovisa. Alle Rechte vorbehalten.</p>
+      <a href="#main" class="to-top" aria-label="Nach oben">Nach oben ↑</a>
     </div>
-    <p class="footer-copy">© 2025 Autovisa – Alle Rechte vorbehalten</p>
   </div>
 </footer>
+<!-- FOOTER hier -->
 </body>
 </html>
