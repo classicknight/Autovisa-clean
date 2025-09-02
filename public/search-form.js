@@ -138,123 +138,194 @@ document.addEventListener("DOMContentLoaded", () => {
     locInput?.addEventListener("change", syncDistanceEnabled);
     syncDistanceEnabled();
   
-    /* === Ortsvorschläge – schnell: Debounce + AbortController === */
-    if (locInput) {
-      let suggestList = document.getElementById("location-suggest");
-      if (!suggestList) {
-        suggestList = document.createElement("datalist");
-        suggestList.id = "location-suggest";
-        document.body.appendChild(suggestList);
+  /* === Ortsvorschläge – eigene Dropdown-Liste (schnell & robust) === */
+if (locInput) {
+    const wrapper = locInput.closest(".input-icon-wrapper") || locInput.parentElement || document.body;
+    // Für absolute Position des Dropdowns sorgen
+    if (getComputedStyle(wrapper).position === "static") wrapper.style.position = "relative";
+  
+    const box = document.createElement("div");
+    box.className = "loc-suggest-box hidden";
+    wrapper.appendChild(box);
+  
+    const debounce = (fn, delay = 120) => {
+      let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
+    };
+    const escapeReg = (s = "") => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  
+    let geoAbort = null;
+    let items = [];
+    let activeIndex = -1;
+  
+    function hideBox() {
+      box.classList.add("hidden");
+      box.innerHTML = "";
+      items = [];
+      activeIndex = -1;
+    }
+  
+    function setActive(i) {
+      const rows = box.querySelectorAll(".loc-suggest-item");
+      rows.forEach((el, idx) => el.classList.toggle("active", idx === i));
+      activeIndex = i;
+    }
+  
+    function pick(i) {
+      const it = items[i];
+      if (!it) return;
+      const base = (it.postcode && it.city) ? `${it.postcode} ${it.city}` : (it.city || it.postcode || it.label || "");
+      const value = it.state ? `${base}, ${it.state}` : base;
+      locInput.value = value;
+      hideBox();
+      // Folge-Logik (z. B. Umkreis aktivieren) auslösen
+      locInput.dispatchEvent(new Event("input", { bubbles: true }));
+      locInput.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  
+    function render(list, q) {
+      if (!list.length) { hideBox(); return; }
+      const qLower = q.toLowerCase();
+      const rx = new RegExp(`^(${escapeReg(q)})`, "i");
+  
+      box.innerHTML = list.map((s, i) => {
+        const base = (s.postcode && s.city) ? `${s.postcode} ${s.city}` : (s.city || s.postcode || s.label || "");
+        const show = s.state ? `${base}, ${s.state}` : base;
+        const hl = show.replace(rx, "<strong>$1</strong>");
+        return `<div class="loc-suggest-item" data-idx="${i}" tabindex="-1">${hl}</div>`;
+      }).join("");
+  
+      box.classList.remove("hidden");
+  
+      box.querySelectorAll(".loc-suggest-item").forEach(el => {
+        el.addEventListener("mousedown", (e) => {
+          e.preventDefault(); // verhindert Blur vor pick()
+          pick(parseInt(el.dataset.idx, 10));
+        });
+      });
+  
+      setActive(-1);
+    }
+  
+    async function querySuggestions(q) {
+      const term = String(q || "").trim();
+      if (term.length < 2) { hideBox(); return; }
+  
+      if (geoAbort) geoAbort.abort();
+      geoAbort = new AbortController();
+  
+      try {
+        const limit = term.length <= 3 ? 15 : 8; // kurze Prefixe => mehr Treffer
+        const r = await fetch(`/api/geosuggest?q=${encodeURIComponent(term)}&limit=${limit}`, {
+          credentials: "omit",
+          signal: geoAbort.signal
+        });
+        if (!r.ok) { hideBox(); return; }
+  
+        const { suggestions = [] } = await r.json();
+        items = suggestions;
+        render(items, term);
+      } catch (err) {
+        if (err?.name !== "AbortError") hideBox();
       }
-      if (!locInput.getAttribute("list")) {
-        locInput.setAttribute("list", "location-suggest");
-        locInput.setAttribute("autocomplete", "off");
-        locInput.setAttribute("inputmode", "search");
-      }
+    }
   
-      const debounce = (fn, delay = 120) => {
-        let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), delay); };
-      };
+    const debouncedSuggest = debounce(() => querySuggestions(locInput.value), 120);
+    locInput.addEventListener("input", debouncedSuggest);
+    locInput.addEventListener("focus", debouncedSuggest);
   
-      let geoAbort = null;
-      async function updateLocationSuggestionsFast(q) {
-        const term = String(q || "").trim();
-        if (term.length < 2) { suggestList.innerHTML = ""; return; }
-  
-        if (geoAbort) geoAbort.abort();
-        geoAbort = new AbortController();
-  
-        try {
-          const limit = term.length <= 3 ? 15 : 8; // kurze Prefixe => mehr Treffer
-          const r = await fetch(`/api/geosuggest?q=${encodeURIComponent(term)}&limit=${limit}`, {
-            credentials: "omit",
-            signal: geoAbort.signal
-          });
-          if (!r.ok) return;
-  
-          const { suggestions = [] } = await r.json();
-          suggestList.innerHTML = suggestions.map(s => {
-            const base = (s.postcode && s.city) ? `${s.postcode} ${s.city}` : (s.city || s.postcode || s.label || "");
-            const show = s.state ? `${base}, ${s.state}` : base;
-            return `<option value="${show}"></option>`;
-          }).join("");
-        } catch (err) {
-          if (err?.name !== "AbortError") { /* ignore */ }
+    // Tastatursteuerung
+    locInput.addEventListener("keydown", (e) => {
+      if (box.classList.contains("hidden")) return;
+      const max = items.length - 1;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActive(activeIndex < max ? activeIndex + 1 : 0);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActive(activeIndex > 0 ? activeIndex - 1 : max);
+      } else if (e.key === "Enter") {
+        if (activeIndex >= 0) {
+          e.preventDefault();
+          pick(activeIndex);
         }
+      } else if (e.key === "Escape") {
+        hideBox();
       }
-  
-      const debouncedSuggest = debounce(() => updateLocationSuggestionsFast(locInput.value), 120);
-      locInput.addEventListener("input", debouncedSuggest);
-      locInput.addEventListener("change", debouncedSuggest);
-      locInput.addEventListener("focus", debouncedSuggest);
-    }
-  
-    // === Sort-Mapping (optional Select vorhanden) ===
-    function mapSortToServer(val) {
-      if (val === "price-asc")  return "preis_asc";
-      if (val === "price-desc") return "preis_desc";
-      if (val === "date-desc")  return "neueste";
-      return "";
-    }
-  
-    // === Submit → suche.html mit Query-Parametern ===
-    form.addEventListener("submit", (e) => {
-      e.preventDefault();
-  
-      const qs = new URLSearchParams();
-  
-      const brand = markeSel?.value || "";
-      if (brand) qs.set("marke", brand);
-  
-      if (modellSel) {
-        const models = Array.from(modellSel.selectedOptions || [])
-          .map(o => o.value)
-          .filter(Boolean);
-        if (models.length) qs.set("modell", models.join(","));
-      }
-  
-      const y = yearSel?.value || "";
-      const m = monthSel?.value || "";
-      if (y && m) qs.set("ezFrom", `${y}-${String(m).padStart(2, "0")}`);
-  
-      if (kmSel) {
-        const raw = kmSel.value === "custom" ? (kmCustom?.value || "") : kmSel.value;
-        const n = parseInt(raw, 10);
-        if (!Number.isNaN(n) && n > 0) qs.set("km_max", String(n));
-      }
-  
-      if (priceSel) {
-        const raw = priceSel.value === "custom" ? (priceCustom?.value || "") : priceSel.value;
-        const n = parseInt(raw, 10);
-        if (!Number.isNaN(n) && n > 0) qs.set("price_max", String(n));
-      }
-  
-      const gear = (gearSel?.value || "").toLowerCase().trim();
-      if (gear && !["beliebig","any","alle","all","-"].includes(gear)) {
-        qs.set("getriebe", gear);
-      }
-  
-      const fuel = (fuelSel?.value || "").toLowerCase().trim();
-      if (fuel && !["beliebig","any","alle","all","-"].includes(fuel)) {
-        qs.set("kraftstoff", fuel);
-      }
-  
-      const loc = (locInput?.value || "").trim();
-      if (loc) qs.set("ort", loc);
-  
-      if (distSel && !distSel.disabled) {
-        const dRaw = distSel.value === "custom" ? (distCustom?.value || "") : distSel.value;
-        const d = parseInt(dRaw, 10);
-        if (!Number.isNaN(d) && d > 0 && d !== 999) qs.set("umkreis", String(d));
-      }
-  
-      if (sortSel && sortSel.value) {
-        const mapped = mapSortToServer(sortSel.value);
-        if (mapped) qs.set("sort", mapped);
-      }
-  
-      qs.delete("page");
-      window.location.href = `suche.html?${qs.toString()}`;
     });
-  });
   
+    // Outside click schließt
+    document.addEventListener("click", (e) => {
+      if (!wrapper.contains(e.target)) hideBox();
+    });
+  }
+  
+  /* ——— ab hier bleibt dein Code wie gehabt ——— */
+  
+  // === Sort-Mapping (optional Select vorhanden) ===
+  function mapSortToServer(val) {
+    if (val === "price-asc")  return "preis_asc";
+    if (val === "price-desc") return "preis_desc";
+    if (val === "date-desc")  return "neueste";
+    return ""; // kein Sort-Param
+  }
+  
+  // === Submit → suche.html mit Query-Parametern ===
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+  
+    const qs = new URLSearchParams();
+  
+    const brand = markeSel?.value || "";
+    if (brand) qs.set("marke", brand);
+  
+    if (modellSel) {
+      const models = Array.from(modellSel.selectedOptions || [])
+        .map(o => o.value)
+        .filter(Boolean);
+      if (models.length) qs.set("modell", models.join(","));
+    }
+  
+    const y = yearSel?.value || "";
+    const m = monthSel?.value || "";
+    if (y && m) qs.set("ezFrom", `${y}-${String(m).padStart(2, "0")}`);
+  
+    if (kmSel) {
+      const raw = kmSel.value === "custom" ? (kmCustom?.value || "") : kmSel.value;
+      const n = parseInt(raw, 10);
+      if (!Number.isNaN(n) && n > 0) qs.set("km_max", String(n));
+    }
+  
+    if (priceSel) {
+      const raw = priceSel.value === "custom" ? (priceCustom?.value || "") : priceSel.value;
+      const n = parseInt(raw, 10);
+      if (!Number.isNaN(n) && n > 0) qs.set("price_max", String(n));
+    }
+  
+    const gear = (gearSel?.value || "").toLowerCase().trim();
+    if (gear && !["beliebig","any","alle","all","-"].includes(gear)) {
+      qs.set("getriebe", gear);
+    }
+  
+    const fuel = (fuelSel?.value || "").toLowerCase().trim();
+    if (fuel && !["beliebig","any","alle","all","-"].includes(fuel)) {
+      qs.set("kraftstoff", fuel);
+    }
+  
+    const loc = (locInput?.value || "").trim();
+    if (loc) qs.set("ort", loc);
+  
+    if (distSel && !distSel.disabled) {
+      const dRaw = distSel.value === "custom" ? (distCustom?.value || "") : distSel.value;
+      const d = parseInt(dRaw, 10);
+      if (!Number.isNaN(d) && d > 0 && d !== 999) qs.set("umkreis", String(d));
+    }
+  
+    if (sortSel && sortSel.value) {
+      const mapped = mapSortToServer(sortSel.value);
+      if (mapped) qs.set("sort", mapped);
+    }
+  
+    qs.delete("page");
+    window.location.href = `suche.html?${qs.toString()}`;
+  });
+});
