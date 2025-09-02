@@ -1243,16 +1243,15 @@ async function geocodeToPoint(query) {
   );
   return coords;
 }
-
 /* ============================================================
-   SCHNELLE Ortsvorschläge: /api/geosuggest?q=...&limit=6 (DE)
-   - In-Memory-Cache (24h) + Mongo-Cache
-   - KEIN Caching von leeren Ergebnissen
-   - Timeout/Abort, Accept-Language, “echter” User-Agent
+   SCHNELLE Ortsvorschläge: /api/geosuggest?q=...&limit=...
+   - Memory-Cache + Mongo-Cache (keine leeren Ergebnisse cachen)
+   - Quelle 1: Nominatim (OSM)
+   - Quelle 2 (Fallback): Photon/Komoot
    ============================================================ */
    const GEO_TTL_MS = 1000 * 60 * 60 * 24; // 24h
-   const NOMINATIM_TIMEOUT_MS = 3500;      // robustes Timeout
-   const geoMem = new Map();               // key -> { v, t }
+   const NOMINATIM_TIMEOUT_MS = 4000;
+   const geoMem = new Map(); // key -> { v, t }
    
    const getGeoMem = (key) => {
      const e = geoMem.get(key);
@@ -1262,11 +1261,18 @@ async function geocodeToPoint(query) {
    };
    const setGeoMem = (key, v) => {
      geoMem.set(key, { v, t: Date.now() });
-     if (geoMem.size > 500) {
-       const firstKey = geoMem.keys().next().value;
-       if (firstKey) geoMem.delete(firstKey);
-     }
+     if (geoMem.size > 500) geoMem.delete(geoMem.keys().next().value);
    };
+   
+   function dedupeByLabel(list) {
+     const seen = new Set();
+     return list.filter(s => {
+       const k = s.label;
+       if (seen.has(k)) return false;
+       seen.add(k);
+       return true;
+     });
+   }
    
    app.get("/api/geosuggest", async (req, res) => {
      try {
@@ -1275,7 +1281,7 @@ async function geocodeToPoint(query) {
    
        const key = qRaw.toLowerCase();
        const reqLimit = parseInt(req.query.limit, 10);
-       const lim = Math.min(Math.max((Number.isFinite(reqLimit) ? reqLimit : (key.length <= 3 ? 20 : 10)), 1), 25);
+       const lim = Math.min(Math.max(Number.isFinite(reqLimit) ? reqLimit : (key.length <= 3 ? 20 : 10), 1), 25);
    
        // 1) Memory-Cache
        const mem = getGeoMem(key);
@@ -1284,7 +1290,7 @@ async function geocodeToPoint(query) {
          return res.json({ suggestions: mem.slice(0, lim) });
        }
    
-       // 2) Mongo-Cache (aber keine leeren Vorschläge verwenden)
+       // 2) Mongo-Cache (keine leeren Ergebnisse nutzen)
        const coll = db.collection("geosuggest");
        const cached = await coll.findOne({ key });
        if (cached && Array.isArray(cached.suggestions) && cached.suggestions.length &&
@@ -1294,61 +1300,95 @@ async function geocodeToPoint(query) {
          return res.json({ suggestions: cached.suggestions.slice(0, lim) });
        }
    
-       // 3) Live zu Nominatim
-       const ctrl = new AbortController();
-       const timer = setTimeout(() => ctrl.abort(), NOMINATIM_TIMEOUT_MS);
-       const url =
-         `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=de&limit=${lim}&q=${encodeURIComponent(qRaw)}`;
+       // Helper: Mapper für einheitliches Suggest-Format
+       const mapToSuggestion = (postcode, city, state, lat, lon, display) => {
+         const label = [postcode, city].filter(Boolean).join(" ") || display || city || postcode || "";
+         return {
+           value: label,
+           label,
+           city: city || "",
+           postcode: postcode || "",
+           state: state || "",
+           lat: Number(lat),
+           lon: Number(lon)
+         };
+       };
    
-       const r = await fetch(url, {
-         headers: {
-           "User-Agent": "autovisa/1.0 (contact: info@autovisa.de)",
-           "Accept-Language": "de-DE,de;q=0.9"
-         },
-         signal: ctrl.signal
-       }).catch(() => null);
-       clearTimeout(timer);
+       // 3) Quelle 1: Nominatim
+       let suggestions = [];
+       try {
+         const ctrl = new AbortController();
+         const timer = setTimeout(() => ctrl.abort(), NOMINATIM_TIMEOUT_MS);
+         const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=de&limit=${lim}&q=${encodeURIComponent(qRaw)}`;
+         const r = await fetch(url, {
+           headers: {
+             "User-Agent": "autovisa/1.0 (contact: info@autovisa.de)",
+             "Accept-Language": "de-DE,de;q=0.9"
+           },
+           signal: ctrl.signal
+         }).catch(() => null);
+         clearTimeout(timer);
    
-       if (!r || !r.ok) {
-         return res.json({ suggestions: [] });
+         if (r && r.ok) {
+           const arr = await r.json().catch(() => []);
+           // NICHT zu hart filtern – Nominatim gibt sehr unterschiedliche Typen zurück
+           suggestions = (Array.isArray(arr) ? arr : []).map(it => {
+             const a = it.address || {};
+             const city = a.city || a.town || a.village || a.hamlet || a.suburb || a.neighbourhood || a.locality || "";
+             const postcode = a.postcode || "";
+             const state = a.state || a.county || "";
+             return mapToSuggestion(postcode, city, state, it.lat, it.lon, it.display_name);
+           }).filter(s => s.label); // nur sinnvolle Einträge
+         } else {
+           console.warn("Nominatim not ok / blocked");
+         }
+       } catch (e) {
+         console.warn("Nominatim error:", e?.name === "AbortError" ? "Timeout" : e?.message || e);
        }
    
-       const arr = await r.json().catch(() => []);
-       const allowedTypes = new Set(["city","town","village","hamlet","suburb","neighbourhood","locality","postcode"]);
+       // 4) Fallback: Photon/Komoot, wenn leer
+       if (!suggestions.length) {
+         try {
+           const url2 = `https://photon.komoot.io/api/?q=${encodeURIComponent(qRaw)}&lang=de&limit=${lim}`;
+           const r2 = await fetch(url2, {
+             headers: { "User-Agent": "autovisa/1.0 (contact: info@autovisa.de)" }
+           }).catch(() => null);
+           if (r2 && r2.ok) {
+             const data = await r2.json().catch(() => null);
+             const feats = Array.isArray(data?.features) ? data.features : [];
+             suggestions = feats.map(f => {
+               const p = f.properties || {};
+               // Photon: city kann je nach Objekt in city / name / locality stecken
+               const city = p.city || p.name || p.locality || p.town || p.village || "";
+               const postcode = p.postcode || "";
+               const state = p.state || p.county || p.district || "";
+               const [lon, lat] = Array.isArray(f.geometry?.coordinates) ? f.geometry.coordinates : [null, null];
+               return mapToSuggestion(postcode, city, state, lat, lon, p.name);
+             }).filter(s => s.label);
+           } else {
+             console.warn("Photon not ok");
+           }
+         } catch (e) {
+           console.warn("Photon error:", e?.message || e);
+         }
+       }
    
-       let suggestions = (Array.isArray(arr) ? arr : [])
-         .filter(it => it && it.class === "place" && allowedTypes.has(String(it.type || "").toLowerCase()))
-         .map(item => {
-           const addr = item.address || {};
-           const cityLike = addr.city || addr.town || addr.village || addr.hamlet || addr.suburb || addr.neighbourhood || addr.locality || "";
-           const postcode = addr.postcode || "";
-           const state    = addr.state || addr.county || "";
-           const label    = [postcode, cityLike].filter(Boolean).join(" ") || item.display_name || qRaw;
-   
-           const q = key;
-           const cityLc = String(cityLike).toLowerCase();
+       // 5) Dedupe + leichtes Scoring (Prefix bevorzugen)
+       const q = key;
+       suggestions = dedupeByLabel(suggestions)
+         .map(s => {
+           const lc = s.label.toLowerCase();
            const score =
-             (postcode.startsWith(q) ? 2 : 0) +
-             (cityLc.startsWith(q) ? 2 : 0) +
-             (label.toLowerCase().startsWith(q) ? 1 : 0);
-   
-           return {
-             value: label,
-             label,
-             city: cityLike,
-             postcode,
-             state,
-             lat: parseFloat(item.lat),
-             lon: parseFloat(item.lon),
-             _score: score
-           };
+             (s.postcode.startsWith(q) ? 3 : 0) +
+             (s.city.toLowerCase().startsWith(q) ? 3 : 0) +
+             (lc.startsWith(q) ? 1 : 0);
+           return { ...s, _score: score };
          })
-         .filter((s, i, a) => a.findIndex(x => x.value === s.value) === i)
          .sort((a, b) => (b._score - a._score) || (a.label.length - b.label.length))
          .slice(0, lim)
          .map(({ _score, ...rest }) => rest);
    
-       // KEINE leeren Ergebnisse cachen
+       // 6) Nur nicht-leere Ergebnisse cachen
        if (suggestions.length) {
          setGeoMem(key, suggestions);
          await coll.updateOne(
@@ -1361,10 +1401,11 @@ async function geocodeToPoint(query) {
    
        return res.json({ suggestions });
      } catch (err) {
-       console.error("❌ /api/geosuggest error:", err?.name === "AbortError" ? "Timeout" : err);
+       console.error("❌ /api/geosuggest fatal:", err);
        return res.json({ suggestions: [] });
      }
    });
+   
    
 
 // === SUCHE: /api/search (inkl. optionalem Geo-Radius) ===
