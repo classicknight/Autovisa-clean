@@ -1074,6 +1074,24 @@ app.get("/chat", checkLogin, async (req, res) => {
     res.status(500).json({ error: "Fehler beim Abrufen des Chatverlaufs." });
   }
 });
+
+
+
+
+// Alle Nachrichten, an denen der eingeloggte Nutzer beteiligt ist
+app.get("/meine-nachrichten", checkLogin, async (req, res) => {
+  try{
+    const uid = req.nutzer.id;
+    const coll = db.collection("nachrichten");
+    const list = await coll.find({
+      $or: [{ senderId: uid }, { empfaengerId: uid }]
+    }).toArray();
+    res.json(list);
+  }catch(e){
+    res.status(500).json({ error: "Fehler beim Laden" });
+  }
+});
+
 // === Geocoding mit einfachem Mongo-Cache (Node >= 18: global fetch vorhanden)
 async function geocodeToPoint(query) {
   const q = String(query || "").trim();

@@ -1,228 +1,175 @@
-// chat.js
+// chat.js – Chat-Übersicht (nur Liste von Threads, kein Schreiben)
 
-// ---- Helpers ----
-const $ = (sel, root = document) => root.querySelector(sel);
-const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+// ---------- Helpers ----------
+const $ = (s, r=document) => r.querySelector(s);
 
-function qs(name) {
-  const v = new URLSearchParams(location.search).get(name);
-  return v ? String(v) : "";
+function fmtEUR(v){
+  if (v == null || v === "") return "";
+  const n = typeof v === "number" ? v : parseFloat(String(v).replace(/\./g,"").replace(",","."));
+  return isNaN(n) ? String(v) : n.toLocaleString("de-DE") + " €";
 }
-function formatTime(iso) {
+function shortId(id){ return (id||"").slice(0,6) + "…"; }
+function timeDesc(iso){
+  if (!iso) return "";
   const d = new Date(iso);
-  return d.toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-}
-function scrollToBottom() {
-  const box = $("#messages");
-  if (box) box.scrollTop = box.scrollHeight;
+  return d.toLocaleString("de-DE", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
 }
 
-async function getMe() {
-  const r = await fetch("/getNutzerInfo", { credentials: "include" });
+// ---------- API ----------
+async function getMe(){
+  const r = await fetch("/getNutzerInfo", { credentials:"include" });
   const j = await r.json();
   if (!j?.eingeloggt || !j?.nutzerId) throw new Error("Nicht eingeloggt");
-  return j; // {eingeloggt:true, nutzerId:"...", name?: "..."}
+  return j; // {nutzerId, name?}
 }
 
-async function fetchInseratDetails(id) {
-  const r = await fetch(`/inserat-details/${encodeURIComponent(id)}`, { credentials: "include" });
-  if (!r.ok) return null;
+// Optionaler, „schöner“ Endpoint: versucht beide Richtungen zu laden.
+// Fallback: nur empfangene Nachrichten.
+async function loadAllMessagesFor(userId){
+  // Versuch 1: zentraler Endpoint, wenn vorhanden
+  try{
+    const t = await fetch("/meine-nachrichten", { credentials:"include" });
+    if (t.ok) return await t.json(); // [{...Nachricht}]
+  }catch(_){}
+
+  // Fallback: nur Inbox (empfaengerId=ich)
+  const r = await fetch(`/nachrichten/${encodeURIComponent(userId)}`, { credentials:"include" });
+  if (!r.ok) throw new Error("Konnte Nachrichten nicht laden");
   return await r.json();
 }
 
-async function fetchChat(user1, user2, fahrzeugId) {
-  const url = `/chat?user1=${encodeURIComponent(user1)}&user2=${encodeURIComponent(user2)}&fahrzeugId=${encodeURIComponent(fahrzeugId)}`;
-  const r = await fetch(url, { credentials: "include" });
-  if (!r.ok) throw new Error("Chat konnte nicht geladen werden");
-  return await r.json(); // Array
+async function loadInserat(fid){
+  try{
+    const r = await fetch(`/inserat-details/${encodeURIComponent(fid)}`, { credentials:"include" });
+    if (!r.ok) return null;
+    return await r.json();
+  }catch{ return null; }
 }
 
-async function markAsRead(ids) {
-  // nacheinander, simpel & robust
-  for (const id of ids) {
-    try {
-      await fetch(`/nachrichten/${encodeURIComponent(id)}/gelesen`, {
-        method: "PATCH",
-        credentials: "include"
-      });
-    } catch {}
+// ---------- Thread-Bildung ----------
+function groupThreads(messages, meId){
+  // Ziel: Threads nach {otherId, fahrzeugId} gruppieren
+  const map = new Map();
+  for (const m of messages){
+    const otherId = (m.senderId === meId) ? m.empfaengerId : m.senderId;
+    const key = `${otherId}::${m.fahrzeugId}`;
+    if (!map.has(key)) map.set(key, { otherId, fahrzeugId: m.fahrzeugId, items: [] });
+    map.get(key).items.push(m);
   }
-}
 
-async function sendMessage({ empfaengerId, fahrzeugId, absenderName, text }) {
-  const r = await fetch("/nachricht-senden", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({
-      empfaengerId,
-      fahrzeugId,
-      absenderName,
-      nachricht: text
-    })
-  });
-  if (!r.ok) {
-    const t = await r.text();
-    throw new Error(t || "Senden fehlgeschlagen");
+  // Metadaten je Thread berechnen
+  const threads = [];
+  for (const t of map.values()){
+    t.items.sort((a,b)=> new Date(a.zeit) - new Date(b.zeit));
+    const last = t.items[t.items.length-1];
+    const unread = t.items.filter(x => !x.gelesen && x.empfaengerId === meId).length;
+
+    // Absendername für Preview: wenn letzte Nachricht von "other", nimm dessen absenderName, sonst "Du"
+    const lastFromOther = last.senderId !== meId;
+    const nameForPreview = lastFromOther ? (last.absenderName || `Nutzer ${shortId(t.otherId)}`) : "Du";
+
+    threads.push({
+      otherId: t.otherId,
+      fahrzeugId: t.fahrzeugId,
+      last,
+      unread,
+      previewName: nameForPreview
+    });
   }
-  return true;
+
+  // Neueste Chats oben
+  threads.sort((a,b)=> new Date(b.last.zeit) - new Date(a.last.zeit));
+  return threads;
 }
 
-// ---- Rendering ----
-function renderHeader(ins) {
-  const img = Array.isArray(ins?.images) && ins.images[0] ? ins.images[0] : "";
-  if (img) {
-    $("#car-thumb").src = img;
-    $("#car-thumb").alt = ins?.titel || "Fahrzeug";
-  } else {
-    $("#car-thumb").removeAttribute("src");
-    $("#car-thumb").alt = "";
-  }
-  $("#car-title").textContent = ins?.titel || "Unbekanntes Fahrzeug";
-  const preis = ins?.preis != null
-    ? (typeof ins.preis === "number" ? ins.preis.toLocaleString("de-DE") + " €" : String(ins.preis))
-    : "";
-  const metaParts = [];
-  if (preis) metaParts.push(preis);
-  if (ins?.verkauf_erstzulassung) metaParts.push("EZ " + ins.verkauf_erstzulassung);
-  if (ins?.verkauf_kilometer != null) metaParts.push((ins.verkauf_kilometer + "").replace(/\B(?=(\d{3})+(?!\d))/g, ".") + " km");
-  $("#car-meta").textContent = metaParts.join(" • ");
+// ---------- Rendering ----------
+function threadHTML({car, thread, meId}){
+  const titel = car?.titel || "Unbekanntes Fahrzeug";
+  const preis = fmtEUR(car?.preis);
+  const carTitleLine = preis ? `${titel} • ${preis}` : titel;
+  const img = (Array.isArray(car?.images) && car.images[0]) ? car.images[0] : "";
+  const previewText = (thread.last?.nachricht || "").split("\n").slice(0,2).join(" ");
+  const previewName = thread.previewName;
+  const stamp = timeDesc(thread.last?.zeit);
+  const unreadBadge = thread.unread > 0 ? ` <span class="unread-badge">+${thread.unread}</span>` : "";
+
+  const openUrl = `nachrichten.html?user1=${encodeURIComponent(meId)}&user2=${encodeURIComponent(thread.otherId)}&fahrzeugId=${encodeURIComponent(thread.fahrzeugId)}`;
+
+  // WICHTIG: Struktur genau wie dein altes Markup (Karte + Buttons darunter)
+  return `
+  <div class="chat-card" data-thread="${thread.otherId}::${thread.fahrzeugId}">
+    <div class="chat-media">
+      ${img ? `<img src="${img}" alt="Auto" />` : `<div style="width:80px;height:60px;background:#e9eef5;border-radius:8px;"></div>`}
+    </div>
+    <div class="chat-info">
+      <h2 class="chat-car-title">${carTitleLine}</h2>
+      <p class="chat-message-preview"><strong>${previewName}:</strong> ${previewText || "…"}</p>
+      <small class="chat-time">${stamp}${unreadBadge}</small>
+    </div>
+  </div>
+  <div class="chat-buttons">
+    <a href="${openUrl}" class="open-chat-btn"><i class="fas fa-comments"></i> Chat öffnen</a>
+    <button class="delete-chat-btn" data-other="${thread.otherId}" data-fid="${thread.fahrzeugId}">
+      <i class="fas fa-trash-alt"></i> Chat löschen
+    </button>
+  </div>`;
 }
 
-function renderPartnerName(me, user1, user2, firstMsg) {
-  // Wir zeigen den "anderen" an. Wenn erste Nachricht existiert, nimm absenderName als Fallback.
-  const otherId = (me.nutzerId === user1) ? user2 : user1;
-  const name = firstMsg?.absenderName && firstMsg.senderId === otherId ? firstMsg.absenderName : (firstMsg?.absenderName || "Chat-Partner");
-  $("#partner-name").textContent = name;
-  return { otherId, name };
-}
+async function renderChatList(){
+  const container = $("#chat-list");
+  if (!container) return;
 
-function renderMessages(list, meId) {
-  const box = $("#messages");
-  if (!Array.isArray(list) || list.length === 0) {
-    box.innerHTML = `<p class="empty">Noch keine Nachrichten.</p>`;
-    return;
-  }
-  const html = list.map(m => {
-    const mine = m.senderId === meId;
-    return `
-      <div class="msg ${mine ? "me" : "them"}" data-id="${m.id}">
-        <div class="bubble">
-          ${!mine && m.absenderName ? `<div class="from">${m.absenderName}</div>` : ""}
-          <div class="text">${(m.nachricht || "").replace(/\n/g, "<br>")}</div>
-          <div class="meta">
-            <time datetime="${m.zeit}">${formatTime(m.zeit)}</time>
-            ${mine ? "" : (m.gelesen ? `<span class="read" title="Gelesen">✓</span>` : ``)}
-          </div>
-        </div>
-      </div>`;
-  }).join("");
-  box.innerHTML = html;
-}
-
-function collectUnreadForMe(list, meId) {
-  return list.filter(m => !m.gelesen && m.empfaengerId === meId).map(m => m.id);
-}
-
-// ---- Main ----
-document.addEventListener("DOMContentLoaded", async () => {
-  // Query-Parameter
-  const user1 = qs("user1");
-  const user2 = qs("user2");
-  const fahrzeugId = qs("fahrzeugId");
-
-  try {
+  try{
     const me = await getMe();
-    // Sicherheitscheck wie im Backend
-    if (me.nutzerId !== user1 && me.nutzerId !== user2) {
-      alert("Zugriff verweigert.");
-      location.href = "übersicht.html";
-      return;
-    }
-    if (!fahrzeugId) {
-      alert("Kein Fahrzeug angegeben.");
-      location.href = "übersicht.html";
+    const all = await loadAllMessagesFor(me.nutzerId);
+    if (!Array.isArray(all) || all.length === 0){
+      container.innerHTML = `<p>Keine Chats vorhanden.</p>`;
       return;
     }
 
-    // Fahrzeug laden (optional, aber hübsch)
-    const ins = await fetchInseratDetails(fahrzeugId);
-    if (ins) renderHeader(ins);
+    const threads = groupThreads(all, me.nutzerId);
 
-    // Chat laden & rendern
-    async function refresh() {
-      const verlauf = await fetchChat(user1, user2, fahrzeugId);
-      renderMessages(verlauf, me.nutzerId);
-      const { name } = renderPartnerName(me, user1, user2, verlauf[0]);
-      // Ungelesene markieren
-      const unread = collectUnreadForMe(verlauf, me.nutzerId);
-      if (unread.length) markAsRead(unread);
-      scrollToBottom();
-      return name;
-    }
+    // Einmalig alle benötigten Fahrzeuginfos laden
+    const uniqueFids = [...new Set(threads.map(t=>t.fahrzeugId))];
+    const detailsMap = new Map();
+    await Promise.all(uniqueFids.map(async fid=>{
+      detailsMap.set(fid, await loadInserat(fid));
+    }));
 
-    const partnerName = await refresh();
+    // Rendern
+    container.innerHTML = threads.map(th=>{
+      const car = detailsMap.get(th.fahrzeugId) || null;
+      return threadHTML({ car, thread: th, meId: me.nutzerId });
+    }).join("");
 
-    // Composer
-    const input = $("#message-input");
-    const sendBtn = $("#send-btn");
-    $("#composer").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const txt = (input.value || "").trim();
-      if (!txt) return;
-
-      // An wen geht's?
-      const otherId = me.nutzerId === user1 ? user2 : user1;
-      // Absendername nehmen, wenn vorhanden, sonst Partnername als Fallback
-      const absenderName = me?.name || "Ich";
-
-      sendBtn.disabled = true;
-      try {
-        await sendMessage({
-          empfaengerId: otherId,
-          fahrzeugId,
-          absenderName,
-          text: txt
-        });
-        input.value = "";
-        await refresh();
-      } catch (err) {
-        console.error(err);
-        alert("Konnte nicht senden.");
-      } finally {
-        sendBtn.disabled = false;
-        input.focus();
-      }
-    });
-
-    // Enter = senden, Shift+Enter = neue Zeile
-    $("#message-input").addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        $("#composer").requestSubmit();
-      }
-    });
-
-    // Polling
-    let pollTimer = setInterval(() => {
-      refresh().catch(() => {});
-    }, 8000);
-
-    // Optional: auf Sichtbarkeit reagieren
-    document.addEventListener("visibilitychange", () => {
-      if (document.hidden) {
-        clearInterval(pollTimer);
-      } else {
-        refresh().catch(()=>{});
-        pollTimer = setInterval(() => refresh().catch(()=>{}), 8000);
-      }
-    });
-
-  } catch (err) {
+  }catch(err){
     console.error(err);
-    alert("Bitte zuerst einloggen.");
-    location.href = "login.html";
+    container.innerHTML = `<p>Fehler beim Laden der Chats.</p>`;
   }
+}
+
+// ---------- Events ----------
+document.addEventListener("DOMContentLoaded", () => {
+  renderChatList();
+
+  // „Chat löschen“ – derzeit nur UI-Entfernung
+  document.body.addEventListener("click", (e) => {
+    const btn = e.target.closest(".delete-chat-btn");
+    if (!btn) return;
+    const other = btn.dataset.other;
+    const fid = btn.dataset.fid;
+    if (!confirm("Diesen Chat aus der Übersicht entfernen?")) return;
+
+    // UI entfernen (Karte + Buttons)
+    const key = `${other}::${fid}`;
+    const card = document.querySelector(`.chat-card[data-thread="${key}"]`);
+    const btns = card?.nextElementSibling;
+    card?.remove();
+    if (btns?.classList.contains("chat-buttons")) btns.remove();
+
+    // Optional: hier könntest du einen Server-Endpoint aufrufen, um den Thread zu archivieren.
+    // fetch(`/chat-thread/${encodeURIComponent(other)}/${encodeURIComponent(fid)}/archiv`, { method: "POST", credentials: "include" });
+  });
 });
 
   
