@@ -1000,25 +1000,24 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
   
   
   
-  
-/* === Wrapper (nur Breite/Abstand) === */
+  /* === Wrapper (nur Breite/Abstand) === */
 .results-section{
   max-width:1280px;
   margin:32px auto;
   padding:0 16px;
 }
 
-/* === Kartenlayout (GRID) – auf dem Container mit den Karten === */
+/* === Kartenlayout (GRID) === */
 #carResults,
 .car-results{
   display:grid;
   grid-template-columns:repeat(auto-fill, minmax(340px, 1fr));
   gap:24px;
   width:100%;
-  align-items:stretch;
+  align-items:start;                 /* ⬅️ nicht strecken -> weniger Leerraum */
 }
 
-/* === Fahrzeugkarte (vertikal) === */
+/* === Fahrzeugkarte === */
 .car-card{
   display:flex;
   flex-direction:column;
@@ -1028,6 +1027,7 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
   border:1px solid #e3e9ef;
   box-shadow:0 6px 18px rgba(0,0,0,.04);
   transition:transform .25s ease, box-shadow .3s ease;
+  height:auto;                       /* ⬅️ keine erzwungene Höhe */
 }
 .car-card:hover{
   transform:translateY(-3px);
@@ -1036,224 +1036,109 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
 
 /* === Medienbereich === */
 .car-card-media{
-  position:relative;              /* wichtig für Overlays */
+  position:relative;
   background:#f3f6f9;
   border-bottom:1px solid #e3e9ef;
 }
-
-/* Medien-Container mit fester Ratio (vermeidet „Springen“) */
 .media-container{
   position:relative;
   width:100%;
-  aspect-ratio:16/9;              /* moderne Browser */
+  aspect-ratio:16/9;
   overflow:hidden;
-  display:flex;                   /* für Slides */
+  display:flex;
 }
-
-/* Fallback für alte Browser ohne aspect-ratio */
 @supports not (aspect-ratio:16/9){
-  .media-container{ height:0; padding-top:56.25%; } /* 16:9 */
+  .media-container{ height:0; padding-top:56.25%; }
   .media-container .slides{ position:absolute; inset:0; }
 }
-
-/* Slider-Innereien */
-.slides{
-  display:flex;
-  width:100%;
-  height:100%;
-  transition:transform .5s ease-in-out;
-  will-change:transform;
-}
-.slide{
-  flex:0 0 100%;
-  min-width:100%;
-  height:100%;
-  box-sizing:border-box;
-  display:block;
-
-  /* direkt auf dem <img>/<video class="slide"> zentrieren */
-  width:100%;
-  object-fit:cover;
-  object-position:center;
-}
+.slides{ display:flex; width:100%; height:100%; transition:transform .5s ease-in-out; will-change:transform; }
+.slide{ flex:0 0 100%; min-width:100%; height:100%; display:block; width:100%; object-fit:cover; object-position:center; }
 
 /* Pfeile */
 .media-arrow{
-  position:absolute;
-  top:50%;
-  transform:translateY(-50%);
-  background:rgba(15,32,39,.7);
-  border:none;
-  color:#fff;
-  font-size:18px;
-  padding:10px 12px;
-  border-radius:50%;
-  cursor:pointer;
-  z-index:5;
-  transition:background .25s ease, transform .15s ease;
-  line-height:1;
+  position:absolute; top:50%; transform:translateY(-50%);
+  background:rgba(15,32,39,.7); border:none; color:#fff;
+  font-size:18px; padding:10px 12px; border-radius:50%;
+  cursor:pointer; z-index:5; transition:background .25s ease, transform .15s ease; line-height:1;
 }
 .media-arrow:hover{ background:rgba(0,184,169,.9); }
 .media-arrow:active{ transform:translateY(-50%) scale(.96); }
-.media-arrow.left{ left:10px; }
-.media-arrow.right{ right:10px; }
+.media-arrow.left{ left:10px; } .media-arrow.right{ right:10px; }
 
-/* === Details === */
+/* === Details (kompakt) === */
 .car-details{
-  padding:18px 20px 20px;
-  display:grid;
-  grid-auto-rows:min-content;
-  gap:10px;
-}
-.car-top-row{
+  padding:16px 18px 14px;           /* ⬅️ enger */
   display:flex;
-  align-items:center;
-  gap:10px;
-  min-width:0;
+  flex-direction:column;
+  gap:8px;                           /* ⬅️ enger */
 }
+.car-top-row{ display:flex; align-items:center; gap:10px; min-width:0; }
 .car-title{
-  font-size:17px;
-  font-weight:600;
-  color:#1a2a33;
-  flex:1 1 auto;
-  min-width:0;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-  margin:0;
+  font-size:17px; font-weight:600; color:#1a2a33; flex:1 1 auto;
+  min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:0;
 }
 .car-price{
-  font-size:18px;
-  padding:6px 12px;
-  background:#f1f5f9;
-  border-radius:10px;
-  color:#1a2a33;
-  font-weight:600;
-  white-space:nowrap;
-  flex-shrink:0;
+  font-size:18px; padding:6px 12px; background:#f1f5f9; border-radius:10px;
+  color:#1a2a33; font-weight:600; white-space:nowrap; flex-shrink:0;
 }
 
-/* Untertitel auf 2 Zeilen clampen */
+/* Untertitel */
 .car-subtitle{
-  font-size:14px;
-  color:#6c7a89;
-  margin:0;
-  display:-webkit-box;
-  -webkit-line-clamp:2;
-  -webkit-box-orient:vertical;
-  overflow:hidden;
+  font-size:14px; color:#6c7a89; margin:0;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  line-height:1.25; min-height:2.4em;        /* ⬅️ etwas kompakter */
 }
 
-/* Info-Grid */
+/* Info-Grid (kompakt, nicht zentriert) */
 .car-info-grid{
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:8px 16px;
-  font-size:14px;
-  color:#37444f;
-  padding-top:8px;
+  display:grid; grid-template-columns:repeat(3,1fr);
+  gap:8px 16px; font-size:14px; color:#37444f;
+  margin:8px 0 0;                  /* ⬅️ kleiner Top-Abstand */
+  padding:8px 0 6px;               /* ⬅️ kompakter Innenabstand */
   border-top:1px solid #f0f2f5;
 }
 .car-info-grid p{ margin:0; display:flex; align-items:center; gap:6px; }
 .car-info-grid i{ color:#00b8a9; font-size:13px; }
 
-/* Händlerinfo */
+/* Händlerinfo (kompakt, normales Fließen) */
 .dealer-info{
-  font-size:13px;
-  color:#6b7a88;
-  font-style:italic;
-  padding-top:10px;
+  font-size:13px; color:#6b7a88; font-style:italic;
+  margin-top:8px;                   /* ⬅️ kein auto mehr */
+  padding-top:8px;
   border-top:1px solid #e6eaf0;
 }
 
-/* ===== Aktions-Buttons (Herz, Telefon) – OVERLAY OBEN RECHTS ===== */
-
+/* Aktionen */
 .card-actions{ display:flex; gap:10px; }
-
-/* runde Icon-Buttons */
-.card-actions button,
-.save-btn,
-.clean-phone{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  width:36px;
-  height:36px;
-  background:rgba(0,184,169,0.0);
-  border:1px solid #ccd5df;
-  border-radius:50%;
-  padding:0;
-  font-size:16px;
-  cursor:pointer;
-  text-decoration:none;
-  color:inherit;
-  box-shadow:0 2px 5px rgba(0,0,0,.06);
+.card-actions button, .save-btn, .clean-phone{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:36px; height:36px; background:rgba(0,184,169,0.0);
+  border:1px solid #ccd5df; border-radius:50%; padding:0; font-size:16px;
+  cursor:pointer; text-decoration:none; color:inherit; box-shadow:0 2px 5px rgba(0,0,0,.06);
   transition:background .2s ease, color .2s ease, border-color .2s ease;
 }
-.card-actions button:hover,
-.save-btn:hover,
-.clean-phone:hover{
-  background:#00b8a9;
-  color:#fff;
-  border-color:#00b8a9;
-}
-.card-actions button i,
-.save-btn i,
-.clean-phone i{
-  color:#1a2a33;
-  transition:color .2s ease;
-}
-.card-actions button:hover i,
-.save-btn:hover i,
-.clean-phone:hover i{ color:#fff; }
+.card-actions button:hover, .save-btn:hover, .clean-phone:hover{ background:#00b8a9; color:#fff; border-color:#00b8a9; }
+.card-actions button i, .save-btn i, .clean-phone i{ color:#1a2a33; transition:color .2s ease; }
+.card-actions button:hover i, .save-btn:hover i, .clean-phone:hover i{ color:#fff; }
+.clean-phone[aria-disabled="true"]{ opacity:.35; pointer-events:none; cursor:not-allowed; }
+.car-card-media .mobile-only{ position:absolute; top:10px; right:10px; z-index:7; display:flex; gap:10px; }
 
-/* deaktivierter Telefon-Link */
-.clean-phone[aria-disabled="true"]{
-  opacity:.35;
-  pointer-events:none;
-  cursor:not-allowed;
-}
-
-/* ✅ Overlay-Buttons auf ALLEN Breakpoints sichtbar */
-.car-card-media .mobile-only{
-  position:absolute;
-  top:10px;
-  right:10px;
-  z-index:7;         /* über den Pfeilen */
-  display:flex;
-  gap:10px;
-}
-
-/* Buttons unten rechts (nur Desktop, optional) */
+/* Desktop-only Buttons (optional) */
 .desktop-only{ display:none; }
 .dealer-info-row{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:14px;
-  margin-top:14px;
-  padding-top:10px;
-  border-top:1px solid #e6eaf0;
+  display:flex; justify-content:space-between; align-items:center; gap:14px;
+  margin-top:14px; padding-top:10px; border-top:1px solid #e6eaf0;
 }
-.dealer-info-text{
-  font-size:13px;
-  color:#6b7a88;
-  font-style:italic;
-  line-height:1.4;
-  flex:1;
-}
+.dealer-info-text{ font-size:13px; color:#6b7a88; font-style:italic; line-height:1.4; flex:1; }
 
-/* === Responsive Tweaks === */
+/* === Responsive === */
 @media (max-width:900px){
   .car-info-grid{ grid-template-columns:repeat(2,1fr); }
   .media-arrow{ font-size:16px; padding:8px 10px; }
 }
-
 @media (min-width:901px){
-  /* Desktop: zusätzlich die unteren Buttons anzeigen (optional) */
   .desktop-only{ display:flex; gap:10px; margin-top:8px; }
 }
-
 @media (max-width:600px){
   .results-section{ padding:0 12px; }
   #carResults, .car-results{ grid-template-columns:1fr; gap:20px; }
@@ -1265,98 +1150,18 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
   .dealer-info{ font-size:12.5px; }
 }
 
-/* Weniger Bewegung */
+/* Bewegungs-Reduktion */
 @media (prefers-reduced-motion: reduce){
   .car-card, .slides{ transition:none !important; }
 }
 
-/* Saubere Spalten-Anzahl an großen Breakpoints */
+/* große Breakpoints */
 @media (min-width:1200px){
   #carResults, .car-results{ grid-template-columns:repeat(3,1fr); }
 }
 @media (min-width:1600px){
   #carResults, .car-results{ grid-template-columns:repeat(4,1fr); }
 }
-
-  
-  
-  
-
-
-
-
-/* === Fix: einheitliche Kartenhöhe & Händler-Info unten === */
-.car-card{ height:100%; } /* (zur Sicherheit) */
-
-.car-details{
-  flex: 1 1 auto;                 /* füllt die Resthöhe der Karte */
-  display: flex;                  /* statt Grid */
-  flex-direction: column;
-  gap: 10px;
-  padding: 18px 20px 16px;        /* leicht enger unten */
-}
-
-/* Händlerbereich immer an den Boden drücken */
-.dealer-info,
-.dealer-info-row{
-  margin-top: auto;               /* schiebt diesen Block nach unten */
-}
-
-/* Untertitel: immer Platz für exakt 2 Zeilen -> gleiche Höhen oben */
-.car-subtitle{
-  line-height: 1.3;
-  min-height: 2.6em;              /* 2 Zeilen */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-  
-  
-/* === Info-Grid mittig zwischen den Trennlinien === */
-.car-info-grid{
-  /* oberhalb der eigenen Linie + unterhalb zur Händler-Linie gleiche Luft */
-  padding-top: 12px;          /* Abstand zur oberen Linie (eigene border-top) */
-  padding-bottom: 12px;       /* gleich viel Abstand nach unten */
-  border-top: 1px solid #f0f2f5;  /* hast du schon – hier nur zur Sicherheit */
-}
-
-/* Händlerblock bleibt unten angepinnt, bekommt aber die gleiche Luft oben */
-.dealer-info{
-  margin-top: auto;           /* bleibt am Kartenboden */
-  padding-top: 12px;          /* gleicher Abstand wie unten am Info-Grid */
-  border-top: 1px solid #e6eaf0;
-}
-
-/* (Optional) etwas mehr Raum, falls es noch leicht „obenlastig“ wirkt */
-.car-details{ gap: 12px; }    /* vorher 10px – minimal ausgewogener */
-
-  
-  
-  /* Specs (km/EZ/PS …) wirklich mittig zwischen den Linien */
-.car-details{
-  display: flex;          /* hast du schon – hier zur Sicherheit */
-  flex-direction: column;
-}
-
-/* nimmt oben UND unten den freien Platz -> steht mittig */
-.car-info-grid{
-  margin-top: auto;
-  margin-bottom: auto;
-  padding: 12px 0;                /* gleiche Luft zu eigener Linie & unten */
-  border-top: 1px solid #f0f2f5;  /* deine obere Linie */
-}
-
-/* Händlerblock: NICHT mehr mit auto nach unten drücken */
-.dealer-info{
-  margin-top: 0 !important;       /* überschreibt frühere margin-top:auto */
-  padding-top: 12px;              /* gleiche Luft wie unten an den Specs */
-  border-top: 1px solid #e6eaf0;  /* untere Linie */
-}
-
-/* (Optional) etwas mehr vertikale Balance im Detailbereich */
-.car-details{ gap: 12px; }
 
 
 
