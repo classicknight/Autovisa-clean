@@ -100,39 +100,40 @@
   </ul>
 </nav>
   
-  
-  
-<section class="chat-overview">
-  <h1 class="chat-title"><i class="fas fa-comments"></i> Chats</h1>
-  
-  <div class="chat-card">
-    <div class="chat-media">
-      <img src="1.jpeg" alt="Auto" />
+<section id="chat" class="chat">
+  <!-- Kopf mit Fahrzeug + Teilnehmer -->
+  <header class="chat-header">
+    <div class="car-head">
+      <img id="car-thumb" alt="" />
+      <div>
+        <h1 id="car-title">Lade Fahrzeug …</h1>
+        <p id="car-meta"></p>
+      </div>
     </div>
-    <div class="chat-info">
-      <h2 class="chat-car-title">BMW 3er • 12.990 €</h2>
-      <p class="chat-message-preview"><strong>Max Mustermann:</strong> Ist der Wagen noch verfügbar?</p>
+    <div class="chat-partners">
+      <i class="fas fa-user"></i>
+      <span id="partner-name">Lade Teilnehmer …</span>
     </div>
-  </div>
-  <div class="chat-buttons">
-    <a href="chatverlauf.html?auto=123" class="open-chat-btn"><i class="fas fa-comments"></i> Chat öffnen</a>
-    <button class="delete-chat-btn"><i class="fas fa-trash-alt"></i> Chat löschen</button>
-  </div>
-  
-  <div class="chat-card">
-    <div class="chat-media">
-      <img src="2.jpeg" alt="Auto" />
-    </div>
-    <div class="chat-info">
-      <h2 class="chat-car-title">Audi A4 Avant • 14.790 €</h2>
-      <p class="chat-message-preview"><strong>Laura Beispiel:</strong> Ich würde morgen gerne eine Probefahrt machen.</p>
+  </header>
+
+  <!-- Nachrichtenliste -->
+  <div id="messages" class="messages" aria-live="polite">
+    <div class="loading">
+      <i class="fas fa-circle-notch fa-spin"></i> Lade Chat …
     </div>
   </div>
-  <div class="chat-buttons">
-    <a href="chatverlauf.html?auto=456" class="open-chat-btn"><i class="fas fa-comments"></i> Chat öffnen</a>
-    <button class="delete-chat-btn"><i class="fas fa-trash-alt"></i> Chat löschen</button>
-  </div>
+
+  <!-- Composer -->
+  <form id="composer" class="composer" autocomplete="off">
+    <textarea id="message-input" rows="1" placeholder="Nachricht schreiben … (Enter = senden, Shift+Enter = Zeilenumbruch)"></textarea>
+    <button id="send-btn" type="submit" aria-label="Senden">
+      <i class="fas fa-paper-plane"></i>
+    </button>
+  </form>
 </section>
+
+<script src="chat.js" defer></script>
+
 
 
 
