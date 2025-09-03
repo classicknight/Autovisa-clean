@@ -99,33 +99,28 @@
     </li>
   </ul>
 </nav>
-  
 
-<section class="chat-container">
-  <div class="chat-header">
-    <img src="1.jpeg" alt="Auto" />
+<section class="chat-container" id="chat-container" aria-live="polite">
+  <!-- Header mit Fahrzeug -->
+  <div class="chat-header" id="chat-header">
+    <img id="car-img" src="" alt="Fahrzeug" />
     <div class="chat-header-info">
-      <h2>BMW 3er Touring</h2>
-      <p>12.990 €</p>
+      <h2 id="car-title">Fahrzeug</h2>
+      <p id="car-price"></p>
     </div>
   </div>
-  
-  <div class="chat-messages" id="chat-messages">
-    <div class="message from-other">
-      <p>Hallo, ist das Auto noch verfügbar?</p>
-      <span>Max, 14:02</span>
-    </div>
-    <div class="message from-me">
-      <p>Ja, das Fahrzeug ist noch online.</p>
-      <span>Ich, 14:05</span>
-    </div>
-  </div>
-  
-  <form class="chat-input-area" id="chat-form">
+
+  <!-- Nachrichtenliste -->
+  <div class="chat-messages" id="chat-messages" role="log" aria-label="Chatverlauf"></div>
+
+  <!-- Eingabe -->
+  <form class="chat-input-area" id="chat-form" autocomplete="off">
     <input type="text" id="chat-input" placeholder="Nachricht schreiben..." required />
-    <button type="submit"><i class="fas fa-paper-plane"></i></button>
+    <button type="submit" aria-label="Senden"><i class="fas fa-paper-plane"></i></button>
   </form>
 </section>
-  <script src="nachricht.js"></script>
+
+<!-- Behalte deinen Dateinamen – hier verwende ich 'nachrichten.js' -->
+<script src="nachrichten.js"></script>
 </body>
 </html>
