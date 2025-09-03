@@ -1334,7 +1334,30 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
 
   
   
-  
+  /* Specs (km/EZ/PS …) wirklich mittig zwischen den Linien */
+.car-details{
+  display: flex;          /* hast du schon – hier zur Sicherheit */
+  flex-direction: column;
+}
+
+/* nimmt oben UND unten den freien Platz -> steht mittig */
+.car-info-grid{
+  margin-top: auto;
+  margin-bottom: auto;
+  padding: 12px 0;                /* gleiche Luft zu eigener Linie & unten */
+  border-top: 1px solid #f0f2f5;  /* deine obere Linie */
+}
+
+/* Händlerblock: NICHT mehr mit auto nach unten drücken */
+.dealer-info{
+  margin-top: 0 !important;       /* überschreibt frühere margin-top:auto */
+  padding-top: 12px;              /* gleiche Luft wie unten an den Specs */
+  border-top: 1px solid #e6eaf0;  /* untere Linie */
+}
+
+/* (Optional) etwas mehr vertikale Balance im Detailbereich */
+.car-details{ gap: 12px; }
+
 
 
 

@@ -563,7 +563,14 @@
   <div class="footer-bottom">
     <div class="container bottom-inner">
       <p>© <span id="year"></span> Autovisa. Alle Rechte vorbehalten.</p>
-      <a href="#main" class="to-top" aria-label="Nach oben">Nach oben ↑</a>
+      <a href="#top" class="to-top" aria-label="Nach oben">Nach oben ↑</a>
+<script>
+  document.querySelector('.to-top')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+</script>
+
     </div>
   </div>
 </footer>
