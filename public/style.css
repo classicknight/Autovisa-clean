@@ -1314,6 +1314,23 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
 
   
   
+/* === Info-Grid mittig zwischen den Trennlinien === */
+.car-info-grid{
+  /* oberhalb der eigenen Linie + unterhalb zur Händler-Linie gleiche Luft */
+  padding-top: 12px;          /* Abstand zur oberen Linie (eigene border-top) */
+  padding-bottom: 12px;       /* gleich viel Abstand nach unten */
+  border-top: 1px solid #f0f2f5;  /* hast du schon – hier nur zur Sicherheit */
+}
+
+/* Händlerblock bleibt unten angepinnt, bekommt aber die gleiche Luft oben */
+.dealer-info{
+  margin-top: auto;           /* bleibt am Kartenboden */
+  padding-top: 12px;          /* gleicher Abstand wie unten am Info-Grid */
+  border-top: 1px solid #e6eaf0;
+}
+
+/* (Optional) etwas mehr Raum, falls es noch leicht „obenlastig“ wirkt */
+.car-details{ gap: 12px; }    /* vorher 10px – minimal ausgewogener */
 
   
   
