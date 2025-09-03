@@ -972,6 +972,38 @@ app.post("/nachricht-senden", checkLogin, async (req, res) => {
   }
 });
 
+
+
+
+app.get("/inserat-details/:id", checkLogin, async (req, res) => {
+  try {
+    const oid = new ObjectId(String(req.params.id));
+    const coll = db.collection("inserate"); // ggf. anpassen
+    const doc = await coll.findOne({ _id: oid });
+    if (!doc) return res.status(404).json({ error: "Nicht gefunden" });
+
+    // Nur das, was die Karte braucht
+    res.json({
+      titel: doc.titel || "",
+      preis: doc.verkauf_brutto ?? doc.verkauf_preis ?? doc.preis ?? null,
+      images: Array.isArray(doc.images) ? doc.images : [],
+      verkauf_kurzbeschreibung: doc.verkauf_kurzbeschreibung || "",
+      verkauf_kilometer: doc.verkauf_kilometer ?? null,
+      verkauf_erstzulassung: doc.verkauf_erstzulassung || null,
+      verkauf_kraftstoff: doc.verkauf_kraftstoff || null,
+      verkauf_leistung: doc.verkauf_leistung ?? null,
+      verkauf_getriebe: doc.verkauf_getriebe || null,
+      verkauf_verbrauch_kombiniert: doc.verkauf_verbrauch_kombiniert || null,
+      verkauf_verkaeufer: doc.verkauf_verkaeufer || "",
+      verkauf_name: doc.verkauf_name || "",
+      standort: doc.standort || ""
+    });
+  } catch (e) {
+    res.status(400).json({ error: "Ungültige ID" });
+  }
+});
+
+
 // === Nachrichten für Empfänger abrufen ===
 // Sicherheitsänderung: Nur der eingeloggte Nutzer darf seine Nachrichten abrufen
 app.get("/nachrichten/:empfaengerId", checkLogin, async (req, res) => {
@@ -992,6 +1024,21 @@ app.get("/nachrichten/:empfaengerId", checkLogin, async (req, res) => {
   } catch (err) {
     console.error("❌ Fehler beim Abrufen der Nachrichten:", err);
     res.status(500).json({ error: "Fehler beim Abrufen der Nachrichten." });
+  }
+});
+// Nachricht als gelesen markieren
+app.patch("/nachrichten/:id/gelesen", checkLogin, async (req, res) => {
+  try {
+    const coll = db.collection("nachrichten");
+    const msg = await coll.findOne({ id: String(req.params.id) });
+    if (!msg) return res.status(404).json({ error: "Nicht gefunden" });
+    if (msg.empfaengerId !== req.nutzer.id) {
+      return res.status(403).json({ error: "Nur der Empfänger darf das ändern." });
+    }
+    await coll.updateOne({ id: String(req.params.id) }, { $set: { gelesen: true } });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: "Update fehlgeschlagen" });
   }
 });
 

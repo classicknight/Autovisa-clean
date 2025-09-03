@@ -179,114 +179,21 @@
   
   </section>
   
+<!-- Nachrichten (wird von übersicht.js befüllt) -->
+<section class="messages-list hidden" id="messages-list" aria-labelledby="messages-title">
+  <h2 id="messages-title" class="sr-only">Nachrichten</h2>
 
+  <!-- optional: kleiner Platzhalter bis die API geladen ist -->
+  <div class="loading" data-loading>
+    <i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i>
+    Nachrichten werden geladen …
+  </div>
 
-  <section class="messages-list hidden" id="messages-list">
-  
-    <!-- Fahrzeug & Nachricht -->
-    <div class="car-card-wrapper">
-      
-      <!-- Mobile: Buttons über dem Inserat -->
-      <div class="car-card-actions mobile-only">
-        <p class="interested-user"><i class="fas fa-user"></i> Nachricht von <strong>Max Mustermann</strong></p>
-        <a href="chat.html?auto=123" class="chat-btn"><i class="fas fa-comments"></i> Zum Chat</a>
-        <button class="mark-read-btn"><i class="fas fa-check"></i> Als gelesen</button>
-      </div>
-      
-      <!-- Fahrzeug-Inserat -->
-      <div class="car-card horizontal">
-        <div class="car-card-media">
-          <div class="media-container">
-            <div class="slides">
-              <img src="1.jpeg" alt="Bild" class="slide active" />
-            </div>
-          </div>
-        </div>
-        
-        <div class="car-details">
-          <div class="car-top-row">
-            <h2 class="car-title">BMW 3er</h2>
-            <p class="car-price">12.990 €</p>
-          </div>
-          
-          <p class="car-subtitle">Euro 5 • Klimaautomatik • Navi</p>
-          
-          <div class="car-info-grid">
-            <p><i class="fas fa-road"></i> 94.000 km</p>
-            <p><i class="fas fa-calendar-alt"></i> EZ 01/2017</p>
-            <p><i class="fas fa-gas-pump"></i> Benzin</p>
-            <p><i class="fas fa-gauge-high"></i> 150 PS</p>
-            <p><i class="fas fa-gears"></i> Automatik</p>
-          </div>
-          
-          <div class="dealer-info">
-            <strong>Autohaus Beispiel GmbH</strong><br>
-            Max Beispiel • Berlin
-          </div>
-        </div>
-      </div>
-      
-      <!-- Desktop: Buttons neben dem Inserat -->
-      <div class="car-card-actions desktop-only">
-        <p class="interested-user"><i class="fas fa-user"></i> Nachricht von <strong>Max Mustermann</strong></p>
-        <a href="chat.html?auto=123" class="chat-btn"><i class="fas fa-comments"></i> Zum Chat</a>
-        <button class="mark-read-btn"><i class="fas fa-check"></i> Als gelesen</button>
-      </div>
-    </div>
-    
-    <!-- Zweites Fahrzeug & Nachricht -->
-    <div class="car-card-wrapper">
-      
-      <!-- Mobile: Buttons über dem Inserat -->
-      <div class="car-card-actions mobile-only">
-        <p class="interested-user"><i class="fas fa-user"></i> Nachricht von <strong>Laura Beispiel</strong></p>
-        <a href="chat.html?auto=456" class="chat-btn"><i class="fas fa-comments"></i> Zum Chat</a>
-        <button class="mark-read-btn"><i class="fas fa-check"></i> Als gelesen</button>
-      </div>
-      
-      <!-- Fahrzeug-Inserat -->
-      <div class="car-card horizontal">
-        <div class="car-card-media">
-          <div class="media-container">
-            <div class="slides">
-              <img src="2.jpeg" alt="Bild" class="slide active" />
-            </div>
-          </div>
-        </div>
-        
-        <div class="car-details">
-          <div class="car-top-row">
-            <h2 class="car-title">Audi A4 Avant 5 hhhhhhhhhhhhhhhhhhhhh</h2>
-            <p class="car-price">14.790 €</p>
-          </div>
-          
-          <p class="car-subtitle">Euro 6 • S-Line • Navi</p>
-          
-          <div class="car-info-grid">
-            <p><i class="fas fa-road"></i> 88.000 km</p>
-            <p><i class="fas fa-calendar-alt"></i> EZ 03/2018</p>
-            <p><i class="fas fa-gas-pump"></i> Benzin</p>
-            <p><i class="fas fa-gauge-high"></i> 190 PS</p>
-            <p><i class="fas fa-gears"></i> Automatik</p>
-          </div>
-          
-          <div class="dealer-info">
-            <strong>Autozentrum Beispiel AG</strong><br>
-            Laura Beispiel • Hamburg
-          </div>
-        </div>
-      </div>
-      
-      <!-- Desktop: Buttons neben dem Inserat -->
-      <div class="car-card-actions desktop-only">
-        <p class="interested-user"><i class="fas fa-user"></i> Nachricht von <strong>Laura Beispiel</strong></p>
-        <a href="chat.html?auto=456" class="chat-btn"><i class="fas fa-comments"></i> Zum Chat</a>
-        <button class="mark-read-btn"><i class="fas fa-check"></i> Als gelesen</button>
-      </div>
-    </div>
-    
-  </section>
-        
+  <noscript>
+    <p>Zum Anzeigen der Nachrichten bitte JavaScript aktivieren.</p>
+  </noscript>
+</section>
+
     
   
   

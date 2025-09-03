@@ -658,3 +658,209 @@ document.addEventListener("click", async (e) => {
     alert("❌ Netzwerkfehler beim Veröffentlichen.");
   }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// -----------------------
+// NACHRICHTEN LADEN/RENDERN
+// -----------------------
+async function getLoggedInUser() {
+  const r = await fetch("/getNutzerInfo", { credentials: "include" });
+  const u = await r.json();
+  if (!u?.eingeloggt || !u?.nutzerId) throw new Error("Nicht eingeloggt");
+  return u;
+}
+
+// Inserat-Details holen (benötigt kleinen Server-Endpoint, siehe Abschnitt B)
+async function fetchInseratDetails(id) {
+  try {
+    const r = await fetch(`/inserat-details/${encodeURIComponent(id)}`, { credentials: "include" });
+    if (!r.ok) throw new Error("404");
+    return await r.json();
+  } catch {
+    // Fallback, wenn Inserat nicht gefunden ist
+    return {
+      titel: "Inserat nicht gefunden",
+      preis: null,
+      images: [],
+      verkauf_kurzbeschreibung: "",
+      verkauf_kilometer: "—",
+      verkauf_erstzulassung: "—",
+      verkauf_kraftstoff: "—",
+      verkauf_leistung: "—",
+      verkauf_getriebe: "—",
+      verkauf_verbrauch_kombiniert: "—",
+      verkauf_verkaeufer: "",
+      verkauf_name: "",
+      standort: ""
+    };
+  }
+}
+
+// Nachrichten des eingeloggten Users abrufen
+async function fetchInbox(empfaengerId) {
+  const r = await fetch(`/nachrichten/${encodeURIComponent(empfaengerId)}`, { credentials: "include" });
+  if (!r.ok) throw new Error("Fehler beim Abrufen der Nachrichten");
+  return await r.json(); // Array von Nachrichten
+}
+
+// Eine Nachrichten-Karte rendern
+function renderMessageCard(msg, ins, currentUserId) {
+  const firstImg = Array.isArray(ins.images) && ins.images[0] ? ins.images[0] : null;
+  const preis = ins.preis != null
+    ? (typeof ins.preis === "number"
+        ? ins.preis.toLocaleString("de-DE") + " €"
+        : String(ins.preis))
+    : "";
+
+  // Chat-URL so, wie dein /chat-Endpoint es erwartet:
+  const chatUrl = `chat.html?user1=${encodeURIComponent(currentUserId)}&user2=${encodeURIComponent(msg.senderId)}&fahrzeugId=${encodeURIComponent(msg.fahrzeugId)}`;
+
+  return `
+    <div class="car-card-wrapper" data-msg-id="${msg.id}">
+      <div class="car-card horizontal">
+        <div class="car-card-media">
+          <div class="media-container">
+            <div class="slides">
+              ${firstImg ? `<img src="${firstImg}" alt="Bild" class="slide active" />` : ""}
+            </div>
+          </div>
+        </div>
+        <div class="car-details">
+          <div class="car-top-row">
+            <h2 class="car-title">${ins.titel || "Ohne Titel"}</h2>
+            <p class="car-price">${preis || ""}</p>
+          </div>
+          <p class="car-subtitle">${ins.verkauf_kurzbeschreibung || ""}</p>
+          <div class="car-info-grid">
+            <p><i class="fas fa-road"></i> ${ins.verkauf_kilometer ?? "—"} km</p>
+            <p><i class="fas fa-calendar-alt"></i> EZ ${ins.verkauf_erstzulassung || "—"}</p>
+            <p><i class="fas fa-gas-pump"></i> ${ins.verkauf_kraftstoff || "—"}</p>
+            <p><i class="fas fa-gauge-high"></i> ${ins.verkauf_leistung ?? "—"} PS</p>
+            <p><i class="fas fa-gears"></i> ${ins.verkauf_getriebe || "—"}</p>
+            ${ins.verkauf_verbrauch_kombiniert ? `<p><i class="fas fa-tint"></i> ${ins.verkauf_verbrauch_kombiniert} l/100 km</p>` : ""}
+          </div>
+          <div class="dealer-info">
+            <strong>${ins.verkauf_name || "Anbieter"}</strong><br>
+            ${ins.standort || ""}
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop-Buttons -->
+      <div class="car-card-actions desktop-only">
+        <p class="interested-user">
+          <i class="fas fa-user"></i>
+          Nachricht von <strong>${msg.absenderName || "Unbekannt"}</strong>
+        </p>
+        <a href="${chatUrl}" class="chat-btn"><i class="fas fa-comments"></i> Zum Chat</a>
+        <button class="mark-read-btn" data-id="${msg.id}">
+          <i class="fas fa-check"></i> Als gelesen
+        </button>
+      </div>
+
+      <!-- Mobile-Buttons -->
+      <div class="car-card-actions mobile-only">
+        <p class="interested-user">
+          <i class="fas fa-user"></i>
+          Nachricht von <strong>${msg.absenderName || "Unbekannt"}</strong>
+        </p>
+        <a href="${chatUrl}" class="chat-btn"><i class="fas fa-comments"></i> Zum Chat</a>
+        <button class="mark-read-btn" data-id="${msg.id}">
+          <i class="fas fa-check"></i> Als gelesen
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// Haupt-Funktion zum Laden + Anzeigen
+async function loadMessagesSection() {
+  const messagesSection = document.querySelector(".messages-list");
+  if (!messagesSection) return;
+
+  try {
+    const user = await getLoggedInUser();
+    const inbox = await fetchInbox(user.nutzerId);   // nur empfangene Nachrichten
+
+    if (!Array.isArray(inbox) || inbox.length === 0) {
+      messagesSection.innerHTML = `<p>Keine Nachrichten vorhanden.</p>`;
+      return;
+    }
+
+    // Inserat-Details in Parallel-Requests holen
+    const detailsMap = new Map();
+    const uniqueFahrzeuge = [...new Set(inbox.map(m => m.fahrzeugId))];
+
+    await Promise.all(uniqueFahrzeuge.map(async (fid) => {
+      const det = await fetchInseratDetails(fid);
+      detailsMap.set(fid, det);
+    }));
+
+    // neueste oben
+    inbox.sort((a,b) => new Date(b.zeit) - new Date(a.zeit));
+
+    messagesSection.innerHTML = inbox.map(msg => {
+      const ins = detailsMap.get(msg.fahrzeugId) || {};
+      return renderMessageCard(msg, ins, user.nutzerId);
+    }).join("");
+
+  } catch (e) {
+    console.error(e);
+    document.querySelector(".messages-list").innerHTML = `<p>Fehler beim Laden der Nachrichten.</p>`;
+  }
+}
+
+// Als gelesen markieren (PATCH)
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".mark-read-btn");
+  if (!btn) return;
+  const id = btn.dataset.id;
+  if (!id) return;
+
+  try {
+    const r = await fetch(`/nachrichten/${encodeURIComponent(id)}/gelesen`, {
+      method: "PATCH",
+      headers: { "Content-Type":"application/json" },
+      credentials: "include"
+    });
+    if (r.ok) {
+      btn.textContent = "Gelesen";
+      btn.disabled = true;
+      btn.classList.add("is-read");
+    } else {
+      const t = await r.text();
+      alert("Konnte nicht als gelesen markieren: " + t);
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Netzwerkfehler.");
+  }
+});
+
+// Beim Tab-Wechsel „Nachrichten“ laden
+document.querySelectorAll(".sidebar-link").forEach(link => {
+  link.addEventListener("click", () => {
+    const target = link.getAttribute("data-section");
+    if (target === "messages-list") loadMessagesSection();
+  });
+});
+
+// Optional: auch direkt beim Laden, falls du „Nachrichten“ als Start-Tab nutzt
+// loadMessagesSection();
