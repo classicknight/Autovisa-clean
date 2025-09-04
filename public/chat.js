@@ -88,7 +88,7 @@ function threadHTML({car, thread, meId}){
   const unreadBadge = thread.unread > 0 ? ` <span class="unread-badge">+${thread.unread}</span>` : "";
 
   // WICHTIG: Seite heißt "Nachricht.html"
-  const openUrl = `Nachricht.html?user1=${encodeURIComponent(meId)}&user2=${encodeURIComponent(thread.otherId)}&fahrzeugId=${encodeURIComponent(thread.fahrzeugId)}`;
+  const openUrl = `nachricht.html?user1=${encodeURIComponent(meId)}&user2=${encodeURIComponent(thread.otherId)}&fahrzeugId=${encodeURIComponent(thread.fahrzeugId)}`;
 
   return `
   <div class="chat-card" data-thread="${thread.otherId}::${thread.fahrzeugId}">

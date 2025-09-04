@@ -1,104 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
-    const navLinks = document.getElementById("nav-links");
-    const hamburger = document.getElementById("hamburger");
-    const dropdownLinks = document.querySelectorAll(".dropdown > a");
-    
-    // Hamburger-Menü ein-/ausblenden
-    hamburger.addEventListener("click", (e) => {
-      e.stopPropagation();
-      navLinks.classList.toggle("active");
-      closeAllDropdowns(); // Immer Dropdowns schließen beim Öffnen
-    });
-    
-    // Dropdown-Handling
-    dropdownLinks.forEach(link => {
-      const menu = link.nextElementSibling;
-      
-      link.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Schließt alle Dropdowns außer das angeklickte
-        document.querySelectorAll(".dropdown-menu").forEach(otherMenu => {
-          if (otherMenu !== menu) {
-            otherMenu.classList.remove("show");
-          }
-        });
-        
-        menu.classList.toggle("show");
-      });
-    });
-    
-    // Klick außerhalb: alles schließen
-    document.addEventListener("click", () => {
-      navLinks.classList.remove("active");
-      closeAllDropdowns();
-    });
-    
-    function closeAllDropdowns() {
-      document.querySelectorAll(".dropdown-menu").forEach(menu => {
-        menu.classList.remove("show");
-      });
-    }
-    
-    // Login-Handling
-    const isLoggedIn = false; // später dynamisch setzen
-    
-    const savedCarsLink = document.getElementById("saved-cars-link");
-    const myCarsLink = document.getElementById("my-cars-link");
-    
-    if (savedCarsLink) {
-      savedCarsLink.addEventListener("click", (e) => {
-        e.preventDefault();
-        window.location.href = isLoggedIn ? "gespeicherte-autos.html" : "login.html";
-      });
-    }
-    
-    if (myCarsLink) {
-      myCarsLink.addEventListener("click", (e) => {
-        e.preventDefault();
-        window.location.href = isLoggedIn ? "meine-autos.html" : "login.html";
-      });
-    }
-    
-    // Smooth Scroll
-    const searchLink = document.querySelector('a[href="#search-section"]');
-    if (searchLink) {
-      searchLink.addEventListener("click", (e) => {
-        e.preventDefault();
-        document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
-      });
-    }
-  });
-  
-  
-  
-  
-  
-  document.getElementById("chat-form").addEventListener("submit", function(e) {
-    e.preventDefault();
-    const input = document.getElementById("chat-input");
-    const message = input.value.trim();
-    if (message) {
-      const container = document.getElementById("chat-messages");
-      const bubble = document.createElement("div");
-      bubble.className = "message from-me";
-      bubble.innerHTML = `<p>${message}</p><span>Ich, jetzt</span>`;
-      container.appendChild(bubble);
-      container.scrollTop = container.scrollHeight;
-      input.value = "";
-    }
-  });
-
-
-
-
-
-
-
-
-
-// nachricht.js – Einzel-Chat (Thread)
+// nachricht.js – Einzel-Chat (Thread)  ✅ BEREINIGT
 
 // ------- Helpers ------- //
 const $ = (s, r=document) => r.querySelector(s);
@@ -138,7 +38,6 @@ async function getMe(){
 }
 
 async function loadCar(fid){
-  // Optionaler Endpoint – falls (noch) nicht vorhanden, einfach null zurückgeben
   try{
     const r = await fetch(`/inserat-details/${encodeURIComponent(fid)}`, { credentials:"include" });
     if (!r.ok) return null;
@@ -150,7 +49,7 @@ async function loadChat(u1, u2, fid){
   const url = `/chat?user1=${encodeURIComponent(u1)}&user2=${encodeURIComponent(u2)}&fahrzeugId=${encodeURIComponent(fid)}`;
   const r = await fetch(url, { credentials:"include" });
   if (!r.ok) throw new Error("Chat konnte nicht geladen werden.");
-  return await r.json(); // Array
+  return await r.json();
 }
 
 async function sendMessage({ empfaengerId, fahrzeugId, absenderName, nachricht }){
@@ -162,6 +61,7 @@ async function sendMessage({ empfaengerId, fahrzeugId, absenderName, nachricht }
   });
   if (!r.ok){
     const t = await r.text().catch(()=> "");
+    console.error("Senden fehlgeschlagen:", r.status, t);
     throw new Error(t || "Senden fehlgeschlagen");
   }
   return await r.json();
@@ -282,7 +182,6 @@ function bindForm(){
       });
       await refreshChat(true); // echten Stand ziehen
     }catch(err){
-      console.error(err);
       alert("Nachricht konnte nicht gesendet werden.");
       await refreshChat(true);
     }
