@@ -26,13 +26,10 @@ async function getMe(){
 // Optionaler, „schöner“ Endpoint: versucht beide Richtungen zu laden.
 // Fallback: nur empfangene Nachrichten.
 async function loadAllMessagesFor(userId){
-  // Versuch 1: zentraler Endpoint, wenn vorhanden
   try{
     const t = await fetch("/meine-nachrichten", { credentials:"include" });
     if (t.ok) return await t.json(); // [{...Nachricht}]
   }catch(_){}
-
-  // Fallback: nur Inbox (empfaengerId=ich)
   const r = await fetch(`/nachrichten/${encodeURIComponent(userId)}`, { credentials:"include" });
   if (!r.ok) throw new Error("Konnte Nachrichten nicht laden");
   return await r.json();
@@ -48,7 +45,6 @@ async function loadInserat(fid){
 
 // ---------- Thread-Bildung ----------
 function groupThreads(messages, meId){
-  // Ziel: Threads nach {otherId, fahrzeugId} gruppieren
   const map = new Map();
   for (const m of messages){
     const otherId = (m.senderId === meId) ? m.empfaengerId : m.senderId;
@@ -57,14 +53,11 @@ function groupThreads(messages, meId){
     map.get(key).items.push(m);
   }
 
-  // Metadaten je Thread berechnen
   const threads = [];
   for (const t of map.values()){
     t.items.sort((a,b)=> new Date(a.zeit) - new Date(b.zeit));
     const last = t.items[t.items.length-1];
     const unread = t.items.filter(x => !x.gelesen && x.empfaengerId === meId).length;
-
-    // Absendername für Preview: wenn letzte Nachricht von "other", nimm dessen absenderName, sonst "Du"
     const lastFromOther = last.senderId !== meId;
     const nameForPreview = lastFromOther ? (last.absenderName || `Nutzer ${shortId(t.otherId)}`) : "Du";
 
@@ -77,7 +70,6 @@ function groupThreads(messages, meId){
     });
   }
 
-  // Neueste Chats oben
   threads.sort((a,b)=> new Date(b.last.zeit) - new Date(a.last.zeit));
   return threads;
 }
@@ -85,17 +77,19 @@ function groupThreads(messages, meId){
 // ---------- Rendering ----------
 function threadHTML({car, thread, meId}){
   const titel = car?.titel || "Unbekanntes Fahrzeug";
-  const preis = fmtEUR(car?.preis);
+  const brutto = (car?.verkauf_brutto ?? car?.verkauf_preis ?? car?.preis);
+  const preis = fmtEUR(brutto);
   const carTitleLine = preis ? `${titel} • ${preis}` : titel;
+
   const img = (Array.isArray(car?.images) && car.images[0]) ? car.images[0] : "";
   const previewText = (thread.last?.nachricht || "").split("\n").slice(0,2).join(" ");
   const previewName = thread.previewName;
   const stamp = timeDesc(thread.last?.zeit);
   const unreadBadge = thread.unread > 0 ? ` <span class="unread-badge">+${thread.unread}</span>` : "";
 
-  const openUrl = `nachrichten.html?user1=${encodeURIComponent(meId)}&user2=${encodeURIComponent(thread.otherId)}&fahrzeugId=${encodeURIComponent(thread.fahrzeugId)}`;
+  // WICHTIG: Seite heißt "Nachricht.html"
+  const openUrl = `Nachricht.html?user1=${encodeURIComponent(meId)}&user2=${encodeURIComponent(thread.otherId)}&fahrzeugId=${encodeURIComponent(thread.fahrzeugId)}`;
 
-  // WICHTIG: Struktur genau wie dein altes Markup (Karte + Buttons darunter)
   return `
   <div class="chat-card" data-thread="${thread.otherId}::${thread.fahrzeugId}">
     <div class="chat-media">
@@ -129,14 +123,13 @@ async function renderChatList(){
 
     const threads = groupThreads(all, me.nutzerId);
 
-    // Einmalig alle benötigten Fahrzeuginfos laden
+    // Fahrzeuginfos einmalig laden
     const uniqueFids = [...new Set(threads.map(t=>t.fahrzeugId))];
     const detailsMap = new Map();
     await Promise.all(uniqueFids.map(async fid=>{
       detailsMap.set(fid, await loadInserat(fid));
     }));
 
-    // Rendern
     container.innerHTML = threads.map(th=>{
       const car = detailsMap.get(th.fahrzeugId) || null;
       return threadHTML({ car, thread: th, meId: me.nutzerId });
@@ -152,7 +145,7 @@ async function renderChatList(){
 document.addEventListener("DOMContentLoaded", () => {
   renderChatList();
 
-  // „Chat löschen“ – derzeit nur UI-Entfernung
+  // „Chat löschen“ – aktuell nur UI-Entfernung
   document.body.addEventListener("click", (e) => {
     const btn = e.target.closest(".delete-chat-btn");
     if (!btn) return;
@@ -160,20 +153,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const fid = btn.dataset.fid;
     if (!confirm("Diesen Chat aus der Übersicht entfernen?")) return;
 
-    // UI entfernen (Karte + Buttons)
     const key = `${other}::${fid}`;
     const card = document.querySelector(`.chat-card[data-thread="${key}"]`);
     const btns = card?.nextElementSibling;
     card?.remove();
     if (btns?.classList.contains("chat-buttons")) btns.remove();
 
-    // Optional: hier könntest du einen Server-Endpoint aufrufen, um den Thread zu archivieren.
-    // fetch(`/chat-thread/${encodeURIComponent(other)}/${encodeURIComponent(fid)}/archiv`, { method: "POST", credentials: "include" });
+    // Optional: Server-Archivierung auslösen
+    // fetch(`/chat-thread/${encodeURIComponent(other)}/${encodeURIComponent(fid)}/archiv`, {method:"POST", credentials:"include"});
   });
 });
 
-  
-  
   
   
   

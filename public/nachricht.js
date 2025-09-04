@@ -98,10 +98,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
+// nachricht.js – Einzel-Chat (Thread)
 
-  // nachrichten.js – Einzel-Chatansicht (Thread)
-
-// ------- kleine Helfer ------- //
+// ------- Helpers ------- //
 const $ = (s, r=document) => r.querySelector(s);
 const qs = new URLSearchParams(location.search);
 const fahrzeugId = qs.get("fahrzeugId");
@@ -131,15 +130,15 @@ async function getMe(){
   const r = await fetch("/getNutzerInfo", { credentials:"include" });
   const j = await r.json();
   if (!j?.eingeloggt || !j?.nutzerId){
-    alert("Bitte einloggen.");
+    alert("Bitte erst einloggen.");
     location.href = "login.html";
     throw new Error("Not logged in");
   }
-  return j; // {nutzerId, name?, vorname?, nachname?}
+  return j;
 }
 
 async function loadCar(fid){
-  // Wenn du diesen Endpoint noch nicht hast, kannst du ihn wie in der Übersicht anlegen.
+  // Optionaler Endpoint – falls (noch) nicht vorhanden, einfach null zurückgeben
   try{
     const r = await fetch(`/inserat-details/${encodeURIComponent(fid)}`, { credentials:"include" });
     if (!r.ok) return null;
@@ -150,8 +149,8 @@ async function loadCar(fid){
 async function loadChat(u1, u2, fid){
   const url = `/chat?user1=${encodeURIComponent(u1)}&user2=${encodeURIComponent(u2)}&fahrzeugId=${encodeURIComponent(fid)}`;
   const r = await fetch(url, { credentials:"include" });
-  if (!r.ok) throw new Error("Chat konnte nicht geladen werden");
-  return await r.json(); // Array von Nachrichten
+  if (!r.ok) throw new Error("Chat konnte nicht geladen werden.");
+  return await r.json(); // Array
 }
 
 async function sendMessage({ empfaengerId, fahrzeugId, absenderName, nachricht }){
@@ -196,7 +195,6 @@ function renderMessages(list, meId){
   box.scrollTop = box.scrollHeight;
 }
 
-// Auto-Scroll nur, wenn der Nutzer am Ende ist
 function isNearBottom(el){ return (el.scrollHeight - el.scrollTop - el.clientHeight) < 48; }
 
 // ------- Live-Logik ------- //
@@ -212,23 +210,17 @@ async function init(){
   }
 
   me = await getMe();
-  // Wer ist „der andere“ in diesem Chat?
   otherId = (me.nutzerId === user1) ? user2 : user1;
 
-  // Sicherheitscheck: requester muss user1 oder user2 sein (macht der Server auch)
-  if (me.nutzerId !== user1 && me.nutzerId !== user2){
-    alert("Kein Zugriff auf diesen Chat.");
-    location.href = "chat.html";
-    return;
-  }
-
-  // Header laden
+  // Header (falls Endpoint existiert)
   const car = await loadCar(fahrzeugId);
   if (car) setHeader(car);
 
-  // Erstes Laden + Polling
+  // Initial laden + Polling
   await refreshChat(true);
   startPolling();
+
+  bindForm();
 }
 
 async function refreshChat(forceScroll){
@@ -239,21 +231,18 @@ async function refreshChat(forceScroll){
 
     renderMessages(list, me.nutzerId);
 
-    // nur bei neuen Nachrichten automatisch nach unten
     if (stick || list.length !== lastRenderedCount){
       box.scrollTop = box.scrollHeight;
     }
     lastRenderedCount = list.length;
-
   }catch(e){
     console.error(e);
-    // dezent, kein Alert-Spam
   }
 }
 
 function startPolling(){
   stopPolling();
-  pollTimer = setInterval(()=> refreshChat(false), 5000); // 5s Poll
+  pollTimer = setInterval(()=> refreshChat(false), 5000);
 }
 function stopPolling(){
   if (pollTimer) clearInterval(pollTimer);
@@ -271,7 +260,7 @@ function bindForm(){
     const text = input.value.trim();
     if (!text) return;
 
-    // Optimistisch anzeigen
+    // Optimistisch anhängen
     const optimistic = {
       senderId: me.nutzerId,
       empfaengerId: otherId,
@@ -291,27 +280,18 @@ function bindForm(){
         absenderName: me.name || me.vorname || "Ich",
         nachricht: text
       });
-      // danach frisch ziehen, um serverseitige Felder (id/zeit) zu haben
-      await refreshChat(true);
+      await refreshChat(true); // echten Stand ziehen
     }catch(err){
       console.error(err);
-      // Fehlermeldung + Revert optisch (optional)
       alert("Nachricht konnte nicht gesendet werden.");
       await refreshChat(true);
     }
   });
 }
 
-// ------- Start ------- //
+// Tab-Wechsel: Poll pausieren
 document.addEventListener("visibilitychange", ()=>{
   if (document.hidden) stopPolling(); else startPolling();
 });
 
-document.addEventListener("DOMContentLoaded", async ()=>{
-  try{
-    await init();
-    bindForm();
-  }catch(e){
-    console.error(e);
-  }
-});
+document.addEventListener("DOMContentLoaded", init);
