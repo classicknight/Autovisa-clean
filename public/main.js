@@ -118,38 +118,47 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("resize", repositionOpen);
   window.addEventListener("scroll", repositionOpen);
 
-  // ===== Login-abhängige Weiterleitungen =====
-  const savedCarsLink = document.getElementById("saved-cars-link");
-  const myCarsLink = document.getElementById("my-cars-link");
-  const soldCarsLink = document.getElementById("sold-cars-link");
-  const messagesLink = document.getElementById("messages-link");
+ // ===== Login-abhängige Weiterleitungen =====
+const savedCarsLink = document.getElementById("saved-cars-link");
+const myCarsLink    = document.getElementById("my-cars-link");
+const soldCarsLink  = document.getElementById("sold-cars-link");
+const messagesLink  = document.getElementById("messages-link");
 
-  function checkLoginAndRedirect(targetUrl) {
-    fetch("/getNutzerInfo", { credentials: "include" })
-      .then(res => res.json())
-      .then(data => {
-        if (data.eingeloggt) {
-          window.location.href = targetUrl;
-        } else {
-          localStorage.setItem("redirectAfterLogin", window.location.pathname + window.location.hash);
-          window.location.href = "login.html";
-        }
-      });
-  }
-
-  if (savedCarsLink) savedCarsLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#saved"); });
-  if (myCarsLink) myCarsLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#my-cars"); });
-  if (soldCarsLink) soldCarsLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#sold"); });
-  if (messagesLink) messagesLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#chats"); });
-
-  // ===== Smooth Scroll =====
-  const searchLink = document.querySelector('a[href="#search-section"]');
-  if (searchLink) {
-    searchLink.addEventListener("click", (e) => {
-      e.preventDefault();
-      document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
+function checkLoginAndRedirect(targetUrl) {
+  fetch("/getNutzerInfo", { credentials: "include" })
+    .then(res => res.json())
+    .then(data => {
+      if (data.eingeloggt) {
+        window.location.href = targetUrl;
+      } else {
+        localStorage.setItem("redirectAfterLogin", window.location.pathname + window.location.hash);
+        window.location.href = "login.html";
+      }
     });
-  }
+}
+
+if (savedCarsLink) savedCarsLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#saved-cars"); });
+if (myCarsLink)    myCarsLink   .addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#car-list"); });
+if (soldCarsLink)  soldCarsLink .addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#sold-cars"); });
+if (messagesLink)  messagesLink .addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#messages-list"); });
+
+// ===== Smooth Scroll =====
+const searchLink  = document.querySelector('a[href="#search-section"]');
+const resultsLink = document.querySelector('a[href="#results-section"]');
+
+if (searchLink) {
+  searchLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
+  });
+}
+if (resultsLink) {
+  resultsLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    document.querySelector("#results-section")?.scrollIntoView({ behavior: "smooth" });
+  });
+}
+
 
   // ===== Filter Toggle =====
   const form = document.querySelector('.search-form');

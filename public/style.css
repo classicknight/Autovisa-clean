@@ -199,7 +199,22 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 }
   
   
-  
+  /* sorgt dafür, dass Anker-Ziele unter einer fixen Navbar korrekt einrasten */
+#results-section,
+#search-section{
+  scroll-margin-top: 130px; /* Desktop (Navbar ~120px) */
+}
+
+@media (max-width: 900px){
+  #results-section,
+  #search-section{
+    scroll-margin-top: 90px; /* Mobile (Navbar ~80px) */
+  }
+}
+
+/* optional für weiches Scrollen, falls kein JS greifen soll */
+html { scroll-behavior: smooth; }
+
   
   
 

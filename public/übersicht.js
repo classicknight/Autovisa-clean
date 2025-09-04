@@ -64,7 +64,6 @@ document.addEventListener("DOMContentLoaded", () => {
       setSliderPosition();
     }
 
-    // Pointer Events
     ["pointerdown","pointermove","pointerup","pointerleave","pointercancel"].forEach(type => {
       slidesWrapper.addEventListener(type, (e) => {
         if (type === "pointerdown") pointerDown(e);
@@ -162,7 +161,6 @@ document.addEventListener("DOMContentLoaded", () => {
     li.classList.contains("open") ? closeAllDropdowns() : openDropdown(trigger);
   }
 
-  // Hamburger (Panel toggeln)
   hamburger?.addEventListener("click", (e) => {
     e.stopPropagation();
     const willOpen = !navLinks.classList.contains("active");
@@ -171,7 +169,6 @@ document.addEventListener("DOMContentLoaded", () => {
     hamburger.setAttribute("aria-expanded", willOpen ? "true" : "false");
   });
 
-  // Dropdowns per Klick (kein Hover)
   dropdownLinks.forEach(link => {
     link.setAttribute("aria-expanded", "false");
     link.addEventListener("click", (e) => {
@@ -181,20 +178,18 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Outside Click
   document.addEventListener("click", () => {
     navLinks?.classList.remove("active");
     closeAllDropdowns();
   });
 
-  // Reposition on resize/scroll
   const repositionOpen = () =>
     document.querySelectorAll(".dropdown.open").forEach(positionMenu);
   window.addEventListener("resize", repositionOpen);
   window.addEventListener("scroll", repositionOpen);
 
   /* =========================
-     Login-abhängige Weiterleitungen (Tabs in übersicht.html)
+     Login-abhängige Weiterleitungen (Navbar -> Tabs)
      ========================= */
   const savedCarsLink = document.getElementById("saved-cars-link");
   const myCarsLink    = document.getElementById("my-cars-link");
@@ -218,91 +213,22 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   }
 
-  savedCarsLink?.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("#saved"); });
-  myCarsLink?.addEventListener("click",    (e) => { e.preventDefault(); checkLoginAndRedirect("#my-cars"); });
-  soldCarsLink?.addEventListener("click",  (e) => { e.preventDefault(); checkLoginAndRedirect("#sold"); });
-  messagesLink?.addEventListener("click",  (e) => { e.preventDefault(); checkLoginAndRedirect("#chats"); });
+  // >>> konsistente Hashes
+  savedCarsLink?.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("#saved-cars"); });
+  myCarsLink?.addEventListener("click",    (e) => { e.preventDefault(); checkLoginAndRedirect("#car-list"); });
+  soldCarsLink?.addEventListener("click",  (e) => { e.preventDefault(); checkLoginAndRedirect("#sold-cars"); });
+  messagesLink?.addEventListener("click",  (e) => { e.preventDefault(); checkLoginAndRedirect("#messages-list"); });
 
   /* =========================
-     Smooth Scroll (optional)
+     Sidebar/Tabs + Hash-Deep-Link
      ========================= */
-  document.querySelector('a[href="#search-section"]')?.addEventListener("click", (e) => {
-    e.preventDefault();
-    document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
-  });
-
-  /* =========================
-     Titel-Autofill (optional)
-     ========================= */
-  const makeInput  = document.getElementById("make");
-  const modelInput = document.getElementById("model");
-  const titleInput = document.getElementById("title");
-  function updateTitle() {
-    if (!makeInput || !modelInput || !titleInput) return;
-    const make  = makeInput.value.trim();
-    const model = modelInput.value.trim();
-    if (make || model) titleInput.value = `${make} ${model}`.trim();
-  }
-  makeInput?.addEventListener("input", updateTitle);
-  modelInput?.addEventListener("input", updateTitle);
-
-  /* =========================
-     Navbar Login/Logout (falls du es hier brauchst)
-     ========================= */
-  const authLink = document.getElementById("auth-link");
-  if (authLink) {
-    fetch("/getNutzerInfo", { credentials: "include" })
-      .then(res => res.json())
-      .then(data => {
-        if (data.eingeloggt) {
-          authLink.innerHTML = `<a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>`;
-          document.getElementById("logout-link")?.addEventListener("click", (e) => {
-            e.preventDefault();
-            fetch("/logout", { method: "POST", credentials: "include" })
-              .then(() => { localStorage.clear(); location.reload(); })
-              .catch(() => alert("Abmelden fehlgeschlagen."));
-          });
-        }
-      })
-      .catch(() => {});
-  }
-
-  /* =========================
-     Medien: Hochkant-Erkennung (Zoom-Klasse)
-     ========================= */
-  document.querySelectorAll('.slide img, .slide video').forEach(media => {
-    if (media.tagName === "VIDEO") {
-      media.addEventListener("loadedmetadata", () => {
-        if (media.videoHeight > media.videoWidth) media.classList.add("portrait-zoom");
-      });
-    } else {
-      media.addEventListener("load", () => {
-        if (media.naturalHeight > media.naturalWidth) media.classList.add("portrait-zoom");
-      });
-    }
-  });
-
-  /* =========================
-     Karten/Kommentare/Speicherfunktionen
-     ========================= */
-  // Fahrzeug-Karte löschen
-  document.querySelectorAll(".delete-btn").forEach(btn => {
-    btn.addEventListener("click", function () {
-      const card = this.closest(".car-card");
-      if (card && confirm("Möchtest du dieses Inserat wirklich löschen?")) {
-        card.remove();
-      }
-    });
-  });
-
-  // Sidebar/Tabs
   const sidebarLinks = document.querySelectorAll(".sidebar-link");
-  const titleEl = document.querySelector(".title");
+  const titleEl      = document.querySelector(".title");
   const sections = {
-    "car-list":     document.querySelector(".car-list"),
-    "messages-list":document.querySelector("#messages-list"),
-    "saved-cars":   document.querySelector("#saved-cars"),
-    "sold-cars":    document.querySelector("#sold-cars")
+    "car-list":      document.querySelector(".car-list"),
+    "messages-list": document.querySelector("#messages-list"),
+    "saved-cars":    document.querySelector("#saved-cars"),
+    "sold-cars":     document.querySelector("#sold-cars")
   };
 
   function showSection(sectionName) {
@@ -318,65 +244,103 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const chatButton = `
-    <a href="chat-uebersicht.html" class="all-chats-btn" style="margin-left:auto;">
+    <a href="chat.html" class="all-chats-btn" style="margin-left:auto;">
       <i class="fas fa-envelope-open-text"></i> Alle Chats anzeigen
     </a>`;
 
+  function updateTitle(section) {
+    if (!titleEl) return;
+    switch (section) {
+      case "car-list":
+        titleEl.innerHTML = '<i class="fas fa-car"></i> Meine Autos';
+        break;
+      case "messages-list":
+        titleEl.innerHTML = '<i class="fas fa-comments"></i> Nachrichten' + chatButton;
+        break;
+      case "saved-cars":
+        titleEl.innerHTML = '<i class="fas fa-heart"></i> Gespeicherte Autos';
+        break;
+      case "sold-cars":
+        titleEl.innerHTML = '<i class="fas fa-check-circle"></i> Verkaufte Autos';
+        break;
+      default:
+        titleEl.innerHTML = '<i class="fas fa-car"></i> Meine Autos';
+    }
+  }
+
+  function setActiveSidebar(section) {
+    sidebarLinks.forEach(li => {
+      li.classList.toggle("active", li.dataset.section === section);
+    });
+  }
+
+  function sectionFromHash(h) {
+    switch ((h || "").toLowerCase()) {
+      case "#messages-list":
+      case "#chats":
+      case "#nachrichten":
+        return "messages-list";
+      case "#saved-cars":
+      case "#saved":
+        return "saved-cars";
+      case "#sold-cars":
+      case "#sold":
+        return "sold-cars";
+      case "#car-list":
+      case "#my-cars":
+      default:
+        return "car-list";
+    }
+  }
+
+  function applyHash() {
+    const section = sectionFromHash(location.hash);
+    setActiveSidebar(section);
+    showSection(section);
+    updateTitle(section);
+  }
+
+  // Sidebar-Klicks
   sidebarLinks.forEach(link => {
     link.addEventListener("click", () => {
       const selected = link.dataset.section;
-      sidebarLinks.forEach(l => l.classList.remove("active"));
-      link.classList.add("active");
-      showSection(selected);
-      switch (selected) {
-        case "car-list":
-          titleEl && (titleEl.innerHTML = '<i class="fas fa-car"></i> Meine Autos');
-          break;
-        case "messages-list":
-          titleEl && (titleEl.innerHTML = '<i class="fas fa-comments"></i> Nachrichten' + chatButton);
-          break;
-        case "saved-cars":
-          titleEl && (titleEl.innerHTML = '<i class="fas fa-heart"></i> Gespeicherte Autos');
-          break;
-        case "sold-cars":
-          titleEl && (titleEl.innerHTML = '<i class="fas fa-check-circle"></i> Verkaufte Autos');
-          break;
-        default:
-          titleEl && (titleEl.innerHTML = '<i class="fas fa-car"></i> Meine Autos');
-      }
+      // Hash setzen (auch für Back-Button)
+      if (location.hash !== `#${selected}`) history.replaceState(null, "", `#${selected}`);
+      applyHash();
     });
   });
 
-  // Default-Ansicht
-  showSection("car-list");
-  if (titleEl) titleEl.innerHTML = '<i class="fas fa-car"></i> Meine Autos';
+  // Beim Laden + bei Hash-Änderung
+  window.addEventListener("hashchange", applyHash);
+  applyHash(); // initial
 
-  // Kommentar löschen & Antworten Placeholder
-  document.querySelectorAll(".delete-comment-btn").forEach(btn => {
+  /* =========================
+     Kleinkram
+     ========================= */
+  // Fahrzeug-Karte löschen (Demo)
+  document.querySelectorAll(".delete-btn").forEach(btn => {
     btn.addEventListener("click", function () {
-      if (confirm("Möchtest du diesen Kommentar wirklich löschen?")) {
-        this.closest(".comment-card")?.remove();
-      }
-    });
-  });
-  document.querySelectorAll(".reply-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      alert("Antwortfunktion wird demnächst verfügbar sein.");
-    });
-  });
-
-  // Gespeicherte Autos entfernen (Optik + Remove)
-  document.querySelectorAll(".toggle-saved-car").forEach(btn => {
-    btn.addEventListener("click", function () {
-      const card = this.closest(".saved-car-card");
-      this.classList.toggle("removed");
-      if (this.classList.contains("removed")) {
-        setTimeout(() => card?.remove(), 300);
+      const card = this.closest(".car-card");
+      if (card && confirm("Möchtest du dieses Inserat wirklich löschen?")) {
+        card.remove();
       }
     });
   });
 
-  // „Aus gespeicherten entfernen“ (Alternative Btn-Klasse)
+  // Hochkant-Erkennung
+  document.querySelectorAll('.slide img, .slide video').forEach(media => {
+    if (media.tagName === "VIDEO") {
+      media.addEventListener("loadedmetadata", () => {
+        if (media.videoHeight > media.videoWidth) media.classList.add("portrait-zoom");
+      });
+    } else {
+      media.addEventListener("load", () => {
+        if (media.naturalHeight > media.naturalWidth) media.classList.add("portrait-zoom");
+      });
+    }
+  });
+
+  // Gespeicherte Autos entfernen (Demo)
   document.querySelectorAll('.remove-saved-btn').forEach(button => {
     button.addEventListener('click', function() {
       const wrapper = this.closest('.car-card-wrapper');
@@ -386,9 +350,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
-
-
-
 
 
   
