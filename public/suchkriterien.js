@@ -311,7 +311,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function loadBrandModelMap() {
     try {
-      const r = await fetch("/marken-modelle.json", { credentials: "omit" });
+      const r = await fetch('/data/marken-modelle.json', { credentials: 'omit' })
+
       if (!r.ok) throw new Error("HTTP " + r.status);
       const data = await r.json();
       brandToModels = (data && typeof data === "object") ? data : {};
