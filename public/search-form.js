@@ -1,16 +1,15 @@
 // public/search-form.js
 document.addEventListener("DOMContentLoaded", () => {
+    // Läuft nur auf der Startseite: es muss ein Formular im #search-section existieren
     const form = document.querySelector("#search-section .search-form");
     if (!form) return;
   
-    // HTML5-Validierung für die Suchbox abschalten
+    // ---- HTML5-Validierung abschalten & "required" auf evtl. versteckten Feldern entfernen
     form.noValidate = true;
-  
-    // "required" bei evtl. versteckten Feldern entfernen
     ["marke","modell","kilometer-select","price-select","distance-select","gear","transmission","fuel","fuelType"]
       .forEach(id => document.getElementById(id)?.removeAttribute("required"));
   
-    // === Refs ===
+    // ---- Refs
     const markeSel    = document.getElementById("marke");
     const modellSel   = document.getElementById("modell");
     const monthSel    = document.getElementById("first-registration-month");
@@ -27,7 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const sortSel     = document.getElementById("sortBy") || document.getElementById("sort");
     const advancedBtn = form.querySelector(".btn-advanced");
   
-    // === Jahre befüllen (aktuell -> 1980) ===
+    // ---- Jahre befüllen (aktuell -> 1980)
     if (yearSel) {
       const thisYear = new Date().getFullYear();
       for (let y = thisYear; y >= 1980; y--) {
@@ -38,14 +37,11 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   
-    // === Slim Select (falls eingebunden) ===
+    // ---- Slim Select
     let ssMarke = null, ssModell = null;
     if (window.SlimSelect) {
       if (markeSel) {
-        ssMarke = new SlimSelect({
-          select: "#marke",
-          placeholder: "Marke wählen"
-        });
+        ssMarke = new SlimSelect({ select: "#marke", placeholder: "Marke wählen" });
       }
       if (modellSel) {
         ssModell = new SlimSelect({
@@ -57,49 +53,49 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   
-    // === Marken/Modelle laden (aus /marken-modelle.json) ===
-    // Konfiguration: was ausblenden?
-    const FILTER_OUT_BELIEBIG = true;       // "Beliebig" ausblenden
-    const FILTER_OUT_ALLE_VARIANTS = true;  // alles mit "(Alle)" ausblenden
+    // ============================
+    // Marken/Modelle laden
+    // ============================
+    const ALL_MODELS_VALUE = "__ALL_MODELS__";
+    const FILTER_OUT_BELIEBIG_IN_JSON = true;       // "Beliebig" als echtes Modell aus JSON entfernen
+    const FILTER_OUT_GROUP_ALLE = false;            // Dinge wie "(Alle)" in den Modellnamen entfernen?
   
     let brandToModels = {}; // wird nach fetch befüllt
   
     function sanitizeModelList(listRaw = []) {
       const seen = new Set();
-      const clean = [];
+      const out = [];
       let hadAndere = false;
   
       for (const raw of listRaw) {
         if (raw == null) continue;
         const name = String(raw).trim();
         if (!name) continue;
-        if (FILTER_OUT_BELIEBIG && /^beliebig$/i.test(name)) continue;
-        if (FILTER_OUT_ALLE_VARIANTS && /\(alle\)/i.test(name)) continue;
+  
+        if (FILTER_OUT_BELIEBIG_IN_JSON && /^beliebig$/i.test(name)) continue;
+        if (FILTER_OUT_GROUP_ALLE && /\(alle\)/i.test(name)) continue;
   
         if (/^andere$/i.test(name)) { hadAndere = true; continue; }
   
         const key = name.toLowerCase();
         if (!seen.has(key)) {
           seen.add(key);
-          clean.push(name);
+          out.push(name);
         }
       }
   
-      // Alphabetisch nach de-DE sortieren
-      clean.sort((a,b)=> a.localeCompare(b, "de", { sensitivity:"base" }));
-  
-      // "Andere" am Ende, falls in Original vorhanden
-      if (hadAndere) clean.push("Andere");
-      return clean;
+      out.sort((a,b)=> a.localeCompare(b, "de", {sensitivity:"base"}));
+      if (hadAndere) out.push("Andere");
+      return out;
     }
   
     async function loadBrandModelMap() {
-      const url = "/marken-modelle.json";
       try {
-        const r = await fetch(url, { credentials: "omit" });
-        if (!r.ok) throw new Error("HTTP " + r.status);
+        // Wichtig: relativer Pfad, damit es auch in Subpfaden/Render funktioniert
+        const r = await fetch("./marken-modelle.json", { credentials: "omit" });
+        if (!r.ok) throw new Error("HTTP "+r.status);
         const data = await r.json();
-        brandToModels = data && typeof data === "object" ? data : {};
+        brandToModels = (data && typeof data === "object") ? data : {};
       } catch (e) {
         console.warn("marken-modelle.json konnte nicht geladen werden – Fallback aktiv.", e);
         brandToModels = {
@@ -111,62 +107,20 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   
-    function maybeBuildBrandOptions() {
-      if (!markeSel) return;
-      // Wenn bereits echte Options vorhanden sind, nichts überschreiben
-      const hasRealOptions = Array.from(markeSel.options || [])
-        .some(o => o.value && o.value.trim() && !/^beliebig$/i.test(o.value));
-      if (hasRealOptions) return;
-  
-      // Sonst Marken aus JSON befüllen
-      const brands = Object.keys(brandToModels || {});
-      if (!brands.length) return;
-  
-      // Bestehende Optionen leeren (z. B. nur Platzhalter)
-      markeSel.innerHTML = "";
-  
-      // Optional: eine erste "Beliebig"-Option
-      const anyOpt = document.createElement("option");
-      anyOpt.value = "";
-      anyOpt.textContent = "Beliebig";
-      markeSel.appendChild(anyOpt);
-  
-      // "Andere" ans Ende
-      const normalBrands = brands.filter(b => !/^andere$/i.test(b));
-      normalBrands.sort((a,b)=> a.localeCompare(b, "de", { sensitivity:"base" }));
-      const otherBrands = brands.filter(b => /^andere$/i.test(b));
-  
-      for (const b of normalBrands) {
-        const opt = document.createElement("option");
-        opt.value = b;
-        opt.textContent = b;
-        markeSel.appendChild(opt);
-      }
-      for (const b of otherBrands) {
-        const opt = document.createElement("option");
-        opt.value = b;
-        opt.textContent = b;
-        markeSel.appendChild(opt);
-      }
-  
-      // SlimSelect updaten, falls aktiv
-      if (ssMarke) {
-        const data = [{ text: "Beliebig", value: "" }]
-          .concat(normalBrands.map(b => ({ text: b, value: b })))
-          .concat(otherBrands.map(b => ({ text: b, value: b })));
-        ssMarke.setData(data);
-        ssMarke.setSelected("");
-      }
-    }
-  
     function rebuildModelOptions(brand) {
       if (!modellSel) return;
   
       const rawList = (brandToModels && brandToModels[brand]) || [];
       const list = sanitizeModelList(rawList);
   
-      // Plain select leeren (falls kein SlimSelect)
+      // Plain select leeren
       modellSel.innerHTML = "";
+  
+      // Erst "Beliebig (alle Modelle)" anbieten
+      const any = document.createElement("option");
+      any.value = ALL_MODELS_VALUE;
+      any.textContent = "Beliebig (alle Modelle)";
+      modellSel.appendChild(any);
   
       if (!list.length) {
         const opt = document.createElement("option");
@@ -175,55 +129,61 @@ document.addEventListener("DOMContentLoaded", () => {
         opt.selected = true;
         opt.textContent = "Keine Modellvorschläge";
         modellSel.appendChild(opt);
+  
         if (ssModell) {
-          ssModell.setData([{ text: "Keine Modellvorschläge", value: "", disabled: true }]);
-          ssModell.setSelected([]);
+          ssModell.setData([
+            { text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE },
+            { text: "Keine Modellvorschläge", value: "", disabled: true }
+          ]);
+          ssModell.setSelected([ALL_MODELS_VALUE]);
         }
         return;
       }
   
-      // Optionen aufbauen
+      // Normale Modelle hinzufügen
+      for (const m of list) {
+        const opt = document.createElement("option");
+        opt.value = m;
+        opt.textContent = m;
+        modellSel.appendChild(opt);
+      }
+  
+      // SlimSelect updaten
       if (ssModell) {
-        ssModell.setData(list.map(m => ({ text: m, value: m })));
-        ssModell.setSelected([]);
+        const data = [{ text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE }]
+          .concat(list.map(m => ({ text: m, value: m })));
+        ssModell.setData(data);
+        ssModell.setSelected([ALL_MODELS_VALUE]);
       } else {
-        for (const m of list) {
-          const opt = document.createElement("option");
-          opt.value = m;
-          opt.textContent = m;
-          modellSel.appendChild(opt);
-        }
+        // Browser-Select: "Beliebig" standardmäßig auswählen
+        any.selected = true;
       }
     }
   
-    // Laden & initialisieren (async Kette)
+    // Exklusivität: wenn "Beliebig (alle Modelle)" gewählt ist, alle anderen abwählen
+    function enforceAllModelsExclusivity() {
+      if (!modellSel) return;
+      const selected = Array.from(modellSel.selectedOptions || []).map(o => o.value);
+      if (selected.includes(ALL_MODELS_VALUE)) {
+        // nur ALL_MODELS_VALUE aktiv lassen
+        Array.from(modellSel.options).forEach(o => o.selected = (o.value === ALL_MODELS_VALUE));
+        ssModell?.setSelected([ALL_MODELS_VALUE]);
+      }
+    }
+    modellSel?.addEventListener("change", enforceAllModelsExclusivity);
+  
+    // Initialisieren: Marken laden, ggf. Modelle füllen
     (async () => {
       await loadBrandModelMap();
-      maybeBuildBrandOptions();
-  
-      // Wenn Marke schon vorausgewählt ist, gleich Modelle befüllen
       if (markeSel && markeSel.value) {
         rebuildModelOptions(markeSel.value);
-      } else {
-        // andernfalls ggf. leeres „Modell“-Select initialisieren
-        if (ssModell) {
-          ssModell.setData([{ text: "Bitte zuerst Marke wählen", value: "", disabled: true }]);
-          ssModell.setSelected([]);
-        } else if (modellSel) {
-          const opt = document.createElement("option");
-          opt.value = "";
-          opt.disabled = true;
-          opt.selected = true;
-          opt.textContent = "Bitte zuerst Marke wählen";
-          modellSel.appendChild(opt);
-        }
       }
-  
-      // Wechsel der Marke -> Modelle neu laden
       markeSel?.addEventListener("change", () => rebuildModelOptions(markeSel.value));
     })();
   
-    // === Custom-Felder togglen (km/price/distance) ===
+    // ============================
+    // Custom-Felder togglen (km/price/distance)
+    // ============================
     function bindCustom(selectEl, inputEl) {
       if (!selectEl || !inputEl) return;
       const toggle = () => {
@@ -254,7 +214,9 @@ document.addEventListener("DOMContentLoaded", () => {
     locInput?.addEventListener("change", syncDistanceEnabled);
     syncDistanceEnabled();
   
-    /* === Ortsvorschläge – eigene Dropdown-Liste === */
+    // ============================
+    // Ortsvorschläge – eigene Dropdown-Liste
+    // ============================
     if (locInput) {
       const wrapper = locInput.closest(".input-icon-wrapper") || locInput.parentElement || document.body;
       if (getComputedStyle(wrapper).position === "static") wrapper.style.position = "relative";
@@ -334,7 +296,9 @@ document.addEventListener("DOMContentLoaded", () => {
       document.addEventListener("click", (e) => { if (!wrapper.contains(e.target)) hideBox(); });
     }
   
-    // === Helper: Sort-Mapping ===
+    // ============================
+    // Query-Params bauen (für Suchen & „Weitere Filter“)
+    // ============================
     function mapSortToServer(val) {
       if (val === "price-asc")  return "preis_asc";
       if (val === "price-desc") return "preis_desc";
@@ -342,7 +306,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return "";
     }
   
-    // === Helper: Query aus aktuellem Formular bauen (für Suche + Weitere Filter) ===
     function buildQueryParams() {
       const qs = new URLSearchParams();
   
@@ -350,10 +313,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (brand) qs.set("marke", brand);
   
       if (modellSel) {
-        const models = Array.from(modellSel.selectedOptions || [])
-          .map(o => o.value)
-          .filter(Boolean);
-        if (models.length) qs.set("modell", models.join(","));
+        const models = Array.from(modellSel.selectedOptions || []).map(o => o.value);
+        // „Beliebig (alle Modelle)“ => kein Modell-Param an die URL, damit serverseitig alle Modelle zählen
+        if (models.length && !models.includes(ALL_MODELS_VALUE)) {
+          qs.set("modell", models.filter(Boolean).join(","));
+        }
       }
   
       const y = yearSel?.value || "";
@@ -373,14 +337,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
   
       const gear = (gearSel?.value || "").toLowerCase().trim();
-      if (gear && !["beliebig","any","alle","all","-"].includes(gear)) {
-        qs.set("getriebe", gear);
-      }
+      if (gear && !["beliebig","any","alle","all","-"].includes(gear)) qs.set("getriebe", gear);
   
       const fuel = (fuelSel?.value || "").toLowerCase().trim();
-      if (fuel && !["beliebig","any","alle","all","-"].includes(fuel)) {
-        qs.set("kraftstoff", fuel);
-      }
+      if (fuel && !["beliebig","any","alle","all","-"].includes(fuel)) qs.set("kraftstoff", fuel);
   
       const loc = (locInput?.value || "").trim();
       if (loc) qs.set("ort", loc);
@@ -400,18 +360,19 @@ document.addEventListener("DOMContentLoaded", () => {
       return qs;
     }
   
-    // === „Weitere Filter“ → Suchkriterien.html (mit aktuellen Werten) ===
-    advancedBtn?.addEventListener("click", (e) => {
-      e.preventDefault();
-      const qs = buildQueryParams();
-      window.location.href = `Suchkriterien.html?${qs.toString()}`;
-    });
-  
-    // === Submit → suche.html mit Query-Parametern ===
+    // Submit → suche.html
     form.addEventListener("submit", (e) => {
       e.preventDefault();
       const qs = buildQueryParams();
       window.location.href = `suche.html?${qs.toString()}`;
     });
+  
+    // „Weitere Filter“ → Suchkriterien.html (mit bereits gesetzten Filtern)
+    if (advancedBtn) {
+      advancedBtn.addEventListener("click", () => {
+        const qs = buildQueryParams();
+        window.location.href = `suchkriterien.html?${qs.toString()}`;
+      });
+    }
   });
   
