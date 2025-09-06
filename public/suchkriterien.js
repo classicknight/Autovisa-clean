@@ -582,222 +582,220 @@ document.addEventListener("DOMContentLoaded", () => {
   /* =========================
      Button "Fahrzeuge anzeigen" → suche.html
      ========================= */
+// Hilfen
+function num(val) {
+  const s = String(val ?? "").replace(",", ".").trim();
+  if (s === "") return null;                // leer => nichts senden
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
 
-  // Hilfen
-  function num(val) {
-    const n = Number(String(val || "").replace(",", ".").trim());
-    return Number.isFinite(n) ? n : null;
-  }
+function getSelectedModels() {
+  const sel = document.getElementById("modell");
+  if (!sel) return [];
+  const vals = Array.from(sel.selectedOptions || [])
+    .map(o => o.value)
+    .filter(Boolean);
+  // "Beliebig (alle Modelle)" => keine Modelle senden
+  return vals.includes(ALL_MODELS_VALUE) ? [] : vals;
+}
 
-  function getSelectedModels() {
-    const sel = document.getElementById("modell");
-    if (!sel) return [];
-    const vals = Array.from(sel.selectedOptions || []).map(o => o.value).filter(Boolean);
-    // "Beliebig" => keine Modell-Parameter senden
-    return vals.includes(ALL_MODELS_VALUE) ? [] : vals;
-  }
+// Labels ohne value → Text extrahieren
+function getCheckedTextsIn(container) {
+  return Array.from(container.querySelectorAll('input[type="checkbox"]'))
+    .filter(inp => inp.checked)
+    .map(inp => (inp.parentElement?.innerText || "").trim())
+    .filter(Boolean);
+}
 
-  // Labels ohne value → Text extrahieren
-  function getCheckedTextsIn(container) {
-    return Array.from(container.querySelectorAll('input[type="checkbox"]'))
-      .filter(inp => inp.checked)
-      .map(inp => (inp.parentElement?.innerText || "").trim())
-      .filter(Boolean);
-  }
+// Werte aus Checkboxen mit value
+function getCheckedValuesIn(container) {
+  return Array.from(container.querySelectorAll('input[type="checkbox"]'))
+    .filter(inp => inp.checked)
+    .map(inp => (inp.value || "").trim())
+    .filter(Boolean);
+}
 
-  // Werte aus Checkboxen mit value
-  function getCheckedValuesIn(container) {
-    return Array.from(container.querySelectorAll('input[type="checkbox"]'))
-      .filter(inp => inp.checked)
-      .map(inp => (inp.value || "").trim())
-      .filter(Boolean);
-  }
+// gezielt einen .search-group-Block per Überschrift finden
+function findGroupByLabelText(text) {
+  return Array.from(document.querySelectorAll('.search-group')).find(g => {
+    const label = g.querySelector('label');
+    return label && label.textContent && label.textContent.toLowerCase().includes(text.toLowerCase());
+  }) || null;
+}
 
-  // gezielt einen .search-group-Block per Überschrift finden
-  function findGroupByLabelText(text) {
-    return Array.from(document.querySelectorAll('.search-group')).find(g => {
-      const label = g.querySelector('label');
-      return label && label.textContent && label.textContent.toLowerCase().includes(text.toLowerCase());
-    }) || null;
-  }function buildAdvancedQuery() {
-    const qs = new URLSearchParams();
-  
-    // Marke & Modelle
-    const brand = brandDropdown?.value || "";
-    if (brand) qs.set("marke", brand);
-  
-    // „Beliebig (alle Modelle)“ => kein modell-Param
-    (function () {
-      const sel = document.getElementById("modell");
-      if (!sel) return;
-      const vals = Array.from(sel.selectedOptions || []).map(o => o.value).filter(Boolean);
-      const picked = vals.includes(ALL_MODELS_VALUE) ? [] : vals;
-      if (picked.length) qs.set("modell", picked.join(","));
-    })();
-  
-    // Modellvariante (freies Textfeld)
-    const modVar = document.getElementById("modellausfuehrung")?.value?.trim();
-    if (modVar) qs.set("modellausfuehrung", modVar);
-  
-    // Erstzulassung
-    const ezFrom = document.getElementById("ez-von")?.value; // YYYY-MM
-    const ezTo   = document.getElementById("ez-bis")?.value; // YYYY-MM
-    if (ezFrom) qs.set("ezFrom", ezFrom);
-    if (ezTo)   qs.set("ezTo",   ezTo);
-  
-    // Kilometer
-    const kmMin = num(document.getElementById("km-von")?.value);
-    const kmMax = num(document.getElementById("km-bis")?.value);
-    if (kmMin != null) qs.set("km_min", String(kmMin));
-    if (kmMax != null) qs.set("km_max", String(kmMax));
-  
-    // Preis
-    const pMin = num(document.getElementById("preis-von")?.value);
-    const pMax = num(document.getElementById("preis-bis")?.value);
-    if (pMin != null) qs.set("price_min", String(pMin));
-    if (pMax != null) qs.set("price_max", String(pMax));
-  
-    // Land / Ort / Umkreis
-    const land = document.getElementById("land")?.value?.trim();
-    if (land) qs.set("land", land);
-  
-    const ort = document.getElementById("ort")?.value?.trim();
-    if (ort) qs.set("ort", ort);
-  
-    const umkreisSel = document.getElementById("umkreis");
-    if (umkreisSel) {
-      let radius = umkreisSel.value;
-      if (radius === "custom") {
-        const c = num(document.getElementById("custom-umkreis")?.value);
-        radius = (c != null && c > 0) ? String(c) : "";
-      }
-      if (radius) qs.set("umkreis", radius);
+function buildAdvancedQuery() {
+  const qs = new URLSearchParams();
+
+  // Marke & Modelle
+  const brand = brandDropdown?.value || "";
+  if (brand) qs.set("marke", brand);
+
+  const models = getSelectedModels();
+  if (models.length) qs.set("modell", models.join(","));
+
+  // Modellvariante (freies Textfeld)
+  const modVar = document.getElementById("modellausfuehrung")?.value?.trim();
+  if (modVar) qs.set("modellausfuehrung", modVar);
+
+  // Erstzulassung (YYYY-MM)
+  const ezFrom = document.getElementById("ez-von")?.value;
+  const ezTo   = document.getElementById("ez-bis")?.value;
+  if (ezFrom) qs.set("ezFrom", ezFrom);
+  if (ezTo)   qs.set("ezTo",   ezTo);
+
+  // Kilometer (nur wenn > 0)
+  const kmMin = num(document.getElementById("km-von")?.value);
+  const kmMax = num(document.getElementById("km-bis")?.value);
+  if (kmMin != null && kmMin > 0) qs.set("km_min", String(kmMin));
+  if (kmMax != null && kmMax > 0) qs.set("km_max", String(kmMax));
+
+  // Preis (nur wenn > 0)
+  const pMin = num(document.getElementById("preis-von")?.value);
+  const pMax = num(document.getElementById("preis-bis")?.value);
+  if (pMin != null && pMin > 0) qs.set("price_min", String(pMin));
+  if (pMax != null && pMax > 0) qs.set("price_max", String(pMax));
+
+  // Land (nur setzen, wenn es NICHT der erste/Default-Eintrag ist)
+  (function () {
+    const landEl = document.getElementById("land");
+    if (!landEl) return;
+    const val = landEl.value?.trim();
+    const hasMultiple = landEl.options && landEl.options.length > 1;
+    const firstVal = hasMultiple ? landEl.options[0].value : val;
+    if (hasMultiple && val && val !== firstVal) {
+      qs.set("land", val);
     }
-  
-    // Leistung (PS)
-    const psMin = num(document.getElementById("leistung-von")?.value);
-    const psMax = num(document.getElementById("leistung-bis")?.value);
-    if (psMin != null) qs.set("ps_min", String(psMin));
-    if (psMax != null) qs.set("ps_max", String(psMax));
-  
-    // Hubraum (ccm)
-    const ccMin = num(document.getElementById("hubraum-von")?.value);
-    const ccMax = num(document.getElementById("hubraum-bis")?.value);
-    if (ccMin != null) qs.set("ccm_min", String(ccMin));
-    if (ccMax != null) qs.set("ccm_max", String(ccMax));
-  
-    // Verbrauch (komb.) bis
-    const verb = num(document.getElementById("verbrauch")?.value);
-    if (verb != null) qs.set("verbrauch_max", String(verb));
-  
-    // Getriebe (Automatik / Schaltgetriebe)
-    (function () {
-      const boxes = document.querySelectorAll(
-        'input[type="checkbox"][value="Automatik"], input[type="checkbox"][value="Schaltgetriebe"]'
-      );
-      const selected = Array.from(boxes).filter(i => i.checked).map(i => i.value.toLowerCase());
-      if (selected.length === 1) {
-        qs.set("getriebe", selected[0]);          // kompatibel zu suche.js
-      } else if (selected.length > 1) {
-        qs.set("getriebe_multi", selected.join(",")); // optional für später
-      }
-    })();
-  
-    // Antriebsart
-    const antriebChecked = Array.from(
-      document.querySelectorAll('input[type="checkbox"][value="Frontantrieb"], input[type="checkbox"][value="Heckantrieb"], input[type="checkbox"][value="Allradantrieb"]')
-    ).filter(i => i.checked).map(i => i.value);
-    if (antriebChecked.length) qs.set("antrieb", antriebChecked.join(","));
-  
-    // Kraftstoff (Grid mit Labels)
-    (function () {
-      const grid = document.querySelector(".fuel-type-grid");
-      if (!grid) return;
-  
-      const pickedLabels = Array.from(grid.querySelectorAll('input[type="checkbox"]'))
-        .filter(i => i.checked)
-        .map(i => (i.parentElement?.innerText || "").trim().toLowerCase());
-  
-      if (!pickedLabels.length) return;
-  
-      // Mapping auf Tokens (kompatibel zur Startseite)
-      const mapToToken = (t) => {
-        if (t.startsWith("benzin")) return "benzin";
-        if (t.startsWith("diesel")) return "diesel";
-        if (t.startsWith("elektro")) return "elektro";
-        if (t.includes("hybrid")) return "hybrid";
-        if (t.startsWith("wasserstoff")) return "wasserstoff";
-        if (t.includes("cng") || t.includes("erdgas")) return "cng";
-        if (t.includes("lpg") || t.includes("autogas")) return "lpg";
-        if (t.startsWith("ethanol")) return "ethanol";
-        if (t.startsWith("andere")) return "andere";
-        return "";
-      };
-  
-      const tokens = pickedLabels.map(mapToToken).filter(Boolean);
-  
-      if (tokens.length === 1) {
-        qs.set("kraftstoff", tokens[0]);          // kompatibel zu suche.js
-      } else if (tokens.length > 1) {
-        qs.set("kraftstoff_multi", tokens.join(",")); // optional für später
-      }
-    })();
-  
-    // Schadstoffklasse (+ Custom)
-    const schad       = document.getElementById("schadstoffklasse")?.value;
-    const schadCustom = document.getElementById("custom-schadstoff")?.value?.trim();
-    const schadFinal  = schadCustom || schad;
-    if (schadFinal) qs.set("schadstoffklasse", schadFinal);
-  
-    // Umweltplakette
-    const plakette = document.getElementById("plakette")?.value;
-    if (plakette && plakette !== "Beliebig") qs.set("plakette", plakette);
-  
-    // Partikelfilter
-    const pf = document.getElementById("partikelfilter");
-    if (pf && pf.checked) qs.set("partikelfilter", "1");
-  
-    // HU mind. gültig (+ Custom)
-    const huSel    = document.getElementById("hu-gueltig")?.value;
-    const huCustom = document.getElementById("custom-hu")?.value?.trim();
-    const huFinal  = huCustom || huSel;
-    if (huFinal && huFinal !== "Beliebig") qs.set("hu", huFinal);
-  
-    // Halter
-    const halter = document.getElementById("fahrzeughalter")?.value;
-    if (halter) qs.set("halter_max", halter);
-  
-    // Fahrzeugtyp
-    const grpTyp = findGroupByLabelText("Fahrzeugtyp");
-    if (grpTyp) {
-      const typGrid = grpTyp.querySelector(".checkbox-grid");
-      if (typGrid) {
-        const typen = getCheckedTextsIn(typGrid);
-        if (typen.length) qs.set("fahrzeugtyp", typen.join(","));
-      }
+    // wenn es NUR „Deutschland“ als Option gibt → nichts senden
+  })();
+
+  // Ort / Umkreis
+  const ort = document.getElementById("ort")?.value?.trim();
+  if (ort) qs.set("ort", ort);
+
+  const umkreisSel = document.getElementById("umkreis");
+  if (umkreisSel) {
+    let radius = umkreisSel.value;
+    if (radius === "custom") {
+      const c = num(document.getElementById("custom-umkreis")?.value);
+      radius = (c != null && c > 0) ? String(c) : "";
     }
-  
-    // Sonstige Merkmale
-    const grpSonst = findGroupByLabelText("Sonstige Merkmale");
-    if (grpSonst) {
-      const grid = grpSonst.querySelector(".checkbox-grid");
-      if (grid) {
-        const sonst = getCheckedTextsIn(grid);
-        if (sonst.length) qs.set("merkmale", sonst.join(","));
-      }
-    }
-  
-    // Farben
-    const colorBox = document.querySelector(".color-selection");
-    if (colorBox) {
-      const colors = getCheckedTextsIn(colorBox);
-      if (colors.length) qs.set("farbe", colors.join(","));
-    }
-  
-    // Seite zurücksetzen
-    qs.delete("page");
-    return qs;
+    if (radius) qs.set("umkreis", radius);
   }
+
+  // Leistung (PS) nur wenn > 0
+  const psMin = num(document.getElementById("leistung-von")?.value);
+  const psMax = num(document.getElementById("leistung-bis")?.value);
+  if (psMin != null && psMin > 0) qs.set("ps_min", String(psMin));
+  if (psMax != null && psMax > 0) qs.set("ps_max", String(psMax));
+
+  // Hubraum (ccm) nur wenn > 0
+  const ccMin = num(document.getElementById("hubraum-von")?.value);
+  const ccMax = num(document.getElementById("hubraum-bis")?.value);
+  if (ccMin != null && ccMin > 0) qs.set("ccm_min", String(ccMin));
+  if (ccMax != null && ccMax > 0) qs.set("ccm_max", String(ccMax));
+
+  // Verbrauch (komb.) bis nur wenn > 0
+  const verb = num(document.getElementById("verbrauch")?.value);
+  if (verb != null && verb > 0) qs.set("verbrauch_max", String(verb));
+
+  // Getriebe: genau 1 Checkbox → setzen; sonst nichts (entspricht „Beliebig“)
+  (function () {
+    const boxes = document.querySelectorAll(
+      'input[type="checkbox"][value="Automatik"], input[type="checkbox"][value="Schaltgetriebe"]'
+    );
+    const selected = Array.from(boxes)
+      .filter(i => i.checked)
+      .map(i => i.value.toLowerCase());
+    if (selected.length === 1) qs.set("getriebe", selected[0]);
+  })();
+
+  // Antriebsart (nur wenn gewählt)
+  const antriebChecked = Array.from(
+    document.querySelectorAll(
+      'input[type="checkbox"][value="Frontantrieb"], input[type="checkbox"][value="Heckantrieb"], input[type="checkbox"][value="Allradantrieb"]'
+    )
+  ).filter(i => i.checked).map(i => i.value);
+  if (antriebChecked.length) qs.set("antrieb", antriebChecked.join(","));
+
+  // Kraftstoff: wenn GENAU 1 gewählt, auf Token mappen und setzen
+  (function () {
+    const grid = document.querySelector(".fuel-type-grid");
+    if (!grid) return;
+    const picked = Array.from(grid.querySelectorAll('input[type="checkbox"]'))
+      .filter(i => i.checked)
+      .map(i => (i.parentElement?.innerText || "").trim().toLowerCase());
+    if (picked.length !== 1) return;
+    const t = picked[0];
+    let token = "";
+    if (t.startsWith("benzin")) token = "benzin";
+    else if (t.startsWith("diesel")) token = "diesel";
+    else if (t.startsWith("elektro")) token = "elektro";
+    else if (t.includes("hybrid")) token = "hybrid";
+    else if (t.startsWith("wasserstoff")) token = "wasserstoff";
+    else if (t.includes("cng") || t.includes("erdgas")) token = "cng";
+    else if (t.includes("lpg") || t.includes("autogas")) token = "lpg";
+    else if (t.startsWith("ethanol")) token = "ethanol";
+    else if (t.startsWith("andere")) token = "andere";
+    if (token) qs.set("kraftstoff", token);
+  })();
+
+  // Schadstoffklasse (+ Custom)
+  const schad       = document.getElementById("schadstoffklasse")?.value;
+  const schadCustom = document.getElementById("custom-schadstoff")?.value?.trim();
+  const schadFinal  = schadCustom || schad;
+  if (schadFinal) qs.set("schadstoffklasse", schadFinal);
+
+  // Umweltplakette (nur wenn nicht „Beliebig“)
+  const plakette = document.getElementById("plakette")?.value;
+  if (plakette && plakette !== "Beliebig") qs.set("plakette", plakette);
+
+  // Partikelfilter
+  const pf = document.getElementById("partikelfilter");
+  if (pf && pf.checked) qs.set("partikelfilter", "1");
+
+  // HU mind. gültig (+ Custom)
+  const huSel    = document.getElementById("hu-gueltig")?.value;
+  const huCustom = document.getElementById("custom-hu")?.value?.trim();
+  const huFinal  = huCustom || huSel;
+  if (huFinal && huFinal !== "Beliebig") qs.set("hu", huFinal);
+
+  // Halter
+  const halter = document.getElementById("fahrzeughalter")?.value;
+  if (halter) qs.set("halter_max", halter);
+
+  // Fahrzeugtyp
+  const grpTyp = findGroupByLabelText("Fahrzeugtyp");
+  if (grpTyp) {
+    const typGrid = grpTyp.querySelector(".checkbox-grid");
+    if (typGrid) {
+      const typen = getCheckedTextsIn(typGrid);
+      if (typen.length) qs.set("fahrzeugtyp", typen.join(","));
+    }
+  }
+
+  // Sonstige Merkmale
+  const grpSonst = findGroupByLabelText("Sonstige Merkmale");
+  if (grpSonst) {
+    const grid = grpSonst.querySelector(".checkbox-grid");
+    if (grid) {
+      const sonst = getCheckedTextsIn(grid);
+      if (sonst.length) qs.set("merkmale", sonst.join(","));
+    }
+  }
+
+  // Farben
+  const colorBox = document.querySelector(".color-selection");
+  if (colorBox) {
+    const colors = getCheckedTextsIn(colorBox);
+    if (colors.length) qs.set("farbe", colors.join(","));
+  }
+
+  // page zurücksetzen
+  qs.delete("page");
+  return qs;
+}
+
   
   function goToSearch() {
     const qs = buildAdvancedQuery();
