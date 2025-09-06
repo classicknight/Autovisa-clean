@@ -1,3 +1,6 @@
+
+
+
 // suchkriterien.js
 document.documentElement.classList.remove('no-js');
 
@@ -278,10 +281,42 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   });
-
   // Modelle aus JSON
-  const FILTER_OUT_BELIEBIG = true;
-  const FILTER_OUT_ALLE_VARIANTS = true;
+  const FILTER_OUT_BELIEBIG = true;     // "Beliebig" aus JSON entfernen (wir fügen es selbst ein)
+  const FILTER_OUT_ALLE_VARIANTS = true; // "(Alle)"-Einträge aus JSON entfernen (Gruppen steuern wir separat)
+  const ALL_MODELS_VALUE = "__ALL_MODELS__";
+
+  // Nur diese Marken bekommen Gruppen (… (Alle))
+  const ALLOW_GROUPS_FOR = {
+    "Bentley": ["Continental (Alle)"],
+    "BMW": [
+      "1er Reihe (Alle)","2er Reihe (Alle)","3er Reihe (Alle)","4er Reihe (Alle)",
+      "5er Reihe (Alle)","6er Reihe (Alle)","7er Reihe (Alle)",
+      "M-Modelle (Alle)","X-Reihe (Alle)","Z-Reihe (Alle)"
+    ],
+    "DFSK": ["Fengon (Alle)"],
+    "Ford": ["Tourneo (Alle)","Transit (Alle)"],
+    "Lexus": [
+      "ES-Serie (Alle)","GS-Serie (Alle)","GX Series (Alle)","IS-Serie (Alle)",
+      "LS-Serie (Alle)","LX-Serie (Alle)","NX-Serie (Alle)","RC-Serie (Alle)","RX-Serie (Alle)"
+    ],
+    "Mercedes-Benz": [
+      "A-Klasse (Alle)","B-Klasse (Alle)","C-Klasse (Alle)","CE-Klasse (Alle)",
+      "CLA-Klasse (Alle)","CLC-Klasse (Alle)","CLE-Klasse (Alle)","CLK-Klasse (Alle)",
+      "CL-Klasse (Alle)","CLS-Klasse (Alle)","E-Klasse (Alle)","G-Klasse (Alle)",
+      "GLA-Klasse (Alle)","GLB-Klasse (Alle)","GLC-Klasse (Alle)","GLE-Klasse (Alle)",
+      "GLK-Klasse (Alle)","GL-Klasse (Alle)","GLS-Klasse (Alle)","GT-Klasse (Alle)",
+      "ML-Klasse (Alle)","R-Klasse (Alle)","S-Klasse (Alle)","SLC-Klasse (Alle)",
+      "SLK-Klasse (Alle)","SL-Klasse (Alle)","V-Klasse (Alle)","X-Klasse (Alle)"
+    ],
+    "MINI": [
+      "Cabrio Serie (Alle)","Clubman Serie (Alle)","Countryman Serie (Alle)",
+      "Coupe Serie (Alle)","MINI (Alle)","Paceman Serie (Alle)","Roadster Serie (Alle)"
+    ],
+    "Porsche": ["911er Reihe (Alle)"],
+    "Volkswagen": ["Golf (Alle)","Passat (Alle)","T3 (Alle)","T4 (Alle)","T5 (Alle)","T6 (Alle)"]
+  };
+
   let brandToModels = {};
 
   function sanitizeModelList(listRaw = []) {
@@ -311,14 +346,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function loadBrandModelMap() {
     try {
-      const r = await fetch('/data/marken-modelle.json', { credentials: 'omit' })
-
+      const r = await fetch('/data/marken-modelle.json', { credentials: 'omit' });
       if (!r.ok) throw new Error("HTTP " + r.status);
       const data = await r.json();
       brandToModels = (data && typeof data === "object") ? data : {};
     } catch (e) {
       console.warn("marken-modelle.json konnte nicht geladen werden.", e);
-      brandToModels = {}; // leer -> nur Gruppen gäbe keinen Sinn
+      brandToModels = {};
     }
   }
 
@@ -326,46 +360,55 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!modelDropdown) return;
 
     const rawList = (brandToModels && brandToModels[brand]) || [];
-    const models = sanitizeModelList(rawList);
+    const models  = sanitizeModelList(rawList);
 
-    // Gruppen anbieten, die für diese Marke Sinn machen
-    const groupOptions = [];
-    Object.entries(modelGroups).forEach(([groupName, rx]) => {
-      const hasMatch = models.some(m => rx.test(m));
-      if (hasMatch) groupOptions.push({ text: groupName, value: groupName });
-    });
+    // Gruppen nur, wenn Marke auf Allowlist und es echte Treffer gibt
+    let groupOptions = [];
+    const allowedForBrand = ALLOW_GROUPS_FOR[brand];
+    if (allowedForBrand && allowedForBrand.length) {
+      groupOptions = allowedForBrand
+        .filter(groupName => {
+          const rx = modelGroups[groupName];
+          return rx && models.some(m => rx.test(m));
+        })
+        .map(groupName => ({ text: groupName, value: groupName }));
+    }
 
+    // Reihenfolge: Beliebig → Gruppen → Einzelmodelle
     const data = [
-      ...models.map(m => ({ text: m, value: m })),
-      ...groupOptions
+      { text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE },
+      ...groupOptions,
+      ...models.map(m => ({ text: m, value: m }))
     ];
 
     if (slimModell) {
       slimModell.setData(
         data.length
           ? data
-          : [{ text: "Keine Modellvorschläge", value: "", disabled: true }]
+          : [{ text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE }]
       );
-      slimModell.setSelected([]);
+      // Standard: Beliebig aktiv
+      slimModell.setSelected([ALL_MODELS_VALUE]);
     } else {
       modelDropdown.innerHTML = "";
-      if (!data.length) {
+      data.forEach(({ text, value }) => {
         const opt = document.createElement("option");
-        opt.value = "";
-        opt.disabled = true;
-        opt.selected = true;
-        opt.textContent = "Keine Modellvorschläge";
+        opt.value = value;
+        opt.textContent = text;
         modelDropdown.appendChild(opt);
-      } else {
-        data.forEach(({ text, value }) => {
-          const opt = document.createElement("option");
-          opt.value = value;
-          opt.textContent = text;
-          modelDropdown.appendChild(opt);
-        });
-      }
+      });
+      modelDropdown.value = ALL_MODELS_VALUE;
     }
   }
+
+  // "Beliebig" exklusiv halten (SlimSelect feuert change auf dem <select>)
+  modelDropdown?.addEventListener("change", () => {
+    const selected = Array.from(modelDropdown.selectedOptions || []).map(o => o.value);
+    if (selected.includes(ALL_MODELS_VALUE)) {
+      if (slimModell) slimModell.setSelected([ALL_MODELS_VALUE]);
+      else modelDropdown.value = ALL_MODELS_VALUE;
+    }
+  });
 
   // Lade Daten & initialisiere
   (async () => {
@@ -375,6 +418,9 @@ document.addEventListener("DOMContentLoaded", () => {
     brandDropdown?.addEventListener("change", () => {
       const val = brandDropdown.value;
       rebuildModelOptions(val);
+      // Bei Markenwechsel standardmäßig "Beliebig"
+      if (slimModell) slimModell.setSelected([ALL_MODELS_VALUE]);
+      else modelDropdown.value = ALL_MODELS_VALUE;
     });
 
     // URL-Parameter übernehmen (von index.html)
@@ -390,23 +436,45 @@ document.addEventListener("DOMContentLoaded", () => {
       rebuildModelOptions(brandDropdown.value);
     }
 
-    // Modelle
+    // Modelle (kann Einzelmodelle ODER Gruppen enthalten)
     const qModels = (qs.get("modell") || "")
       .split(",")
       .map(s => s.trim())
       .filter(Boolean);
+
     if (qModels.length && slimModell) {
-      // Nur Modelle auswählen, die es für die Marke gibt
-      const list = (brandToModels[qBrand] || []).map(String);
-      const valid = qModels.filter(m => list.includes(m));
-      if (valid.length) slimModell.setSelected(valid);
+      const brand = qBrand || brandDropdown?.value || "";
+      const list  = sanitizeModelList((brandToModels[brand] || []).map(String));
+
+      // expandiere Gruppen in Einzelmodelle (nur wenn für Marke erlaubt)
+      const allowedForBrand = ALLOW_GROUPS_FOR[brand] || [];
+      const expanded = new Set();
+
+      for (const item of qModels) {
+        if (allowedForBrand.includes(item) && modelGroups[item]) {
+          const rx = modelGroups[item];
+          list.forEach(m => { if (rx.test(m)) expanded.add(m); });
+        } else if (list.includes(item)) {
+          expanded.add(item);
+        }
+      }
+
+      const vals = [...expanded];
+      if (vals.length) {
+        slimModell.setSelected(vals);
+      } else {
+        // Fallback: Beliebig
+        slimModell.setSelected([ALL_MODELS_VALUE]);
+      }
+    } else {
+      // Wenn keine Modelle in der URL: Beliebig aktiv
+      slimModell?.setSelected([ALL_MODELS_VALUE]);
     }
 
     // EZ von (index: ezFrom=YYYY-MM)
     const ezFrom = qs.get("ezFrom");
     const ezVonInput = document.getElementById("ez-von");
     if (ezFrom && ezVonInput) {
-      // Normalisieren auf YYYY-MM
       const mm = /^\d{4}-\d{2}$/.test(ezFrom) ? ezFrom : null;
       if (mm) ezVonInput.value = mm;
     }
@@ -503,7 +571,196 @@ document.addEventListener("DOMContentLoaded", () => {
       input.value = '';
     }
   };
-});
+  /* =========================
+     Button "Fahrzeuge anzeigen" → suche.html
+     ========================= */
 
-  
-  
+  // Hilfen
+  function num(val) {
+    const n = Number(String(val || "").replace(",", ".").trim());
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function getSelectedModels() {
+    const sel = document.getElementById("modell");
+    if (!sel) return [];
+    const vals = Array.from(sel.selectedOptions || []).map(o => o.value).filter(Boolean);
+    // "Beliebig" => keine Modell-Parameter senden
+    return vals.includes(ALL_MODELS_VALUE) ? [] : vals;
+  }
+
+  // Labels ohne value → Text extrahieren
+  function getCheckedTextsIn(container) {
+    return Array.from(container.querySelectorAll('input[type="checkbox"]'))
+      .filter(inp => inp.checked)
+      .map(inp => (inp.parentElement?.innerText || "").trim())
+      .filter(Boolean);
+  }
+
+  // Werte aus Checkboxen mit value
+  function getCheckedValuesIn(container) {
+    return Array.from(container.querySelectorAll('input[type="checkbox"]'))
+      .filter(inp => inp.checked)
+      .map(inp => (inp.value || "").trim())
+      .filter(Boolean);
+  }
+
+  // gezielt einen .search-group-Block per Überschrift finden
+  function findGroupByLabelText(text) {
+    return Array.from(document.querySelectorAll('.search-group')).find(g => {
+      const label = g.querySelector('label');
+      return label && label.textContent && label.textContent.toLowerCase().includes(text.toLowerCase());
+    }) || null;
+  }
+
+  function buildAdvancedQuery() {
+    const qs = new URLSearchParams();
+
+    // Marke & Modelle
+    const brand = brandDropdown?.value || "";
+    if (brand) qs.set("marke", brand);
+
+    const models = getSelectedModels();
+    if (models.length) qs.set("modell", models.join(","));
+
+    // Modellvariante
+    const modVar = document.getElementById("modellausfuehrung")?.value?.trim();
+    if (modVar) qs.set("modellausfuehrung", modVar);
+
+    // Erstzulassung
+    const ezFrom = document.getElementById("ez-von")?.value;
+    const ezTo   = document.getElementById("ez-bis")?.value;
+    if (ezFrom) qs.set("ezFrom", ezFrom); // YYYY-MM
+    if (ezTo)   qs.set("ezTo",   ezTo);
+
+    // Kilometer
+    const kmMin = num(document.getElementById("km-von")?.value);
+    const kmMax = num(document.getElementById("km-bis")?.value);
+    if (kmMin != null) qs.set("km_min", String(kmMin));
+    if (kmMax != null) qs.set("km_max", String(kmMax));
+
+    // Preis
+    const pMin = num(document.getElementById("preis-von")?.value);
+    const pMax = num(document.getElementById("preis-bis")?.value);
+    if (pMin != null) qs.set("price_min", String(pMin));
+    if (pMax != null) qs.set("price_max", String(pMax));
+
+    // Land / Ort / Umkreis
+    const land = document.getElementById("land")?.value?.trim();
+    if (land) qs.set("land", land);
+
+    const ort = document.getElementById("ort")?.value?.trim();
+    if (ort) qs.set("ort", ort);
+
+    const umkreisSel = document.getElementById("umkreis");
+    if (umkreisSel) {
+      let radius = umkreisSel.value;
+      if (radius === "custom") {
+        const c = num(document.getElementById("custom-umkreis")?.value);
+        radius = (c != null && c > 0) ? String(c) : "";
+      }
+      if (radius && radius !== "999") qs.set("umkreis", radius);
+    }
+
+    // Leistung PS
+    const psMin = num(document.getElementById("leistung-von")?.value);
+    const psMax = num(document.getElementById("leistung-bis")?.value);
+    if (psMin != null) qs.set("ps_min", String(psMin));
+    if (psMax != null) qs.set("ps_max", String(psMax));
+
+    // Hubraum
+    const ccMin = num(document.getElementById("hubraum-von")?.value);
+    const ccMax = num(document.getElementById("hubraum-bis")?.value);
+    if (ccMin != null) qs.set("ccm_min", String(ccMin));
+    if (ccMax != null) qs.set("ccm_max", String(ccMax));
+
+    // Verbrauch (komb.) bis
+    const verb = num(document.getElementById("verbrauch")?.value);
+    if (verb != null) qs.set("verbrauch_max", String(verb));
+
+    // Getriebe (Automatik / Schaltgetriebe)
+    const getriebeChecked = Array.from(
+      document.querySelectorAll('input[type="checkbox"][value="Automatik"], input[type="checkbox"][value="Schaltgetriebe"]')
+    ).filter(i => i.checked).map(i => i.value.toLowerCase());
+    if (getriebeChecked.length) qs.set("getriebe", getriebeChecked.join(","));
+
+    // Antriebsart
+    const antriebChecked = Array.from(
+      document.querySelectorAll('input[type="checkbox"][value="Frontantrieb"], input[type="checkbox"][value="Heckantrieb"], input[type="checkbox"][value="Allradantrieb"]')
+    ).filter(i => i.checked).map(i => i.value);
+    if (antriebChecked.length) qs.set("antrieb", antriebChecked.join(","));
+
+    // Kraftstoff (Labels ohne value → Texte)
+    const fuelGrid = document.querySelector(".fuel-type-grid");
+    if (fuelGrid) {
+      const fuels = getCheckedTextsIn(fuelGrid);
+      if (fuels.length) qs.set("kraftstoff", fuels.join(","));
+    }
+
+    // Schadstoffklasse (+ Custom)
+    const schad = document.getElementById("schadstoffklasse")?.value;
+    const schadCustom = document.getElementById("custom-schadstoff")?.value?.trim();
+    const schadFinal = schadCustom || schad;
+    if (schadFinal) qs.set("schadstoffklasse", schadFinal);
+
+    // Umweltplakette
+    const plakette = document.getElementById("plakette")?.value;
+    if (plakette && plakette !== "Beliebig") qs.set("plakette", plakette);
+
+    // Partikelfilter
+    const pf = document.getElementById("partikelfilter");
+    if (pf && pf.checked) qs.set("partikelfilter", "1");
+
+    // HU mind. gültig (+ Custom)
+    const huSel = document.getElementById("hu-gueltig")?.value;
+    const huCustom = document.getElementById("custom-hu")?.value?.trim();
+    const huFinal = huCustom || huSel;
+    if (huFinal && huFinal !== "Beliebig") qs.set("hu", huFinal);
+
+    // Halter
+    const halter = document.getElementById("fahrzeughalter")?.value;
+    if (halter) qs.set("halter_max", halter);
+
+    // Fahrzeugtyp (gezielt den Block mit der Überschrift finden)
+    const grpTyp = findGroupByLabelText("Fahrzeugtyp");
+    if (grpTyp) {
+      const typGrid = grpTyp.querySelector(".checkbox-grid");
+      if (typGrid) {
+        const typen = getCheckedTextsIn(typGrid);
+        if (typen.length) qs.set("fahrzeugtyp", typen.join(","));
+      }
+    }
+
+    // Sonstige Merkmale
+    const grpSonst = findGroupByLabelText("Sonstige Merkmale");
+    if (grpSonst) {
+      const grid = grpSonst.querySelector(".checkbox-grid");
+      if (grid) {
+        const sonst = getCheckedTextsIn(grid);
+        if (sonst.length) qs.set("merkmale", sonst.join(","));
+      }
+    }
+
+    // Farben
+    const colorBox = document.querySelector(".color-selection");
+    if (colorBox) {
+      const colors = getCheckedTextsIn(colorBox);
+      if (colors.length) qs.set("farbe", colors.join(","));
+    }
+
+    // immer page resetten
+    qs.delete("page");
+    return qs;
+  }
+
+  function goToSearch() {
+    const qs = buildAdvancedQuery();
+    window.location.href = `suche.html?${qs.toString()}`;
+  }
+
+  // Button binden (ohne ID, nutzt deine .submit-btn)
+  document.querySelector(".search-submit .submit-btn")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    goToSearch();
+  });
+});

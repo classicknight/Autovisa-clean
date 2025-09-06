@@ -37,7 +37,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   
-    // ---- Slim Select
+    // ============================
+    // Slim Select
+    // ============================
     let ssMarke = null, ssModell = null;
     if (window.SlimSelect) {
       if (markeSel) {
@@ -54,11 +56,133 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   
     // ============================
+    // Gruppen-Definitionen (Regex)
+    // ============================
+    const modelGroups = {
+      // BMW
+      "1er Reihe (Alle)": /^1(1[0-9]|2[0-9]|3[0-9]|4[0-9]|14[0-9]|1er M Coupé)/i,
+      "2er Reihe (Alle)": /^2(1[0-9]|2[0-9]|3[0-9])/i,
+      "3er Reihe (Alle)": /^3[0-9]{2}|^ActiveHybrid 3/i,
+      "4er Reihe (Alle)": /^4[0-9]{2}/i,
+      "5er Reihe (Alle)": /^5[0-9]{2}|^ActiveHybrid 5/i,
+      "6er Reihe (Alle)": /^6[0-9]{2}/i,
+      "7er Reihe (Alle)": /^7[0-9]{2}|^ActiveHybrid 7/i,
+      "M-Modelle (Alle)": /^M[0-9]|^M1[0-9]/i,
+      "X-Reihe (Alle)": /^X[0-9]|^ActiveHybrid X6/i,
+      "Z-Reihe (Alle)": /^Z[0-9]/i,
+  
+      // DFSK
+      "Fengon (Alle)": /^Fengon(\s\d+)?$/i,
+  
+      // Ford
+      "Tourneo (Alle)": /^Tourneo\b/i,
+      "Transit (Alle)": /^Transit\b/i,
+      // Varianten mit kleinem "(alle)"
+      "Tourneo (alle)": /^Tourneo\b/i,
+  
+      // Lexus
+      "ES-Serie (Alle)": /^ES\s/i,
+      "GS-Serie (Alle)": /^GS\s/i,
+      "GX Series (Alle)": /^GX\s/i,
+      "IS-Serie (Alle)": /^IS\s/i,
+      "LS-Serie (Alle)": /^LS\s/i,
+      "LX-Serie (Alle)": /^LX\s/i,
+      "NX-Serie (Alle)": /^NX\s/i,
+      "RC-Serie (Alle)": /^RC\s/i,
+      "RX-Serie (Alle)": /^RX\s/i,
+  
+      // Mercedes-Benz (Klassen)
+      "A-Klasse (Alle)": /^A\s/i,
+      "B-Klasse (Alle)": /^B\s/i,
+      "C-Klasse (Alle)": /^C\s/i,
+      "CE-Klasse (Alle)": /^CE\s/i,
+      "CLA-Klasse (Alle)": /^CLA\s/i,
+      "CLC-Klasse (Alle)": /^CLC\s/i,
+      "CLE-Klasse (Alle)": /^CLE\s/i,
+      "CLK-Klasse (Alle)": /^CLK\s/i,
+      "CL-Klasse (Alle)": /^CL\s/i,
+      "CLS-Klasse (Alle)": /^CLS\s/i,
+      "E-Klasse (Alle)": /^E\s/i,
+      "G-Klasse (Alle)": /^G\s/i,
+      "GLA-Klasse (Alle)": /^GLA\s/i,
+      "GLB-Klasse (Alle)": /^GLB\s/i,
+      "GLC-Klasse (Alle)": /^GLC\s/i,
+      "GLE-Klasse (Alle)": /^GLE\s/i,
+      "GLK-Klasse (Alle)": /^GLK\s/i,
+      "GL-Klasse (Alle)": /^GL\s/i,
+      "GLS-Klasse (Alle)": /^GLS\s/i,
+      "GT-Klasse (Alle)": /^AMG GT/i,
+      "ML-Klasse (Alle)": /^ML\s/i,
+      "R-Klasse (Alle)": /^R\s/i,
+      "S-Klasse (Alle)": /^S\s/i,
+      "SLC-Klasse (Alle)": /^SLC\s/i,
+      "SLK-Klasse (Alle)": /^SLK\s/i,
+      "SL-Klasse (Alle)": /^SL\s/i,
+      "V-Klasse (Alle)": /^V\s/i,
+      "X-Klasse (Alle)": /^X\s/i,
+  
+      // MINI
+      "Cabrio Serie (Alle)": /\bCabrio$/,
+      "Clubman Serie (Alle)": /\bClubman$/,
+      "Countryman Serie (Alle)": /\bCountryman$/,
+      "Coupe Serie (Alle)": /\bCoupé$/,
+      "MINI (Alle)": /^(1000|1300|Cooper|ONE|One)\b|John Cooper Works$/i,
+      "Paceman Serie (Alle)": /\bPaceman$/,
+      "Roadster Serie (Alle)": /\bRoadster$/,
+  
+      // Bentley
+      "Continental (Alle)": /^Continental\b/i,
+  
+      // Porsche
+      "911er Reihe (Alle)": /^(911|930|964|991|992|993|996|997|912|914|918)\b/i,
+  
+      // Volkswagen
+      "Golf (Alle)": /^Golf(\s|$|-)/i,
+      "Passat (Alle)": /^Passat(\s|$|-)/i,
+      "Passat (alle)": /^Passat(\s|$|-)/i, // fallback
+      "T3 (Alle)": /^T3(\s|$)/i,
+      "T4 (Alle)": /^T4(\s|$)/i,
+      "T5 (Alle)": /^T5(\s|$)/i,
+      "T6 (Alle)": /^T6(\s|$)/i,
+    };
+  
+    // Nur für diese Marken sollen die Gruppen gezeigt/benutzt werden
+    const ALLOW_GROUPS_FOR = {
+      "Bentley": ["Continental (Alle)"],
+      "BMW": [
+        "1er Reihe (Alle)","2er Reihe (Alle)","3er Reihe (Alle)","4er Reihe (Alle)",
+        "5er Reihe (Alle)","6er Reihe (Alle)","7er Reihe (Alle)",
+        "M-Modelle (Alle)","X-Reihe (Alle)","Z-Reihe (Alle)"
+      ],
+      "DFSK": ["Fengon (Alle)"],
+      "Ford": ["Tourneo (Alle)","Tourneo (alle)","Transit (Alle)"],
+      "Lexus": [
+        "ES-Serie (Alle)","GS-Serie (Alle)","GX Series (Alle)","IS-Serie (Alle)",
+        "LS-Serie (Alle)","LX-Serie (Alle)","NX-Serie (Alle)","RC-Serie (Alle)","RX-Serie (Alle)"
+      ],
+      "Mercedes-Benz": [
+        "A-Klasse (Alle)","B-Klasse (Alle)","C-Klasse (Alle)","CE-Klasse (Alle)",
+        "CLA-Klasse (Alle)","CLC-Klasse (Alle)","CLE-Klasse (Alle)","CLK-Klasse (Alle)",
+        "CL-Klasse (Alle)","CLS-Klasse (Alle)","E-Klasse (Alle)","G-Klasse (Alle)",
+        "GLA-Klasse (Alle)","GLB-Klasse (Alle)","GLC-Klasse (Alle)","GLE-Klasse (Alle)",
+        "GLK-Klasse (Alle)","GL-Klasse (Alle)","GLS-Klasse (Alle)","GT-Klasse (Alle)",
+        "ML-Klasse (Alle)","R-Klasse (Alle)","S-Klasse (Alle)","SLC-Klasse (Alle)",
+        "SLK-Klasse (Alle)","SL-Klasse (Alle)","V-Klasse (Alle)","X-Klasse (Alle)"
+      ],
+      "MINI": [
+        "Cabrio Serie (Alle)","Clubman Serie (Alle)","Countryman Serie (Alle)",
+        "Coupe Serie (Alle)","MINI (Alle)","Paceman Serie (Alle)","Roadster Serie (Alle)"
+      ],
+      "Porsche": ["911er Reihe (Alle)"],
+      "Volkswagen": ["Golf (Alle)","Passat (Alle)","Passat (alle)","T3 (Alle)","T4 (Alle)","T5 (Alle)","T6 (Alle)"]
+    };
+  
+    // ============================
     // Marken/Modelle laden
     // ============================
     const ALL_MODELS_VALUE = "__ALL_MODELS__";
-    const FILTER_OUT_BELIEBIG_IN_JSON = true;       // "Beliebig" als echtes Modell aus JSON entfernen
-    const FILTER_OUT_GROUP_ALLE = false;            // Dinge wie "(Alle)" in den Modellnamen entfernen?
+    const FILTER_OUT_BELIEBIG_IN_JSON = true; // "Beliebig" aus JSON entfernen (wir fügen es kontrolliert selbst hinzu)
+    const FILTER_OUT_GROUP_ALLE = true;       // "(Alle)"-Einträge aus JSON entfernen (wir steuern Gruppen separat)
   
     let brandToModels = {}; // wird nach fetch befüllt
   
@@ -91,8 +215,8 @@ document.addEventListener("DOMContentLoaded", () => {
   
     async function loadBrandModelMap() {
       try {
-        // Wichtig: relativer Pfad, damit es auch in Subpfaden/Render funktioniert
-        const r = await fetch("./marken-modelle.json", { credentials: "omit" });
+        // Einheitlicher Root-Pfad, Datei unter public/data/… bereitstellen
+        const r = await fetch("/data/marken-modelle.json", { credentials: "omit" });
         if (!r.ok) throw new Error("HTTP "+r.status);
         const data = await r.json();
         brandToModels = (data && typeof data === "object") ? data : {};
@@ -111,52 +235,46 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!modellSel) return;
   
       const rawList = (brandToModels && brandToModels[brand]) || [];
-      const list = sanitizeModelList(rawList);
+      const models  = sanitizeModelList(rawList);
   
-      // Plain select leeren
-      modellSel.innerHTML = "";
-  
-      // Erst "Beliebig (alle Modelle)" anbieten
-      const any = document.createElement("option");
-      any.value = ALL_MODELS_VALUE;
-      any.textContent = "Beliebig (alle Modelle)";
-      modellSel.appendChild(any);
-  
-      if (!list.length) {
-        const opt = document.createElement("option");
-        opt.value = "";
-        opt.disabled = true;
-        opt.selected = true;
-        opt.textContent = "Keine Modellvorschläge";
-        modellSel.appendChild(opt);
-  
-        if (ssModell) {
-          ssModell.setData([
-            { text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE },
-            { text: "Keine Modellvorschläge", value: "", disabled: true }
-          ]);
-          ssModell.setSelected([ALL_MODELS_VALUE]);
-        }
-        return;
+      // 1) Gruppen nur für freigegebene Marken & wenn es echte Treffer gibt
+      let groupOptions = [];
+      const allow = ALLOW_GROUPS_FOR[brand]; // array oder undefined
+      if (allow && allow.length) {
+        groupOptions = allow
+          .filter(groupName => {
+            const rx = modelGroups[groupName];
+            return rx && models.some(m => rx.test(m));
+          })
+          .map(groupName => ({ text: groupName, value: groupName }));
       }
   
-      // Normale Modelle hinzufügen
-      for (const m of list) {
-        const opt = document.createElement("option");
-        opt.value = m;
-        opt.textContent = m;
-        modellSel.appendChild(opt);
-      }
+      // 2) Reihenfolge: Beliebig → Gruppen → Einzelmodelle
+      const data = [
+        { text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE },
+        ...groupOptions,
+        ...models.map(m => ({ text: m, value: m }))
+      ];
   
-      // SlimSelect updaten
       if (ssModell) {
-        const data = [{ text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE }]
-          .concat(list.map(m => ({ text: m, value: m })));
-        ssModell.setData(data);
+        ssModell.setData(
+          data.length
+            ? data
+            : [{ text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE }]
+        );
+        // Standard: Beliebig aktiv
         ssModell.setSelected([ALL_MODELS_VALUE]);
       } else {
-        // Browser-Select: "Beliebig" standardmäßig auswählen
-        any.selected = true;
+        // Fallback: normales <select>
+        modellSel.innerHTML = "";
+        data.forEach(({ text, value }) => {
+          const opt = document.createElement("option");
+          opt.value = value;
+          opt.textContent = text;
+          modellSel.appendChild(opt);
+        });
+        // Beliebig aktiv
+        modellSel.value = ALL_MODELS_VALUE;
       }
     }
   
@@ -165,12 +283,60 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!modellSel) return;
       const selected = Array.from(modellSel.selectedOptions || []).map(o => o.value);
       if (selected.includes(ALL_MODELS_VALUE)) {
-        // nur ALL_MODELS_VALUE aktiv lassen
         Array.from(modellSel.options).forEach(o => o.selected = (o.value === ALL_MODELS_VALUE));
         ssModell?.setSelected([ALL_MODELS_VALUE]);
       }
     }
     modellSel?.addEventListener("change", enforceAllModelsExclusivity);
+  
+    // SlimSelect: Gruppen → auf Einzelmodelle expandieren, "Beliebig" exklusiv
+    if (ssModell) {
+      ssModell.settings.events = ssModell.settings.events || {};
+      const prevAfterChange = ssModell.settings.events.afterChange;
+      ssModell.settings.events.afterChange = (newSelected) => {
+        const selectedBrand  = markeSel?.value;
+        const selectedValues = (newSelected || []).map(s => s.value);
+        if (!selectedBrand || !brandToModels[selectedBrand]) return;
+  
+        // 1) "Beliebig" ist exklusiv
+        if (selectedValues.includes(ALL_MODELS_VALUE)) {
+          ssModell.setSelected([ALL_MODELS_VALUE]);
+          return;
+        }
+  
+        // 2) Gruppen → auf Einzelmodelle expandieren (nur falls erlaubt)
+        const allValuesToSelect = new Set();
+        const allow = ALLOW_GROUPS_FOR[selectedBrand];
+  
+        selectedValues.forEach(val => {
+          const isGroup = !!modelGroups[val];
+          if (isGroup) {
+            if (allow && allow.includes(val)) {
+              const rx = modelGroups[val];
+              brandToModels[selectedBrand].forEach(model => {
+                // expandiere nur über "bereinigte" Modelle
+                const cleanList = sanitizeModelList([model]);
+                if (cleanList.length && rx.test(cleanList[0])) {
+                  allValuesToSelect.add(cleanList[0]);
+                }
+              });
+            }
+          } else {
+            allValuesToSelect.add(val);
+          }
+        });
+  
+        // Falls nach Expansion nichts übrig ist → "Beliebig"
+        if (!allValuesToSelect.size) {
+          ssModell.setSelected([ALL_MODELS_VALUE]);
+        } else {
+          ssModell.setSelected([...allValuesToSelect]);
+        }
+  
+        // Chain: falls du noch eigenes afterChange vorher hattest
+        if (typeof prevAfterChange === "function") prevAfterChange(newSelected);
+      };
+    }
   
     // Initialisieren: Marken laden, ggf. Modelle füllen
     (async () => {
@@ -314,7 +480,7 @@ document.addEventListener("DOMContentLoaded", () => {
   
       if (modellSel) {
         const models = Array.from(modellSel.selectedOptions || []).map(o => o.value);
-        // „Beliebig (alle Modelle)“ => kein Modell-Param an die URL, damit serverseitig alle Modelle zählen
+        // „Beliebig (alle Modelle)“ => kein Modell-Param an die URL (serverseitig alle Modelle)
         if (models.length && !models.includes(ALL_MODELS_VALUE)) {
           qs.set("modell", models.filter(Boolean).join(","));
         }
