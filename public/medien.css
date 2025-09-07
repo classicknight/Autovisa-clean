@@ -203,22 +203,57 @@ body {
 
 
 
+/* Overlay sichtbar/unsichtbar steuern */
+.hidden { display: none !important; }
 
+/* Vollflächiges Overlay */
+.loader {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(10, 18, 28, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 9999;
+}
 
-  #upload-loader {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(30, 30, 30, 0.9);
-    color: #fff;
-    padding: 1rem 2rem;
-    border-radius: 10px;
-    font-size: 1.2rem;
-    z-index: 9999;
-  }
-  
-  .hidden {
-    display: none;
-  }
-  
+/* Karte im Overlay */
+.loader-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #1b2834, #182430);
+  border: 1px solid #243241;
+  box-shadow: 0 14px 36px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04);
+  color: #f0f4f8;
+  font-weight: 600;
+}
+
+/* Der eigentliche Spinner */
+.spinner {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.25);
+  border-top-color: var(--accent, #00b8a9);
+  animation: av-spin .8s linear infinite;
+}
+
+/* Text neben dem Spinner */
+.loader-text {
+  font-size: 15px;
+  letter-spacing: .2px;
+}
+
+/* Dreh-Animation */
+@keyframes av-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Optional: Cursor/Scroll sperren, solange geladen wird */
+body.is-loading {
+  cursor: progress;
+  overflow: hidden;
+}

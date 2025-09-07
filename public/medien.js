@@ -4,15 +4,20 @@ let globalVideoFiles = [];
 
 // ===== Uploader mit Preview, Reorder, Remove =====
 function setupUpload(boxId, inputId, previewId, isVideo = false, maxFiles = 20) {
-  const box = document.getElementById(boxId);
-  const input = document.getElementById(inputId);
+  const box     = document.getElementById(boxId);
+  const input   = document.getElementById(inputId);
   const preview = document.getElementById(previewId);
+  if (!box || !input || !preview) return null;
+
+  const MAX_VIDEO_SEC = 30;
 
   let files = [];
   let hauptbildIndex = 0;
 
+  // Klick öffnet Dateiauswahl
   box.addEventListener("click", () => input.click());
 
+  // Drag & Drop
   box.addEventListener("dragover", (e) => {
     e.preventDefault();
     box.classList.add("drag-over");
@@ -24,88 +29,143 @@ function setupUpload(boxId, inputId, previewId, isVideo = false, maxFiles = 20) 
     handleFiles([...e.dataTransfer.files]);
   });
 
+  // File picker
   input.addEventListener("change", () => handleFiles([...input.files]));
 
   function handleFiles(newFiles) {
     const valid = newFiles.filter(f =>
       isVideo ? f.type.startsWith("video/") : f.type.startsWith("image/")
     );
+    if (!valid.length) return;
 
     if (!isVideo) {
-      if (files.length + valid.length > maxFiles) {
-        safeToast(`Maximal ${maxFiles} Bilder erlaubt.`, "error");
-        return;
+      // Bilder: Limit beachten
+      const rest = Math.max(0, maxFiles - files.length);
+      const toAdd = valid.slice(0, rest);
+      if (toAdd.length < valid.length) {
+        safeToast(`Maximal ${maxFiles} Bilder erlaubt. Überschüssige Dateien wurden ignoriert.`, "error");
       }
-      files.push(...valid);
+      files.push(...toAdd);
       globalImageFiles = [...files];
       renderPreview();
     } else {
-      // nur 1 Video, max. 30s
-      valid.forEach(file => {
-        const url = URL.createObjectURL(file);
-        const videoProbe = document.createElement("video");
-        videoProbe.src = url;
-        videoProbe.preload = "metadata";
-        videoProbe.onloadedmetadata = () => {
-          URL.revokeObjectURL(url);
-          if (videoProbe.duration > 30) {
-            safeToast(`"${file.name}" ist länger als 30 Sekunden.`, "error");
-          } else {
-            files = [file];
-            globalVideoFiles = [...files];
-            renderPreview();
-          }
-        };
-      });
+      // Video: genau 1, max. 30s – nimm die erste gültige Datei
+      const candidate = valid[0];
+      const tmpUrl = URL.createObjectURL(candidate);
+      const probe = document.createElement("video");
+      probe.preload = "metadata";
+      probe.src = tmpUrl;
+      probe.onloadedmetadata = () => {
+        URL.revokeObjectURL(tmpUrl);
+        if (probe.duration > MAX_VIDEO_SEC) {
+          safeToast(`"${candidate.name}" ist länger als ${MAX_VIDEO_SEC} Sekunden.`, "error");
+          return;
+        }
+        files = [candidate];
+        globalVideoFiles = [...files];
+        renderPreview();
+      };
+      probe.onerror = () => {
+        URL.revokeObjectURL(tmpUrl);
+        safeToast(`"${candidate.name}" konnte nicht geprüft werden.`, "error");
+      };
     }
   }
 
-  function renderPreview() {
-    preview.innerHTML = "";
-    files.forEach((file, index) => {
-      const container = document.createElement("div");
-      container.className = "media-item";
-      container.setAttribute("draggable", true);
-      container.dataset.index = index;
+  // Vor dem Neu-Rendern alte blob:-URLs aufräumen
+  function revokeOldBlobURLs() {
+    [...preview.children].forEach(node => {
+      const url = node?.dataset?.blobUrl;
+      if (url && url.startsWith("blob:")) {
+        try { URL.revokeObjectURL(url); } catch {}
+      }
+    });
+  }
 
-      const url = URL.createObjectURL(file);
+  function renderPreview() {
+    revokeOldBlobURLs();
+    preview.innerHTML = "";
+
+    files.forEach((file, index) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "media-item";
+      wrapper.setAttribute("draggable", "true");
+      wrapper.dataset.index = String(index);
+
+      // Quelle bestimmen
+      let url = "";
+      let isBlob = false;
+      if (file.serverPath) {
+        url = file.serverPath; // bereits auf dem Server
+      } else {
+        url = URL.createObjectURL(file);
+        isBlob = true;
+      }
+      if (isBlob) wrapper.dataset.blobUrl = url;
+
+      // Media-Element
       const media = document.createElement(isVideo ? "video" : "img");
       media.src = url;
-      if (isVideo) media.controls = true;
+      if (isVideo) {
+        media.controls = true;
+        media.playsinline = true;
+      }
+      media.className = "preview-thumb";
 
+      // Hauptbild-Badge
+      const mainBadge = document.createElement("div");
+      mainBadge.className = "main-badge";
+      mainBadge.textContent = "Titelbild";
+      if (index !== hauptbildIndex) mainBadge.style.display = "none";
+
+      // Entfernen-Button
       const removeBtn = document.createElement("button");
       removeBtn.className = "remove-btn";
+      removeBtn.type = "button";
+      removeBtn.title = "Entfernen";
+      removeBtn.setAttribute("aria-label", "Datei entfernen");
       removeBtn.innerHTML = "&times;";
-      removeBtn.onclick = () => {
+      removeBtn.addEventListener("click", () => {
         files.splice(index, 1);
-        if (index === hauptbildIndex) hauptbildIndex = 0;
-        else if (index < hauptbildIndex) hauptbildIndex--;
+        if (index === hauptbildIndex) {
+          hauptbildIndex = 0;
+        } else if (index < hauptbildIndex) {
+          hauptbildIndex--;
+        }
         if (isVideo) globalVideoFiles = [...files];
         else globalImageFiles = [...files];
         renderPreview();
-      };
-
-      container.addEventListener("dblclick", () => {
-        hauptbildIndex = index; // (nur UI-Markierung möglich, keine eigene Anzeige hier)
       });
 
-      container.addEventListener("dragstart", (e) => {
-        e.dataTransfer.setData("text/plain", index.toString());
-        container.classList.add("dragging");
+      // Doppelklick → Hauptbild setzen
+      wrapper.addEventListener("dblclick", () => {
+        hauptbildIndex = index;
+        renderPreview();
       });
-      container.addEventListener("dragend", () => container.classList.remove("dragging"));
-      container.addEventListener("dragover", (e) => e.preventDefault());
-      container.addEventListener("drop", (e) => {
+
+      // Drag & Drop Reorder
+      wrapper.addEventListener("dragstart", (e) => {
+        e.dataTransfer.setData("text/plain", String(index));
+        wrapper.classList.add("dragging");
+      });
+      wrapper.addEventListener("dragend", () => wrapper.classList.remove("dragging"));
+      wrapper.addEventListener("dragover", (e) => e.preventDefault());
+      wrapper.addEventListener("drop", (e) => {
         e.preventDefault();
         const fromIndex = Number(e.dataTransfer.getData("text/plain"));
         const toIndex = index;
         if (fromIndex === toIndex) return;
+
         const [moved] = files.splice(fromIndex, 1);
         files.splice(toIndex, 0, moved);
 
-        if (hauptbildIndex === fromIndex) hauptbildIndex = toIndex;
-        else if (fromIndex < hauptbildIndex && toIndex >= hauptbildIndex) hauptbildIndex--;
-        else if (fromIndex > hauptbildIndex && toIndex <= hauptbildIndex) hauptbildIndex++;
+        if (hauptbildIndex === fromIndex) {
+          hauptbildIndex = toIndex;
+        } else if (fromIndex < hauptbildIndex && toIndex >= hauptbildIndex) {
+          hauptbildIndex--;
+        } else if (fromIndex > hauptbildIndex && toIndex <= hauptbildIndex) {
+          hauptbildIndex++;
+        }
 
         if (isVideo) globalVideoFiles = [...files];
         else globalImageFiles = [...files];
@@ -113,11 +173,33 @@ function setupUpload(boxId, inputId, previewId, isVideo = false, maxFiles = 20) 
         renderPreview();
       });
 
-      container.appendChild(media);
-      container.appendChild(removeBtn);
-      preview.appendChild(container);
+      wrapper.appendChild(media);
+      wrapper.appendChild(mainBadge);
+      wrapper.appendChild(removeBtn);
+      preview.appendChild(wrapper);
     });
   }
+
+  // API nach außen, damit wir Server-Dateien sauber setzen können
+  function setServerFiles(paths) {
+    if (!Array.isArray(paths)) return;
+    files = paths.map((p, i) => ({
+      serverPath: p,
+      // grobe Fallback-Typen
+      type: isVideo ? "video/mp4" : "image/jpeg",
+      name: isVideo ? `server-video-${i}.mp4` : `server-image-${i}.jpg`
+    }));
+    if (isVideo) globalVideoFiles = [...files];
+    else globalImageFiles = [...files];
+    hauptbildIndex = 0;
+    renderPreview();
+  }
+
+  function getFiles() {
+    return [...files];
+  }
+
+  return { setServerFiles, getFiles };
 }
 
 // ===== Seite initialisieren =====
@@ -136,27 +218,35 @@ window.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // Uploader aktivieren
-  setupUpload("image-upload-box", "image-input", "image-preview", false, 20);
-  setupUpload("video-upload-box", "video-input", "video-preview", true, 1);
+  // Uploader aktivieren (und API referenzieren)
+  const imageUploader = setupUpload("image-upload-box", "image-input", "image-preview", false, 20);
+  const videoUploader = setupUpload("video-upload-box", "video-input", "video-preview", true, 1);
 
   // Bereits gespeicherte Medien laden (zur Anzeige)
-  await preloadExistingMedia();
+  await preloadExistingMedia({ imageUploader, videoUploader });
 
   // Speichern-Handler
   const saveBtn = document.getElementById("saveMedia");
-  const loader = document.getElementById("upload-loader"); // optionales <div id="upload-loader">
+  const loader  = document.getElementById("upload-loader"); // Overlay
   saveBtn?.addEventListener("click", async () => {
     saveBtn.disabled = true;
-    if (loader) loader.classList.remove("hidden");
+    if (loader) {
+      loader.classList.remove("hidden");
+      loader.setAttribute("aria-busy", "true");
+      document.body.classList.add("is-loading");
+    }
 
     // Mindestens 1 Bild ODER 1 Video (gesamt) verlangen
-    const hasImgs = document.getElementById("image-preview")?.querySelectorAll("img")?.length > 0 || globalImageFiles.length > 0;
-    const hasVid  = document.getElementById("video-preview")?.querySelectorAll("video")?.length > 0 || globalVideoFiles.length > 0;
+    const hasImgs = (imageUploader?.getFiles()?.length || 0) > 0;
+    const hasVid  = (videoUploader?.getFiles()?.length || 0) > 0;
     if (!hasImgs && !hasVid) {
       safeToast("Bitte mindestens ein Bild oder ein Video hochladen.", "error");
       saveBtn.disabled = false;
-      if (loader) loader.classList.add("hidden");
+      if (loader) {
+        loader.classList.add("hidden");
+        loader.removeAttribute("aria-busy");
+        document.body.classList.remove("is-loading");
+      }
       return;
     }
 
@@ -166,13 +256,8 @@ window.addEventListener("DOMContentLoaded", async () => {
     globalVideoFiles.forEach(f => { if (!f.serverPath) fd.append("video",  f); });
 
     try {
-      const res = await fetch("/saveMedia", {
-        method: "POST",
-        credentials: "include",
-        body: fd
-      });
+      const res  = await fetch("/saveMedia", { method: "POST", credentials: "include", body: fd });
       const data = await res.json().catch(() => ({}));
-
       if (!res.ok || !data?.success) {
         const msg = data?.error || "Fehler beim Speichern der Medien.";
         throw new Error(msg);
@@ -191,52 +276,29 @@ window.addEventListener("DOMContentLoaded", async () => {
       safeToast(String(err.message || err) || "Upload fehlgeschlagen.", "error");
     } finally {
       saveBtn.disabled = false;
-      if (loader) loader.classList.add("hidden");
+      if (loader) {
+        loader.classList.add("hidden");
+        loader.removeAttribute("aria-busy");
+        document.body.classList.remove("is-loading");
+      }
     }
   });
 });
 
 // ===== Bereits gespeicherte Medien nachladen =====
-async function preloadExistingMedia() {
+async function preloadExistingMedia({ imageUploader, videoUploader }) {
   try {
-    const res = await fetch("/getVehicleData", { credentials: "include" });
+    const res  = await fetch("/getVehicleData", { credentials: "include" });
     const data = await res.json();
     if (!Array.isArray(data) || data.length === 0) return;
 
     const last = data[data.length - 1];
 
-    // Bilder anzeigen
-    if (Array.isArray(last.images) && last.images.length) {
-      const imagePreview = document.getElementById("image-preview");
-      last.images.forEach((imgPath, i) => {
-        const img = document.createElement("img");
-        img.src = imgPath;
-        img.classList.add("preview-thumb");
-        imagePreview?.appendChild(img);
-
-        // Merken, dass diese Datei schon auf dem Server liegt
-        globalImageFiles.push({
-          name: `server-image-${i}.jpg`,
-          type: "image/jpeg",
-          serverPath: imgPath
-        });
-      });
+    if (Array.isArray(last.images) && last.images.length && imageUploader) {
+      imageUploader.setServerFiles(last.images);
     }
-
-    // Video anzeigen
-    if (last.video) {
-      const videoPreview = document.getElementById("video-preview");
-      const video = document.createElement("video");
-      video.src = last.video;
-      video.controls = true;
-      video.classList.add("preview-thumb");
-      videoPreview?.appendChild(video);
-
-      globalVideoFiles.push({
-        name: "server-video.mp4",
-        type: "video/mp4",
-        serverPath: last.video
-      });
+    if (last.video && videoUploader) {
+      videoUploader.setServerFiles([last.video]);
     }
   } catch (err) {
     console.error("Fehler beim Laden der gespeicherten Medien:", err);
@@ -245,7 +307,6 @@ async function preloadExistingMedia() {
 
 // ===== Fallbacks, falls haendler.js nicht auf der Seite ist =====
 function safeToast(message, type = "success") {
-  // immer einen Toast-Container sicherstellen (passt zu deinem CSS)
   let container = document.getElementById("toast-container");
   if (!container) {
     container = document.createElement("div");
@@ -264,15 +325,12 @@ function safeToast(message, type = "success") {
 }
 
 function safeMarkStepDone(step) {
-  // 1) persistieren, damit haendler.html den Status rendern kann
   try {
     const KEY = "haendlerSteps";
     const obj = JSON.parse(localStorage.getItem(KEY) || "{}");
     obj[String(step)] = true;
     localStorage.setItem(KEY, JSON.stringify(obj));
   } catch {}
-
-  // 2) falls haendler.js doch geladen ist, dessen UI-Update nutzen
   if (window.markStepDone) {
     try { window.markStepDone(step); } catch {}
   }

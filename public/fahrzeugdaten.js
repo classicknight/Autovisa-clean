@@ -278,8 +278,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (mwstCheckbox && bruttoNettoFields && standardPreis) {
     const applyMwstUI = (checked) => {
       preisInput.disabled = checked;
-      bruttoNettoFields.style.display = checked ? "flex" : "none";
-      standardPreis.style.display = checked ? "none" : "flex";
+      bruttoNettoFields.style.display = checked ? "grid" : "none";
+      standardPreis.style.display = checked ? "none" : "grid";
     };
 
     // Initialer Zustand
