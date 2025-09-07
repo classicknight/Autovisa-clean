@@ -91,6 +91,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const ezMonat = document.getElementById("ez-monat");
   const ezJahr  = document.getElementById("ez-jahr");
 
+  // Jahre befüllen
   if (ezJahr) {
     const aktuellesJahr = new Date().getFullYear();
     for (let j = aktuellesJahr; j >= 1990; j--) {
@@ -101,6 +102,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Alle Inputs/Selects aus localStorage vorbelegen + live speichern
   const fields = form.querySelectorAll("input, select");
   fields.forEach(field => {
     if (field.name && fahrzeugdaten[field.name]) {
@@ -127,34 +129,117 @@ document.addEventListener("DOMContentLoaded", () => {
     ["input", "change"].forEach(e => field.addEventListener(e, speichern));
   });
 
+  // Erstzulassung aus gespeicherten Daten wiederherstellen
   if (fahrzeugdaten.erstzulassung && ezMonat && ezJahr) {
     const [jahr, monat] = fahrzeugdaten.erstzulassung.split("-");
     ezJahr.value = jahr;
     ezMonat.value = monat;
   }
 
+  // -----------------------------
+  // Modelle laden (Verkäufer: ohne "Beliebig" & ohne "(Alle)")
+  // -----------------------------
+  function sanitizeModelListSell(listRaw = []) {
+    const seen = new Set();
+    const out = [];
+    let hadAndere = false;
+
+    for (const raw of listRaw) {
+      if (raw == null) continue;
+      const name = String(raw).trim();
+      if (!name) continue;
+
+      // Verkäufer soll niemals "Beliebig" oder Gruppen wie "(Alle)" wählen
+      if (/^beliebig$/i.test(name)) continue;
+      if (/\(alle\)/i.test(name)) continue;
+
+      if (/^andere$/i.test(name)) { hadAndere = true; continue; }
+
+      const key = name.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(name);
+      }
+    }
+
+    // alphabetisch, "Andere" ans Ende
+    out.sort((a, b) => a.localeCompare(b, "de", { sensitivity: "base" }));
+    if (hadAndere) out.push("Andere");
+    return out;
+  }
+
+  let brandModelMap = {};
+
+  function rebuildModelOptionsSell(brand, preselect = "") {
+    if (!modellSelect) return;
+
+    // Platzhalter
+    modellSelect.innerHTML = `<option value="" disabled selected>Bitte Modell wählen</option>`;
+
+    const rawList = (brandModelMap && brandModelMap[brand]) || [];
+    const models  = sanitizeModelListSell(rawList);
+
+    for (const m of models) {
+      const opt = document.createElement("option");
+      opt.value = m;
+      opt.textContent = m;
+      modellSelect.appendChild(opt);
+    }
+
+    // Vorbelegen, falls gewünscht und vorhanden
+    if (preselect && models.includes(preselect)) {
+      modellSelect.value = preselect;
+    } else {
+      modellSelect.value = "";
+    }
+
+    // Speichere evtl. Reset des Modells
+    const changeEvt = new Event("change", { bubbles: true });
+    modellSelect.dispatchEvent(changeEvt);
+
+    aktualisiereTitel();
+    updateProgressBar();
+  }
+
   fetch("data/marken-modelle.json")
     .then(res => res.json())
     .then(data => {
+      brandModelMap = (data && typeof data === "object") ? data : {};
+
       if (markeSelect && modellSelect) {
+        // Marke geändert → Modelle neu aufbauen (ohne Beliebig / (Alle))
         markeSelect.addEventListener("change", () => {
-          const modelle = data[markeSelect.value] || [];
-          modellSelect.innerHTML = `<option disabled selected>Bitte Modell wählen</option>`;
-          modelle.forEach(modell => {
-            const opt = document.createElement("option");
-            opt.value = modell;
-            opt.textContent = modell;
-            modellSelect.appendChild(opt);
-          });
-          aktualisiereTitel();
+          rebuildModelOptionsSell(markeSelect.value, "");
         });
+
+        // Initial, falls Marke bereits gesetzt (z. B. aus localStorage)
+        const initialBrand = markeSelect.value || (fahrzeugdaten.marke || "");
+        const initialModel = fahrzeugdaten.modell || "";
+
+        if (initialBrand) {
+          // Marke im Select setzen, falls sie nur in den Daten steht
+          if (!markeSelect.value) markeSelect.value = initialBrand;
+          rebuildModelOptionsSell(initialBrand, initialModel);
+        } else {
+          // Keine Marke gewählt → nur Platzhalter im Modell
+          modellSelect.innerHTML = `<option value="" disabled selected>Bitte zuerst Marke wählen</option>`;
+        }
+      }
+    })
+    .catch(() => {
+      // Fallback: nur Platzhalter
+      if (modellSelect) {
+        modellSelect.innerHTML = `<option value="" disabled selected>Bitte zuerst Marke wählen</option>`;
       }
     });
 
+  // -----------------------------
+  // Titel automatisch vorschlagen (nur wenn leer)
+  // -----------------------------
   function aktualisiereTitel() {
     const marke  = markeSelect?.value;
     const modell = modellSelect?.value;
-    if (titelInput && marke && modell && modell !== "Beliebig") {
+    if (titelInput && marke && modell) {
       const aktuellerTitel = titelInput.value.trim();
       const vorgeschlagenerTitel = `${marke} ${modell}`;
       if (aktuellerTitel === "") {
@@ -165,6 +250,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // -----------------------------
+  // Progress-Bar
+  // -----------------------------
   function updateProgressBar() {
     const relevanteFelder = [
       "marke", "modell", "kilometer", "leistung", "hubraum",
@@ -175,7 +263,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let gültig = 0;
     relevanteFelder.forEach(id => {
       const el = document.getElementById(id);
-      if (el && el.value.trim() !== "") gültig++;
+      if (el && String(el.value || "").trim() !== "") gültig++;
     });
     if (ezMonat?.value && ezJahr?.value) gültig++;
     const total = relevanteFelder.length + 1;
@@ -184,30 +272,48 @@ document.addEventListener("DOMContentLoaded", () => {
     if (bar) bar.style.width = `${prozent}%`;
   }
 
+  // -----------------------------
+  // MwSt / Preis-Logik
+  // -----------------------------
   if (mwstCheckbox && bruttoNettoFields && standardPreis) {
-    if (mwstCheckbox.checked) {
-      preisInput.disabled = true;
-      bruttoNettoFields.style.display = "flex";
-      standardPreis.style.display = "none";
-    }
-    mwstCheckbox.addEventListener("change", function () {
-      const checked = this.checked;
+    const applyMwstUI = (checked) => {
       preisInput.disabled = checked;
       bruttoNettoFields.style.display = checked ? "flex" : "none";
       standardPreis.style.display = checked ? "none" : "flex";
+    };
+
+    // Initialer Zustand
+    applyMwstUI(mwstCheckbox.checked);
+
+    mwstCheckbox.addEventListener("change", function () {
+      applyMwstUI(this.checked);
     });
+
     bruttoInput?.addEventListener("input", function () {
       const brutto = parseFloat(this.value);
-      nettoInput.value = !isNaN(brutto) ? (brutto / 1.19).toFixed(2) : "";
+      const netto  = !isNaN(brutto) ? (brutto / 1.19) : NaN;
+      nettoInput.value = Number.isFinite(netto) ? netto.toFixed(2) : "";
+
+      // Sofort in Speicher schreiben, wenn Netto von uns gesetzt wird
+      fahrzeugdaten["brutto-preis"] = this.value || "";
+      fahrzeugdaten["netto-preis"]  = nettoInput.value || "";
+      localStorage.setItem("fahrzeugdaten", JSON.stringify(fahrzeugdaten));
+      updateProgressBar();
     });
   }
 
+  // -----------------------------
+  // Navigation
+  // -----------------------------
   backButton?.addEventListener("click", (e) => {
     e.preventDefault();
     const userRole = localStorage.getItem("userRole");
     window.location.href = userRole === "haendler" ? "haendler.html" : "privat.html";
   });
 
+  // -----------------------------
+  // Speichern
+  // -----------------------------
   saveButton?.addEventListener("click", (e) => {
     e.preventDefault();
 
@@ -274,8 +380,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // Initial UI
   updateProgressBar();
   aktualisiereTitel();
 });
-
- 
