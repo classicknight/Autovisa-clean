@@ -202,290 +202,320 @@ box-shadow: 0 4px 20px rgba(0,0,0,.35);
 
 
 
-
 /* =========================
  Autovisa – Fahrzeugdaten
  (Drop-in CSS, Navbar ausgeklammert)
  ========================= */
 
-:root{
---bg: #f5f8fc;
+ :root{
+  --bg: #f5f8fc;
 
---panel-grad-top: #1b2834;
---panel-grad-bot: #182430;
---panel-border: #243241;
+  --panel-grad-top: #1b2834;
+  --panel-grad-bot: #182430;
+  --panel-border: #243241;
 
---text: #f0f4f8;
---text-soft: #c7d0dc;
---muted: #7f8a96;
+  --text: #f0f4f8;
+  --text-soft: #c7d0dc;
+  --muted: #7f8a96;
 
---stroke: #33414e;
---stroke-soft: #ccd5df;
+  --stroke: #33414e;
+  --stroke-soft: #ccd5df;
 
---accent: #00b8a9;
---accent-2: #00a497;
---accent-3: #008f85;
+  --accent: #00b8a9;
+  --accent-2: #00a497;
+  --accent-3: #008f85;
 
---ok: #2bd39a;
+  --ok: #2bd39a;
 }
 
 *{ box-sizing: border-box; }
 html,body{ height:100%; }
 body{
-margin:0;
-background: var(--bg);
-color: var(--text);
-font-family: 'Poppins', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
--webkit-font-smoothing: antialiased;
--moz-osx-font-smoothing: grayscale;
+  margin:0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Poppins', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* ====== Section & Container ====== */
 .form-section{
-min-height: 100vh;
-padding: 60px 20px;
-display: grid;
-place-items: start center;
-background: var(--bg);
+  min-height: 100vh;
+  padding: 60px 20px;
+  display: grid;
+  place-items: start center;
+  background: var(--bg);
 }
 .form-container{
-width:100%;
-max-width: 980px;
-background: linear-gradient(180deg, var(--panel-grad-top), var(--panel-grad-bot));
-border: 1px solid var(--panel-border);
-border-radius: 18px;
-padding: 32px 40px;
-box-shadow:
-  0 24px 60px rgba(0,0,0,.35),
-  0 6px 16px rgba(0,0,0,.25),
-  inset 0 1px 0 rgba(255,255,255,.03);
+  width:100%;
+  max-width: 980px;
+  background: linear-gradient(180deg, var(--panel-grad-top), var(--panel-grad-bot));
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  padding: 32px 40px;
+  box-shadow:
+    0 24px 60px rgba(0,0,0,.35),
+    0 6px 16px rgba(0,0,0,.25),
+    inset 0 1px 0 rgba(255,255,255,.03);
 }
 .form-heading{
-margin: 4px 0 26px;
-font-size: 28px;
-line-height: 1.25;
-color:#fff;
-letter-spacing:.2px;
+  margin: 4px 0 26px;
+  font-size: 28px;
+  line-height: 1.25;
+  color:#fff;
+  letter-spacing:.2px;
 }
 
 /* ====== Progressbar (reine CSS-Variante) ====== */
 .progress-wrapper{
-flex:1; display:flex; align-items:center; gap:14px; margin:0 40px; position:relative;
+  flex:1; display:flex; align-items:center; gap:14px; margin:0 40px; position:relative;
 }
 .progress-icon{ color:var(--accent); font-size:24px; filter: drop-shadow(0 1px 0 rgba(0,0,0,.15)); }
 .progress-track{
-position:relative; flex:1; height:16px; border-radius:999px; overflow:hidden;
-background: linear-gradient(180deg,#e9eef5 0%,#e3e9ef 100%);
-border:1px solid #d7dee7;
-box-shadow: inset 0 1px 0 rgba(255,255,255,.6), inset 0 -1px 0 rgba(0,0,0,.05);
+  position:relative; flex:1; height:16px; border-radius:999px; overflow:hidden;
+  background: linear-gradient(180deg,#e9eef5 0%,#e3e9ef 100%);
+  border:1px solid #d7dee7;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6), inset 0 -1px 0 rgba(0,0,0,.05);
 }
 /* Meilensteine */
 .progress-track::before,
 .progress-track::after{
-content:""; position:absolute; top:50%; transform:translateY(-50%);
-width:8px; height:8px; border-radius:50%;
-background:#cfd7e0; box-shadow:0 0 0 2px #f5f8fc; opacity:.9;
+  content:""; position:absolute; top:50%; transform:translateY(-50%);
+  width:8px; height:8px; border-radius:50%;
+  background:#cfd7e0; box-shadow:0 0 0 2px #f5f8fc; opacity:.9;
 }
 .progress-track::before{ left:25%; }
 .progress-track::after{ left:75%; }
 
 .progress-fill{
-height:100%; width:0%;
-background: linear-gradient(90deg, var(--accent), var(--accent-2));
-transition: width .35s ease;
-position:relative;
+  height:100%; width:0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width .35s ease;
+  position:relative;
 }
 /* Shine */
 .progress-fill::after{
-content:""; position:absolute; inset:0;
-background:
-  linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,0) 55%),
-  repeating-linear-gradient(90deg, rgba(255,255,255,.08) 0 8px, rgba(255,255,255,0) 8px 16px);
-mix-blend-mode: soft-light; pointer-events:none;
+  content:""; position:absolute; inset:0;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,0) 55%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.08) 0 8px, rgba(255,255,255,0) 8px 16px);
+  mix-blend-mode: soft-light; pointer-events:none;
 }
 /* Thumb folgt der rechten Kante der Füllung */
 .progress-thumb{
-position:absolute; right:-9px; top:50%; transform:translateY(-50%);
-width:18px; height:18px; border-radius:50%;
-background:#fff;
-box-shadow:0 2px 8px rgba(0,0,0,.25), 0 0 0 3px rgba(0,184,169,.25);
-pointer-events:none;
+  position:absolute; right:-9px; top:50%; transform:translateY(-50%);
+  width:18px; height:18px; border-radius:50%;
+  background:#fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.25), 0 0 0 3px rgba(0,184,169,.25);
+  pointer-events:none;
 }
 
 /* ====== Formular-Raster ====== */
 .vehicle-form{ display:flex; flex-direction:column; gap:22px; }
 
 .form-row{
-display:grid;
-grid-template-columns: repeat(12, 1fr);
-gap:18px;
-margin-bottom:4px;
+  display:grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap:18px;
+  margin-bottom:4px;
 }
 .form-group{
-display:flex; flex-direction:column; gap:8px; min-width:220px;
-grid-column: span 6; /* 2 Spalten auf Desktop */
+  display:flex; flex-direction:column; gap:8px; min-width:220px;
+  grid-column: span 6; /* 2 Spalten auf Desktop */
 }
 /* Dritte Spalte in neuer Zeile volle Breite – ideal für lange Felder wie "Titel" */
 .form-row > .form-group:nth-child(3n){ grid-column: span 12; }
 
 /* ====== Labels ====== */
 .form-group label{
-font-weight:600; color:var(--text-soft); font-size:13.5px; letter-spacing:.2px;
+  font-weight:600; color:var(--text-soft); font-size:13.5px; letter-spacing:.2px;
 }
 
 /* ====== Inputs & Selects ====== */
 .form-group input,
 .form-group select{
-padding: 12px 14px;
-border: 1px solid var(--stroke);
-border-radius: 12px;
-font-size: 16px;
-font-weight: 500;
-background:#1f2b38;
-color: var(--text);
-transition: border-color .25s ease, box-shadow .25s ease, transform .06s ease;
+  padding: 12px 14px;
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 500;
+  background:#1f2b38;
+  color: var(--text);
+  transition: border-color .25s ease, box-shadow .25s ease, transform .06s ease;
 }
 .form-group input::placeholder{ color:#a8b4c1; opacity:.85; }
+
+/* Zahlfelder etwas kräftiger */
+.form-group input[type="number"]{
+  font-size: 17px;
+  padding: 14px 16px;
+  font-variant-numeric: tabular-nums;
+}
 
 /* Fokus – türkis, aber nur beim Fokus */
 .form-group input:focus,
 .form-group select:focus{
-border-color: var(--accent);
-outline:none;
-box-shadow: 0 0 0 3px rgba(0,184,169,.18), inset 0 1px 0 rgba(255,255,255,.05);
+  border-color: var(--accent);
+  outline:none;
+  box-shadow: 0 0 0 3px rgba(0,184,169,.18), inset 0 1px 0 rgba(255,255,255,.05);
 }
 
 /* Kein „random grün“ mehr: Valid-Highlight nur bei Fokus & wirklich gültig */
 .form-group input:focus:valid,
 .form-group select:focus:valid{
-border-color: var(--ok);
-box-shadow: 0 0 0 3px rgba(43,211,154,.22), inset 0 1px 0 rgba(255,255,255,.05);
+  border-color: var(--ok);
+  box-shadow: 0 0 0 3px rgba(43,211,154,.22), inset 0 1px 0 rgba(255,255,255,.05);
 }
 
 /* Hover (nur Desktop) */
 @media (hover:hover){
-.form-group input:hover,
-.form-group select:hover{
-  border-color:#3b4a58;
-}
+  .form-group input:hover,
+  .form-group select:hover{
+    border-color:#3b4a58;
+  }
 }
 
 /* Readonly/Disabled */
 .form-group input[readonly],
 .form-group input:disabled,
 .form-group select:disabled{
-opacity:.65; cursor:not-allowed;
+  opacity:.65; cursor:not-allowed;
 }
 
 /* Schöner Select-Pfeil */
 select{
-appearance:none;
-background-color:#1f2b38;
-background-image:url("data:image/svg+xml;utf8,\
+  appearance:none;
+  background-color:#1f2b38;
+  background-image:url("data:image/svg+xml;utf8,\
 <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20' fill='%2300b8a9'><path d='M7 10l5 5 5-5'/></svg>");
-background-repeat:no-repeat;
-background-position:right 12px center;
-background-size:16px 16px;
-color:#e3e9ef;
-padding-right:40px;
+  background-repeat:no-repeat;
+  background-position:right 12px center;
+  background-size:16px 16px;
+  color:#e3e9ef;
+  padding-right:40px;
 }
 
 /* ====== Checkbox – Kachelstil ====== */
 .checkbox-label{
-display:block; margin-bottom:8px;
-font-weight:600; color:var(--text-soft); font-size:13.5px;
+  display:block; margin-bottom:8px;
+  font-weight:600; color:var(--text-soft); font-size:13.5px;
 }
 .av-check{
---on: var(--accent);
-display:inline-flex; align-items:center; gap:10px;
-padding:10px 14px;
-border-radius:12px;
-border:1px solid var(--stroke);
-background:#1f2b38;
-cursor:pointer; user-select:none;
-transition:border-color .2s ease, box-shadow .2s ease, background-color .2s ease, transform .08s ease;
+  --on: var(--accent);
+  display:inline-flex; align-items:center; gap:10px;
+  padding:10px 14px;
+  border-radius:12px;
+  border:1px solid var(--stroke);
+  background:#1f2b38;
+  cursor:pointer; user-select:none;
+  transition:border-color .2s ease, box-shadow .2s ease, background-color .2s ease, transform .08s ease;
 }
 .av-check:hover{ border-color:#3b4a58; }
 .av-check:active{ transform:scale(.99); }
 .av-check input{ position:absolute; opacity:0; pointer-events:none; width:0; height:0; }
 .av-check .box{
-width:22px; height:22px; border-radius:8px;
-display:grid; place-items:center;
-background:#2a3745; border:1px solid var(--stroke);
-transition:background-color .2s ease, border-color .2s ease, box-shadow .2s ease;
+  width:22px; height:22px; border-radius:8px;
+  display:grid; place-items:center;
+  background:#2a3745; border:1px solid var(--stroke);
+  transition:background-color .2s ease, border-color .2s ease, box-shadow .2s ease;
 }
 .av-check .tick{
-width:16px; height:16px; fill:none; stroke:#fff; stroke-width:3; stroke-linecap:round; stroke-linejoin:round;
-opacity:0; transform:scale(.85); transition:opacity .15s ease, transform .15s ease;
+  width:16px; height:16px; fill:none; stroke:#fff; stroke-width:3; stroke-linecap:round; stroke-linejoin:round;
+  opacity:0; transform:scale(.85); transition:opacity .15s ease, transform .15s ease;
 }
 .av-check .text{ color:#e7edf3; font-weight:600; }
 .av-check input:checked + .box{
-background: var(--on);
-border-color: var(--on);
-box-shadow:0 0 0 3px rgba(0,184,169,.22);
+  background: var(--on);
+  border-color: var(--on);
+  box-shadow:0 0 0 3px rgba(0,184,169,.22);
 }
 .av-check input:checked + .box .tick{ opacity:1; transform:scale(1); }
 .av-check input:focus-visible + .box{ box-shadow:0 0 0 3px rgba(0,184,169,.28); }
 .av-check input:disabled + .box{ filter:grayscale(1) opacity(.6); }
 .av-check input:disabled ~ .text{ opacity:.6; }
 
+/* ====== SPEZIELL: Preis/MwSt & Brutto/Netto ====== */
+
+/* Preiszeile: Preis füllt, MwSt-Toggle rechts */
+.form-row--price{
+  grid-template-columns: 1fr auto;
+  align-items: end;
+}
+.form-row--price .form-group{ grid-column: auto; } /* Preis nutzt 1fr */
+.mwst-toggle{
+  align-self: end;
+  margin-left: 6px;
+  margin-bottom: 2px; /* an Input-Unterkante ausrichten */
+}
+
+/* Brutto/Netto nebeneinander, halbe Breite wie andere Felder */
+.form-row--brutto-netto .form-group{ grid-column: span 6; }
+
 /* ====== Buttons ====== */
 .save-button,
 .back-button{
-padding:12px 22px; border:none; border-radius:12px;
-font-size:16px; font-weight:700; display:inline-flex; align-items:center; gap:10px;
-cursor:pointer; transition:transform .12s ease, box-shadow .2s ease, background-color .2s ease, border-color .2s ease;
-will-change: transform;
+  padding:12px 22px; border:none; border-radius:12px;
+  font-size:16px; font-weight:700; display:inline-flex; align-items:center; gap:10px;
+  cursor:pointer; transition:transform .12s ease, box-shadow .2s ease, background-color .2s ease, border-color .2s ease;
+  will-change: transform;
 }
 .save-button{
-background: linear-gradient(180deg, var(--accent), var(--accent-2));
-color:#0e1720; box-shadow:0 8px 18px rgba(0,184,169,.22);
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+  color:#0e1720; box-shadow:0 8px 18px rgba(0,184,169,.22);
 }
 .save-button:hover{ transform: translateY(-1px); }
 .save-button:active{ transform: translateY(0); background: var(--accent-3); }
 .back-button{
-background:#eff4f8; color:#1a2733; border:1px solid var(--stroke-soft);
+  background:#eff4f8; color:#1a2733; border:1px solid var(--stroke-soft);
 }
 .back-button:hover{ background:#e7edf3; transform:translateY(-1px); }
 .back-button:active{ background:#dfe6ee; transform:translateY(0); }
 
 /* Letzte Reihe (Buttons) */
 .form-row:last-child{
-display:flex; justify-content:space-between; align-items:center;
-gap:14px; margin-top:28px;
+  display:flex; justify-content:space-between; align-items:center;
+  gap:14px; margin-top:28px;
 }
 
 /* ====== Responsive ====== */
 @media (max-width: 900px){
-.progress-wrapper{ margin:0 18px; gap:10px; }
-.form-container{ padding:24px; border-radius:16px; }
-.form-heading{ font-size:24px; margin-bottom:22px; }
-.form-row{ gap:16px; }
-.form-group{ grid-column: span 12; min-width:unset; } /* 1 Spalte mobil */
+  .progress-wrapper{ margin:0 18px; gap:10px; }
+  .form-container{ padding:24px; border-radius:16px; }
+  .form-heading{ font-size:24px; margin-bottom:22px; }
+  .form-row{ gap:16px; }
+  .form-group{ grid-column: span 12; min-width:unset; } /* 1 Spalte mobil */
+
+  /* MwSt-Toggle unter Preis, volle Breite */
+  .form-row--price{
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+  .mwst-toggle{
+    margin: 8px 0 0 0;
+  }
 }
 @media (max-width: 600px){
-.progress-icon{ font-size:18px; }
-.progress-track{ height:14px; }
-.form-section{ padding:0; }
-.form-container{ border-radius:0; box-shadow:0 6px 18px rgba(0,0,0,.08); }
-/* Sticky-Action-Bar */
-.form-row:last-child{
-  position:sticky; bottom:0; left:0; right:0;
-  padding:12px 0 6px; margin-top:24px;
-  background: linear-gradient(180deg, rgba(26,39,51,0) 0%, rgba(26,39,51,.88) 45%, rgba(26,39,51,.95) 100%);
-  backdrop-filter: blur(6px);
-  border-top: 1px solid rgba(255,255,255,.06);
+  .progress-icon{ font-size:18px; }
+  .progress-track{ height:14px; }
+  .form-section{ padding:0; }
+  .form-container{ border-radius:0; box-shadow:0 6px 18px rgba(0,0,0,.08); }
+  /* Sticky-Action-Bar */
+  .form-row:last-child{
+    position:sticky; bottom:0; left:0; right:0;
+    padding:12px 0 6px; margin-top:24px;
+    background: linear-gradient(180deg, rgba(26,39,51,0) 0%, rgba(26,39,51,.88) 45%, rgba(26,39,51,.95) 100%);
+    backdrop-filter: blur(6px);
+    border-top: 1px solid rgba(255,255,255,.06);
+  }
+  .save-button, .back-button{
+    width:100%; justify-content:center; font-size:15px; padding:12px 16px; box-shadow:none;
+  }
 }
-.save-button, .back-button{
-  width:100%; justify-content:center; font-size:15px; padding:12px 16px; box-shadow:none;
-}
-}
-
 
 /* ====== Grid-Utilities (Layout-Feintuning) ====== */
 .form-group.col-12 { grid-column: 1 / -1; }   /* volle Breite */
 .form-group.col-9  { grid-column: span 9; }
 .form-group.col-3  { grid-column: span 3; }
 
-/* Mobil sollen alle wieder voll breit sein – bleibt dank deiner
-   bestehenden @media-Regel (.form-group { grid-column: span 12; }) so. */
+/* Mobil: bleibt dank .form-group { grid-column: span 12; } automatisch vollbreit. */

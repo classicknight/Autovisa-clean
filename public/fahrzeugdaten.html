@@ -204,35 +204,36 @@
            placeholder="z. B. Audi A4 Avant 2.0 TDI S line" required>
   </div>
 </div>
-<!-- Preis und MwSt -->
-<div class="form-row" id="preis-wrapper">
-  <div class="form-group col-9">
+<!-- Preis & MwSt -->
+<div class="form-row form-row--price" id="preis-wrapper">
+  <!-- Preis: volle Breite -->
+  <div class="form-group">
     <label for="preis">Preis (€)</label>
-    <input type="number" id="preis" name="preis"
-           placeholder="z. B. 18900" min="0">
+    <input type="number" id="preis" name="preis" placeholder="z. B. 18900" min="0">
   </div>
 
-  <div class="form-group checkbox-group col-3">
-    <label for="mwst-ausweisbar">MwSt. ausweisbar</label>
-    <div class="checkbox-wrapper">
-      <input type="checkbox" id="mwst-ausweisbar" name="mwst-ausweisbar">
-    </div>
+  <!-- Schicker Toggle: MwSt. ausweisbar -->
+  <label class="av-check mwst-toggle" for="mwst-ausweisbar" title="MwSt. ausweisbar">
+    <input type="checkbox" id="mwst-ausweisbar" name="mwst-ausweisbar">
+    <span class="box">
+      <svg class="tick" viewBox="0 0 24 24"><path d="M20 6l-11 11-5-5"/></svg>
+    </span>
+    <span class="text">MwSt. ausweisbar</span>
+  </label>
+</div>
+
+<!-- Brutto & Netto (werden bei MwSt. sichtbar) -->
+<div class="form-row form-row--brutto-netto" id="brutto-netto-fields" style="display: none;">
+  <div class="form-group">
+    <label for="brutto-preis">Brutto-Preis (€)</label>
+    <input type="number" id="brutto-preis" name="brutto-preis" placeholder="z. B. 18900" min="0">
+  </div>
+  <div class="form-group">
+    <label for="netto-preis">Netto-Preis (€)</label>
+    <input type="number" id="netto-preis" name="netto-preis" placeholder="Wird automatisch berechnet" readonly>
   </div>
 </div>
 
-  
-  <!-- Brutto & Netto -->
-  <div class="form-row" id="brutto-netto-fields" style="display: none;">
-    <div class="form-group">
-      <label for="brutto-preis">Brutto-Preis (€)</label>
-      <input type="number" id="brutto-preis" name="brutto-preis" placeholder="z. B. 18900" min="0">
-    </div>
-    <div class="form-group">
-      <label for="netto-preis">Netto-Preis (€)</label>
-      <input type="number" id="netto-preis" name="netto-preis" placeholder="Wird automatisch berechnet" readonly>
-    </div>
-  </div>
-  
  <!-- Erstzulassung -->
 <div class="form-row">
     <div class="form-group">

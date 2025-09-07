@@ -628,23 +628,23 @@
       <label class="checkbox-tile"><input type="checkbox" name="taxi"><span class="checkbox-label">Taxi</span></label>
     </div>
   
-    <!-- Fahrzeugbeschreibung -->
-    <div class="form-row">
-      <div class="form-group" style="width: 100%;">
-        <label for="fahrzeugbeschreibung">Fahrzeugbeschreibung</label>
-        <textarea id="fahrzeugbeschreibung" name="fahrzeugbeschreibung" class="form-textarea" rows="6" placeholder="Beschreibe dein Fahrzeug: z. B. Zustand, Historie, besondere Merkmale..."></textarea>
-      </div>
-    </div>
-  </section>
-
-<!-- Zurück-Button -->
-<div class="form-row" style="justify-content: flex-start; margin-top: 40px;">
-    <button type="button" class="back-button" onclick="window.location.href='haendler.html'">
-      <i class="fas fa-arrow-left"></i> Zurück zur Übersicht
-    </button>
+  <!-- Fahrzeugbeschreibung -->
+<div class="form-row">
+  <div class="form-group full">
+    <label for="fahrzeugbeschreibung">Fahrzeugbeschreibung</label>
+    <textarea id="fahrzeugbeschreibung"
+              name="fahrzeugbeschreibung"
+              class="form-textarea form-textarea--lg"
+              placeholder="Beschreibe dein Fahrzeug: z. B. Zustand, Historie, besondere Merkmale..."></textarea>
   </div>
-<!-- Speichern-Button -->
-<div class="form-row" style="justify-content: flex-end; margin-top: 40px;">
+</div>
+
+<!-- Aktionen -->
+<div class="button-row">
+  <button type="button" class="back-button" onclick="window.location.href='haendler.html'">
+    <i class="fas fa-arrow-left"></i> Zurück zur Übersicht
+  </button>
+
   <button type="submit" class="save-button">
     <i class="fas fa-save"></i> Speichern
   </button>
