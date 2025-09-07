@@ -1,606 +1,568 @@
 /* --- Allgemeine Stile --- */
 * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-  
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: #f5f8fc;
+  padding-top: 120px;
+}
+
+/* Navbar */
+.navbar {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  height: 120px;
+  background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+  z-index: 1000;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+/* Logo */
+.logo-container {
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+  margin-left: -10px;
+}
+.logo {
+  height: 120px;
+  width: auto;
+}
+
+/* Navigation */
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 50px;
+  list-style: none;
+}
+
+.nav-links li {
+  position: relative;
+}
+
+.nav-links a {
+  text-decoration: none;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 18.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+}
+
+.nav-links a:hover {
+  color: #00ffcc;
+}
+
+/* Aktiver Link */
+.nav-links .active > a {
+  color: #00ffcc;
+  border-bottom: 2px solid #00ffcc;
+}
+
+/* Dropdown-Menü */
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 125%;
+  left: 0;
+  background: #1a2733;
+  border-radius: 8px;
+  min-width: 200px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  z-index: 2000;
+}
+
+.dropdown-menu li {
+  width: 100%;
+}
+
+.dropdown-menu a {
+  padding: 12px 16px;
+  color: #ffffff;
+  display: block;
+  font-size: 15px;
+  transition: background 0.2s ease;
+}
+
+.dropdown:hover .dropdown-menu {
+  display: block;
+}
+
+.dropdown-menu a:hover {
+  background: #2f3e4d;
+  color: #00ffcc;
+}
+
+/* "Auto verkaufen"-Link */
+.highlight-link {
+  color: #00ffcc;
+  border: 2px solid #00ffcc;
+  border-radius: 6px;
+  padding: 6px 14px;
+  transition: all 0.3s ease;
+}
+.highlight-link:hover {
+  background-color: #00ffcc;
+  color: #003344;
+}
+
+/* Hamburger */
+.hamburger {
+  display: none;
+  font-size: 26px;
+  color: white;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* --- Mobile Ansicht --- */
+@media screen and (max-width: 900px) {
   body {
-    font-family: 'Poppins', sans-serif;
-    background-color: #f5f8fc;
-    padding-top: 120px;
+    padding-top: 80px;
   }
-  
+
   .navbar {
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    height: 120px;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 40px;
-    z-index: 1000;
-  
-    /* Vertikal (oben hell → unten dunkel) + horizontal gespiegelt */
-    background: linear-gradient(180deg, #2c5364 0%, #203a43 60%, #0f2027 100%),
-                linear-gradient(270deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 100%);
-    box-shadow: 0 4px 20px rgba(0,0,0,.35);
+    height: 80px;
+    padding: 0 20px;
   }
-  
-  /* Logo */
-  .logo-container {
-    display: flex;
-    align-items: flex-end;
-    height: 100%;
-    margin-left: -10px;
-  }
+
   .logo {
-    height: 120px;
-    width: auto;
+    height: 70px;
   }
-  
-  /* Navigation */
-  .nav-links {
-    display: flex;
-    align-items: center;
-    gap: 50px;
-    list-style: none;
-  }
-  
-  .nav-links li {
-    position: relative;
-  }
-  
-  .nav-links a {
-    text-decoration: none;
-    color: #ffffff;
-    font-weight: 500;
-    font-size: 18.5px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.3s ease;
-  }
-  
-  .nav-links a:hover {
-    color: #00ffcc;
-  }
-  
-  /* Aktiver Link */
-  .nav-links .active > a {
-    color: #00ffcc;
-    border-bottom: 2px solid #00ffcc;
-  }
-  
-  /* Dropdown-Menü */
-  .dropdown-menu {
-    display: none;
-    position: absolute;
-    top: 125%;
-    left: 0;
-    background: #1a2733;
-    border-radius: 8px;
-    min-width: 200px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-    overflow: hidden;
-    z-index: 2000;
-  }
-  
-  .dropdown-menu li {
-    width: 100%;
-  }
-  
-  .dropdown-menu a {
-    padding: 12px 16px;
-    color: #ffffff;
-    display: block;
-    font-size: 15px;
-    transition: background 0.2s ease;
-  }
-  
-  .dropdown:hover .dropdown-menu {
-    display: block;
-  }
-  
-  .dropdown-menu a:hover {
-    background: #2f3e4d;
-    color: #00ffcc;
-  }
-  
-  /* "Auto verkaufen"-Link */
-  .highlight-link {
-    color: #00ffcc;
-    border: 2px solid #00ffcc;
-    border-radius: 6px;
-    padding: 6px 14px;
-    transition: all 0.3s ease;
-  }
-  .highlight-link:hover {
-    background-color: #00ffcc;
-    color: #003344;
-  }
-  
-  /* Hamburger */
-  .hamburger {
-    display: none;
-    font-size: 26px;
-    color: white;
-    background: none;
-    border: none;
-    cursor: pointer;
-  }
-  
-  /* --- Mobile Ansicht --- */
-  @media screen and (max-width: 900px) {
-    body {
-      padding-top: 80px;
-    }
-  
-    .navbar {
-      height: 80px;
-      padding: 0 20px;
-    }
-  
-    .logo {
-      height: 70px;
-    }
-  
-    .logo-container {
-      margin-left: -10px;
-      margin-bottom: 8px;
-    }
-  
-    .hamburger {
-      display: block;
-    }
-  
-    .nav-links {
-      display: none;
-      flex-direction: column;
-      position: absolute;
-      top: 80px;
-      left: 0;
-      background: #1a2733;
-      width: 100%;
-      padding: 20px;
-      gap: 15px;
-      border-bottom-left-radius: 10px;
-      border-bottom-right-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    }
-  
-    .nav-links.active {
-      display: flex;
-    }
-  
-    .nav-links a {
-      font-size: 16px;
-    }
-  
-    .dropdown-menu {
-      position: static;
-      background: #253544;
-      box-shadow: none;
-      border-radius: 0;
-    }
-  
-    .dropdown-menu a {
-      color: white;
-      padding: 10px 20px;
-    }
-  
-    .dropdown-menu a:hover {
-      background-color: #2f3e4d;
-      color: #00ffcc;
-    }
-  
-    .highlight-link {
-      padding: 6px 12px;
-      font-size: 16px;
-    }
-  }
-  
-  
-  
-  
-  
-  
-  .progress-wrapper {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-left: 40px;
-    margin-right: 40px;
-    position: relative;
-    top: 0px;
-  }
-  
-  .progress-track {
-    flex: 1;
-    height: 14px;
-    background-color: #e3e9ef;
-    border-radius: 6px;
-    overflow: hidden;
-  }
-  
-  .progress-fill {
-    height: 100%;
-    background: #00b8a9;
-    transition: width 0.3s ease;
-  }
-  
-  .progress-icon {
-    color: #00b8a9;
-    font-size: 25px;
-  }
-  
-  @media screen and (max-width: 600px) {
-    .progress-wrapper {
-      gap: 8px;
-      margin-left: 10px;
-      margin-right: 10px;
-    }
-    
-    .progress-icon {
-      font-size: 16px;
-    }
-  }
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  /* --- Allgemeine Basis --- */
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-  
-  body {
-    font-family: 'Poppins', sans-serif;
-    background-color: #f5f8fc;
-    padding-top: 120px;
-  }
-  
-  /* Formular-Sektion */
-  .form-section {
-    padding: 60px 20px;
-    background-color: #f5f8fc;
-    min-height: 100vh;
-  }
-  
-  .form-container {
-    background: #1a2733;
-    padding: 30px 40px;
-    border-radius: 16px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    max-width: 960px;     /* Desktop: schön breit */
-    width: 100%;
-    margin: 0 auto;        /* zentriert */
-    box-sizing: border-box;
-  }
-  
-  .form-heading {
-    font-size: 26px;
-    margin-bottom: 30px;
-    color: #ffffff;
-  }
-  
-  .vehicle-form {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-  }
-  
-  .form-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
+
+  .logo-container {
+    margin-left: -10px;
     margin-bottom: 8px;
   }
-  
-  .form-group {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-width: 220px;
-  }
-  
-  .form-group label {
-    font-weight: 500;
-    margin-bottom: 6px;
-    color: #c7d0dc;
-    font-size: 14px;
-    letter-spacing: 0.2px;
-  }
-  
-  .form-group input,
-  .form-group select {
-    padding: 12px 16px;
-    border: 1px solid #33414e;
-    border-radius: 10px;
-    font-size: 16px;
-    font-weight: 500;
-    font-family: 'Poppins', sans-serif;
-    background-color: #1f2b38;
-    color: #f0f4f8;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
-  }
-  
-  .form-group input::placeholder {
-    color: #a8b4c1;
-    opacity: 0.8;
-  }
-  
-  .form-group input:focus,
-  .form-group select:focus {
-    border: 1.5px solid #00b8a9;
-    outline: none;
-    box-shadow: 0 0 6px rgba(0, 184, 169, 0.25);
-  }
-  
-  /* Dropdown-Pfeil */
-  select {
-    appearance: none;
-    background-color: #1f2b38;
-    background-image: url("data:image/svg+xml;utf8,<svg fill='%2300b8a9' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    background-size: 16px 16px;
-    color: #e3e9ef;
-  }
-  
-  
-  
-  /* Responsive Anpassung */
-  @media screen and (max-width: 600px) {
-    .checkbox-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-  
-  /* Button */
-  .save-button {
-    background-color: #00b8a9;
-    color: #1a2733;
-    padding: 12px 24px;
-    font-size: 16px;
-    font-weight: 600;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: background 0.3s ease, transform 0.2s ease;
-    font-family: 'Poppins', sans-serif;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  .save-button:hover {
-    background-color: #00a497;
-    transform: translateY(-1px);
-  }
-  
-  .save-button:active {
-    background-color: #008f85;
-    transform: translateY(0);
-  }
-  
-  /* HU-Monat + Jahr im selben Block */
-  .form-group {
-    display: flex;
-    gap: 10px;
-  }
-  
-  @media screen and (max-width: 600px) {
-    /* Außenabstand der weißen Sektion entfernen */
-    .form-section {
-      padding: 24px 0;
-    }
-  
-    /* Schwarze Box auf volle Breite ohne äußeren Abstand */
-    .form-container {
-      width: 100%;
-      margin: 0;
-      padding: 24px 20px; /* Innenabstand bleibt */
-      border-radius: 0;   /* optional bündig mit Rand */
-    }
-  
-    /* Spalten untereinander darstellen */
-    .form-row {
-      flex-direction: column;
-    }
-  
-    /* Eingabefeld auf volle Breite */
-    .form-group {
-      width: 100%;
-    }
-  
-    /* Monat und Jahr z. B. bei HU untereinander statt nebeneinander */
-    .form-group > div {
-      flex-direction: column;
-    }
-  
-    /* Checkbox-Kacheln einspaltig */
-    .checkbox-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-  
-  
-  
-  .section-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: #eaf3f8;
-    margin: 28px 0 10px;
-    border-left: 4px solid #00b8a9;
-    padding-left: 12px;
-    letter-spacing: 0.3px;
-  }
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  /* --- Moderner Checkbox-Kachel-Stil --- */
-  .checkbox-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 14px;
-    margin-top: 10px;
-  }
-  
-  .checkbox-tile {
-    position: relative;
-    display: flex;
-    align-items: center;
-    padding: 14px 18px;
-    background-color: #1f2b38;
-    border: 2px solid #33414e; /* Standardfarbe */
-    border-radius: 10px;
-    color: #c7d0dc;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.25s ease;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-  }
-  
-  /* ✅ Wenn angeklickt: Rand dauerhaft blau */
-  .checkbox-tile:has(input[type="checkbox"]:checked) {
-    border-color: #00b8a9;
-  }
-  
-  /* Hover-Effekt (nur wenn nicht angekreuzt) */
-  .checkbox-tile:hover {
-    background-color: #233040;
-  }
-  
-  /* Versteckte Checkbox */
-  .checkbox-tile input[type="checkbox"] {
-    position: absolute;
-    opacity: 0;
-    appearance: none;
-    -webkit-appearance: none;
-  }
-  
-  /* Label-Inhalt */
-  .checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    position: relative;
-    padding-left: 26px;
-    transition: color 0.25s ease;
-  }
-  
-  /* Leeres Kästchen */
-  .checkbox-label::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 18px;
-    height: 18px;
-    border: 2px solid #4b5a69;
-    border-radius: 4px;
-    background-color: transparent;
-    transition: all 0.25s ease;
-  }
-  
-  /* ✅ Schwarzer Haken */
-  .checkbox-tile input[type="checkbox"]:checked + .checkbox-label::after {
-    content: "";
-    position: absolute;
-    left: 4px;
-    top: 50%;
-    transform: translateY(-50%) rotate(-45deg);
-    width: 10px;
-    height: 6px;
-    border-left: 2px solid #000;
-    border-bottom: 2px solid #000;
-  }
-  
-  /* ✅ Kästchen wird türkis */
-  .checkbox-tile input[type="checkbox"]:checked + .checkbox-label::before {
-    background-color: #00b8a9;
-    border-color: #00b8a9;
-  }
-  
-  /* ✅ Nur Schrift wird farbig */
-  .checkbox-tile input[type="checkbox"]:checked + .checkbox-label {
-    color: #00e0cf;
-    background-color: transparent; /* Kein Hintergrund! */
-  }
-  
-  
-  
-  
-  
-  
-  .section-subtitle {
-    font-size: 15px;
-    font-weight: 600;
-    color: #cfd8e3;
-    margin-bottom: 6px;
+
+  .hamburger {
     display: block;
-    padding-left: 2px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
   }
-  
-  
-  
-  
-  
-  .section-subtitle i {
-    font-size: 13px;
-    color: #6d7a88;
-    margin-left: 6px;
-  }
-  
-  
-  
-  
-  
-  
-  .form-textarea {
+
+  .nav-links {
+    display: none;
+    flex-direction: column;
+    position: absolute;
+    top: 80px;
+    left: 0;
+    background: #1a2733;
     width: 100%;
-    padding: 14px 16px;
-    font-family: 'Poppins', sans-serif;
+    padding: 20px;
+    gap: 15px;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  .nav-links.active {
+    display: flex;
+  }
+
+  .nav-links a {
     font-size: 16px;
-    font-weight: 500;
-    background-color: #1f2b38;
-    color: #f0f4f8;
-    border: 1px solid #33414e;
-    border-radius: 10px;
-    resize: vertical;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
   }
-  
-  .form-textarea::placeholder {
-    color: #a8b4c1;
-    opacity: 0.85;
+
+  .dropdown-menu {
+    position: static;
+    background: #253544;
+    box-shadow: none;
+    border-radius: 0;
   }
-  
-  .form-textarea:focus {
-    outline: none;
-    border: 1.5px solid #00b8a9;
-    box-shadow: 0 0 6px rgba(0, 184, 169, 0.25);
+
+  .dropdown-menu a {
+    color: white;
+    padding: 10px 20px;
   }
+
+  .dropdown-menu a:hover {
+    background-color: #2f3e4d;
+    color: #00ffcc;
+  }
+
+  .highlight-link {
+    padding: 6px 12px;
+    font-size: 16px;
+  }
+}
+
+
+
+
+
+
+/* =========================
+   Autovisa – Fahrzeugdetails
+   (nur Seite, keine Navbar)
+   ========================= */
+
+/* --------- Design Tokens --------- */
+:root{
+  --bg: #f5f8fc;
+
+  --panel-grad-top: #1b2834;
+  --panel-grad-bot: #182430;
+  --panel-border: #243241;
+
+  --text: #f0f4f8;
+  --text-soft: #c7d0dc;
+  --muted: #7f8a96;
+
+  --stroke: #33414e;
+  --stroke-soft: #ccd5df;
+
+  --accent: #00b8a9;
+  --accent-2: #00a497;
+  --accent-3: #008f85;
+}
+
+/* --------- Reset --------- */
+*{ box-sizing: border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  font-family:'Poppins',system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ====== Progressbar (reine CSS-Variante) ====== */
+.progress-wrapper{
+  flex:1; display:flex; align-items:center; gap:14px; margin:0 40px; position:relative;
+}
+.progress-icon{ color:var(--accent); font-size:24px; filter: drop-shadow(0 1px 0 rgba(0,0,0,.15)); }
+.progress-track{
+  position:relative; flex:1; height:16px; border-radius:999px; overflow:hidden;
+  background: linear-gradient(180deg,#e9eef5 0%,#e3e9ef 100%);
+  border:1px solid #d7dee7;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6), inset 0 -1px 0 rgba(0,0,0,.05);
+}
+/* Meilensteine */
+.progress-track::before,
+.progress-track::after{
+  content:""; position:absolute; top:50%; transform:translateY(-50%);
+  width:8px; height:8px; border-radius:50%;
+  background:#cfd7e0; box-shadow:0 0 0 2px #f5f8fc; opacity:.9;
+}
+.progress-track::before{ left:25%; }
+.progress-track::after{ left:75%; }
+
+.progress-fill{
+  height:100%; width:0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width .35s ease;
+  position:relative;
+}
+/* Shine */
+.progress-fill::after{
+  content:""; position:absolute; inset:0;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,0) 55%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.08) 0 8px, rgba(255,255,255,0) 8px 16px);
+  mix-blend-mode: soft-light; pointer-events:none;
+}
+/* Thumb folgt der rechten Kante der Füllung */
+.progress-thumb{
+  position:absolute; right:-9px; top:50%; transform:translateY(-50%);
+  width:18px; height:18px; border-radius:50%;
+  background:#fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.25), 0 0 0 3px rgba(0,184,169,.25);
+  pointer-events:none;
+}
+
+@media (max-width:600px){
+  .progress-wrapper{ margin:0 10px; gap:8px; }
+  .progress-icon{ font-size:16px; }
+  .progress-track{ height:14px; }
+}
+
+/* =========================
+   Seite & Formular-Card
+   ========================= */
+.form-section{
+  min-height:100vh; padding:60px 20px; display:grid; place-items:start center;
+  background: var(--bg);
+}
+.form-container{
+  width:100%; max-width:960px;
+  background: linear-gradient(180deg,var(--panel-grad-top),var(--panel-grad-bot));
+  border:1px solid var(--panel-border);
+  border-radius:16px;
+  padding:30px 40px;
+  box-shadow: 0 24px 60px rgba(0,0,0,.35), 0 6px 16px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.03);
+}
+.form-heading{
+  font-size:26px; color:#fff; margin:4px 0 26px; letter-spacing:.2px;
+}
+
+/* =========================
+   Raster & Felder
+   ========================= */
+.vehicle-form{ display:flex; flex-direction:column; gap:22px; }
+
+/* Grid-Zeile */
+.form-row{
+  display:grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap:18px;
+  margin-bottom:6px;
+}
+
+/* Feld-Gruppe: default 2 Spalten (6/12) */
+.form-group{
+  display:flex; flex-direction:column; gap:8px; min-width:220px;
+  grid-column: span 6;
+}
+
+/* Labels */
+.form-group label{
+  font-weight:600; color:var(--text-soft); font-size:13.5px; letter-spacing:.2px;
+}
+
+/* Inputs & Selects */
+.form-group input,
+.form-group select{
+  padding:12px 14px;
+  border:1px solid var(--stroke);
+  border-radius:12px;
+  font-size:16px; font-weight:500;
+  background:#1f2b38; color:var(--text);
+  transition:border-color .25s ease, box-shadow .25s ease;
+}
+.form-group input::placeholder{ color:#a8b4c1; opacity:.85; }
+
+/* Fokus dezent türkis */
+.form-group input:focus,
+.form-group select:focus{
+  outline:none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,184,169,.18), inset 0 1px 0 rgba(255,255,255,.05);
+}
+
+/* Valid nur im Fokus grün – kein „random“ Grün */
+.form-group input:focus:valid,
+.form-group select:focus:valid{
+  border-color:#2bd39a;
+  box-shadow:0 0 0 3px rgba(43,211,154,.22), inset 0 1px 0 rgba(255,255,255,.05);
+}
+
+/* Select-Pfeil */
+select{
+  appearance:none;
+  background-color:#1f2b38;
+  background-image:url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='20' height='20' fill='%2300b8a9'><path d='M7 10l5 5 5-5'/></svg>");
+  background-repeat:no-repeat;
+  background-position:right 12px center;
+  background-size:16px 16px;
+  color:#e3e9ef;
+  padding-right:40px;
+}
+
+/* Number-Spinner aus */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+input[type="number"]{ -moz-appearance:textfield; }
+
+/* Pair/Inline-Gruppen (z. B. HU Monat/Jahr) */
+.field-pair{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+@media (max-width:900px){ .field-pair{ grid-template-columns:1fr; } }
+
+/* =========================
+   Section-Typo
+   ========================= */
+.section-title{
+  font-size:18px; font-weight:600; color:#eaf3f8;
+  margin:28px 0 10px; border-left:4px solid var(--accent);
+  padding-left:12px; letter-spacing:.3px;
+}
+.section-subtitle{
+  font-size:15px; font-weight:600; color:#cfd8e3;
+  margin-bottom:6px; display:block; padding-left:2px;
+  text-transform:uppercase; letter-spacing:.5px;
+}
+.section-subtitle i{ font-size:13px; color:#6d7a88; margin-left:6px; }
+
+/* =========================
+   Checkbox-Kacheln
+   ========================= */
+.checkbox-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px,1fr));
+  gap:14px; margin-top:10px;
+}
+.checkbox-tile{
+  position:relative; display:flex; align-items:center; gap:12px;
+  padding:14px 18px; background:#1f2b38;
+  border:2px solid #33414e; border-radius:10px;
+  color:#c7d0dc; font-size:14px; font-weight:500;
+  cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;
+  transition: background-color .25s ease, border-color .25s ease, color .25s ease;
+}
+.checkbox-tile:hover{ background:#233040; }
+.checkbox-tile input[type="checkbox"]{ position:absolute; inset:0; opacity:0; cursor:pointer; }
+
+/* visuelles Kästchen + Haken */
+.checkbox-label{ position:relative; padding-left:26px; }
+.checkbox-label::before{
+  content:""; position:absolute; left:0; top:50%; transform:translateY(-50%);
+  width:18px; height:18px; border:2px solid #4b5a69; border-radius:4px; background:transparent;
+  transition: all .25s ease;
+}
+.checkbox-tile input[type="checkbox"]:checked + .checkbox-label::before{
+  background: var(--accent); border-color: var(--accent);
+}
+.checkbox-tile input[type="checkbox"]:checked + .checkbox-label::after{
+  content:""; position:absolute; left:4px; top:50%; transform:translateY(-50%) rotate(-45deg);
+  width:10px; height:6px; border-left:2px solid #000; border-bottom:2px solid #000;
+}
+.checkbox-tile:has(input[type="checkbox"]:checked){
+  border-color: var(--accent);
+}
+.checkbox-tile input[type="checkbox"]:checked + .checkbox-label{ color:#00e0cf; }
+
+/* =========================
+   Textarea
+   ========================= */
+.form-textarea{
+  width:100%; padding:14px 16px; resize:vertical;
+  font-family:'Poppins',sans-serif; font-size:16px; font-weight:500;
+  background:#1f2b38; color:var(--text);
+  border:1px solid var(--stroke); border-radius:10px;
+  transition:border-color .25s ease, box-shadow .25s ease;
+}
+.form-textarea::placeholder{ color:#a8b4c1; opacity:.85; }
+.form-textarea:focus{
+  outline:none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,184,169,.18);
+}
+
+/* =========================
+   Buttons
+   ========================= */
+.save-button{
+  background: linear-gradient(180deg,var(--accent),var(--accent-2));
+  color:#0e1720;
+  padding:12px 24px; font-size:16px; font-weight:700;
+  border:none; border-radius:12px; cursor:pointer;
+  display:inline-flex; align-items:center; gap:8px;
+  transition: transform .12s ease, box-shadow .2s ease, background-color .2s ease;
+  box-shadow: 0 8px 18px rgba(0,184,169,.22);
+}
+.save-button:hover{ transform: translateY(-1px); }
+.save-button:active{ transform: translateY(0); background: var(--accent-3); }
+
+/* =========================
+   Responsive
+   ========================= */
+@media (max-width:900px){
+  .form-container{ padding:24px; border-radius:16px; }
+  .form-heading{ font-size:24px; margin-bottom:22px; }
+  .form-row{ gap:16px; }
+  .form-group{ grid-column: span 12; min-width:unset; } /* 1 Spalte */
+}
+@media (max-width:600px){
+  .form-section{ padding:24px 0; }
+  .form-container{ width:100%; margin:0; padding:24px 20px; border-radius:0; }
+  /* Sticky-Actions(optional): falls du unten Buttons fix zeigen willst, umschließe sie mit .form-row */
+  .form-row.actions{
+    position:sticky; bottom:0; left:0; right:0;
+    padding:12px 0 6px; margin-top:24px;
+    background: linear-gradient(180deg, rgba(26,39,51,0) 0%, rgba(26,39,51,.88) 45%, rgba(26,39,51,.95) 100%);
+    backdrop-filter: blur(6px);
+    border-top: 1px solid rgba(255,255,255,.06);
+  }
+  .save-button{ width:100%; justify-content:center; font-size:15px; padding:12px 16px; box-shadow:none; }
+}
+
+
+
+
+
+
+
+
+
+
+
+/* --- Fahrzeugbeschreibung groß --- */
+.form-group.full{ grid-column: span 12; }
+.form-textarea--lg{
+  min-height: 260px;         /* groß wie „früher“ */
+  line-height: 1.5;
+}
+@media (max-width: 600px){
+  .form-textarea--lg{ min-height: 200px; }
+}
+
+/* --- Button-Zeile (links: zurück, rechts: speichern) --- */
+.button-row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 28px;
+}
+@media (max-width: 600px){
+  .button-row{
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 24px;
+  }
+  .button-row .save-button,
+  .button-row .back-button{
+    width: 100%;
+    justify-content: center;
+    font-size: 15px;
+    padding: 12px 16px;
+    box-shadow: none;
+  }
+}
+
+/* --- Zurück-Button im Autovisa-Stil --- */
+.back-button{
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: #eff4f8;                    /* softer Ghost */
+  color: #1a2733;
+  border: 1px solid var(--stroke-soft);
+  transition: transform .12s ease, box-shadow .2s ease, background-color .2s ease, border-color .2s ease;
+}
+.back-button:hover{
+  background: #e7edf3;
+  transform: translateY(-1px);
+}
+.back-button:active{
+  background: #dfe6ee;
+  transform: translateY(0);
+}
+.back-button:focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0,184,169,.22);
+  border-color: var(--accent);
+}
+.back-button i{
+  font-size: 15px;
+  opacity: .9;
+}

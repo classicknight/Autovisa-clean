@@ -196,28 +196,30 @@
         </div>
       </div>
       
-   <!-- Titel -->
+<!-- Titel -->
 <div class="form-row">
-    <div class="form-group">
-      <label for="titel">Titel der Anzeige</label>
-      <input type="text" id="titel" name="titel" placeholder="z. B. Audi A4 Avant 2.0 TDI S line" required>
+  <div class="form-group col-12">
+    <label for="titel">Titel der Anzeige</label>
+    <input type="text" id="titel" name="titel"
+           placeholder="z. B. Audi A4 Avant 2.0 TDI S line" required>
+  </div>
+</div>
+<!-- Preis und MwSt -->
+<div class="form-row" id="preis-wrapper">
+  <div class="form-group col-9">
+    <label for="preis">Preis (€)</label>
+    <input type="number" id="preis" name="preis"
+           placeholder="z. B. 18900" min="0">
+  </div>
+
+  <div class="form-group checkbox-group col-3">
+    <label for="mwst-ausweisbar">MwSt. ausweisbar</label>
+    <div class="checkbox-wrapper">
+      <input type="checkbox" id="mwst-ausweisbar" name="mwst-ausweisbar">
     </div>
   </div>
-  
-  <!-- Preis und MwSt -->
-  <div class="form-row" id="preis-wrapper">
-    <div class="form-group">
-      <label for="preis">Preis (€)</label>
-      <input type="number" id="preis" name="preis" placeholder="z. B. 18900" min="0">
-    </div>
-  
-    <div class="form-group checkbox-group">
-      <label for="mwst-ausweisbar">MwSt. ausweisbar</label>
-      <div class="checkbox-wrapper">
-        <input type="checkbox" id="mwst-ausweisbar" name="mwst-ausweisbar">
-      </div>
-    </div>
-  </div>
+</div>
+
   
   <!-- Brutto & Netto -->
   <div class="form-row" id="brutto-netto-fields" style="display: none;">
