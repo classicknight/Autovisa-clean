@@ -142,28 +142,68 @@ body {
   
   
   
-  
-  
-  .save-btn-container {
-    text-align: center;
-    margin-top: 40px;
+/* Actions-Leiste */
+.actions-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:14px;
+  margin-top:32px;
+}
+
+/* gemeinsame Button-Basis */
+.btn{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:12px 20px;
+  border-radius:12px;
+  font-weight:700;
+  font-size:16px;
+  border:1px solid transparent;
+  cursor:pointer;
+  transition:transform .12s ease, box-shadow .2s ease, background-color .2s ease, border-color .2s ease;
+  will-change: transform;
+}
+.btn i{ pointer-events:none; }
+
+/* Primär (Speichern) */
+.save-btn{
+  background: linear-gradient(180deg, var(--accent, #00b8a9), var(--accent-2, #00a497));
+  color:#0e1720;
+  box-shadow:0 8px 18px rgba(0,184,169,.22);
+}
+.save-btn:hover{ transform: translateY(-1px); }
+.save-btn:active{ transform: translateY(0); background: var(--accent-3, #008f85); }
+.save-btn:disabled{ opacity:.6; cursor:not-allowed; box-shadow:none; }
+
+/* Sekundär (Zurück) – „Ghost/Slate“ */
+.back-btn{
+  background:#253544;
+  color:#eaf3f8;
+  border-color: var(--stroke, #33414e);
+}
+.back-btn:hover{ background:#2c3f54; border-color:#3b4a58; transform: translateY(-1px); }
+.back-btn:active{ transform: translateY(0); }
+.back-btn:focus-visible,
+.save-btn:focus-visible{
+  outline:none;
+  box-shadow:0 0 0 3px rgba(0,184,169,.28);
+}
+
+/* Mobile: sticky Action-Bar */
+@media (max-width: 600px){
+  .actions-row{
+    position:sticky; bottom:0; left:0; right:0;
+    padding:12px 0 6px; margin-top:24px;
+    background: linear-gradient(180deg, rgba(26,39,51,0) 0%, rgba(26,39,51,.88) 45%, rgba(26,39,51,.95) 100%);
+    backdrop-filter: blur(6px);
+    border-top: 1px solid rgba(255,255,255,.06);
+    gap:10px;
   }
-  
-  .save-btn {
-    background-color: #00b8a9;
-    color: #fff;
-    padding: 14px 28px;
-    font-size: 16px;
-    font-weight: 600;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.3s ease;
-  }
-  
-  .save-btn:hover {
-    background-color: #009185;
-  }
+  .actions-row .btn{ flex:1; justify-content:center; }
+}
+
 
 
 

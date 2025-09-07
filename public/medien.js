@@ -1,23 +1,31 @@
 // ===== Globale Zustände =====
 let globalImageFiles = [];
 let globalVideoFiles = [];
+let hasDraft = false; // <— NEU
+
+async function ensureDraftExists() {
+  try {
+    const r = await fetch("/getVehicleData", { credentials: "include" });
+    const list = await r.json();
+    hasDraft = Array.isArray(list) && list.length > 0;
+    return hasDraft;
+  } catch {
+    hasDraft = false;
+    return false;
+  }
+}
 
 // ===== Uploader mit Preview, Reorder, Remove =====
 function setupUpload(boxId, inputId, previewId, isVideo = false, maxFiles = 20) {
-  const box     = document.getElementById(boxId);
-  const input   = document.getElementById(inputId);
+  const box = document.getElementById(boxId);
+  const input = document.getElementById(inputId);
   const preview = document.getElementById(previewId);
-  if (!box || !input || !preview) return null;
-
-  const MAX_VIDEO_SEC = 30;
 
   let files = [];
   let hauptbildIndex = 0;
 
-  // Klick öffnet Dateiauswahl
   box.addEventListener("click", () => input.click());
 
-  // Drag & Drop
   box.addEventListener("dragover", (e) => {
     e.preventDefault();
     box.classList.add("drag-over");
@@ -29,143 +37,86 @@ function setupUpload(boxId, inputId, previewId, isVideo = false, maxFiles = 20) 
     handleFiles([...e.dataTransfer.files]);
   });
 
-  // File picker
   input.addEventListener("change", () => handleFiles([...input.files]));
 
   function handleFiles(newFiles) {
     const valid = newFiles.filter(f =>
       isVideo ? f.type.startsWith("video/") : f.type.startsWith("image/")
     );
-    if (!valid.length) return;
 
     if (!isVideo) {
-      // Bilder: Limit beachten
-      const rest = Math.max(0, maxFiles - files.length);
-      const toAdd = valid.slice(0, rest);
-      if (toAdd.length < valid.length) {
-        safeToast(`Maximal ${maxFiles} Bilder erlaubt. Überschüssige Dateien wurden ignoriert.`, "error");
+      if (files.length + valid.length > maxFiles) {
+        safeToast(`Maximal ${maxFiles} Bilder erlaubt.`, "error");
+        return;
       }
-      files.push(...toAdd);
+      files.push(...valid);
       globalImageFiles = [...files];
       renderPreview();
     } else {
-      // Video: genau 1, max. 30s – nimm die erste gültige Datei
-      const candidate = valid[0];
-      const tmpUrl = URL.createObjectURL(candidate);
-      const probe = document.createElement("video");
-      probe.preload = "metadata";
-      probe.src = tmpUrl;
-      probe.onloadedmetadata = () => {
-        URL.revokeObjectURL(tmpUrl);
-        if (probe.duration > MAX_VIDEO_SEC) {
-          safeToast(`"${candidate.name}" ist länger als ${MAX_VIDEO_SEC} Sekunden.`, "error");
-          return;
-        }
-        files = [candidate];
-        globalVideoFiles = [...files];
-        renderPreview();
-      };
-      probe.onerror = () => {
-        URL.revokeObjectURL(tmpUrl);
-        safeToast(`"${candidate.name}" konnte nicht geprüft werden.`, "error");
-      };
+      // nur 1 Video, max. 30s
+      valid.forEach(file => {
+        const url = URL.createObjectURL(file);
+        const videoProbe = document.createElement("video");
+        videoProbe.src = url;
+        videoProbe.preload = "metadata";
+        videoProbe.onloadedmetadata = () => {
+          URL.revokeObjectURL(url);
+          if (videoProbe.duration > 30) {
+            safeToast(`"${file.name}" ist länger als 30 Sekunden.`, "error");
+          } else {
+            files = [file];
+            globalVideoFiles = [...files];
+            renderPreview();
+          }
+        };
+      });
     }
   }
 
-  // Vor dem Neu-Rendern alte blob:-URLs aufräumen
-  function revokeOldBlobURLs() {
-    [...preview.children].forEach(node => {
-      const url = node?.dataset?.blobUrl;
-      if (url && url.startsWith("blob:")) {
-        try { URL.revokeObjectURL(url); } catch {}
-      }
-    });
-  }
-
   function renderPreview() {
-    revokeOldBlobURLs();
     preview.innerHTML = "";
-
     files.forEach((file, index) => {
-      const wrapper = document.createElement("div");
-      wrapper.className = "media-item";
-      wrapper.setAttribute("draggable", "true");
-      wrapper.dataset.index = String(index);
+      const container = document.createElement("div");
+      container.className = "media-item";
+      container.setAttribute("draggable", true);
+      container.dataset.index = index;
 
-      // Quelle bestimmen
-      let url = "";
-      let isBlob = false;
-      if (file.serverPath) {
-        url = file.serverPath; // bereits auf dem Server
-      } else {
-        url = URL.createObjectURL(file);
-        isBlob = true;
-      }
-      if (isBlob) wrapper.dataset.blobUrl = url;
-
-      // Media-Element
+      const url = URL.createObjectURL(file);
       const media = document.createElement(isVideo ? "video" : "img");
       media.src = url;
-      if (isVideo) {
-        media.controls = true;
-        media.playsinline = true;
-      }
-      media.className = "preview-thumb";
+      if (isVideo) media.controls = true;
 
-      // Hauptbild-Badge
-      const mainBadge = document.createElement("div");
-      mainBadge.className = "main-badge";
-      mainBadge.textContent = "Titelbild";
-      if (index !== hauptbildIndex) mainBadge.style.display = "none";
-
-      // Entfernen-Button
       const removeBtn = document.createElement("button");
       removeBtn.className = "remove-btn";
-      removeBtn.type = "button";
-      removeBtn.title = "Entfernen";
-      removeBtn.setAttribute("aria-label", "Datei entfernen");
       removeBtn.innerHTML = "&times;";
-      removeBtn.addEventListener("click", () => {
+      removeBtn.onclick = () => {
         files.splice(index, 1);
-        if (index === hauptbildIndex) {
-          hauptbildIndex = 0;
-        } else if (index < hauptbildIndex) {
-          hauptbildIndex--;
-        }
+        if (index === hauptbildIndex) hauptbildIndex = 0;
+        else if (index < hauptbildIndex) hauptbildIndex--;
         if (isVideo) globalVideoFiles = [...files];
         else globalImageFiles = [...files];
         renderPreview();
-      });
+      };
 
-      // Doppelklick → Hauptbild setzen
-      wrapper.addEventListener("dblclick", () => {
-        hauptbildIndex = index;
-        renderPreview();
-      });
+      container.addEventListener("dblclick", () => { hauptbildIndex = index; });
 
-      // Drag & Drop Reorder
-      wrapper.addEventListener("dragstart", (e) => {
-        e.dataTransfer.setData("text/plain", String(index));
-        wrapper.classList.add("dragging");
+      container.addEventListener("dragstart", (e) => {
+        e.dataTransfer.setData("text/plain", index.toString());
+        container.classList.add("dragging");
       });
-      wrapper.addEventListener("dragend", () => wrapper.classList.remove("dragging"));
-      wrapper.addEventListener("dragover", (e) => e.preventDefault());
-      wrapper.addEventListener("drop", (e) => {
+      container.addEventListener("dragend", () => container.classList.remove("dragging"));
+      container.addEventListener("dragover", (e) => e.preventDefault());
+      container.addEventListener("drop", (e) => {
         e.preventDefault();
         const fromIndex = Number(e.dataTransfer.getData("text/plain"));
         const toIndex = index;
         if (fromIndex === toIndex) return;
-
         const [moved] = files.splice(fromIndex, 1);
         files.splice(toIndex, 0, moved);
 
-        if (hauptbildIndex === fromIndex) {
-          hauptbildIndex = toIndex;
-        } else if (fromIndex < hauptbildIndex && toIndex >= hauptbildIndex) {
-          hauptbildIndex--;
-        } else if (fromIndex > hauptbildIndex && toIndex <= hauptbildIndex) {
-          hauptbildIndex++;
-        }
+        if (hauptbildIndex === fromIndex) hauptbildIndex = toIndex;
+        else if (fromIndex < hauptbildIndex && toIndex >= hauptbildIndex) hauptbildIndex--;
+        else if (fromIndex > hauptbildIndex && toIndex <= hauptbildIndex) hauptbildIndex++;
 
         if (isVideo) globalVideoFiles = [...files];
         else globalImageFiles = [...files];
@@ -173,38 +124,16 @@ function setupUpload(boxId, inputId, previewId, isVideo = false, maxFiles = 20) 
         renderPreview();
       });
 
-      wrapper.appendChild(media);
-      wrapper.appendChild(mainBadge);
-      wrapper.appendChild(removeBtn);
-      preview.appendChild(wrapper);
+      container.appendChild(media);
+      container.appendChild(removeBtn);
+      preview.appendChild(container);
     });
   }
-
-  // API nach außen, damit wir Server-Dateien sauber setzen können
-  function setServerFiles(paths) {
-    if (!Array.isArray(paths)) return;
-    files = paths.map((p, i) => ({
-      serverPath: p,
-      // grobe Fallback-Typen
-      type: isVideo ? "video/mp4" : "image/jpeg",
-      name: isVideo ? `server-video-${i}.mp4` : `server-image-${i}.jpg`
-    }));
-    if (isVideo) globalVideoFiles = [...files];
-    else globalImageFiles = [...files];
-    hauptbildIndex = 0;
-    renderPreview();
-  }
-
-  function getFiles() {
-    return [...files];
-  }
-
-  return { setServerFiles, getFiles };
 }
 
 // ===== Seite initialisieren =====
 window.addEventListener("DOMContentLoaded", async () => {
-  // 🔐 Login prüfen (httpOnly Cookie)
+  // 🔐 Login prüfen
   try {
     const info = await fetch("/getNutzerInfo", { credentials: "include" }).then(r => r.json());
     if (!info?.eingeloggt) {
@@ -218,52 +147,60 @@ window.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // Uploader aktivieren (und API referenzieren)
-  const imageUploader = setupUpload("image-upload-box", "image-input", "image-preview", false, 20);
-  const videoUploader = setupUpload("video-upload-box", "video-input", "video-preview", true, 1);
+  // Bevor irgendwas – sicherstellen, dass es einen Entwurf gibt
+  const draftOk = await ensureDraftExists();
+  if (!draftOk) {
+    safeToast("Bitte zuerst die Fahrzeugdaten (Schritt 1) speichern.", "error");
+    setTimeout(() => { window.location.href = "fahrzeugdaten.html"; }, 900);
+    return;
+  }
+
+  // Uploader aktivieren
+  setupUpload("image-upload-box", "image-input", "image-preview", false, 20);
+  setupUpload("video-upload-box", "video-input", "video-preview", true, 1);
 
   // Bereits gespeicherte Medien laden (zur Anzeige)
-  await preloadExistingMedia({ imageUploader, videoUploader });
+  await preloadExistingMedia();
 
   // Speichern-Handler
   const saveBtn = document.getElementById("saveMedia");
-  const loader  = document.getElementById("upload-loader"); // Overlay
+  const loader = document.getElementById("upload-loader");
   saveBtn?.addEventListener("click", async () => {
-    saveBtn.disabled = true;
-    if (loader) {
-      loader.classList.remove("hidden");
-      loader.setAttribute("aria-busy", "true");
-      document.body.classList.add("is-loading");
+    // Guard auch hier, falls Seite lange offen war und Entwurf zwischendurch gelöscht wurde
+    if (!(await ensureDraftExists())) {
+      safeToast("Kein Fahrzeugentwurf gefunden. Bitte Schritt 1 speichern.", "error");
+      return;
     }
 
-    // Mindestens 1 Bild ODER 1 Video (gesamt) verlangen
-    const hasImgs = (imageUploader?.getFiles()?.length || 0) > 0;
-    const hasVid  = (videoUploader?.getFiles()?.length || 0) > 0;
+    saveBtn.disabled = true;
+    if (loader) loader.classList.remove("hidden");
+
+    const hasImgs = document.getElementById("image-preview")?.querySelectorAll("img")?.length > 0 || globalImageFiles.length > 0;
+    const hasVid  = document.getElementById("video-preview")?.querySelectorAll("video")?.length > 0 || globalVideoFiles.length > 0;
     if (!hasImgs && !hasVid) {
       safeToast("Bitte mindestens ein Bild oder ein Video hochladen.", "error");
       saveBtn.disabled = false;
-      if (loader) {
-        loader.classList.add("hidden");
-        loader.removeAttribute("aria-busy");
-        document.body.classList.remove("is-loading");
-      }
+      if (loader) loader.classList.add("hidden");
       return;
     }
 
     const fd = new FormData();
-    // Nur NEUE Dateien hochladen (serverPath = bereits vorhanden)
     globalImageFiles.forEach(f => { if (!f.serverPath) fd.append("images", f); });
     globalVideoFiles.forEach(f => { if (!f.serverPath) fd.append("video",  f); });
 
     try {
-      const res  = await fetch("/saveMedia", { method: "POST", credentials: "include", body: fd });
+      const res = await fetch("/saveMedia", {
+        method: "POST",
+        credentials: "include",
+        body: fd
+      });
       const data = await res.json().catch(() => ({}));
+
       if (!res.ok || !data?.success) {
         const msg = data?.error || "Fehler beim Speichern der Medien.";
         throw new Error(msg);
       }
 
-      // ✅ Erfolg: Step 3 abhaken + Toast + Redirect
       safeMarkStepDone(3);
       safeToast(data.message || "Medien gespeichert ✅");
 
@@ -276,36 +213,56 @@ window.addEventListener("DOMContentLoaded", async () => {
       safeToast(String(err.message || err) || "Upload fehlgeschlagen.", "error");
     } finally {
       saveBtn.disabled = false;
-      if (loader) {
-        loader.classList.add("hidden");
-        loader.removeAttribute("aria-busy");
-        document.body.classList.remove("is-loading");
-      }
+      if (loader) loader.classList.add("hidden");
     }
   });
 });
 
 // ===== Bereits gespeicherte Medien nachladen =====
-async function preloadExistingMedia({ imageUploader, videoUploader }) {
+async function preloadExistingMedia() {
   try {
-    const res  = await fetch("/getVehicleData", { credentials: "include" });
+    const res = await fetch("/getVehicleData", { credentials: "include" });
     const data = await res.json();
     if (!Array.isArray(data) || data.length === 0) return;
 
     const last = data[data.length - 1];
 
-    if (Array.isArray(last.images) && last.images.length && imageUploader) {
-      imageUploader.setServerFiles(last.images);
+    if (Array.isArray(last.images) && last.images.length) {
+      const imagePreview = document.getElementById("image-preview");
+      last.images.forEach((imgPath, i) => {
+        const img = document.createElement("img");
+        img.src = imgPath;
+        img.classList.add("preview-thumb");
+        imagePreview?.appendChild(img);
+
+        globalImageFiles.push({
+          name: `server-image-${i}.jpg`,
+          type: "image/jpeg",
+          serverPath: imgPath
+        });
+      });
     }
-    if (last.video && videoUploader) {
-      videoUploader.setServerFiles([last.video]);
+
+    if (last.video) {
+      const videoPreview = document.getElementById("video-preview");
+      const video = document.createElement("video");
+      video.src = last.video;
+      video.controls = true;
+      video.classList.add("preview-thumb");
+      videoPreview?.appendChild(video);
+
+      globalVideoFiles.push({
+        name: "server-video.mp4",
+        type: "video/mp4",
+        serverPath: last.video
+      });
     }
   } catch (err) {
     console.error("Fehler beim Laden der gespeicherten Medien:", err);
   }
 }
 
-// ===== Fallbacks, falls haendler.js nicht auf der Seite ist =====
+// ===== Fallbacks =====
 function safeToast(message, type = "success") {
   let container = document.getElementById("toast-container");
   if (!container) {
@@ -335,3 +292,19 @@ function safeMarkStepDone(step) {
     try { window.markStepDone(step); } catch {}
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+  document.getElementById("backToOverview")?.addEventListener("click", () => {
+    const role = localStorage.getItem("userRole");
+    window.location.href = role === "haendler" ? "haendler.html" : "privat.html";
+  });
+

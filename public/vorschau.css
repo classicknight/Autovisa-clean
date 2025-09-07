@@ -1253,6 +1253,8 @@
     max-height: 300px;
     overflow: hidden;
     transition: max-height 0.4s ease;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
   
   .car-description-box.expanded .car-description-content {

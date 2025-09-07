@@ -455,77 +455,94 @@ function updateNavbarTarif() {
     }
   }
   
-
   document.addEventListener("DOMContentLoaded", async () => {
+    // kleine Helfer
+    const toNum = (v) => {
+      if (v === null || v === undefined) return NaN;
+      const s = String(v).trim().replace(/\./g, "").replace(",", ".");
+      const n = Number(s);
+      return Number.isFinite(n) ? n : NaN;
+    };
+    const fmtEUR = (n) => (Number.isFinite(n) ? n.toLocaleString("de-DE") + " €" : "");
+  
     try {
-      const res = await fetch("/getVehicleData");
+      // ⚠️ geschützte Route → Cookies mitsenden
+      const res = await fetch("/getVehicleData", { credentials: "include" });
       const data = await res.json();
       if (!Array.isArray(data) || data.length === 0) return;
   
-      const last = data[data.length - 1];
+      const last = data[data.length - 1] || {};
   
-      // Preise
+      // ===== Preise =====
       const priceMain = document.getElementById("price-main");
-      const priceNet = document.getElementById("price-net");
-      const mwstType = document.getElementById("mwst-type");
+      const priceNet  = document.getElementById("price-net");
+      const mwstType  = document.getElementById("mwst-type");
       const priceType = document.getElementById("price-type");
   
-      if (last.verkauf_brutto && priceMain) {
-        priceMain.textContent = `${Number(last.verkauf_brutto).toLocaleString("de-DE")} €`;
-      } else if (last.verkauf_preis && priceMain) {
-        priceMain.textContent = `${Number(last.verkauf_preis).toLocaleString("de-DE")} €`;
+      const brutto = toNum(last.verkauf_brutto);
+      const netto  = toNum(last.verkauf_netto);
+      const einzel = toNum(last.verkauf_preis);
+  
+      if (priceMain) {
+        // Priorität: Brutto > Einzelpreis
+        if (Number.isFinite(brutto))      priceMain.textContent = fmtEUR(brutto);
+        else if (Number.isFinite(einzel))  priceMain.textContent = fmtEUR(einzel);
       }
   
-      if (priceNet && last.verkauf_netto) {
-        priceNet.textContent = `${Number(last.verkauf_netto).toLocaleString("de-DE")} €`;
+      if (priceNet) {
+        priceNet.textContent = Number.isFinite(netto) ? fmtEUR(netto) : "";
       }
   
-      if (mwstType && last.verkauf_mwst) {
-        mwstType.textContent = last.verkauf_mwst;
+      if (mwstType) {
+        mwstType.textContent = last.verkauf_mwst || "";
       }
   
       if (priceType) {
-        if (last.verkauf_mwst === "Keine MwSt.") {
-          priceType.textContent = "Endpreis";
-        } else {
-          priceType.textContent = "Brutto";
-        }
+        priceType.textContent = (last.verkauf_mwst === "Keine MwSt.") ? "Endpreis" : "Brutto";
       }
   
-      // Titel
+      // ===== Titel =====
       const title = document.getElementById("car-title");
       if (title && last.verkauf_modell) {
         title.textContent = last.verkauf_modell;
       }
   
-      // Verkäufer
+      // ===== Verkäufer-Typ =====
       const sellerType = document.getElementById("seller-type");
       if (sellerType && last.verkauf_verkaeufer) {
         sellerType.textContent = last.verkauf_verkaeufer;
       }
-
+  
+      // ===== Innenausstattung (Material/Farbe) =====
       const innenmaterial = localStorage.getItem("details_innenmaterial") || last.verkauf_innenmaterial || "";
-const innenfarbe = localStorage.getItem("details_innenfarbe") || last.verkauf_innenfarbe || "";
-
-const innenText = [innenmaterial, innenfarbe].filter(Boolean).join(" / ");
-
-const innenEl = document.getElementById("v-innenausstattung");
-if (innenEl && innenText) {
-  innenEl.textContent = innenText;
-}
-
-
-const einparkhilfe = localStorage.getItem("details_einparkhilfe") || last.verkauf_einparkhilfe;
-const el = document.getElementById("v-einparkhilfe");
-if (el && einparkhilfe) {
-  el.textContent = einparkhilfe;
-}
-
-const beschreibungElement = document.getElementById("car-description");
-if (last.fahrzeugbeschreibung && beschreibungElement) {
-  const absätze = last.fahrzeugbeschreibung.split(/\n+/).filter(zeile => zeile.trim() !== "");
-  beschreibungElement.innerHTML = absätze.map(absatz => `<p>${absatz}</p>`).join("");
-}
+      const innenfarbe    = localStorage.getItem("details_innenfarbe")    || last.verkauf_innenfarbe    || "";
+      const innenText     = [innenmaterial, innenfarbe].filter(Boolean).join(" / ");
+      const innenEl       = document.getElementById("v-innenausstattung");
+      if (innenEl) innenEl.textContent = innenText;
+  
+      // ===== Einparkhilfe =====
+      const einparkhilfe = localStorage.getItem("details_einparkhilfe") || last.verkauf_einparkhilfe || "";
+      const el = document.getElementById("v-einparkhilfe");
+      if (el) el.textContent = einparkhilfe;
+  
+      // ===== Fahrzeugbeschreibung (Zeilenumbrüche erhalten, sicher einsetzen) =====
+      const beschreibungElement = document.getElementById("car-description");
+      if (beschreibungElement) {
+        const text = (last.fahrzeugbeschreibung || "").replace(/\r\n/g, "\n");
+        // wichtig: kein innerHTML, damit nichts „kaputtgeparst“ wird / XSS
+        beschreibungElement.textContent = text;
+        // CSS-Seite: .car-description-content { white-space: pre-wrap; overflow-wrap:anywhere; }
+      }
+  
+      // (optional) Mehr/Weniger-Button verdrahten
+      const toggleBtn = document.getElementById("toggle-description-btn");
+      if (toggleBtn && beschreibungElement) {
+        toggleBtn.addEventListener("click", () => {
+          const open = beschreibungElement.classList.toggle("expanded");
+          toggleBtn.textContent = open ? "Weniger anzeigen" : "Mehr anzeigen";
+        });
+      }
+   
 
 
   
