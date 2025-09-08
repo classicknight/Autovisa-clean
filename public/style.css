@@ -728,17 +728,25 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
     color: #888 !important;
   }
   
-  /* Dropdown-Inhalt */
-  .ss-content {
-    background-color: #1f3441 !important;
-    color: #f5f8fc !important;
-    border: 1px solid #00b8a9 !important;
-    max-height: 260px !important;
-    overflow-y: auto !important;
-    border-radius: 6px !important;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3) !important;
-    z-index: 9999 !important;
-  }
+ /* SlimSelect Dropdown – höher & luftiger */
+.ss-content {
+  background-color: #1f3441 !important;
+  color: #f5f8fc !important;
+  border: 1px solid #00b8a9 !important;
+
+  /* WICHTIG: viel größer machen */
+  max-height: min(70vh, 560px) !important;   /* war 260px */
+  overflow-y: auto !important;
+
+  border-radius: 8px !important;
+  box-shadow: 0 10px 24px rgba(0,0,0,.35) !important;
+  z-index: 9999 !important;
+}
+
+/* Die innere Liste soll die Höhe übernehmen */
+.ss-content .ss-list {
+  max-height: inherit !important;
+}
   
   /* Optionen */
   .ss-option {
@@ -801,7 +809,10 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
   
   
   
-  
+  @media (max-width: 1024px) {
+    .ss-content { max-height: 75vh !important; }
+  }
+    
   
   
   
