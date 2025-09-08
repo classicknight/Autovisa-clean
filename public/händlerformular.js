@@ -1,57 +1,59 @@
 document.addEventListener("DOMContentLoaded", () => {
-    const form = document.getElementById("dealerForm");
-  
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-  
-      const data = {
-        firma: form.firma.value.trim(),
-        strasse: form.strasse.value.trim(),
-        hausnummer: form.hausnummer.value.trim(),
-        plz: form.plz.value.trim(),
-        ort: form.ort.value.trim(),
-        land: form.land.value,
-        telefon: form.telefon.value.trim(),
-        telefon2: form.telefon2.value.trim(),
-        email: form.email.value.trim(),
-        whatsapp: form.whatsapp.checked,
-        tarif: form.tarif.value,
-        zahlungsmethode: form.zahlungsmethode.value,
-        kontoinhaber: form.kontoinhaber.value.trim(),
-        iban: form.iban.value.trim(),
-        bic: form.bic.value.trim(),
-        impressum: form.impressum.value.trim(),
-        agb: form.agb.checked,
-        datenschutz: form.datenschutz.checked,
-        password: form.password.value,
-        confirmPassword: form["confirm-password"].value,
-        role: "haendler"
-      };
-  
-      if (data.password !== data.confirmPassword) {
-        alert("Die Passwörter stimmen nicht überein.");
-        return;
+  const form = document.getElementById("dealerForm");
+  const fileInput = document.getElementById("logo"); // <input type="file" id="logo">
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    if (form.password.value !== form["confirm-password"].value) {
+      alert("Die Passwörter stimmen nicht überein.");
+      return;
+    }
+
+    const fd = new FormData();
+    fd.append("firma", form.firma.value.trim());
+    fd.append("strasse", form.strasse.value.trim());
+    fd.append("hausnummer", form.hausnummer.value.trim());
+    fd.append("plz", form.plz.value.trim());
+    fd.append("ort", form.ort.value.trim());
+    fd.append("land", form.land.value);
+    fd.append("telefon", form.telefon.value.trim());
+    fd.append("telefon2", form.telefon2.value.trim());
+    fd.append("email", form.email.value.trim());
+    fd.append("whatsapp", form.whatsapp.checked ? "true" : "false");
+    fd.append("tarif", form.tarif.value);
+    fd.append("zahlungsmethode", form.zahlungsmethode.value);
+    fd.append("kontoinhaber", form.kontoinhaber.value.trim());
+    fd.append("iban", form.iban.value.trim());
+    fd.append("bic", form.bic.value.trim());
+    fd.append("impressum", form.impressum.value.trim());
+    fd.append("agb", form.agb.checked ? "true" : "false");
+    fd.append("datenschutz", form.datenschutz.checked ? "true" : "false");
+    fd.append("password", form.password.value);
+    fd.append("confirmPassword", form["confirm-password"].value);
+    // fd.append("role","haendler"); // nicht nötig – Server setzt das selbst
+
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+      fd.append("logo", fileInput.files[0]); // <-- WICHTIG: Name = "logo"
+    }
+
+    try {
+      const res = await fetch("/haendler-registrieren", {
+        method: "POST",
+        body: fd
+      });
+      const result = await res.json();
+
+      if (res.ok) {
+        alert("Registrierung erfolgreich! Bitte prüfen Sie Ihr E-Mail-Postfach.");
+        window.location.href = "index.html";
+      } else {
+        alert(result.error || "Ein Fehler ist aufgetreten.");
       }
-  
-      try {
-        const res = await fetch("/haendler-registrieren", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data)
-        });
-  
-        const result = await res.json();
-  
-        if (res.ok) {
-          alert("Registrierung erfolgreich! Bitte prüfen Sie Ihr E-Mail-Postfach.");
-          window.location.href = "index.html";
-        } else {
-          alert(result.error || "Ein Fehler ist aufgetreten.");
-        }
-      } catch (err) {
-        console.error(err);
-        alert("Serverfehler. Bitte später erneut versuchen.");
-      }
-    });
+    } catch (err) {
+      console.error(err);
+      alert("Serverfehler. Bitte später erneut versuchen.");
+    }
   });
-  
+});
+

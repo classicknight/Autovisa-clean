@@ -377,7 +377,6 @@ function getZufaelligeAusstattung(ausstattungArray) {
   if (gefiltert.length === 0) return "Besondere Ausstattung";
   return gefiltert.sort(() => 0.5 - Math.random()).slice(0, 3).join(" • ");
 }
-
 // Entwurf -> veröffentlichen (ID-basiert, sicher)
 app.post("/entwurf/:id/publish", checkLogin, async (req, res) => {
   const { id } = req.params;
@@ -392,21 +391,35 @@ app.post("/entwurf/:id/publish", checkLogin, async (req, res) => {
   try {
     const entwurfCollection  = db.collection("fahrzeugeEntwurf");
     const inserateCollection = db.collection("inserate");
+    const nutzerCollection   = db.collection("nutzer");
 
     // Entwurf muss dem eingeloggten Nutzer gehören
     const draft = await entwurfCollection.findOne({ _id, nutzerId: req.nutzer.id });
     if (!draft) return res.status(404).send("Entwurf nicht gefunden.");
+
+    // Händlerdaten (Snapshot) ziehen
+    const haendler = await nutzerCollection.findOne(
+      { id: req.nutzer.id },
+      { projection: { id: 1, role: 1, firma: 1, name: 1, logoUrl: 1 } }
+    );
+
+    const seller = {
+      type: haendler?.role || "privat",
+      id:   haendler?.id || req.nutzer.id,
+      name: haendler?.firma || haendler?.name || "Händler",
+      logoUrl: haendler?.logoUrl || ""
+    };
 
     const neuesInserat = {
       ...draft,
       verkaeuferId: req.nutzer.id,
       status: "online",
       veroeffentlichtAm: new Date(),
-      // Kurzbeschreibung aus erlaubten Ausstattungen generieren
-      verkauf_kurzbeschreibung: getZufaelligeAusstattung(draft.verkauf_ausstattung || [])
+      verkauf_kurzbeschreibung: getZufaelligeAusstattung(draft.verkauf_ausstattung || []),
+      seller // ⬅️ Neu: denormalisierte Verkäuferinfos (Logo + Name)
     };
 
-    // neue _id in der öffentlichen Sammlung verwenden
+    // neue _id für öffentliche Sammlung
     delete neuesInserat._id;
 
     await inserateCollection.insertOne(neuesInserat);
@@ -883,6 +896,47 @@ Wenn Sie sich nicht registriert haben, ignorieren Sie diese E-Mail.`;
   } catch (err) {
     console.error("❌ Fehler bei /haendler-registrieren:", err);
     return res.status(500).json({ error: "Interner Fehler bei der Registrierung." });
+  }
+});
+const uploadLogo = multer({
+  storage, // dein TMP_DIR storage
+  limits: { fileSize: 1.5 * 1024 * 1024, files: 1 }, // 1.5 MB, 1 Datei
+  fileFilter: (req, file, cb) => {
+    const ok = file.mimetype.startsWith("image/");
+    cb(ok ? null : new Error("Nur Bilddateien (PNG/JPG/WEBP) erlaubt."), ok);
+  }
+});
+
+
+
+app.post("/haendler/logo", checkLogin, uploadLogo.single("logo"), async (req, res) => {
+  try {
+    if (req.nutzer.role !== "haendler") {
+      return res.status(403).json({ error: "Nur für Händler verfügbar." });
+    }
+    if (!req.file) return res.status(400).json({ error: "Keine Datei hochgeladen." });
+
+    const folder = `autovisa/${req.nutzer.id}/logo`;
+    const result = await uploadFileToCloudinary(req.file.path, { folder, resource_type: "image" });
+    try { fs.unlinkSync(req.file.path); } catch {}
+
+    const nutzerColl = db.collection("nutzer");
+    const old = await nutzerColl.findOne({ id: req.nutzer.id }, { projection: { logoPublicId: 1 } });
+
+    // optional: altes Logo aus Cloudinary löschen
+    if (old?.logoPublicId && old.logoPublicId !== result.public_id) {
+      try { await cloudinary.uploader.destroy(old.logoPublicId, { resource_type: "image" }); } catch(e) {}
+    }
+
+    await nutzerColl.updateOne(
+      { id: req.nutzer.id },
+      { $set: { logoUrl: result.secure_url, logoPublicId: result.public_id, logoUpdatedAt: new Date() } }
+    );
+
+    res.json({ success: true, logoUrl: result.secure_url });
+  } catch (e) {
+    console.error("❌ Fehler /haendler/logo:", e);
+    res.status(500).json({ error: e.message || "Fehler beim Logo-Upload." });
   }
 });
 

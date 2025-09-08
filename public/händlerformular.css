@@ -205,31 +205,89 @@
   
   
   
-  
-  
+/* Neuer Zurück-Button */
+.back-link {
+  --accent1: #00b8a9;
+  --accent2: #48e6d7;
+  --bg: #16222f;                 /* dunkler als #1a2733 für Kontrast */
+
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 9999px;         /* pill */
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: .2px;
+  text-decoration: none;
+  color: #eaf6f4;
+
+  /* Gradient-Rahmen mit doppelt Background */
+  background:
+    linear-gradient(var(--bg), var(--bg)) padding-box,
+    linear-gradient(135deg, var(--accent1), var(--accent2)) border-box;
+  border: 2px solid transparent;
+
+  /* subtiler Glas-Effekt */
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  transition:
+    transform .18s ease,
+    box-shadow .18s ease,
+    color .18s ease,
+    background .3s ease;
+  margin-left: auto;             /* bleibt rechts in der Navbar */
+}
+
+.back-link i {
+  font-size: 14px;
+  transition: transform .18s ease, opacity .18s ease;
+  opacity: .9;
+}
+
+.back-link:hover {
+  transform: translateX(-2px);   /* „zurück“-Gefühl */
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.32);
+}
+
+.back-link:hover i {
+  transform: translateX(-3px);
+  opacity: 1;
+}
+
+.back-link:active {
+  transform: translateX(-1px) translateY(1px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+}
+
+.back-link:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(0, 184, 169, 0.30),
+    0 8px 24px rgba(0, 0, 0, 0.32);
+}
+
+/* Kleinere Screens: kompakter + optional nur Icon */
+@media (max-width: 480px) {
   .back-link {
-    display: inline-flex;
-    align-items: center;
+    padding: 9px 12px;
     gap: 8px;
-    padding: 10px 18px;
-    background-color: #1a2733;
-    color: #ffffff;
-    border: 2px solid #00b8a9;
-    border-radius: 8px;
-    font-weight: 600;
-    text-decoration: none;
-    font-size: 14px;
-    transition: all 0.3s ease;
-    margin-left: auto;
   }
-  
-  .back-link:hover {
-    background-color: #00b8a9;
-    color: #1a2733;
-    box-shadow: 0 0 8px rgba(0, 184, 169, 0.6);
+  .back-link .label {
+    display: none;               /* nur Icon anzeigen; Text bleibt im DOM für a11y */
   }
-  
-  
+}
+
+/* Nutzer mit Bewegungsreduktion: Animationen minimieren */
+@media (prefers-reduced-motion: reduce) {
+  .back-link,
+  .back-link i {
+    transition: none;
+  }
+}
+
   
   
   
@@ -718,3 +776,40 @@
     overflow: visible !important;
     text-overflow: unset !important;
   }
+
+
+
+
+
+
+
+
+
+  .logo-upload {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .logo-preview {
+    width: 96px; height: 96px; border-radius: 50%;
+    background: #253544; border: 2px dashed #3c4a58;
+    position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
+  }
+  .logo-preview img { width: 100%; height: 100%; object-fit: cover; display: none; }
+  .logo-preview span { color: #c9d2dc; font-weight: 700; font-size: 22px; letter-spacing: .5px; }
+  
+  .file-label {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 10px 14px; background: #2b3947; border: 2px solid #3c4a58; border-radius: 10px;
+    color: #fff; cursor: pointer; transition: .25s; font-weight: 600;
+  }
+  .file-label:hover { border-color: #00b8a9; box-shadow: 0 0 10px rgba(0,184,169,.35); }
+  
+  .logo-controls .hint { margin: 8px 0 0; color: #c9d2dc; font-size: 13px; }
+  .link-btn {
+    background: transparent; border: none; color: #00b8a9; font-weight: 600; cursor: pointer; padding: 8px 0;
+  }
+  .link-btn:hover { text-decoration: underline; }
+  
+  @media (max-width:600px){
+    .logo-preview { width: 80px; height: 80px; }
+  }
+  

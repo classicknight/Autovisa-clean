@@ -388,7 +388,6 @@ document.querySelectorAll('.remove-saved-btn').forEach(button => {
 
 
 
-
 document.addEventListener("DOMContentLoaded", async () => {
   // Preis hübsch formatieren
   function formatEUR(value) {
@@ -398,6 +397,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     return String(value) + " €";
   }
 
+  // Initialen aus Namen
+  function sellerInitials(name = "") {
+    const parts = name.trim().split(/\s+/).slice(0, 2);
+    const ini = parts.map(p => p[0]?.toUpperCase() || "").join("");
+    return ini || "AV";
+  }
+  
   // Echte Mongo-ID aus Dokument ziehen
   function extractMongoId(doc) {
     if (!doc) return null;
@@ -493,14 +499,8 @@ document.addEventListener("DOMContentLoaded", async () => {
               <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "—"} l/100 km</p>
             </div>
 
-            <div class="dealer-info">
-              ${
-                String(inserat.verkauf_verkaeufer || "").toLowerCase() === "händler"
-                  ? `<div><strong>${inserat.verkauf_name || "Unbekannt"}</strong></div>`
-                  : `<div><span class="seller-label">Privatanbieter</span></div>`
-              }
-              <div class="seller-location">${inserat.standort || "Standort nicht angegeben"}</div>
-            </div>
+            <!-- Verkäuferbereich: wird per JS mit Logo/Initialen gefüllt -->
+            <div class="dealer-info"></div>
           </div>
         </div>
 
@@ -522,6 +522,45 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       carList.appendChild(wrapper);
       initializeSlider(wrapper);
+
+      // --- Verkäuferzeile (Logo + Name + Standort) rendern ---
+      const dealerInfoEl = wrapper.querySelector(".dealer-info");
+
+      // Name: bevorzugt neues denormalisiertes seller-Objekt, fallback auf alte Felder
+      const sellerName =
+        (inserat?.seller?.name) ||
+        inserat.verkauf_name ||
+        (String(inserat.verkauf_verkaeufer || "").toLowerCase() === "händler" ? "Händler" : "Privatanbieter");
+
+      // Logo: aus neuem seller-Objekt; bei Entwürfen optional dein Profil-Logo (falls /getNutzerInfo es liefert)
+      const sellerLogo =
+        (inserat?.seller?.logoUrl) ||
+        (inserat.__status === "draft" ? (nutzerData.logoUrl || "") : "") ||
+        "";
+
+      // Standort
+      const sellerLocation =
+        inserat.standort ||
+        [inserat.plz, inserat.ort].filter(Boolean).join(" ") ||
+        "Standort nicht angegeben";
+
+      dealerInfoEl.innerHTML = `
+        <div class="dealer-row">
+          <div class="dealer-avatar">
+            ${sellerLogo
+              ? `<img src="${sellerLogo}" alt="Händlerlogo"
+                       onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`
+              : ``}
+            <span class="dealer-initials" style="${sellerLogo ? "display:none;" : "display:flex;"}">
+              ${sellerInitials(sellerName)}
+            </span>
+          </div>
+          <div class="dealer-meta">
+            <div class="dealer-name">${sellerName}</div>
+            <div class="dealer-location">${sellerLocation}</div>
+          </div>
+        </div>
+      `;
 
       // Hochformat-Erkennung
       wrapper.querySelectorAll(".slide").forEach((media) => {
@@ -619,8 +658,6 @@ document.addEventListener("click", async (e) => {
     alert("❌ Netzwerkfehler beim Veröffentlichen.");
   }
 });
-
-
 
 
 

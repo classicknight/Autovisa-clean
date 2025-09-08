@@ -10,12 +10,14 @@
 </head>
 <body>
 
-  <!-- Navbar -->
   <nav class="navbar">
     <div class="logo-container">
       <img src="AUTOVISA LOGO.PNG" alt="Autovisa Logo" class="logo" />
     </div>
-    <a href="index.html" class="back-link"><i class="fas fa-arrow-left"></i> Zurück</a>
+    <a href="index.html" class="back-link">
+      <i class="fas fa-arrow-left" aria-hidden="true"></i>
+      <span class="label">Zurück</span>
+    </a>
   </nav>
   
   
@@ -80,7 +82,25 @@
         </div>
       </fieldset>
       
-  
+      <fieldset>
+        <legend>Logo & Branding</legend>
+        <div class="logo-upload">
+          <div class="logo-preview" id="logoPreview" aria-label="Logo-Vorschau">
+            <span id="logoInitials">AV</span>
+            <img id="logoImg" alt="Händlerlogo" />
+          </div>
+      
+          <div class="logo-controls">
+            <label for="logo" class="file-label"><i class="fa fa-upload"></i> Logo hochladen</label>
+            <input type="file" id="logo" name="logo" accept="image/png,image/jpeg,image/webp" hidden />
+            <p class="hint">
+              Quadratisch (1:1), mind. 256×256 px, max. 1.5 MB. PNG mit transparentem Hintergrund empfohlen.
+            </p>
+            <button type="button" id="logoRemove" class="link-btn">Entfernen</button>
+          </div>
+        </div>
+      </fieldset>
+      
       <!-- Tarifauswahl -->
       <fieldset>
         <legend>Tarifauswahl</legend>
