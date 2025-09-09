@@ -550,7 +550,6 @@ function getSellerData(inserat, nutzerData) {
       // --- Verkäuferzeile (Logo + Name + Standort) ---
       const dealerInfoEl = wrapper.querySelector(".dealer-info");
     
-      // Händler vs. Privat robust erkennen
       const rawType = String(inserat?.seller?.type ?? inserat?.verkauf_verkaeufer ?? "").toLowerCase();
       const isHaendler =
         rawType === "haendler" ||
@@ -562,7 +561,7 @@ function getSellerData(inserat, nutzerData) {
         ? (inserat?.seller?.name ?? inserat?.verkauf_name ?? nutzerData?.name ?? "Händler")
         : "Privatanbieter";
     
-      // Logo-Quelle (Priorität): Snapshot im Inserat → (Entwurf) Profil-Logo → (eigene online) Profil-Logo
+      // Logo-Quelle: Snapshot im Inserat → (Entwurf) Profil-Logo → (eigene online) Profil-Logo
       const sellerLogo = (() => {
         if (inserat?.seller?.logoUrl) return inserat.seller.logoUrl;
         if (wrapper.dataset.status === "draft") return nutzerData?.logoUrl || "";
@@ -578,7 +577,7 @@ function getSellerData(inserat, nutzerData) {
       dealerInfoEl.innerHTML = `
         <div class="dealer-row">
           <div class="dealer-avatar">
-            <img alt="${sellerName} Logo" loading="lazy" referrerpolicy="no-referrer">
+            <img alt="${sellerName} Logo" loading="lazy">
             <span class="dealer-initials">${sellerInitials(sellerName)}</span>
           </div>
           <div class="dealer-meta">
@@ -596,17 +595,24 @@ function getSellerData(inserat, nutzerData) {
       img.removeAttribute("src");
     
       if (sellerLogo) {
-        // Erst bei erfolgreichem Ladevorgang auf Logo umschalten
+        // 1) auf load umschalten
         img.addEventListener("load", () => {
           avatar.classList.add("has-logo");
         }, { once: true });
     
+        // 2) Fallback bei Fehler → Initialen anzeigen
         img.addEventListener("error", () => {
           avatar.classList.remove("has-logo");
           img.removeAttribute("src");
         }, { once: true });
     
+        // 3) Quelle setzen
         img.src = sellerLogo;
+    
+        // 4) **Cache-Fall**: Bild schon geladen → sofort umschalten
+        if (img.complete && img.naturalWidth > 0) {
+          avatar.classList.add("has-logo");
+        }
       }
     
       // Hochformat-Erkennung
