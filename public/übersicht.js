@@ -403,7 +403,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     const ini = parts.map(p => p[0]?.toUpperCase() || "").join("");
     return ini || "AV";
   }
-  
+  // Logo/Name robust bestimmen (mit Fallback auf aktuelles Nutzerlogo)
+function getSellerData(inserat, nutzerData) {
+  const type =
+    inserat?.seller?.type ||
+    (String(inserat?.verkauf_verkaeufer || "").toLowerCase() === "händler" ? "haendler" : "privat");
+
+  const name =
+    inserat?.seller?.name ||
+    inserat?.verkauf_name ||
+    (type === "haendler" ? (nutzerData?.name || "Händler") : "Privatanbieter");
+
+  // WICHTIG: Fallback für ONLINE-ANZEIGEN auf dein Nutzerlogo,
+  // wenn die Anzeige (z.B. vor Logo-Upload) ohne seller.logoUrl veröffentlicht wurde.
+  const logoUrl =
+    inserat?.seller?.logoUrl ||
+    ((inserat?.verkaeuferId && inserat.verkaeuferId === nutzerData?.nutzerId) ? (nutzerData?.logoUrl || "") : "");
+
+  return { type, name, logoUrl };
+}
+
   // Echte Mongo-ID aus Dokument ziehen
   function extractMongoId(doc) {
     if (!doc) return null;
@@ -447,25 +466,29 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     carList.innerHTML = "";
 
+  
+
+
+
     items.forEach((inserat) => {
       const wrapper = document.createElement("div");
       wrapper.className = "car-card-wrapper";
-
+    
       const realId = extractMongoId(inserat);
       wrapper.dataset.id = realId || "";         // echte MongoID
       wrapper.dataset.status = inserat.__status; // "draft" | "online"
-
+    
       const isOnline = inserat.__status === "online";
       const publishBtnLabel = isOnline ? "Online" : "Veröffentlichen";
       const publishBtnAttrs = isOnline ? 'disabled class="publish-btn published"' : 'class="publish-btn"';
-
+    
       wrapper.innerHTML = `
         <div class="car-card-actions mobile-only">
           <button ${publishBtnAttrs}><i class="fas fa-globe"></i> ${publishBtnLabel}</button>
           <button class="edit-btn"><i class="fas fa-pen"></i> Bearbeiten</button>
           <button class="remove-saved-btn"><i class="fas fa-trash"></i> Entfernen</button>
         </div>
-
+    
         <div class="car-card horizontal">
           <div class="car-card-media">
             <div class="media-container">
@@ -476,7 +499,7 @@ document.addEventListener("DOMContentLoaded", async () => {
               <button class="media-arrow right"><i class="fas fa-chevron-right"></i></button>
             </div>
           </div>
-
+    
           <div class="car-details">
             <div class="car-top-row">
               <h2 class="car-title">${inserat.titel || "Titel fehlt"}</h2>
@@ -487,9 +510,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 "Preis fehlt"
               }</p>
             </div>
-
+    
             <p class="car-subtitle">${inserat.verkauf_kurzbeschreibung || "Besondere Ausstattung"}</p>
-
+    
             <div class="car-info-grid">
               <p><i class="fas fa-road"></i> ${inserat.verkauf_kilometer ?? "—"} km</p>
               <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.verkauf_erstzulassung || "—"}</p>
@@ -498,19 +521,19 @@ document.addEventListener("DOMContentLoaded", async () => {
               <p><i class="fas fa-gears"></i> ${inserat.verkauf_getriebe || "—"}</p>
               <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "—"} l/100 km</p>
             </div>
-
-            <!-- Verkäuferbereich: wird per JS mit Logo/Initialen gefüllt -->
+    
+            <!-- Verkäuferbereich -->
             <div class="dealer-info"></div>
           </div>
         </div>
-
+    
         <div class="car-card-actions desktop-only">
           <button ${publishBtnAttrs}><i class="fas fa-globe"></i> ${publishBtnLabel}</button>
           <button class="edit-btn"><i class="fas fa-pen"></i> Bearbeiten</button>
           <button class="remove-saved-btn"><i class="fas fa-trash"></i> Entfernen</button>
         </div>
       `;
-
+    
       // Karte klickbar (außer Buttons/Arrows)
       wrapper.addEventListener("click", (e) => {
         const isActionButton = e.target.closest(".car-card-actions button");
@@ -519,41 +542,42 @@ document.addEventListener("DOMContentLoaded", async () => {
         localStorage.setItem("ausgewaehltesInserat", JSON.stringify(inserat));
         window.location.href = "anzeige.html";
       });
-
+    
       carList.appendChild(wrapper);
       initializeSlider(wrapper);
-
-      // --- Verkäuferzeile (Logo + Name + Standort) rendern ---
+    
+      // --- Verkäuferzeile (Logo + Name + Standort) ---
       const dealerInfoEl = wrapper.querySelector(".dealer-info");
-
-      // Name: bevorzugt neues denormalisiertes seller-Objekt, fallback auf alte Felder
-      const sellerName =
-        (inserat?.seller?.name) ||
-        inserat.verkauf_name ||
-        (String(inserat.verkauf_verkaeufer || "").toLowerCase() === "händler" ? "Händler" : "Privatanbieter");
-
-      // Logo: aus neuem seller-Objekt; bei Entwürfen optional dein Profil-Logo (falls /getNutzerInfo es liefert)
+    
+      const rawType = String(
+        inserat?.seller?.type || inserat?.verkauf_verkaeufer || ""
+      ).toLowerCase();
+      const isHaendler =
+        rawType === "haendler" ||
+        rawType === "händler" ||
+        rawType.includes("händ") ||
+        rawType.includes("haend");
+    
+      const sellerName = isHaendler
+        ? (inserat?.seller?.name || inserat?.verkauf_name || nutzerData?.name || "Händler")
+        : "Privatanbieter";
+    
       const sellerLogo =
-        (inserat?.seller?.logoUrl) ||
-        (inserat.__status === "draft" ? (nutzerData.logoUrl || "") : "") ||
+        inserat?.seller?.logoUrl ||
+        (inserat.__status === "draft" ? (nutzerData?.logoUrl || "") : "") ||
+        ((inserat?.verkaeuferId && inserat.verkaeuferId === nutzerData?.nutzerId) ? (nutzerData?.logoUrl || "") : "") ||
         "";
-
-      // Standort
+    
       const sellerLocation =
         inserat.standort ||
         [inserat.plz, inserat.ort].filter(Boolean).join(" ") ||
         "Standort nicht angegeben";
-
+    
       dealerInfoEl.innerHTML = `
         <div class="dealer-row">
           <div class="dealer-avatar">
-            ${sellerLogo
-              ? `<img src="${sellerLogo}" alt="Händlerlogo"
-                       onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">`
-              : ``}
-            <span class="dealer-initials" style="${sellerLogo ? "display:none;" : "display:flex;"}">
-              ${sellerInitials(sellerName)}
-            </span>
+            <img alt="${sellerName} Logo" loading="lazy">
+            <span class="dealer-initials">${sellerInitials(sellerName)}</span>
           </div>
           <div class="dealer-meta">
             <div class="dealer-name">${sellerName}</div>
@@ -561,7 +585,21 @@ document.addEventListener("DOMContentLoaded", async () => {
           </div>
         </div>
       `;
-
+    
+      const avatar = dealerInfoEl.querySelector(".dealer-avatar");
+      const img    = dealerInfoEl.querySelector(".dealer-avatar img");
+    
+      if (sellerLogo) {
+        avatar.classList.add("has-logo");
+        img.src = sellerLogo;
+        img.addEventListener("error", () => {
+          avatar.classList.remove("has-logo");
+          img.removeAttribute("src");
+        }, { once: true });
+      } else {
+        avatar.classList.remove("has-logo");
+      }
+    
       // Hochformat-Erkennung
       wrapper.querySelectorAll(".slide").forEach((media) => {
         if (media.tagName === "VIDEO") {
@@ -574,7 +612,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           });
         }
       });
-
+    
       // Entfernen (nur UI)
       wrapper.querySelectorAll(".remove-saved-btn").forEach((btn) => {
         btn.addEventListener("click", (e) => {
@@ -583,10 +621,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
       });
     });
-  } catch (error) {
-    console.error("Fehler beim Laden der Inserate:", error);
-  }
-});
+    
+    } catch (error) {
+      console.error("Fehler beim Laden der Inserate:", error);
+    }
+  });
 
 // Slides erstellen (Bilder + Video)
 function generateSlides(inserat) {
@@ -862,3 +901,7 @@ document.querySelectorAll(".sidebar-link").forEach(link => {
 
 // Optional: auch direkt beim Laden, falls du „Nachrichten“ als Start-Tab nutzt
 // loadMessagesSection();
+
+
+
+
