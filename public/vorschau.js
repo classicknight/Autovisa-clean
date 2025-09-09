@@ -456,10 +456,16 @@ function updateNavbarTarif() {
   }
   
   document.addEventListener("DOMContentLoaded", async () => {
-    // kleine Helfer
+    // --- Helfer: robustes Parsing & Formatierung
     const toNum = (v) => {
       if (v === null || v === undefined) return NaN;
-      const s = String(v).trim().replace(/\./g, "").replace(",", ".");
+      // entferne normale + geschützte + schmale Leerzeichen und €
+      const s = String(v)
+        .trim()
+        .replace(/[\u202F\u00A0\s]/g, "") // schmale/non-breaking spaces + normale Spaces
+        .replace(/[€]/g, "")
+        .replace(/\./g, "")
+        .replace(",", ".");
       const n = Number(s);
       return Number.isFinite(n) ? n : NaN;
     };
@@ -467,44 +473,51 @@ function updateNavbarTarif() {
   
     try {
       // ⚠️ geschützte Route → Cookies mitsenden
-      const res = await fetch("/getVehicleData", { credentials: "include" });
+      const res  = await fetch("/getVehicleData", { credentials: "include" });
       const data = await res.json();
       if (!Array.isArray(data) || data.length === 0) return;
   
       const last = data[data.length - 1] || {};
   
       // ===== Preise =====
-      const priceMain = document.getElementById("price-main");
-      const priceNet  = document.getElementById("price-net");
-      const mwstType  = document.getElementById("mwst-type");
-      const priceType = document.getElementById("price-type");
+      const priceMain = document.getElementById("price-main"); // großer Preis
+      const priceNet  = document.getElementById("price-net");  // Netto (optional)
+      const mwstType  = document.getElementById("mwst-type");  // „zzgl. MwSt.“ / „Keine MwSt.“
+      const priceType = document.getElementById("price-type"); // „Brutto“ / „Endpreis“
   
-      const brutto = toNum(last.verkauf_brutto);
-      const netto  = toNum(last.verkauf_netto);
-      const einzel = toNum(last.verkauf_preis);
+      // MwSt-Status erkennen (robust)
+      const mwstRaw = String(last.verkauf_mwst || "").trim().toLowerCase();
+      const isKeine = mwstRaw.includes("keine"); // „Keine MwSt.“
+      const isZzgl  = mwstRaw.includes("zzgl");  // „zzgl. MwSt.“
   
-      if (priceMain) {
-        // Priorität: Brutto > Einzelpreis
-        if (Number.isFinite(brutto))      priceMain.textContent = fmtEUR(brutto);
-        else if (Number.isFinite(einzel))  priceMain.textContent = fmtEUR(einzel);
+      // Eingehende Preisfelder robust lesen (inkl. Alt-Feldern)
+      const brutto = toNum(last.verkauf_brutto ?? last["brutto-preis"]);
+      const netto  = toNum(last.verkauf_netto  ?? last["netto-preis"]);
+      const einzel = toNum(last.verkauf_preis  ?? last.preis);
+  
+      // Hauptpreis bestimmen
+      let mainPriceNum = NaN;
+      if (isKeine) {
+        // Endpreis (ohne MwSt.) anzeigen → Einzelpreis
+        mainPriceNum = Number.isFinite(einzel) ? einzel : NaN;
+      } else if (isZzgl) {
+        // „zzgl. MwSt.“ → Brutto bevorzugen, sonst Einzelpreis
+        mainPriceNum = Number.isFinite(brutto) ? brutto : (Number.isFinite(einzel) ? einzel : NaN);
+      } else {
+        // unbekannter Zustand → best effort: Brutto > Einzelpreis
+        mainPriceNum = Number.isFinite(brutto) ? brutto : (Number.isFinite(einzel) ? einzel : NaN);
       }
   
-      if (priceNet) {
-        priceNet.textContent = Number.isFinite(netto) ? fmtEUR(netto) : "";
-      }
+      if (priceMain) priceMain.textContent = Number.isFinite(mainPriceNum) ? fmtEUR(mainPriceNum) : "";
+      if (priceNet)  priceNet.textContent  = (isZzgl && Number.isFinite(netto)) ? fmtEUR(netto) : "";
   
-      if (mwstType) {
-        mwstType.textContent = last.verkauf_mwst || "";
-      }
-  
-      if (priceType) {
-        priceType.textContent = (last.verkauf_mwst === "Keine MwSt.") ? "Endpreis" : "Brutto";
-      }
+      if (mwstType)  mwstType.textContent  = last.verkauf_mwst || (isKeine ? "Keine MwSt." : (isZzgl ? "zzgl. MwSt." : ""));
+      if (priceType) priceType.textContent = isKeine ? "Endpreis" : "Brutto";
   
       // ===== Titel =====
-      const title = document.getElementById("car-title");
-      if (title && last.verkauf_modell) {
-        title.textContent = last.verkauf_modell;
+      const titleEl = document.getElementById("car-title");
+      if (titleEl && last.verkauf_modell) {
+        titleEl.textContent = last.verkauf_modell;
       }
   
       // ===== Verkäufer-Typ =====
@@ -525,24 +538,33 @@ function updateNavbarTarif() {
       const el = document.getElementById("v-einparkhilfe");
       if (el) el.textContent = einparkhilfe;
   
-      // ===== Fahrzeugbeschreibung (Zeilenumbrüche erhalten, sicher einsetzen) =====
-      const beschreibungElement = document.getElementById("car-description");
-      if (beschreibungElement) {
-        const text = (last.fahrzeugbeschreibung || "").replace(/\r\n/g, "\n");
-        // wichtig: kein innerHTML, damit nichts „kaputtgeparst“ wird / XSS
-        beschreibungElement.textContent = text;
-        // CSS-Seite: .car-description-content { white-space: pre-wrap; overflow-wrap:anywhere; }
-      }
-  
-      // (optional) Mehr/Weniger-Button verdrahten
+      // ===== Fahrzeugbeschreibung (sicher & mit Umbrüchen) + Toggle =====
+      const descBox   = document.getElementById("car-description-box");   // Container
+      const descEl    = document.getElementById("car-description");       // .car-description-content
       const toggleBtn = document.getElementById("toggle-description-btn");
-      if (toggleBtn && beschreibungElement) {
-        toggleBtn.addEventListener("click", () => {
-          const open = beschreibungElement.classList.toggle("expanded");
-          toggleBtn.textContent = open ? "Weniger anzeigen" : "Mehr anzeigen";
+  
+      if (descEl && descBox) {
+        const text = (last.fahrzeugbeschreibung || "").replace(/\r\n/g, "\n");
+        descEl.textContent = text; // kein innerHTML → XSS-sicher
+  
+        // Nach dem Rendern prüfen, ob überhaupt Overflow besteht
+        requestAnimationFrame(() => {
+          const needsToggle = descEl.scrollHeight > descEl.clientHeight;
+          if (toggleBtn) {
+            toggleBtn.style.display = needsToggle ? "inline-block" : "none";
+            // initial zusammengeklappt
+            descBox.classList.remove("expanded");
+            toggleBtn.setAttribute("aria-expanded", "false");
+            toggleBtn.textContent = "Mehr anzeigen";
+  
+            toggleBtn.onclick = () => {
+              const open = descBox.classList.toggle("expanded");
+              toggleBtn.setAttribute("aria-expanded", open ? "true" : "false");
+              toggleBtn.textContent = open ? "Weniger anzeigen" : "Mehr anzeigen";
+            };
+          }
         });
       }
-   
 
 
   

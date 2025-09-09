@@ -548,9 +548,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   }
   
   
-  
-  
-  /* Verkäufer-Row mit Logo */
+/* Verkäufer-Row mit Logo/Initialen */
 .dealer-row {
   display: flex;
   align-items: center;
@@ -569,19 +567,21 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  position: relative;
 }
 
 .dealer-avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
+  display: block; /* sichtbar, wird bei fehlendem Logo via :not(.has-logo) ausgeblendet */
 }
 
+/* Initialen-Blase (Fallback, wenn kein Logo da oder Bild nicht lädt) */
 .dealer-initials {
   width: 100%;
   height: 100%;
-  display: flex;
+  display: flex;            /* sichtbar, wird bei vorhandenem Logo via .has-logo ausgeblendet */
   align-items: center;
   justify-content: center;
   font-weight: 700;
@@ -589,6 +589,16 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   color: #253544;
   background: #e9eef3;
   letter-spacing: .3px;
+}
+
+/* Zustand: Logo vorhanden → Initialen ausblenden */
+.dealer-avatar.has-logo .dealer-initials {
+  display: none;
+}
+
+/* Zustand: kein Logo vorhanden → Bild ausblenden */
+.dealer-avatar:not(.has-logo) img {
+  display: none;
 }
 
 .dealer-meta {
@@ -617,11 +627,12 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   text-overflow: ellipsis;
 }
 
-  
-  
-  
-  
-  
+/* (optional) leichte Verfeinerungen */
+@media (min-width: 700px) {
+  .dealer-avatar { width: 38px; height: 38px; }
+  .dealer-meta .dealer-name { font-size: 14px; }
+}
+
   
   
   
