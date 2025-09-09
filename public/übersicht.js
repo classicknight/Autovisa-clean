@@ -469,6 +469,11 @@ function getSellerData(inserat, nutzerData) {
   
 
 
+
+
+
+
+
     items.forEach((inserat) => {
       const wrapper = document.createElement("div");
       wrapper.className = "car-card-wrapper";
@@ -550,24 +555,32 @@ function getSellerData(inserat, nutzerData) {
       // --- Verkäuferzeile (Logo + Name + Standort) ---
       const dealerInfoEl = wrapper.querySelector(".dealer-info");
     
-      const rawType = String(inserat?.seller?.type ?? inserat?.verkauf_verkaeufer ?? "").toLowerCase();
+      const rawType = String(
+        (inserat && inserat.seller && inserat.seller.type) ||
+        inserat?.verkauf_verkaeufer ||
+        ""
+      ).toLowerCase();
+    
       const isHaendler =
         rawType === "haendler" ||
         rawType === "händler" ||
         rawType.includes("händ") ||
         rawType.includes("haend");
     
-      const sellerName = isHaendler
-        ? (inserat?.seller?.name ?? inserat?.verkauf_name ?? nutzerData?.name ?? "Händler")
-        : "Privatanbieter";
+      const sellerName =
+        (inserat && inserat.seller && inserat.seller.name) ||
+        inserat?.verkauf_name ||
+        nutzerData?.firma ||
+        nutzerData?.name ||
+        (isHaendler ? "Händler" : "Privatanbieter");
     
-      // Logo-Quelle: Snapshot im Inserat → (Entwurf) Profil-Logo → (eigene online) Profil-Logo
-      const sellerLogo = (() => {
-        if (inserat?.seller?.logoUrl) return inserat.seller.logoUrl;
-        if (wrapper.dataset.status === "draft") return nutzerData?.logoUrl || "";
-        if (inserat?.verkaeuferId && inserat.verkaeuferId === nutzerData?.nutzerId) return nutzerData?.logoUrl || "";
-        return "";
-      })();
+      // Logo-Quelle:
+      // 1) Snapshot aus dem Inserat (falls vorhanden)
+      // 2) sonst generelles Profil-Logo des eingeloggten Users (Meine-Autos-Ansicht)
+      const sellerLogo =
+        (inserat && inserat.seller && inserat.seller.logoUrl) ||
+        (nutzerData && nutzerData.logoUrl) ||
+        "";
     
       const sellerLocation =
         inserat.standort ||
@@ -590,26 +603,25 @@ function getSellerData(inserat, nutzerData) {
       const avatar = dealerInfoEl.querySelector(".dealer-avatar");
       const img    = dealerInfoEl.querySelector(".dealer-avatar img");
     
-      // Standard: Initialen sichtbar
+      // Default: Initialen anzeigen
       avatar.classList.remove("has-logo");
       img.removeAttribute("src");
     
       if (sellerLogo) {
-        // 1) auf load umschalten
+        // Bei erfolgreichem Laden → Logo anzeigen
         img.addEventListener("load", () => {
           avatar.classList.add("has-logo");
         }, { once: true });
     
-        // 2) Fallback bei Fehler → Initialen anzeigen
+        // Bei Fehler → wieder Initialen zeigen
         img.addEventListener("error", () => {
           avatar.classList.remove("has-logo");
           img.removeAttribute("src");
         }, { once: true });
     
-        // 3) Quelle setzen
         img.src = sellerLogo;
     
-        // 4) **Cache-Fall**: Bild schon geladen → sofort umschalten
+        // Cache-Fall: Bild evtl. schon fertig
         if (img.complete && img.naturalWidth > 0) {
           avatar.classList.add("has-logo");
         }
@@ -636,6 +648,7 @@ function getSellerData(inserat, nutzerData) {
         });
       });
     });
+    
     
     
     } catch (error) {
@@ -713,8 +726,6 @@ document.addEventListener("click", async (e) => {
     alert("❌ Netzwerkfehler beim Veröffentlichen.");
   }
 });
-
-
 
 
 
