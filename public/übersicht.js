@@ -469,18 +469,19 @@ function getSellerData(inserat, nutzerData) {
   
 
 
-
     items.forEach((inserat) => {
       const wrapper = document.createElement("div");
       wrapper.className = "car-card-wrapper";
     
       const realId = extractMongoId(inserat);
-      wrapper.dataset.id = realId || "";         // echte MongoID
-      wrapper.dataset.status = inserat.__status; // "draft" | "online"
+      wrapper.dataset.id = realId || "";                // echte MongoID
+      wrapper.dataset.status = inserat.__status || "";  // "draft" | "online"
     
-      const isOnline = inserat.__status === "online";
+      const isOnline = wrapper.dataset.status === "online";
       const publishBtnLabel = isOnline ? "Online" : "Veröffentlichen";
-      const publishBtnAttrs = isOnline ? 'disabled class="publish-btn published"' : 'class="publish-btn"';
+      const publishBtnAttrs = isOnline
+        ? 'disabled class="publish-btn published"'
+        : 'class="publish-btn"';
     
       wrapper.innerHTML = `
         <div class="car-card-actions mobile-only">
@@ -549,9 +550,8 @@ function getSellerData(inserat, nutzerData) {
       // --- Verkäuferzeile (Logo + Name + Standort) ---
       const dealerInfoEl = wrapper.querySelector(".dealer-info");
     
-      const rawType = String(
-        inserat?.seller?.type || inserat?.verkauf_verkaeufer || ""
-      ).toLowerCase();
+      // Händler vs. Privat robust erkennen
+      const rawType = String(inserat?.seller?.type ?? inserat?.verkauf_verkaeufer ?? "").toLowerCase();
       const isHaendler =
         rawType === "haendler" ||
         rawType === "händler" ||
@@ -559,14 +559,16 @@ function getSellerData(inserat, nutzerData) {
         rawType.includes("haend");
     
       const sellerName = isHaendler
-        ? (inserat?.seller?.name || inserat?.verkauf_name || nutzerData?.name || "Händler")
+        ? (inserat?.seller?.name ?? inserat?.verkauf_name ?? nutzerData?.name ?? "Händler")
         : "Privatanbieter";
     
-      const sellerLogo =
-        inserat?.seller?.logoUrl ||
-        (inserat.__status === "draft" ? (nutzerData?.logoUrl || "") : "") ||
-        ((inserat?.verkaeuferId && inserat.verkaeuferId === nutzerData?.nutzerId) ? (nutzerData?.logoUrl || "") : "") ||
-        "";
+      // Logo-Quelle (Priorität): Snapshot im Inserat → (Entwurf) Profil-Logo → (eigene online) Profil-Logo
+      const sellerLogo = (() => {
+        if (inserat?.seller?.logoUrl) return inserat.seller.logoUrl;
+        if (wrapper.dataset.status === "draft") return nutzerData?.logoUrl || "";
+        if (inserat?.verkaeuferId && inserat.verkaeuferId === nutzerData?.nutzerId) return nutzerData?.logoUrl || "";
+        return "";
+      })();
     
       const sellerLocation =
         inserat.standort ||
@@ -576,7 +578,7 @@ function getSellerData(inserat, nutzerData) {
       dealerInfoEl.innerHTML = `
         <div class="dealer-row">
           <div class="dealer-avatar">
-            <img alt="${sellerName} Logo" loading="lazy">
+            <img alt="${sellerName} Logo" loading="lazy" referrerpolicy="no-referrer">
             <span class="dealer-initials">${sellerInitials(sellerName)}</span>
           </div>
           <div class="dealer-meta">
@@ -589,15 +591,22 @@ function getSellerData(inserat, nutzerData) {
       const avatar = dealerInfoEl.querySelector(".dealer-avatar");
       const img    = dealerInfoEl.querySelector(".dealer-avatar img");
     
+      // Standard: Initialen sichtbar
+      avatar.classList.remove("has-logo");
+      img.removeAttribute("src");
+    
       if (sellerLogo) {
-        avatar.classList.add("has-logo");
-        img.src = sellerLogo;
+        // Erst bei erfolgreichem Ladevorgang auf Logo umschalten
+        img.addEventListener("load", () => {
+          avatar.classList.add("has-logo");
+        }, { once: true });
+    
         img.addEventListener("error", () => {
           avatar.classList.remove("has-logo");
           img.removeAttribute("src");
         }, { once: true });
-      } else {
-        avatar.classList.remove("has-logo");
+    
+        img.src = sellerLogo;
       }
     
       // Hochformat-Erkennung
@@ -621,6 +630,7 @@ function getSellerData(inserat, nutzerData) {
         });
       });
     });
+    
     
     } catch (error) {
       console.error("Fehler beim Laden der Inserate:", error);

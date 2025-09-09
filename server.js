@@ -771,38 +771,49 @@ app.get("/getNutzerInfo", async (req, res) => {
 
 
 
+// ---- MULTER für Logo (VOR der Route platzieren!) ----
+const uploadLogo = multer({
+  storage, // dein TMP_DIR storage aus weiter oben
+  limits: { fileSize: 1.5 * 1024 * 1024, files: 1 }, // 1.5 MB, 1 Datei
+  fileFilter: (req, file, cb) => {
+    const ok = file.mimetype.startsWith("image/");
+    cb(ok ? null : new Error("Nur Bilddateien (PNG/JPG/WEBP) erlaubt."), ok);
+  }
+});
 
-
-// === Händlerregistrierung mit MongoDB (mit Template-Mail) ===
-app.post("/haendler-registrieren", async (req, res) => {
+// === Händlerregistrierung mit optionalem Logo-Upload ===
+app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) => {
+  // Felder kommen bei multipart als Strings
   const {
     firma, strasse, hausnummer, plz, ort, land, telefon, telefon2,
     email, whatsapp, tarif, zahlungsmethode, kontoinhaber, iban, bic,
     impressum, agb, datenschutz, password, confirmPassword
-    // role  ⬅️ wird NICHT aus dem Body übernommen (Sicherheitsrisiko)
   } = req.body;
 
   // Normalisierung / Sanitizing
-  const _firma = (firma || "").trim();
-  const _email = (email || "").trim().toLowerCase();
-  const _strasse = (strasse || "").trim();
-  const _hausnummer = (hausnummer || "").trim();
-  const _plz = (plz || "").trim();
-  const _ort = (ort || "").trim();
-  const _land = (land || "").trim();
-  const _telefon = (telefon || "").trim();
-  const _telefon2 = (telefon2 || "").trim();
-  const _tarif = (tarif || "").trim();
-  const _zahlungsmethode = (zahlungsmethode || "").trim();
-  const _kontoinhaber = (kontoinhaber || "").trim();
-  const _iban = (iban || "").replace(/\s+/g, "").toUpperCase();
-  const _bic = (bic || "").replace(/\s+/g, "").toUpperCase();
-  const _impressum = (impressum || "").trim();
-  const _whatsapp =
-    whatsapp === true || whatsapp === "true" || whatsapp === "on" || whatsapp === 1 || whatsapp === "1";
+  const _firma          = (firma || "").trim();
+  const _email          = (email || "").trim().toLowerCase();
+  const _strasse        = (strasse || "").trim();
+  const _hausnummer     = (hausnummer || "").trim();
+  const _plz            = (plz || "").trim();
+  const _ort            = (ort || "").trim();
+  const _land           = (land || "").trim();
+  const _telefon        = (telefon || "").trim();
+  const _telefon2       = (telefon2 || "").trim();
+  const _tarif          = (tarif || "").trim();
+  const _zahlungsmethode= (zahlungsmethode || "").trim();
+  const _kontoinhaber   = (kontoinhaber || "").trim();
+  const _iban           = (iban || "").replace(/\s+/g, "").toUpperCase();
+  const _bic            = (bic || "").replace(/\s+/g, "").toUpperCase();
+  const _impressum      = (impressum || "").trim();
+
+  const toBool = (v) => (v === true || v === "true" || v === "on" || v === 1 || v === "1");
+  const _whatsapp   = toBool(whatsapp);
+  const _agb        = toBool(agb);
+  const _datenschutz= toBool(datenschutz);
 
   // Pflichtfelder + Basis-Checks
-  if (!_firma || !_email || !password || !agb || !datenschutz) {
+  if (!_firma || !_email || !password || !_agb || !_datenschutz) {
     return res.status(400).json({ error: "Bitte füllen Sie alle Pflichtfelder aus." });
   }
   if (password.length < 8) {
@@ -820,12 +831,31 @@ app.post("/haendler-registrieren", async (req, res) => {
       return res.status(400).json({ error: "E-Mail bereits registriert." });
     }
 
+    // Nutzer-ID vorab erzeugen (für Cloudinary-Ordner)
+    const newId = Date.now().toString();
+
+    // Logo optional zu Cloudinary hochladen
+    let logoUrl = "";
+    let logoPublicId = "";
+    if (req.file) {
+      try {
+        const result = await uploadFileToCloudinary(req.file.path, {
+          folder: `autovisa/${newId}/logo`,
+          resource_type: "image"
+        });
+        logoUrl = result.secure_url || "";
+        logoPublicId = result.public_id || "";
+      } finally {
+        try { fs.unlinkSync(req.file.path); } catch {}
+      }
+    }
+
     const token = crypto.randomBytes(20).toString("hex");
-    const hash = await bcrypt.hash(password, 12);
+    const hash  = await bcrypt.hash(password, 12);
 
     const neuerHaendler = {
-      id: Date.now().toString(),
-      role: "haendler",           // ⬅️ fest vorgegeben
+      id: newId,
+      role: "haendler",
       verified: false,
       token,
       createdAt: new Date(),
@@ -848,22 +878,25 @@ app.post("/haendler-registrieren", async (req, res) => {
       bic: _bic,
       // Rechtliches
       impressum: _impressum,
-      agb: !!agb,
-      datenschutz: !!datenschutz,
+      agb: _agb,
+      datenschutz: _datenschutz,
       // Auth
-      password: hash              // ✅ gehasht
+      password: hash,
+      // Logo (optional)
+      ...(logoUrl ? { logoUrl, logoPublicId, logoUpdatedAt: new Date() } : {})
     };
 
     await nutzerColl.insertOne(neuerHaendler);
 
-    const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
-    const verifyLink = `${baseUrl}/verify?token=${token}`;
-    const logoUrl = `${baseUrl}/${encodeURIComponent("AUTOVISA LOGO.PNG")}`;
+    // Verifizierungs-Mail
+    const baseUrl   = process.env.BASE_URL || `http://localhost:${PORT}`;
+    const verifyLink= `${baseUrl}/verify?token=${token}`;
+    const brandLogo = `${baseUrl}/${encodeURIComponent("AUTOVISA LOGO.PNG")}`;
 
     const subject = "Bitte bestätigen Sie Ihre Händlerregistrierung";
     const html = buildAutovisaEmail({
       subject,
-      logoUrl,
+      logoUrl: brandLogo,
       greeting: `Hallo ${_firma},`,
       title: "Händlerkonto bestätigen",
       htmlText: "Bitte bestätigen Sie Ihre E-Mail-Adresse, um Ihr Händlerkonto zu aktivieren.",
@@ -892,8 +925,11 @@ Wenn Sie sich nicht registriert haben, ignorieren Sie diese E-Mail.`;
       return res.json({ success: true, message: "Händlerregistrierung erfolgreich. E-Mail wurde versendet." });
     } catch (mailErr) {
       console.error("❌ SMTP-Fehler beim Senden (Händler):", mailErr);
-      // Aufräumen, damit kein unbestätigter Account ohne Mail hängen bleibt
+      // Aufräumen: Account entfernen, optional Cloudinary-Asset löschen
       await nutzerColl.deleteOne({ email: _email });
+      if (logoPublicId) {
+        try { await cloudinary.uploader.destroy(logoPublicId, { resource_type: "image" }); } catch {}
+      }
       return res.status(500).json({ error: "E-Mail-Versand fehlgeschlagen. Bitte später erneut versuchen." });
     }
 
@@ -902,15 +938,6 @@ Wenn Sie sich nicht registriert haben, ignorieren Sie diese E-Mail.`;
     return res.status(500).json({ error: "Interner Fehler bei der Registrierung." });
   }
 });
-const uploadLogo = multer({
-  storage, // dein TMP_DIR storage
-  limits: { fileSize: 1.5 * 1024 * 1024, files: 1 }, // 1.5 MB, 1 Datei
-  fileFilter: (req, file, cb) => {
-    const ok = file.mimetype.startsWith("image/");
-    cb(ok ? null : new Error("Nur Bilddateien (PNG/JPG/WEBP) erlaubt."), ok);
-  }
-});
-
 
 
 app.post("/haendler/logo", checkLogin, uploadLogo.single("logo"), async (req, res) => {

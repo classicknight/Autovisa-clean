@@ -2,10 +2,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("dealerForm");
 
   // --- Logo-Vorschau Elemente
-  const fileInput   = document.getElementById("logo");
-  const imgEl       = document.getElementById("logoImg");
-  const initialsEl  = document.getElementById("logoInitials");
-  const removeBtn   = document.getElementById("logoRemove");
+  const fileInput  = document.getElementById("logo");       // <input type="file" name="logo" ...>
+  const imgEl      = document.getElementById("logoImg");
+  const initialsEl = document.getElementById("logoInitials");
+  const removeBtn  = document.getElementById("logoRemove");
 
   // Initialen aus Firmenname
   function initialsFromName(name = "") {
@@ -14,10 +14,12 @@ document.addEventListener("DOMContentLoaded", () => {
     return ini || "AV";
   }
   function updateInitials() {
-    initialsEl.textContent = initialsFromName(form.firma.value);
+    if (initialsEl && form?.firma) {
+      initialsEl.textContent = initialsFromName(form.firma.value);
+    }
   }
   updateInitials();
-  form.firma.addEventListener("input", updateInitials);
+  form?.firma?.addEventListener("input", updateInitials);
 
   // Vorschau zurücksetzen
   function resetPreview() {
@@ -64,61 +66,74 @@ document.addEventListener("DOMContentLoaded", () => {
     resetPreview();
   });
 
-  // --- Formular absenden (JSON, kein Datei-Upload)
+  // --- Formular absenden (MULTIPART inkl. optionalem LOGO)
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const data = {
-      firma: form.firma.value.trim(),
-      strasse: form.strasse.value.trim(),
-      hausnummer: form.hausnummer.value.trim(),
-      plz: form.plz.value.trim(),
-      ort: form.ort.value.trim(),
-      land: form.land.value,
-      telefon: form.telefon.value.trim(),
-      telefon2: form.telefon2.value.trim(),
-      email: form.email.value.trim(),
-      whatsapp: form.whatsapp.checked,
-      tarif: form.tarif.value,
-      zahlungsmethode: form.zahlungsmethode.value,
-      kontoinhaber: form.kontoinhaber.value.trim(),
-      iban: form.iban.value.trim(),
-      bic: form.bic.value.trim(),
-      impressum: form.impressum.value.trim(),
-      agb: form.agb.checked,
-      datenschutz: form.datenschutz.checked,
-      password: form.password.value,
-      confirmPassword: form["confirm-password"].value
-      // role NICHT mitsenden – setzt der Server selbst auf "haendler"
-      // logo NICHT mitsenden – Upload später über /haendler/logo nach Login
-    };
-
     // Client-Checks
-    if (!data.agb || !data.datenschutz) {
+    if (!form.agb.checked || !form.datenschutz.checked) {
       alert("Bitte AGB und Datenschutz akzeptieren.");
       return;
     }
-    if (data.password !== data.confirmPassword) {
+    if (form.password.value !== form["confirm-password"].value) {
       alert("Die Passwörter stimmen nicht überein.");
       return;
     }
 
-    // Button sperren, um Doppelklicks zu vermeiden
+    // (Sicherheits-)Checks fürs Logo nochmal vorm Absenden
+    const f = fileInput?.files?.[0];
+    if (f) {
+      const okTypes = ["image/png", "image/jpeg", "image/webp"];
+      if (!okTypes.includes(f.type)) {
+        alert("Bitte PNG, JPEG oder WEBP hochladen.");
+        return;
+      }
+      if (f.size > 1.5 * 1024 * 1024) {
+        alert("Das Bild ist größer als 1.5 MB.");
+        return;
+      }
+    }
+
     const submitBtn = form.querySelector(".submit-btn");
     submitBtn.disabled = true;
 
     try {
+      // WICHTIG: FormData statt JSON, Feldname fürs Logo MUSS "logo" sein
+      const fd = new FormData();
+      fd.append("firma",            form.firma.value.trim());
+      fd.append("strasse",          form.strasse.value.trim());
+      fd.append("hausnummer",       form.hausnummer.value.trim());
+      fd.append("plz",              form.plz.value.trim());
+      fd.append("ort",              form.ort.value.trim());
+      fd.append("land",             form.land.value);
+      fd.append("telefon",          form.telefon.value.trim());
+      fd.append("telefon2",         form.telefon2.value.trim());
+      fd.append("email",            form.email.value.trim());
+      fd.append("whatsapp",         form.whatsapp.checked ? "true" : "false");
+      fd.append("tarif",            form.tarif.value);
+      fd.append("zahlungsmethode",  form.zahlungsmethode.value);
+      fd.append("kontoinhaber",     form.kontoinhaber.value.trim());
+      fd.append("iban",             form.iban.value.trim());
+      fd.append("bic",              form.bic.value.trim());
+      fd.append("impressum",        form.impressum.value.trim());
+      fd.append("agb",              form.agb.checked ? "true" : "false");
+      fd.append("datenschutz",      form.datenschutz.checked ? "true" : "false");
+      fd.append("password",         form.password.value);
+      fd.append("confirmPassword",  form["confirm-password"].value);
+
+      if (f) fd.append("logo", f); // <— schickt die Datei mit
+
+      // KEIN Content-Type-Header setzen! Browser setzt Boundary automatisch.
       const res = await fetch("/haendler-registrieren", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
+        body: fd
       });
 
       const result = await res.json().catch(() => ({}));
 
       if (res.ok) {
-        alert("Registrierung erfolgreich! Bitte prüfen Sie Ihr E-Mail-Postfach zur Bestätigung.");
-        // Hinweis: Logo-Upload erfolgt nach Login im Profil unter „Logo hochladen“.
+        alert("Registrierung erfolgreich! Bitte E-Mail zur Bestätigung prüfen.");
+        // Nach Verifizierung ist logoUrl im Profil; neue Inserate bekommen es automatisch.
         window.location.href = "index.html";
       } else {
         alert(result.error || "Ein Fehler ist aufgetreten.");
