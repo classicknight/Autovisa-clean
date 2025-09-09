@@ -703,6 +703,49 @@ app.post("/login", async (req, res) => {
     return res.status(500).json({ error: "❌ Interner Serverfehler." });
   }
 });
+// === Helper: Seller-Fallback für Aggregationen ===
+function projectWithSeller() {
+  return [
+    {
+      $lookup: {
+        from: "nutzer",
+        let: { vid: "$verkaeuferId" },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$id", "$$vid"] } } },
+          { $project: { _id: 0, id: 1, role: 1, firma: 1, name: 1, logoUrl: 1 } }
+        ],
+        as: "sellerUser"
+      }
+    },
+    { $unwind: { path: "$sellerUser", preserveNullAndEmptyArrays: true } },
+    {
+      $addFields: {
+        seller: {
+          $ifNull: [
+            "$seller",
+            {
+              type:   { $ifNull: ["$sellerUser.role", "privat"] },
+              id:     { $ifNull: ["$sellerUser.id",   "" ] },
+              name:   {
+                $ifNull: [
+                  "$sellerUser.firma",
+                  { $ifNull: ["$sellerUser.name", "Händler"] }
+                ]
+              },
+              logoUrl:{ $ifNull: ["$sellerUser.logoUrl", ""] }
+            }
+          ]
+        }
+      }
+    },
+    {
+      $project: {
+        token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0,
+        sellerUser: 0
+      }
+    }
+  ];
+}
 
 app.get("/meine-inserate", checkLogin, async (req, res) => {
   try {
