@@ -704,20 +704,22 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// Meine veröffentlichten Inserate (nur eigene) – für übersicht.html
 app.get("/meine-inserate", checkLogin, async (req, res) => {
   try {
     const userId = req.nutzer.id;
-    const inserate = await db.collection("inserate")
-      .find({ verkaeuferId: userId })     // ggf. zusätzlich { status: "online" }
-      .sort({ veroeffentlichtAm: -1, _id: -1 })
-      .toArray();
-    res.json(inserate);
+    const items = await db.collection("inserate")
+      .aggregate([
+        { $match: { verkaeuferId: userId } },
+        { $sort: { veroeffentlichtAm: -1, _id: -1 } },
+        ...projectWithSeller()
+      ]).toArray();
+    res.json(items);
   } catch (err) {
     console.error("❌ Fehler bei /meine-inserate:", err);
     res.status(500).json({ error: "Fehler beim Laden der veröffentlichten Inserate." });
   }
 });
+
 
 // === Nutzer-Info aus Cookie ===
 app.get("/getNutzerInfo", async (req, res) => {
@@ -760,15 +762,15 @@ app.get("/getNutzerInfo", async (req, res) => {
 
 
 
-// ---- MULTER für Logo (VOR der Route platzieren!) ----
 const uploadLogo = multer({
-  storage, // dein TMP_DIR storage aus weiter oben
-  limits: { fileSize: 1.5 * 1024 * 1024, files: 1 }, // 1.5 MB, 1 Datei
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 }, // 5 MB
   fileFilter: (req, file, cb) => {
     const ok = file.mimetype.startsWith("image/");
     cb(ok ? null : new Error("Nur Bilddateien (PNG/JPG/WEBP) erlaubt."), ok);
   }
 });
+
 
 // === Händlerregistrierung mit optionalem Logo-Upload ===
 app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) => {
@@ -1347,8 +1349,6 @@ app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
 
 
 
-
-// ========== ÖFFENTLICHE INSERATE: Für suche.html (Pagination) ==========
 app.get("/inserate", async (req, res) => {
   try {
     const page  = Math.max(parseInt(req.query.page)  || 1, 1);
@@ -1357,10 +1357,12 @@ app.get("/inserate", async (req, res) => {
 
     const coll = db.collection("inserate");
     const [items, total] = await Promise.all([
-      coll.find({ status: "online" })
-          .project({ token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0 })
-          .sort({ veroeffentlichtAm: -1, _id: -1 })
-          .skip(skip).limit(limit).toArray(),
+      coll.aggregate([
+        { $match: { status: "online" } },
+        { $sort: { veroeffentlichtAm: -1, _id: -1 } },
+        { $skip: skip }, { $limit: limit },
+        ...projectWithSeller()
+      ]).toArray(),
       coll.countDocuments({ status: "online" })
     ]);
 
