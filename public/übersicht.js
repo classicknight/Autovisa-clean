@@ -1,3 +1,6 @@
+
+
+
 // uebersicht.js (klick-only, kein Hover-Open)
 document.documentElement.classList.remove('no-js');
 
@@ -402,26 +405,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     const parts = name.trim().split(/\s+/).slice(0, 2);
     const ini = parts.map(p => p[0]?.toUpperCase() || "").join("");
     return ini || "AV";
-  }function getSellerData(inserat, nutzerData) {
-    const type =
-      inserat?.seller?.type ||
-      (String(inserat?.verkauf_verkaeufer || "").toLowerCase().includes("händ") ? "haendler" : "privat");
-  
-    const name =
-      inserat?.seller?.name ||
-      inserat?.verkauf_name ||
-      (type === "haendler" ? (nutzerData?.name || "Händler") : "Privatanbieter");
-  
-    // Fallback nur, wenn es wirklich MEIN Inserat ist:
-    const belongsToMe = String(inserat?.verkaeuferId || inserat?.nutzerId || "") === String(nutzerData?.nutzerId || "");
-  
-    const logoUrl =
-      inserat?.seller?.logoUrl ||
-      (belongsToMe ? (nutzerData?.logoUrl || "") : "");
-  
-    return { type, name, logoUrl };
   }
-  
+  // Logo/Name robust bestimmen (mit Fallback auf aktuelles Nutzerlogo)
+function getSellerData(inserat, nutzerData) {
+  const type =
+    inserat?.seller?.type ||
+    (String(inserat?.verkauf_verkaeufer || "").toLowerCase() === "händler" ? "haendler" : "privat");
+
+  const name =
+    inserat?.seller?.name ||
+    inserat?.verkauf_name ||
+    (type === "haendler" ? (nutzerData?.name || "Händler") : "Privatanbieter");
+
+  // WICHTIG: Fallback für ONLINE-ANZEIGEN auf dein Nutzerlogo,
+  // wenn die Anzeige (z.B. vor Logo-Upload) ohne seller.logoUrl veröffentlicht wurde.
+  const logoUrl =
+    inserat?.seller?.logoUrl ||
+    ((inserat?.verkaeuferId && inserat.verkaeuferId === nutzerData?.nutzerId) ? (nutzerData?.logoUrl || "") : "");
+
+  return { type, name, logoUrl };
+}
+
   // Echte Mongo-ID aus Dokument ziehen
   function extractMongoId(doc) {
     if (!doc) return null;
@@ -550,83 +554,82 @@ document.addEventListener("DOMContentLoaded", async () => {
     
       carList.appendChild(wrapper);
       initializeSlider(wrapper);
-    // --- Verkäuferzeile (Logo + Name + Standort) ---
-const dealerInfoEl = wrapper.querySelector(".dealer-info");
-
-// Robust bestimmen, ob das Inserat wirklich von mir ist (für Fallbacks)
-const belongsToMe = String(inserat?.verkaeuferId || inserat?.nutzerId || "") === String(nutzerData?.nutzerId || "");
-
-// Typ (Händler/Privat) ermitteln
-const rawType = String(
-  inserat?.seller?.type ||
-  inserat?.verkauf_verkaeufer ||
-  ""
-).toLowerCase();
-
-const isHaendler =
-  rawType === "haendler" ||
-  rawType === "händler" ||
-  rawType.includes("händ") ||
-  rawType.includes("haend");
-
-// Name priorisieren: Snapshot > verkauf_name > generischer Fallback
-const sellerName =
-  inserat?.seller?.name ||
-  inserat?.verkauf_name ||
-  (isHaendler ? "Händler" : "Privatanbieter");
-
-// Logo priorisieren: Snapshot > (wenn meins) aktuelles Nutzerlogo > leer
-const sellerLogo =
-  inserat?.seller?.logoUrl ||
-  (belongsToMe ? (nutzerData?.logoUrl || "") : "");
-
-// Standort
-const sellerLocation =
-  inserat?.standort ||
-  [inserat?.plz, inserat?.ort].filter(Boolean).join(" ") ||
-  "Standort nicht angegeben";
-
-// Markup schreiben
-dealerInfoEl.innerHTML = `
-  <div class="dealer-row">
-    <div class="dealer-avatar">
-      <img alt="${sellerName} Logo" loading="lazy" decoding="async" referrerpolicy="no-referrer">
-      <span class="dealer-initials">${sellerInitials(sellerName)}</span>
-    </div>
-    <div class="dealer-meta">
-      <div class="dealer-name">${sellerName}</div>
-      <div class="dealer-location">${sellerLocation}</div>
-    </div>
-  </div>
-`;
-
-// Bild/Initialen sauber togglen
-const avatar = dealerInfoEl.querySelector(".dealer-avatar");
-const img    = dealerInfoEl.querySelector(".dealer-avatar img");
-
-// Default: Initialen
-avatar.classList.remove("has-logo");
-img.removeAttribute("src");
-
-// Wenn Logo vorhanden, versuchen zu laden
-if (sellerLogo) {
-  img.addEventListener("load", () => {
-    if (img.naturalWidth > 0) avatar.classList.add("has-logo");
-  }, { once: true });
-
-  img.addEventListener("error", () => {
-    avatar.classList.remove("has-logo");
-    img.removeAttribute("src");
-  }, { once: true });
-
-  img.src = sellerLogo;
-
-  // Cache-Hit (Bild schon geladen)
-  if (img.complete && img.naturalWidth > 0) {
-    avatar.classList.add("has-logo");
-  }
-}
-
+    
+      // --- Verkäuferzeile (Logo + Name + Standort) ---
+      const dealerInfoEl = wrapper.querySelector(".dealer-info");
+    
+      const rawType = String(
+        (inserat && inserat.seller && inserat.seller.type) ||
+        inserat?.verkauf_verkaeufer ||
+        ""
+      ).toLowerCase();
+    
+      const isHaendler =
+        rawType === "haendler" ||
+        rawType === "händler" ||
+        rawType.includes("händ") ||
+        rawType.includes("haend");
+    
+      const sellerName =
+        (inserat && inserat.seller && inserat.seller.name) ||
+        inserat?.verkauf_name ||
+        nutzerData?.firma ||
+        nutzerData?.name ||
+        (isHaendler ? "Händler" : "Privatanbieter");
+    
+      // Logo-Quelle:
+      // 1) Snapshot aus dem Inserat (falls vorhanden)
+      // 2) sonst generelles Profil-Logo des eingeloggten Users (Meine-Autos-Ansicht)
+      const sellerLogo =
+        (inserat && inserat.seller && inserat.seller.logoUrl) ||
+        (nutzerData && nutzerData.logoUrl) ||
+        "";
+    
+      const sellerLocation =
+        inserat.standort ||
+        [inserat.plz, inserat.ort].filter(Boolean).join(" ") ||
+        "Standort nicht angegeben";
+    
+      dealerInfoEl.innerHTML = `
+        <div class="dealer-row">
+          <div class="dealer-avatar">
+            <img alt="${sellerName} Logo" loading="lazy">
+            <span class="dealer-initials">${sellerInitials(sellerName)}</span>
+          </div>
+          <div class="dealer-meta">
+            <div class="dealer-name">${sellerName}</div>
+            <div class="dealer-location">${sellerLocation}</div>
+          </div>
+        </div>
+      `;
+    
+      const avatar = dealerInfoEl.querySelector(".dealer-avatar");
+      const img    = dealerInfoEl.querySelector(".dealer-avatar img");
+    
+      // Default: Initialen anzeigen
+      avatar.classList.remove("has-logo");
+      img.removeAttribute("src");
+    
+      if (sellerLogo) {
+        // Bei erfolgreichem Laden → Logo anzeigen
+        img.addEventListener("load", () => {
+          avatar.classList.add("has-logo");
+        }, { once: true });
+    
+        // Bei Fehler → wieder Initialen zeigen
+        img.addEventListener("error", () => {
+          avatar.classList.remove("has-logo");
+          img.removeAttribute("src");
+        }, { once: true });
+    
+        img.src = sellerLogo;
+    
+        // Cache-Fall: Bild evtl. schon fertig
+        if (img.complete && img.naturalWidth > 0) {
+          avatar.classList.add("has-logo");
+        }
+      }
+    
       // Hochformat-Erkennung
       wrapper.querySelectorAll(".slide").forEach((media) => {
         if (media.tagName === "VIDEO") {
@@ -928,7 +931,5 @@ document.querySelectorAll(".sidebar-link").forEach(link => {
 
 // Optional: auch direkt beim Laden, falls du „Nachrichten“ als Start-Tab nutzt
 // loadMessagesSection();
-
-
 
 
