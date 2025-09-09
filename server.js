@@ -3,7 +3,7 @@ const express = require("express");
 const multer = require("multer");
 const cookieParser = require("cookie-parser");
 const path = require("path");
-const fs = require("fs");                     // für Temp-Files
+const fs = require("fs");
 const { MongoClient, ObjectId } = require("mongodb");
 const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
@@ -24,21 +24,17 @@ client.connect()
     db = client.db("autovisa");
     console.log("✅ MongoDB verbunden");
 
-    // vorhandene Indexe …
     await db.collection("inserate").createIndex({ standortCoords: "2dsphere" });
     await db.collection("geocache").createIndex({ key: 1 }, { unique: true });
 
-    // 👉 geosuggest-Indexe (Cache):
     await db.collection("geosuggest").createIndex({ key: 1 }, { unique: true });
     await db.collection("geosuggest").createIndex(
       { updatedAt: 1 },
-      { expireAfterSeconds: 60 * 60 * 24 * 30 } // 30 Tage TTL
+      { expireAfterSeconds: 60 * 60 * 24 * 30 }
     );
     console.log("✅ Indexe für geosuggest bereit");
   })
   .catch(err => console.error("❌ MongoDB-Verbindung fehlgeschlagen:", err));
-
-
 
 // === Cloudinary Konfiguration ===
 cloudinary.config({
@@ -50,7 +46,6 @@ cloudinary.config({
 // Body-Limits nur für Text (Dateien sind davon unberührt)
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
-
 app.use(cookieParser());
 
 // === Statische Dateien ausliefern ===
@@ -66,8 +61,7 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-
-// === Multer: Disk Storage (keine explizite MB-Grenze); Mengenlimit: 20 Bilder + 1 Video ===
+// === Multer (A): Medien (Bilder/Video) auf Disk ===
 const TMP_DIR = path.join(__dirname, "uploads_tmp");
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
 
@@ -82,12 +76,14 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { files: 21 }, // 20 Bilder + 1 Video pro Request
+  limits: { files: 21 }, // 20 Bilder + 1 Video
   fileFilter: (req, file, cb) => {
     const ok = file.mimetype.startsWith("image/") || file.mimetype.startsWith("video/");
     cb(ok ? null : new Error("Nur Bild- oder Videodateien sind erlaubt."), ok);
   }
 });
+
+
 
 // Helper: lokale Datei → Cloudinary (Bilder normal, Videos chunked)
 function uploadFileToCloudinary(filePath, { folder, resource_type }) {
@@ -95,25 +91,22 @@ function uploadFileToCloudinary(filePath, { folder, resource_type }) {
     const isVideo = resource_type === "video";
     const fn = isVideo ? cloudinary.uploader.upload_large : cloudinary.uploader.upload;
     const options = { folder, resource_type };
-    if (isVideo) options.chunk_size = 20 * 1024 * 1024; // 20 MB Chunks
-
+    if (isVideo) options.chunk_size = 20 * 1024 * 1024;
     fn(filePath, options, (err, result) => (err ? reject(err) : resolve(result)));
   });
 }
 
+/* ===================== Fahrzeugspeichern / Medien ===================== */
 
-// === Schritt 1: Fahrzeugdaten speichern ===
 app.post("/saveFahrzeugdaten", checkLogin, async (req, res) => {
   try {
     const daten = req.body;
     const collection = db.collection("fahrzeugeEntwurf");
-
     const ergebnis = await collection.insertOne({
       ...daten,
       nutzerId: req.nutzer.id,
       erstelltAm: new Date()
     });
-
     res.json({ success: true, fahrzeugId: ergebnis.insertedId });
   } catch (err) {
     console.error("❌ Fehler bei /saveFahrzeugdaten:", err);
@@ -121,18 +114,15 @@ app.post("/saveFahrzeugdaten", checkLogin, async (req, res) => {
   }
 });
 
-// === Schritt 2: Fahrzeugdetails speichern ===
 app.post("/saveDetails", checkLogin, async (req, res) => {
   try {
     const details = req.body;
     const collection = db.collection("fahrzeugeEntwurf");
-
     const letzter = await collection.findOne(
       { nutzerId: req.nutzer.id },
       { sort: { _id: -1 } }
     );
     if (!letzter) return res.status(400).json({ error: "Kein Fahrzeug gefunden." });
-
     await collection.updateOne({ _id: letzter._id }, { $set: details });
     res.json({ success: true });
   } catch (err) {
@@ -141,22 +131,15 @@ app.post("/saveDetails", checkLogin, async (req, res) => {
   }
 });
 
-
-// === Schritt 3: Medien speichern (Cloudinary; Bilder anhängen, Video ersetzen) ===
 app.post(
   "/saveMedia",
   checkLogin,
   upload.fields([{ name: "images", maxCount: 20 }, { name: "video", maxCount: 1 }]),
   async (req, res) => {
-    // Helper zum sicheren Aufräumen lokaler tmp-Dateien
-    const cleanup = (arr = []) => {
-      arr.forEach(f => { try { fs.unlinkSync(f.path); } catch {} });
-    };
+    const cleanup = (arr = []) => arr.forEach(f => { try { fs.unlinkSync(f.path); } catch {} });
 
     try {
       const collection = db.collection("fahrzeugeEntwurf");
-
-      // letzten Entwurf des eingeloggten Nutzers holen
       const letzter = await collection.findOne(
         { nutzerId: req.nutzer.id },
         { sort: { _id: -1 } }
@@ -170,7 +153,6 @@ app.post(
       const imageFiles = Array.isArray(files.images) ? files.images : [];
       const videoFile  = Array.isArray(files.video)  ? (files.video[0] || null) : null;
 
-      // Mengenlimit Bilder (max. 20 insgesamt)
       const existingImages = Array.isArray(letzter.images) ? letzter.images.length : 0;
       if (imageFiles.length && existingImages + imageFiles.length > 20) {
         cleanup([...imageFiles, ...(videoFile ? [videoFile] : [])]);
@@ -179,16 +161,12 @@ app.post(
 
       const baseFolder = `autovisa/${req.nutzer.id}`;
 
-      // 1) Bilder hochladen
       let uploadedImageUrls = [];
       if (imageFiles.length) {
         try {
           const results = await Promise.all(
             imageFiles.map(f =>
-              uploadFileToCloudinary(f.path, {
-                folder: `${baseFolder}/images`,
-                resource_type: "image"
-              })
+              uploadFileToCloudinary(f.path, { folder: `${baseFolder}/images`, resource_type: "image" })
             )
           );
           uploadedImageUrls = results.map(r => r.secure_url);
@@ -197,21 +175,16 @@ app.post(
         }
       }
 
-      // 2) Video hochladen (ersetzt vorhandenes)
       let uploadedVideoUrl = null;
       if (videoFile) {
         try {
-          const r = await uploadFileToCloudinary(videoFile.path, {
-            folder: `${baseFolder}/videos`,
-            resource_type: "video"
-          });
-          uploadedVideoUrl = r.secure_url; // kann .mp4/.mov/... sein
+          const r = await uploadFileToCloudinary(videoFile.path, { folder: `${baseFolder}/videos`, resource_type: "video" });
+          uploadedVideoUrl = r.secure_url;
         } finally {
           cleanup([videoFile]);
         }
       }
 
-      // Nichts neu?
       if (!uploadedImageUrls.length && !uploadedVideoUrl) {
         return res.json({
           success: true,
@@ -221,7 +194,6 @@ app.post(
         });
       }
 
-      // Update-Dokument
       const updateDoc = {};
       if (uploadedImageUrls.length) {
         updateDoc.images = Array.isArray(letzter.images)
@@ -245,36 +217,50 @@ app.post(
   }
 );
 
-
-
-// === Vorschau: Nur Fahrzeuge dieses Nutzers laden ===
-app.get('/getVehicleData', checkLogin, async (req, res) => {
+// === Vorschau: Nur Fahrzeuge dieses Nutzers laden  ⬅️ GEÄNDERT: Seller-Snapshot wird mitgegeben
+app.get("/getVehicleData", checkLogin, async (req, res) => {
   try {
-    const collection = db.collection("fahrzeugeEntwurf");
-    const data = await collection.find({ nutzerId: req.nutzer.id }).toArray();
-    res.json(data);
+    const drafts = await db.collection("fahrzeugeEntwurf")
+      .find({ nutzerId: req.nutzer.id })
+      .sort({ _id: -1 })
+      .toArray();
+
+    // Verkäuferdaten für Snapshot holen
+    const user = await db.collection("nutzer").findOne(
+      { id: req.nutzer.id },
+      { projection: { role: 1, firma: 1, name: 1, logoUrl: 1 } }
+    );
+
+    const seller = {
+      type: user?.role || "haendler",
+      name: user?.firma || user?.name || "Händler",
+      logoUrl: user?.logoUrl || ""
+    };
+
+    // jedem Entwurf __status + seller anhängen
+    const withSeller = drafts.map(d => ({ ...d, __status: "draft", seller }));
+
+    res.json(withSeller);
   } catch (err) {
     console.error("❌ Fehler beim Laden der Fahrzeugdaten:", err);
-    res.status(500).json({ error: 'Fehler beim Laden der Daten.' });
+    res.status(500).json({ error: "Fehler beim Laden der Daten." });
   }
 });
 
-app.post('/abbrechen', checkLogin, async (req, res) => {
+app.post("/abbrechen", checkLogin, async (req, res) => {
   try {
     const collection = db.collection("fahrzeugeEntwurf");
-    const letzter = await collection.findOne(
-      { nutzerId: req.nutzer.id },
-      { sort: { _id: -1 } }
-    );
-    if (!letzter) return res.json({ message: 'Keine Fahrzeuge vorhanden.' });
+    const letzter = await collection.findOne({ nutzerId: req.nutzer.id }, { sort: { _id: -1 } });
+    if (!letzter) return res.json({ message: "Keine Fahrzeuge vorhanden." });
 
     await collection.deleteOne({ _id: letzter._id, nutzerId: req.nutzer.id });
     res.json({ success: true });
   } catch (err) {
     console.error("❌ Fehler beim Abbrechen:", err);
-    res.status(500).json({ error: 'Fehler beim Abbrechen.' });
+    res.status(500).json({ error: "Fehler beim Abbrechen." });
   }
 });
+
 
 
 // === 📄 Tarif temporär speichern (noch lokal) ===
@@ -768,6 +754,9 @@ app.get("/getNutzerInfo", async (req, res) => {
     return res.status(500).json({ error: "Interner Serverfehler." });
   }
 });
+
+
+
 
 
 
@@ -1789,6 +1778,8 @@ app.get("/api/search", async (req, res) => {
     res.status(500).json({ error: "Interner Fehler bei der Suche." });
   }
 });
+
+
 
 
 
