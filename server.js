@@ -750,7 +750,8 @@ app.get("/getNutzerInfo", async (req, res) => {
     const nutzerColl = db.collection("nutzer");
     const user = await nutzerColl.findOne(
       { id: nutzer.id },
-      { projection: { id: 1, role: 1, name: 1, firma: 1 } }
+      // ⬇️ logoUrl in die Projection aufnehmen
+      { projection: { id: 1, role: 1, name: 1, firma: 1, logoUrl: 1 } }
     );
     if (!user) return res.json({ eingeloggt: false });
 
@@ -758,13 +759,16 @@ app.get("/getNutzerInfo", async (req, res) => {
       eingeloggt: true,
       nutzerId: user.id,
       rolle: user.role || "privat",
-      name: user.name || user.firma || "Unbekannt"
+      name: user.name || user.firma || "Unbekannt",
+      // ⬇️ logoUrl in die Antwort aufnehmen
+      logoUrl: user.logoUrl || ""
     });
   } catch (err) {
     console.error("❌ Fehler bei getNutzerInfo:", err);
     return res.status(500).json({ error: "Interner Serverfehler." });
   }
 });
+
 
 
 
@@ -932,8 +936,19 @@ app.post("/haendler/logo", checkLogin, uploadLogo.single("logo"), async (req, re
       { id: req.nutzer.id },
       { $set: { logoUrl: result.secure_url, logoPublicId: result.public_id, logoUpdatedAt: new Date() } }
     );
-
+    
+    // ⬇️ NEU: Logo sofort in allen Inseraten/Entwürfen spiegeln
+    await db.collection("inserate").updateMany(
+      { verkaeuferId: req.nutzer.id },
+      { $set: { "seller.logoUrl": result.secure_url } }
+    );
+    await db.collection("fahrzeugeEntwurf").updateMany(
+      { nutzerId: req.nutzer.id },
+      { $set: { "seller.logoUrl": result.secure_url } }
+    );
+    
     res.json({ success: true, logoUrl: result.secure_url });
+    
   } catch (e) {
     console.error("❌ Fehler /haendler/logo:", e);
     res.status(500).json({ error: e.message || "Fehler beim Logo-Upload." });
@@ -1028,15 +1043,13 @@ app.post("/nachricht-senden", checkLogin, async (req, res) => {
 
 
 
-
 app.get("/inserat-details/:id", checkLogin, async (req, res) => {
   try {
     const oid = new ObjectId(String(req.params.id));
-    const coll = db.collection("inserate"); // ggf. anpassen
+    const coll = db.collection("inserate");
     const doc = await coll.findOne({ _id: oid });
     if (!doc) return res.status(404).json({ error: "Nicht gefunden" });
 
-    // Nur das, was die Karte braucht
     res.json({
       titel: doc.titel || "",
       preis: doc.verkauf_brutto ?? doc.verkauf_preis ?? doc.preis ?? null,
@@ -1050,12 +1063,20 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
       verkauf_verbrauch_kombiniert: doc.verkauf_verbrauch_kombiniert || null,
       verkauf_verkaeufer: doc.verkauf_verkaeufer || "",
       verkauf_name: doc.verkauf_name || "",
-      standort: doc.standort || ""
+      standort: doc.standort || "",
+      // ⬇️ NEU: Verkäufer-Snapshot inkl. Logo
+      seller: {
+        type: doc.seller?.type || (doc.verkauf_verkaeufer?.toLowerCase() === "händler" ? "haendler" : "privat"),
+        id: doc.seller?.id || doc.verkaeuferId || "",
+        name: doc.seller?.name || doc.verkauf_name || "",
+        logoUrl: doc.seller?.logoUrl || ""
+      }
     });
   } catch (e) {
     res.status(400).json({ error: "Ungültige ID" });
   }
 });
+
 
 
 // === Nachrichten für Empfänger abrufen ===
@@ -1183,9 +1204,23 @@ app.post("/veroeffentlichen", checkLogin, async (req, res) => {
 
     const entwurfColl  = db.collection("fahrzeugeEntwurf");
     const inserateColl = db.collection("inserate");
+    const nutzerColl   = db.collection("nutzer");
 
     const lastVehicle = await entwurfColl.findOne({ nutzerId: sellerId }, { sort: { _id: -1 } });
     if (!lastVehicle) return res.status(400).send("Kein Fahrzeug zum Veröffentlichen gefunden.");
+
+    // Händler-Snapshot ziehen (inkl. Logo)
+    const haendler = await nutzerColl.findOne(
+      { id: sellerId },
+      { projection: { id: 1, role: 1, firma: 1, name: 1, logoUrl: 1 } }
+    );
+
+    const seller = {
+      type:   haendler?.role || "privat",
+      id:     haendler?.id   || sellerId,
+      name:   haendler?.firma || haendler?.name || "Händler",
+      logoUrl: haendler?.logoUrl || ""
+    };
 
     const neuesInserat = {
       ...lastVehicle,
@@ -1193,17 +1228,27 @@ app.post("/veroeffentlichen", checkLogin, async (req, res) => {
       status: "online",
       veroeffentlichtAm: new Date(),
       verkauf_kurzbeschreibung: getZufaelligeAusstattung(lastVehicle.verkauf_ausstattung || []),
-      verkauf_verkaeufer: req.body?.verkauf_verkaeufer || lastVehicle.verkauf_verkaeufer || "Privatverkäufer",
-      verkauf_name:       req.body?.name || lastVehicle.verkauf_name || "Unbekannt",
-      standort:           (req.body?.plz && req.body?.ort) ? `${req.body.plz} ${req.body.ort}` : (lastVehicle.standort || "Nicht angegeben"),
-      telefon:            req.body?.telefon || lastVehicle.telefon || ""
+
+      // Konsistent setzen (Body-Overrides nur, wenn vorhanden)
+      verkauf_verkaeufer: (seller.type === "haendler") ? "Händler" : "Privatverkäufer",
+      verkauf_name: req.body?.name || lastVehicle.verkauf_name || seller.name,
+      standort: (req.body?.plz && req.body?.ort)
+        ? `${req.body.plz} ${req.body.ort}`
+        : (lastVehicle.standort || "Nicht angegeben"),
+      telefon: req.body?.telefon || lastVehicle.telefon || "",
+
+      // ⬇️ WICHTIG: denormalisierte Verkäuferdaten inkl. Logo
+      seller
     };
 
-    const locString = (req.body?.plz && req.body?.ort) ? `${req.body.plz} ${req.body.ort}` : (neuesInserat.standort || "");
+    // Geocoding (optional)
+    const locString = (req.body?.plz && req.body?.ort)
+      ? `${req.body.plz} ${req.body.ort}`
+      : (neuesInserat.standort || "");
     if (locString) {
       try {
         const point = await geocodeToPoint(locString);
-        if (point) neuesInserat.standortCoords = point; // GeoJSON Point
+        if (point) neuesInserat.standortCoords = point;
       } catch (e) { console.warn("Geocoding fehlgeschlagen:", e?.message || e); }
     }
 
@@ -1219,6 +1264,7 @@ app.post("/veroeffentlichen", checkLogin, async (req, res) => {
 });
 
 
+
 app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
   const { id } = req.body;
   if (!id) return res.status(400).send("ID fehlt.");
@@ -1229,9 +1275,22 @@ app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
     const sellerId     = req.nutzer?.id;
     const entwurfColl  = db.collection("fahrzeugeEntwurf");
     const inserateColl = db.collection("inserate");
+    const nutzerColl   = db.collection("nutzer");
 
     const draft = await entwurfColl.findOne({ _id, nutzerId: sellerId });
     if (!draft) return res.status(404).send("Entwurf nicht gefunden.");
+
+    // Händler-Snapshot (inkl. Logo)
+    const haendler = await nutzerColl.findOne(
+      { id: sellerId },
+      { projection: { id: 1, role: 1, firma: 1, name: 1, logoUrl: 1 } }
+    );
+    const seller = {
+      type:   haendler?.role || "privat",
+      id:     haendler?.id   || sellerId,
+      name:   haendler?.firma || haendler?.name || "Händler",
+      logoUrl: haendler?.logoUrl || ""
+    };
 
     const neuesInserat = {
       ...draft,
@@ -1239,12 +1298,18 @@ app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
       status: "online",
       veroeffentlichtAm: new Date(),
       verkauf_kurzbeschreibung: getZufaelligeAusstattung(draft.verkauf_ausstattung || []),
-      verkauf_verkaeufer: draft.verkauf_verkaeufer || "Privatverkäufer",
-      verkauf_name:       draft.verkauf_name || "Unbekannt",
-      standort:           draft.standort || "Nicht angegeben",
-      telefon:            draft.telefon || ""
+
+      // Konsistent setzen
+      verkauf_verkaeufer: (seller.type === "haendler") ? "Händler" : "Privatverkäufer",
+      verkauf_name: draft.verkauf_name || seller.name,
+      standort:     draft.standort || "Nicht angegeben",
+      telefon:      draft.telefon || "",
+
+      // ⬇️ WICHTIG
+      seller
     };
 
+    // Geocoding (optional)
     const locString = neuesInserat.standort || "";
     if (locString) {
       try {
