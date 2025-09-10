@@ -1050,8 +1050,6 @@ function checkPassword() {
 
 
 
-
-
 // main.js – Startseite: Neueste Inserate + Slider + Click-through zu anzeige.html
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -1059,13 +1057,31 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ===== Helpers =====
+function toNum(v) {
+  if (v === null || v === undefined || v === "") return NaN;
+  // entferne normale/geschützte Leerzeichen, €, Punkte; ersetze Komma durch Punkt
+  const s = String(v)
+    .trim()
+    .replace(/[\u202F\u00A0\s]/g, "")
+    .replace(/[€]/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+  const n = Number(s);
+  return Number.isFinite(n) ? n : NaN;
+}
+function pickPrice(...vals) {
+  for (const v of vals) {
+    const n = toNum(v);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return NaN;
+}
 function fmtEUR(v) {
-  const n = Number(v);
+  const n = toNum(v);
   return Number.isFinite(n) ? n.toLocaleString("de-DE") + " €" : "Preis n. a.";
 }
 function sanitizePhone(raw) {
-  if (!raw) return "";
-  return String(raw).replace(/[^\d+]/g, "");
+  return raw ? String(raw).replace(/[^\d+]/g, "") : "";
 }
 function getDocId(doc) {
   if (!doc) return null;
@@ -1073,6 +1089,32 @@ function getDocId(doc) {
   if (typeof doc._id === "string") return doc._id;
   if (typeof doc.id === "string") return doc.id;
   return null;
+}
+function sellerInitials(name = "") {
+  const parts = name.trim().split(/\s+/).slice(0, 2);
+  return parts.map(p => (p[0] || "").toUpperCase()).join("") || "AV";
+}
+// gemergtes Payload für anzeige.html, damit dort alle verkauf_* Felder sicher vorhanden sind
+function toAnzeigePayload(item) {
+  const raw = item?.raw && typeof item.raw === "object" ? item.raw : {};
+  const merged = { ...raw, ...item };
+
+  if (merged.verkauf_kilometer == null && item.verkauf_kilometer != null) merged.verkauf_kilometer = item.verkauf_kilometer;
+  if (!merged.verkauf_erstzulassung && item.verkauf_erstzulassung) merged.verkauf_erstzulassung = item.verkauf_erstzulassung;
+  if (!merged.verkauf_kraftstoff && item.verkauf_kraftstoff) merged.verkauf_kraftstoff = item.verkauf_kraftstoff;
+  if (!merged.verkauf_getriebe && item.verkauf_getriebe) merged.verkauf_getriebe = item.verkauf_getriebe;
+  if (!merged.verkauf_leistung && item.verkauf_leistung) merged.verkauf_leistung = item.verkauf_leistung;
+  if (!merged.verkauf_verbrauch_kombiniert && item.verkauf_verbrauch_kombiniert) merged.verkauf_verbrauch_kombiniert = item.verkauf_verbrauch_kombiniert;
+  if (!merged.verkauf_verkaeufer && item.verkauf_verkaeufer) merged.verkauf_verkaeufer = item.verkauf_verkaeufer;
+  if (!merged.verkauf_name && item.verkauf_name) merged.verkauf_name = item.verkauf_name;
+
+  // Preise robuster abbilden
+  if (merged.verkauf_brutto == null && (merged.brutto_preis != null)) merged.verkauf_brutto = merged.brutto_preis;
+  if (merged.verkauf_brutto == null && (merged["brutto-preis"] != null)) merged.verkauf_brutto = merged["brutto-preis"];
+  if (merged.verkauf_preis == null && (item.preis != null)) merged.verkauf_preis = item.preis;
+
+  if (!merged.telefon && item.telefon) merged.telefon = item.telefon;
+  return merged;
 }
 
 // ===== Server laden (holt online-Inserate) =====
@@ -1135,7 +1177,6 @@ function initMediaSlider(mediaContainer) {
     setSliderPosition();
   }
 
-  // Events
   ["pointerdown", "touchstart", "mousedown"].forEach(ev => slidesWrapper.addEventListener(ev, pointerDown));
   ["pointermove", "touchmove", "mousemove"].forEach(ev => slidesWrapper.addEventListener(ev, pointerMove));
   ["pointerup", "pointerleave", "pointercancel", "touchend", "mouseup", "mouseleave"].forEach(ev => slidesWrapper.addEventListener(ev, pointerUp));
@@ -1151,11 +1192,6 @@ function initMediaSlider(mediaContainer) {
 
   window.addEventListener("resize", updateSlidePosition);
   updateSlidePosition();
-}
-
-function sellerInitials(name = "") {
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map(p => (p[0] || "").toUpperCase()).join("") || "AV";
 }
 
 async function loadHomeListings() {
@@ -1178,7 +1214,18 @@ async function loadHomeListings() {
       const imgs  = Array.isArray(inserat.images) ? inserat.images : [];
       const tel   = sanitizePhone(inserat.telefon);
       const titel = inserat.titel || "Unbekanntes Fahrzeug";
-      const preis = fmtEUR(inserat.verkauf_brutto ?? inserat.verkauf_preis ?? inserat.preis);
+
+      // ✅ Preis robust (Brutto > Einzelpreis > Netto), leere Strings ignorieren
+      const preisNum = pickPrice(
+        inserat["brutto-preis"],
+        inserat.brutto_preis,
+        inserat.verkauf_brutto,
+        inserat.preis,
+        inserat.verkauf_preis, // wichtig für „Keine MwSt.“
+        inserat.verkauf_netto  // Fallback: nur Netto vorhanden
+      );
+      const preis = fmtEUR(preisNum);
+
       const kurz  = inserat.verkauf_kurzbeschreibung || "";
       const _id   = getDocId(inserat) || "";
 
@@ -1188,7 +1235,11 @@ async function loadHomeListings() {
         rawType === "haendler" || rawType === "händler" || rawType.includes("händ") || rawType.includes("haend");
       const sellerName =
         inserat.seller?.name || inserat.verkauf_name || (isHaendler ? "Händler" : "Privatanbieter");
-      const sellerLogo = inserat.seller?.logoUrl || ""; // (online-Inserate haben das i. d. R.)
+      const sellerLogo =
+        inserat.seller?.logoUrl ||
+        inserat.raw?.seller?.logoUrl ||
+        inserat.logoUrl ||
+        "";
       const sellerLocation =
         inserat.standort || [inserat.plz, inserat.ort].filter(Boolean).join(" ") || "Standort nicht angegeben";
 
@@ -1249,7 +1300,11 @@ async function loadHomeListings() {
       card.addEventListener("click", (e) => {
         const isAction = e.target.closest(".card-actions button, .card-actions a, .media-arrow");
         if (isAction) return;
-        try { localStorage.setItem("ausgewaehltesInserat", JSON.stringify(inserat)); } catch {}
+        try {
+          // robustes Payload für die Detailseite speichern
+          const payload = toAnzeigePayload(inserat);
+          localStorage.setItem("ausgewaehltesInserat", JSON.stringify(payload));
+        } catch {}
         if (_id) window.location.href = `anzeige.html?id=${encodeURIComponent(_id)}`;
         else     window.location.href = `anzeige.html`;
       });
@@ -1257,14 +1312,15 @@ async function loadHomeListings() {
       container.appendChild(card);
       initMediaSlider(card.querySelector(".media-container"));
 
-      // --- Avatar/Logo (Safari-safe, kein loading="lazy") ---
+      // --- Avatar/Logo (Safari-safe, kein loading="lazy", nie display:none fürs <img>) ---
       const avatar = card.querySelector(".dealer-avatar");
       const img    = avatar.querySelector("img");
       avatar.classList.remove("has-logo");
       img.removeAttribute("src");
 
       if (sellerLogo) {
-        img.addEventListener("load", () => { avatar.classList.add("has-logo"); }, { once: true });
+        try { img.loading = "eager"; } catch {}
+        img.addEventListener("load", () => { if (img.naturalWidth > 0) avatar.classList.add("has-logo"); }, { once: true });
         img.addEventListener("error", () => {
           avatar.classList.remove("has-logo");
           img.removeAttribute("src");
@@ -1293,18 +1349,8 @@ async function loadHomeListings() {
   }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-document.getElementById('year').textContent = new Date().getFullYear();
-
+// Footer-Jahr sicher setzen
+document.addEventListener("DOMContentLoaded", () => {
+  const y = document.getElementById("year");
+  if (y) y.textContent = new Date().getFullYear();
+});
