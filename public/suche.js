@@ -682,7 +682,6 @@ function sellerInitials(name = "") {
   const parts = name.trim().split(/\s+/).slice(0, 2);
   return parts.map(p => (p[0] || "").toUpperCase()).join("") || "AV";
 }
-
 function renderItems() {
   if (!container) return;
   container.innerHTML = "";
@@ -696,13 +695,38 @@ function renderItems() {
     return;
   }
 
+  // Helper: Datensatz für anzeige.html zusammenbauen (verkauf_* Fallbacks)
+  function toAnzeigePayload(item) {
+    const raw = item?.raw && typeof item.raw === "object" ? item.raw : {};
+    const merged = { ...raw, ...item }; // normalisierte Felder überschreiben raw
+
+    if (merged.verkauf_kilometer == null && item.kilometer != null) merged.verkauf_kilometer = item.kilometer;
+    if (!merged.verkauf_erstzulassung && item.erstzulassung) merged.verkauf_erstzulassung = item.erstzulassung;
+    if (!merged.verkauf_kraftstoff && item.kraftstoff) merged.verkauf_kraftstoff = item.kraftstoff;
+    if (!merged.verkauf_getriebe && item.getriebe) merged.verkauf_getriebe = item.getriebe;
+    if (!merged.verkauf_leistung && item.leistung) merged.verkauf_leistung = item.leistung;
+    if (!merged.verkauf_verbrauch_kombiniert && item.verbrauch_kombiniert) merged.verkauf_verbrauch_kombiniert = item.verbrauch_kombiniert;
+    if (!merged.verkauf_verkaeufer && item.verkaeufer) merged.verkauf_verkaeufer = item.verkaeufer;
+    if (!merged.verkauf_name && item.name) merged.verkauf_name = item.name;
+
+    // Preise robuster abbilden
+    if (merged.verkauf_brutto == null && (merged.brutto_preis != null)) merged.verkauf_brutto = merged.brutto_preis;
+    if (merged.verkauf_brutto == null && (merged["brutto-preis"] != null)) merged.verkauf_brutto = merged["brutto-preis"];
+    if (merged.verkauf_preis == null && (item.preis != null)) merged.verkauf_preis = item.preis;
+
+    // Telefon übernehmen, falls nur normalisiert vorhanden
+    if (!merged.telefon && item.telefon) merged.telefon = item.telefon;
+
+    return merged;
+  }
+
   view.forEach(inserat => {
     const imgs = Array.isArray(inserat.images) ? inserat.images : [];
     const tel  = sanitizePhone(inserat.telefon);
-  
+
     const priceNum = toNum(inserat.preis);
     const kmNum    = toNum(inserat.kilometer);
-  
+
     // --- Verkäuferdaten robust bestimmen ---
     const rawType = String(
       inserat.seller?.type ||
@@ -710,31 +734,31 @@ function renderItems() {
       inserat.raw?.verkauf_verkaeufer ||
       ""
     ).toLowerCase();
-  
+
     const isHaendler =
       rawType === "haendler" ||
       rawType === "händler" ||
       rawType.includes("händ") ||
       rawType.includes("haend");
-  
+
     const sellerName =
       inserat.seller?.name ||
       inserat.name ||
       inserat.raw?.verkauf_name ||
       (isHaendler ? "Händler" : "Privatanbieter");
-  
+
     const sellerLogo =
       inserat.seller?.logoUrl ||
       inserat.raw?.seller?.logoUrl ||
       inserat.logoUrl ||
       "";
-  
+
     const sellerLocation =
       inserat.standort ||
       inserat.raw?.standort ||
       [inserat.plz, inserat.ort].filter(Boolean).join(" ") ||
       "Standort nicht angegeben";
-  
+
     // --- Karte rendern ---
     const card = document.createElement("div");
     card.className = "car-card horizontal";
@@ -755,15 +779,15 @@ function renderItems() {
           <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
         </div>
       </div>
-  
+
       <div class="car-details">
         <div class="car-top-row">
           <h2 class="car-title">${inserat.titel || "Unbekanntes Fahrzeug"}</h2>
           <p class="car-price">${isNaN(priceNum) ? "Preis n. a." : priceNum.toLocaleString("de-DE") + " €"}</p>
         </div>
-  
+
         <p class="car-subtitle">${inserat.raw?.verkauf_kurzbeschreibung || ""}</p>
-  
+
         <div class="car-info-grid">
           <p><i class="fas fa-road"></i> ${isNaN(kmNum) ? "?" : kmNum.toLocaleString("de-DE")} km</p>
           <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.erstzulassung || "?"}</p>
@@ -772,7 +796,7 @@ function renderItems() {
           <p><i class="fas fa-gears"></i> ${inserat.getriebe || "?"}</p>
           <p><i class="fas fa-tint"></i> ${inserat.verbrauch_kombiniert || "?"} l/100 km</p>
         </div>
-  
+
         <!-- Verkäuferzeile: Avatar + Name/Ort + Desktop-Aktionen -->
         <div class="dealer-info-row">
           <div class="dealer-row">
@@ -794,16 +818,16 @@ function renderItems() {
         </div>
       </div>
     `;
-  
+
     container.appendChild(card);
     initMediaSlider(card.querySelector(".media-container"));
-  
+
     // Safari-sicheres Logo-Laden (nie display:none am <img>)
     const avatar = card.querySelector(".dealer-avatar");
     const img    = avatar.querySelector("img");
     avatar.classList.remove("has-logo");
     img.removeAttribute("src");
-  
+
     if (sellerLogo) {
       img.addEventListener("load",  () => { avatar.classList.add("has-logo"); }, { once: true });
       img.addEventListener("error", () => {
@@ -811,13 +835,12 @@ function renderItems() {
         img.removeAttribute("src");
       }, { once: true });
       img.src = sellerLogo;
-  
-      // Cache-Fall
+
       if (img.complete && img.naturalWidth > 0) {
         avatar.classList.add("has-logo");
       }
     }
-  
+
     // Hochformat-Erkennung (optional)
     card.querySelectorAll(".slide").forEach(m => {
       if (m.tagName === "VIDEO") {
@@ -830,20 +853,24 @@ function renderItems() {
         });
       }
     });
-  
+
     // Karte klickbar (nicht auf Buttons/Arrows)
     const realId = getMongoId(inserat);
     card.dataset.id = realId || "";
     card.addEventListener("click", (e) => {
       if (e.target.closest("button, a, .media-arrow")) return;
-      try { localStorage.setItem("ausgewaehltesInserat", JSON.stringify(inserat)); } catch {}
+      try {
+        const payload = toAnzeigePayload(inserat);             // <<<<<<<<<< wichtig
+        localStorage.setItem("ausgewaehltesInserat", JSON.stringify(payload));
+      } catch {}
       const qs = realId ? `?id=${encodeURIComponent(realId)}` : "";
       window.location.href = `anzeige.html${qs}`;
     });
   });
-  
+
   renderPager(serverTotal); // Wichtig: Gesamttreffer vom Server
 }
+
 async function loadAndRender(p = 1) {
   try {
     const { page: serverPage, limit: serverLimit, total, results } = await fetchSearch(p, pageSize);
