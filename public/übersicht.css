@@ -546,9 +546,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   .visible {
     display: block !important;
   }
-  
-  
-/* Verkäufer-Row mit Logo/Initialen */
+  /* Verkäufer-Row mit Logo/Initialen */
 .dealer-row {
   display: flex;
   align-items: center;
@@ -570,18 +568,21 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   position: relative;
 }
 
+/* Bild: nie per display:none verstecken -> sonst lädt es nicht (Safari) */
 .dealer-avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block; /* sichtbar, wird bei fehlendem Logo via :not(.has-logo) ausgeblendet */
+  display: block;
+  opacity: 0;                 /* unsichtbar bis geladen */
+  transition: opacity .2s ease;
 }
 
-/* Initialen-Blase (Fallback, wenn kein Logo da oder Bild nicht lädt) */
+/* Initialen (Fallback) sind default sichtbar */
 .dealer-initials {
   width: 100%;
   height: 100%;
-  display: flex;            /* sichtbar, wird bei vorhandenem Logo via .has-logo ausgeblendet */
+  display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
@@ -591,16 +592,11 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   letter-spacing: .3px;
 }
 
-/* Zustand: Logo vorhanden → Initialen ausblenden */
-.dealer-avatar.has-logo .dealer-initials {
-  display: none;
-}
+/* Wenn Logo geladen: Bild zeigen, Initialen ausblenden */
+.dealer-avatar.has-logo img { opacity: 1; }
+.dealer-avatar.has-logo .dealer-initials { display: none; }
 
-/* Zustand: kein Logo vorhanden → Bild ausblenden */
-.dealer-avatar:not(.has-logo) img {
-  display: none;
-}
-
+/* Meta */
 .dealer-meta {
   display: flex;
   flex-direction: column;
@@ -633,7 +629,11 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   .dealer-meta .dealer-name { font-size: 14px; }
 }
 
-  
+/* (optional) weniger Motion respektieren */
+@media (prefers-reduced-motion: reduce) {
+  .dealer-avatar img { transition: none; }
+}
+
   
   
   

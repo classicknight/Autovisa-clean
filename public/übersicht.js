@@ -593,11 +593,10 @@ const sellerLogo =
   (typeof inserat?.seller?.logoUrl === "string" && inserat.seller.logoUrl.trim()) ||
   (belongsToMe ? (nutzerData?.logoUrl || "") : "");
 
-// 5) HTML einsetzen
-dealerInfoEl.innerHTML = `
+  dealerInfoEl.innerHTML = `
   <div class="dealer-row">
     <div class="dealer-avatar">
-      <img alt="${sellerName} Logo" loading="lazy" decoding="async">
+      <img alt="${sellerName} Logo" decoding="async" style="display:block">
       <span class="dealer-initials">${sellerInitials(sellerName)}</span>
     </div>
     <div class="dealer-meta">
@@ -614,19 +613,19 @@ const img    = dealerInfoEl.querySelector(".dealer-avatar img");
 avatar.classList.remove("has-logo");
 img.removeAttribute("src");
 
-// Debug: zeig mir, was berechnet wurde
+// Debug
 console.debug("INSERAT", extractMongoId(inserat), {
-  belongsToMe, sellerName, sellerLogo, sellerLocation,
-  snapshot: inserat?.seller, nutzerLogo: nutzerData?.logoUrl
+  sellerName, sellerLogo, sellerLocation, snapshot: inserat?.seller, nutzerLogo: nutzerData?.logoUrl
 });
 
 if (sellerLogo) {
-  // bei Erfolg → Logo zeigen
+  // Falls Browser lazy blockt, lade „eager“
+  try { img.loading = "eager"; } catch {}
+
   img.addEventListener("load", () => {
-    avatar.classList.add("has-logo");
+    if (img.naturalWidth > 0) avatar.classList.add("has-logo");
   }, { once: true });
 
-  // bei Fehler → Initialen lassen
   img.addEventListener("error", () => {
     avatar.classList.remove("has-logo");
     img.removeAttribute("src");
@@ -635,11 +634,12 @@ if (sellerLogo) {
 
   img.src = sellerLogo;
 
-  // Sofort-Fall (aus Cache): Safari/Chrome können 'complete' schon true haben
+  // Cache-Sofortfall
   if (img.complete && img.naturalWidth > 0) {
     avatar.classList.add("has-logo");
   }
 }
+
 
       // Hochformat-Erkennung
       wrapper.querySelectorAll(".slide").forEach((media) => {
