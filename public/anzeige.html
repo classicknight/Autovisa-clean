@@ -390,10 +390,70 @@
   </div>
   
 </div>
-<!-- Verkäuferkarte (wird per JS befüllt) -->
-<section id="seller-card" class="seller-card" aria-label="Anbieter"></section>
+<section class="seller-card" id="sellerCard">
+  <h2 class="seller-heading">Anbieter</h2>
 
-<!-- Optional: vorhandenes Rating-Panel kann bleiben; wird weiter genutzt -->
+  <div class="seller-top">
+    <div class="seller-id">
+      <div class="dealer-avatar">
+        <img id="sellerLogo" alt="Logo">
+        <span class="dealer-initials" id="sellerInitials">AV</span>
+      </div>
+      <div class="seller-meta">
+        <div class="seller-name" id="sellerName">—</div>
+        <div class="seller-type-pill" id="sellerType">Privatanbieter</div>
+        <div class="seller-location" id="sellerLocation">Standort nicht angegeben</div>
+      </div>
+    </div>
+
+    <div class="seller-rating-wrap">
+      <div class="stars">
+        <div class="stars-fill" id="starsFill" style="width:0%"></div>
+      </div>
+      <div class="rating-text"><span id="ratingValue">–</span> / 5 <span class="rating-count" id="ratingCount"></span></div>
+      <div class="seller-actions">
+        <button class="btn-soft" id="btnAllCars" style="display:none">
+          <i class="fas fa-store"></i> Alle Fahrzeuge
+        </button>
+        <button class="btn-soft" id="btnRate" onclick="toggleRatingPanel()">
+          <i class="fas fa-star"></i> Bewerten
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="seller-grid">
+    <div class="seller-card-box">
+      <div class="box-title"><i class="fas fa-address-card"></i> Unternehmensdaten</div>
+      <ul class="kv">
+        <li><span>Firma</span><strong id="kvFirma">—</strong></li>
+        <li><span>USt-ID</span><strong id="kvUst">—</strong></li>
+        <li><span>Handelsreg.</span><strong id="kvHr">—</strong></li>
+        <li><span>Adresse</span><strong id="kvAdr">—</strong></li>
+        <li><span>Webseite</span><strong id="kvWeb"><a target="_blank" rel="noopener" href="#" id="kvWebLink" style="display:none">Öffnen</a><span id="kvWebNA">—</span></strong></li>
+      </ul>
+    </div>
+
+    <div class="seller-card-box">
+      <div class="box-title"><i class="fas fa-headset"></i> Kontakt</div>
+      <ul class="kv">
+        <li><span>Telefon</span><strong id="kvTel">—</strong></li>
+        <li><span>E-Mail</span><strong id="kvMail">—</strong></li>
+        <li><span>Ansprechpartner</span><strong id="kvPers">—</strong></li>
+        <li><span>Antwortzeit</span><strong id="kvResp">—</strong></li>
+      </ul>
+      <div class="cta-row">
+        <a class="btn-primary" id="callBtn" href="#"><i class="fas fa-phone"></i> Anrufen</a>
+        <button class="btn-primary ghost" id="msgBtn" type="button"><i class="fas fa-envelope"></i> Nachricht</button>
+      </div>
+    </div>
+
+    <div class="seller-card-box" id="hoursBox" style="display:none">
+      <div class="box-title"><i class="fas fa-clock"></i> Öffnungszeiten</div>
+      <ul class="hours" id="hoursList"></ul>
+    </div>
+  </div>
+</section>
 
 
 

@@ -1366,32 +1366,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-
-
+// Smart Hide Navbar: runter = verstecken, rauf = zeigen
 (() => {
-  const nav = document.querySelector('.navbar.smart-hide');
+  const nav = document.querySelector('.navbar');
   if (!nav) return;
 
-  let lastY = window.pageYOffset;
+  let lastY = window.pageYOffset || 0;
   let ticking = false;
 
-  function onScroll() {
-    const y = window.pageYOffset;
-    const goingDown = y > lastY + 4;
-    const goingUp   = y < lastY - 4;
+  function run() {
+    const y = window.pageYOffset || 0;
+    const dy = y - lastY;
 
-    // erst nach wenigen Pixeln reagieren, damit’s ruhig bleibt
-    if (goingDown && y > 120) nav.classList.add('nav--hidden');
-    else if (goingUp || y < 60) nav.classList.remove('nav--hidden');
-
+    // nicht verstecken, wenn Mobile-Menü offen
+    const menuOpen = document.querySelector('.nav-links.active, .dropdown.open');
+    if (!menuOpen) {
+      if (dy > 4 && y > 120) {
+        nav.classList.add('nav--hidden');   // runter
+      } else if (dy < -4 || y < 60) {
+        nav.classList.remove('nav--hidden'); // rauf / ganz oben
+      }
+    }
     lastY = y;
     ticking = false;
   }
 
   window.addEventListener('scroll', () => {
     if (!ticking) {
-      requestAnimationFrame(onScroll);
+      requestAnimationFrame(run);
       ticking = true;
     }
-  }, { passive: true });
+  }, { passive:true });
 })();
