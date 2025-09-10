@@ -1185,11 +1185,90 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
 @media (min-width:1200px){
   #carResults, .car-results{ grid-template-columns:repeat(3,1fr); }
 }
-@media (min-width:1600px){
-  #carResults, .car-results{ grid-template-columns:repeat(4,1fr); }
+
+
+
+
+/* Verkäufer-Row mit Logo/Initialen */
+.dealer-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
 }
 
+.dealer-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid #e3e9ef;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
 
+/* Bild nie via display:none verstecken (Safari lädt sonst nicht) */
+.dealer-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0;                 /* unsichtbar bis geladen */
+  transition: opacity .2s ease;
+}
+
+.dealer-initials {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  color: #253544;
+  background: #e9eef3;
+  letter-spacing: .3px;
+}
+
+.dealer-avatar.has-logo img { opacity: 1; }
+.dealer-avatar.has-logo .dealer-initials { display: none; }
+
+.dealer-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.dealer-meta .dealer-name {
+  font-weight: 600;
+  color: #1a2a33;
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dealer-meta .dealer-location {
+  color: #6b7a88;
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 700px){
+  .dealer-avatar { width: 38px; height: 38px; }
+  .dealer-meta .dealer-name { font-size: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .dealer-avatar img { transition: none; }
+}
 
 
 

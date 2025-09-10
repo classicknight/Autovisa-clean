@@ -1153,7 +1153,11 @@ function initMediaSlider(mediaContainer) {
   updateSlidePosition();
 }
 
-// ===== Render auf der Startseite =====
+function sellerInitials(name = "") {
+  const parts = name.trim().split(/\s+/).slice(0, 2);
+  return parts.map(p => (p[0] || "").toUpperCase()).join("") || "AV";
+}
+
 async function loadHomeListings() {
   const container = document.getElementById("homeResults");
   if (!container) return;
@@ -1161,7 +1165,6 @@ async function loadHomeListings() {
   container.innerHTML = "<p style='opacity:.7'>Lade Inserate…</p>";
 
   try {
-    // Hole z.B. die 8 neusten
     const { items } = await fetchInserate(1, 8);
     const list = Array.isArray(items) ? items : [];
 
@@ -1172,15 +1175,25 @@ async function loadHomeListings() {
 
     container.innerHTML = "";
     list.forEach(inserat => {
-      const imgs = Array.isArray(inserat.images) ? inserat.images : [];
-      const tel  = sanitizePhone(inserat.telefon);
+      const imgs  = Array.isArray(inserat.images) ? inserat.images : [];
+      const tel   = sanitizePhone(inserat.telefon);
       const titel = inserat.titel || "Unbekanntes Fahrzeug";
       const preis = fmtEUR(inserat.verkauf_brutto ?? inserat.verkauf_preis ?? inserat.preis);
       const kurz  = inserat.verkauf_kurzbeschreibung || "";
       const _id   = getDocId(inserat) || "";
 
+      // Verkäuferdaten (mit Fallbacks)
+      const rawType = String(inserat.seller?.type || inserat.verkauf_verkaeufer || "").toLowerCase();
+      const isHaendler =
+        rawType === "haendler" || rawType === "händler" || rawType.includes("händ") || rawType.includes("haend");
+      const sellerName =
+        inserat.seller?.name || inserat.verkauf_name || (isHaendler ? "Händler" : "Privatanbieter");
+      const sellerLogo = inserat.seller?.logoUrl || ""; // (online-Inserate haben das i. d. R.)
+      const sellerLocation =
+        inserat.standort || [inserat.plz, inserat.ort].filter(Boolean).join(" ") || "Standort nicht angegeben";
+
       const card = document.createElement("div");
-      card.className = "car-card horizontal";
+      card.className = "car-card"; // vertikale Karte auf der Startseite
       card.innerHTML = `
         <div class="car-card-media">
           <div class="card-actions mobile-only">
@@ -1198,51 +1211,88 @@ async function loadHomeListings() {
             <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
           </div>
         </div>
+
         <div class="car-details">
           <div class="car-top-row">
             <h2 class="car-title">${titel}</h2>
             <p class="car-price">${preis}</p>
           </div>
+
           <p class="car-subtitle">${kurz}</p>
+
           <div class="car-info-grid">
-            <p><i class="fas fa-road"></i> ${inserat.verkauf_kilometer ?? "?"} km</p>
-            <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.verkauf_erstzulassung || "?"}</p>
-            <p><i class="fas fa-gas-pump"></i> ${inserat.verkauf_kraftstoff || "?"}</p>
-            <p><i class="fas fa-gauge-high"></i> ${inserat.verkauf_leistung ?? "?"} PS</p>
-            <p><i class="fas fa-gears"></i> ${inserat.verkauf_getriebe || "?"}</p>
-            <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "?"} l/100 km</p>
+            <p><i class="fas fa-road"></i> ${inserat.verkauf_kilometer ?? "—"} km</p>
+            <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.verkauf_erstzulassung || "—"}</p>
+            <p><i class="fas fa-gas-pump"></i> ${inserat.verkauf_kraftstoff || "—"}</p>
+            <p><i class="fas fa-gauge-high"></i> ${inserat.verkauf_leistung ?? "—"} PS</p>
+            <p><i class="fas fa-gears"></i> ${inserat.verkauf_getriebe || "—"}</p>
+            <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "—"} l/100 km</p>
           </div>
+
+          <!-- Händlerzeile mit Logo/Initialen -->
           <div class="dealer-info">
-            ${String(inserat.verkauf_verkaeufer || "").toLowerCase() === "händler"
-              ? `<strong>${inserat.verkauf_name || "Autohaus"}</strong><br>${inserat.standort || ""}`
-              : `Privatanbieter<br>${inserat.standort || ""}`
-            }
+            <div class="dealer-row">
+              <div class="dealer-avatar">
+                <img alt="${sellerName} Logo">
+                <span class="dealer-initials">${sellerInitials(sellerName)}</span>
+              </div>
+              <div class="dealer-meta">
+                <div class="dealer-name">${sellerName}</div>
+                <div class="dealer-location">${sellerLocation}</div>
+              </div>
+            </div>
           </div>
         </div>
       `;
 
-      // Klick auf Karte → Detailseite (aber NICHT auf Buttons/Arrows)
+      // Karte klickbar (aber nicht die Buttons/Arrows)
       card.addEventListener("click", (e) => {
         const isAction = e.target.closest(".card-actions button, .card-actions a, .media-arrow");
         if (isAction) return;
-
-        // für Detailseite bereitstellen
         try { localStorage.setItem("ausgewaehltesInserat", JSON.stringify(inserat)); } catch {}
-        if (_id) {
-          window.location.href = `anzeige.html?id=${encodeURIComponent(_id)}`;
-        } else {
-          window.location.href = `anzeige.html`;
-        }
+        if (_id) window.location.href = `anzeige.html?id=${encodeURIComponent(_id)}`;
+        else     window.location.href = `anzeige.html`;
       });
 
       container.appendChild(card);
       initMediaSlider(card.querySelector(".media-container"));
+
+      // --- Avatar/Logo (Safari-safe, kein loading="lazy") ---
+      const avatar = card.querySelector(".dealer-avatar");
+      const img    = avatar.querySelector("img");
+      avatar.classList.remove("has-logo");
+      img.removeAttribute("src");
+
+      if (sellerLogo) {
+        img.addEventListener("load", () => { avatar.classList.add("has-logo"); }, { once: true });
+        img.addEventListener("error", () => {
+          avatar.classList.remove("has-logo");
+          img.removeAttribute("src");
+        }, { once: true });
+        img.src = sellerLogo;
+        // Cache-Fall
+        if (img.complete && img.naturalWidth > 0) avatar.classList.add("has-logo");
+      }
+
+      // Hochformat-Erkennung (optional)
+      card.querySelectorAll(".slide").forEach((m) => {
+        if (m.tagName === "VIDEO") {
+          m.addEventListener("loadedmetadata", () => {
+            if (m.videoHeight > m.videoWidth) m.classList.add("portrait-zoom");
+          });
+        } else if (m.tagName === "IMG") {
+          m.addEventListener("load", () => {
+            if (m.naturalHeight > m.naturalWidth) m.classList.add("portrait-zoom");
+          });
+        }
+      });
     });
   } catch (err) {
     console.error("Fehler beim Laden der Start-Inserate:", err);
     container.innerHTML = "<p>🚫 Fehler beim Laden der Inserate.</p>";
   }
 }
+
 
 
 
