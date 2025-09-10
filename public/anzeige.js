@@ -1086,3 +1086,178 @@ function showPhoneNumber() {
   phoneContainer.style.display = "block";
   btn.style.display = "none";
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// === Verkäufer-Block rendern ===
+(function renderSellerSection() {
+  const box   = document.querySelector(".seller-box");
+  const extra = document.getElementById("seller-extra");
+  if (!extra) return;
+
+  const i = JSON.parse(localStorage.getItem("ausgewaehltesInserat") || "{}");
+
+  // Grunddaten robust ermitteln
+  const rawType = String(i?.seller?.type || i?.verkauf_verkaeufer || "").toLowerCase();
+  const isHaendler =
+    rawType === "haendler" || rawType === "händler" ||
+    rawType.includes("händ") || rawType.includes("haend");
+
+  const sellerName =
+    i?.seller?.name || i?.verkauf_name || (isHaendler ? "Händler" : "Privatanbieter");
+
+  const ratingVal = Number(i?.seller?.rating || i?.rating || 0);
+  const ratingCnt = Number(i?.seller?.ratingCount || i?.ratingCount || 0);
+
+  const standort =
+    i.standort || [i.plz, i.ort].filter(Boolean).join(" ") || "";
+
+  // MwSt./Gewährleistung / Services
+  const mwstLabel = i.verkauf_mwst || ""; // z.B. "inkl. MwSt.", "Keine MwSt.", "Differenzbesteuert"
+  const services = {
+    finanzierung: !!(i?.seller?.services?.financing || i?.finanzierung),
+    inzahlungnahme: !!(i?.seller?.services?.tradein || i?.inzahlungnahme),
+    lieferung: !!(i?.seller?.services?.delivery || i?.lieferung),
+    zulassung: !!(i?.seller?.services?.registration || i?.zulassungsservice),
+    garantie: !!(i?.seller?.services?.warranty || i?.garantie)
+  };
+  const languages = Array.isArray(i?.seller?.languages) ? i.seller.languages : [];
+
+  // Öffnungszeiten optionales Schema (Mo–So)
+  const opening = i?.seller?.openingHours || null; // { mo:"09–18", di:"…", ... } – nur anzeigen, wenn vorhanden
+  const hoursOrder = ["mo","di","mi","do","fr","sa","so"];
+  const hoursLabel = { mo:"Mo", di:"Di", mi:"Mi", do:"Do", fr:"Fr", sa:"Sa", so:"So" };
+
+  // Impressum-Kurzinfo (falls vorhanden)
+  const impressum = {
+    firma: i?.seller?.firma || i?.firma,
+    rechtsform: i?.seller?.rechtsform || i?.rechtsform,
+    hrb: i?.seller?.handelsregister || i?.hrb,
+    ustid: i?.seller?.ustId || i?.ustId || i?.ustid
+  };
+
+  // Kopfbereich (bestehende Box) updaten
+  const nameEl = box?.querySelector(".seller-name");
+  if (nameEl) nameEl.textContent = sellerName;
+
+  const ratingWrap = box?.querySelector(".seller-rating .rating-value");
+  if (ratingWrap) ratingWrap.textContent = ratingVal ? ratingVal.toFixed(1) : "—";
+
+  // „Alle Autos des Anbieters“
+  const carsBtn = box?.querySelector(".seller-cars-btn");
+  if (carsBtn) {
+    const sellerId = i.verkaeuferId || i.nutzerId || i.sellerId || "";
+    carsBtn.addEventListener("click", () => {
+      if (sellerId) {
+        // Variante A (Server kann nach Verkäufer filtern):
+        window.location.href = `suche.html?seller=${encodeURIComponent(sellerId)}`;
+      } else {
+        // Fallback: nach Name/Standort filtern (einfachste Client-Variante)
+        window.location.href = `suche.html?ort=${encodeURIComponent(standort)}`;
+      }
+    });
+  }
+
+  // Badges (Händler/Privat + MwSt.)
+  const badges = [];
+  badges.push(`<span class="badge"><i class="fas fa-user-tie"></i> ${isHaendler ? "Gewerblich" : "Privat"}</span>`);
+  if (mwstLabel) badges.push(`<span class="badge"><i class="fas fa-file-invoice"></i> ${mwstLabel}</span>`);
+  if (services.garantie) badges.push(`<span class="badge"><i class="fas fa-shield-alt"></i> Garantie</span>`);
+
+  // Services-Chips rendern
+  const svcChips = Object.entries({
+    Finanzierung: services.finanzierung,
+    Inzahlungnahme: services.inzahlungnahme,
+    Lieferung: services.lieferung,
+    Zulassung: services.zulassung
+  }).filter(([,v]) => v).map(([k]) => `<span class="badge">${k}</span>`).join("");
+
+  // Öffnungszeiten (nur wenn vorhanden)
+  const hoursHtml = opening ? `
+    <div class="seller-section">
+      <h4><i class="far fa-clock"></i> Öffnungszeiten</h4>
+      <ul class="seller-hours">
+        ${hoursOrder.map(k => {
+          const v = opening[k];
+          return v ? `<li><span>${hoursLabel[k]}</span><span>${v}</span></li>` : "";
+        }).join("")}
+      </ul>
+    </div>` : "";
+
+  // Impressum Kurz
+  const impressumHtml = (impressum.firma || impressum.ustid || impressum.hrb || impressum.rechtsform) ? `
+    <div class="seller-section">
+      <h4><i class="fas fa-info-circle"></i> Impressum (Kurz)</h4>
+      <div class="seller-kv">
+        ${impressum.firma ? `<div>Firma</div><div>${impressum.firma}</div>` : ""}
+        ${impressum.rechtsform ? `<div>Rechtsform</div><div>${impressum.rechtsform}</div>` : ""}
+        ${impressum.hrb ? `<div>Handelsregister</div><div>${impressum.hrb}</div>` : ""}
+        ${impressum.ustid ? `<div>USt-ID</div><div>${impressum.ustid}</div>` : ""}
+      </div>
+      <button class="toggle-impressum" type="button">Vollständiges Impressum anzeigen</button>
+    </div>` : "";
+
+  // Privatverkauf-Hinweis
+  const privatHint = !isHaendler ? `
+    <div class="seller-section">
+      <h4><i class="fas fa-user"></i> Privatverkauf</h4>
+      <p>Privatverkauf – keine MwSt., in der Regel keine gesetzliche Gewährleistung.</p>
+    </div>` : "";
+
+  // Aktionen
+  const tel = (i.telefon || "").replace(/[^\d+]/g, "");
+  const mapsLink = standort ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(standort)}` : "#";
+  const callBtn = tel ? `<a class="btn" href="tel:${tel}"><i class="fas fa-phone"></i> Anrufen</a>` :
+                        `<button class="btn" disabled><i class="fas fa-phone"></i> Anrufen</button>`;
+
+  const actions = `
+    <div class="seller-actions">
+      ${callBtn}
+      <button class="btn" onclick="document.getElementById('contactPanel')?.classList.add('open')">
+        <i class="fas fa-comment-dots"></i> Nachricht
+      </button>
+      <a class="btn" href="${mapsLink}" target="_blank" rel="noopener">
+        <i class="fas fa-map-marked-alt"></i> Route planen
+      </a>
+      <button class="btn" onclick="toggleRatingPanel()">
+        <i class="fas fa-star"></i> Bewerten
+      </button>
+    </div>`;
+
+  // Zusammenbauen
+  extra.innerHTML = `
+    <div class="seller-section">
+      <h4><i class="fas fa-store"></i> Anbieter</h4>
+      <div class="seller-badges">${badges.join(" ")}</div>
+      ${standort ? `<div style="margin:6px 0; color:#506070;"><i class="fas fa-location-dot"></i> ${standort}</div>` : ""}
+      ${svcChips ? `<div class="seller-badges" aria-label="Leistungen">${svcChips}</div>` : ""}
+      ${languages.length ? `<div style="margin-top:6px; font-size:13px; color:#506070;">
+        <i class="fas fa-language"></i> Sprachen: ${languages.join(", ")}
+      </div>` : ""}
+      ${actions}
+    </div>
+    ${isHaendler ? hoursHtml : ""}
+    ${isHaendler ? impressumHtml : privatHint}
+  `;
+
+  // (Optional) Klickhandler für „Vollständiges Impressum“ – falls du eine Modalseite hast
+  extra.querySelector(".toggle-impressum")?.addEventListener("click", () => {
+    // TODO: öffne Modal/Seite mit vollem Impressum
+    alert("Impressum-Details (hier könntest du ein Modal öffnen).");
+  });
+})();

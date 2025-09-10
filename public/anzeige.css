@@ -1845,4 +1845,24 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   
   
   
-  
+  .seller-badges { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; }
+.badge {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:4px 8px; border-radius:999px; font-size:12px;
+  background:#eef3f7; color:#1a2a33; border:1px solid #e3e9ef;
+}
+.seller-grid { display:grid; grid-template-columns:1fr; gap:10px; margin-top:10px; }
+@media (min-width: 720px){ .seller-grid { grid-template-columns: 1fr 1fr; } }
+
+.seller-section { border:1px solid #e6eaf0; border-radius:10px; padding:14px; margin-top:14px; background:#fff; }
+.seller-section h4 { margin:0 0 8px; font-size:16px; }
+.seller-kv { display:grid; grid-template-columns: 140px 1fr; gap:8px 12px; font-size:14px; }
+.seller-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+.seller-actions .btn {
+  display:inline-flex; align-items:center; gap:8px;
+  padding:8px 12px; border-radius:8px; border:1px solid #dfe6ee; background:#f7fafc; cursor:pointer;
+}
+.seller-actions .btn[disabled] { opacity:.5; cursor:default; }
+.seller-hours { font-size:14px; color:#334; }
+.seller-hours li { display:flex; justify-content:space-between; gap:12px; border-bottom:1px dashed #eef2f7; padding:4px 0; }
+.toggle-impressum { background:none; border:none; color:#0b66c3; cursor:pointer; padding:0; }
