@@ -678,6 +678,10 @@ function getMongoId(doc) {
   if (typeof doc.id === "string") return doc.id;
   return null;
 }
+function sellerInitials(name = "") {
+  const parts = name.trim().split(/\s+/).slice(0, 2);
+  return parts.map(p => (p[0] || "").toUpperCase()).join("") || "AV";
+}
 
 function renderItems() {
   if (!container) return;
@@ -695,10 +699,43 @@ function renderItems() {
   view.forEach(inserat => {
     const imgs = Array.isArray(inserat.images) ? inserat.images : [];
     const tel  = sanitizePhone(inserat.telefon);
-
+  
     const priceNum = toNum(inserat.preis);
     const kmNum    = toNum(inserat.kilometer);
-
+  
+    // --- Verkäuferdaten robust bestimmen ---
+    const rawType = String(
+      inserat.seller?.type ||
+      inserat.verkaeufer ||
+      inserat.raw?.verkauf_verkaeufer ||
+      ""
+    ).toLowerCase();
+  
+    const isHaendler =
+      rawType === "haendler" ||
+      rawType === "händler" ||
+      rawType.includes("händ") ||
+      rawType.includes("haend");
+  
+    const sellerName =
+      inserat.seller?.name ||
+      inserat.name ||
+      inserat.raw?.verkauf_name ||
+      (isHaendler ? "Händler" : "Privatanbieter");
+  
+    const sellerLogo =
+      inserat.seller?.logoUrl ||
+      inserat.raw?.seller?.logoUrl ||
+      inserat.logoUrl ||
+      "";
+  
+    const sellerLocation =
+      inserat.standort ||
+      inserat.raw?.standort ||
+      [inserat.plz, inserat.ort].filter(Boolean).join(" ") ||
+      "Standort nicht angegeben";
+  
+    // --- Karte rendern ---
     const card = document.createElement("div");
     card.className = "car-card horizontal";
     card.innerHTML = `
@@ -718,12 +755,15 @@ function renderItems() {
           <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
         </div>
       </div>
+  
       <div class="car-details">
         <div class="car-top-row">
           <h2 class="car-title">${inserat.titel || "Unbekanntes Fahrzeug"}</h2>
           <p class="car-price">${isNaN(priceNum) ? "Preis n. a." : priceNum.toLocaleString("de-DE") + " €"}</p>
         </div>
+  
         <p class="car-subtitle">${inserat.raw?.verkauf_kurzbeschreibung || ""}</p>
+  
         <div class="car-info-grid">
           <p><i class="fas fa-road"></i> ${isNaN(kmNum) ? "?" : kmNum.toLocaleString("de-DE")} km</p>
           <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.erstzulassung || "?"}</p>
@@ -732,12 +772,18 @@ function renderItems() {
           <p><i class="fas fa-gears"></i> ${inserat.getriebe || "?"}</p>
           <p><i class="fas fa-tint"></i> ${inserat.verbrauch_kombiniert || "?"} l/100 km</p>
         </div>
+  
+        <!-- Verkäuferzeile: Avatar + Name/Ort + Desktop-Aktionen -->
         <div class="dealer-info-row">
-          <div class="dealer-info-text">
-            ${String(inserat.verkaeufer || "").toLowerCase() === "händler"
-              ? `<strong>${inserat.name || "Autohaus"}</strong><br>${inserat.standort || ""}`
-              : `Privatanbieter<br>${inserat.standort || ""}`
-            }
+          <div class="dealer-row">
+            <div class="dealer-avatar">
+              <img alt="${sellerName} Logo">
+              <span class="dealer-initials">${sellerInitials(sellerName)}</span>
+            </div>
+            <div class="dealer-meta">
+              <div class="dealer-name">${sellerName}</div>
+              <div class="dealer-location">${sellerLocation}</div>
+            </div>
           </div>
           <div class="card-actions desktop-only">
             <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
@@ -748,11 +794,44 @@ function renderItems() {
         </div>
       </div>
     `;
-
+  
     container.appendChild(card);
     initMediaSlider(card.querySelector(".media-container"));
-
-    // Karte klickbar
+  
+    // Safari-sicheres Logo-Laden (nie display:none am <img>)
+    const avatar = card.querySelector(".dealer-avatar");
+    const img    = avatar.querySelector("img");
+    avatar.classList.remove("has-logo");
+    img.removeAttribute("src");
+  
+    if (sellerLogo) {
+      img.addEventListener("load",  () => { avatar.classList.add("has-logo"); }, { once: true });
+      img.addEventListener("error", () => {
+        avatar.classList.remove("has-logo");
+        img.removeAttribute("src");
+      }, { once: true });
+      img.src = sellerLogo;
+  
+      // Cache-Fall
+      if (img.complete && img.naturalWidth > 0) {
+        avatar.classList.add("has-logo");
+      }
+    }
+  
+    // Hochformat-Erkennung (optional)
+    card.querySelectorAll(".slide").forEach(m => {
+      if (m.tagName === "VIDEO") {
+        m.addEventListener("loadedmetadata", () => {
+          if (m.videoHeight > m.videoWidth) m.classList.add("portrait-zoom");
+        });
+      } else if (m.tagName === "IMG") {
+        m.addEventListener("load", () => {
+          if (m.naturalHeight > m.naturalWidth) m.classList.add("portrait-zoom");
+        });
+      }
+    });
+  
+    // Karte klickbar (nicht auf Buttons/Arrows)
     const realId = getMongoId(inserat);
     card.dataset.id = realId || "";
     card.addEventListener("click", (e) => {
@@ -762,10 +841,9 @@ function renderItems() {
       window.location.href = `anzeige.html${qs}`;
     });
   });
-
+  
   renderPager(serverTotal); // Wichtig: Gesamttreffer vom Server
 }
-
 async function loadAndRender(p = 1) {
   try {
     const { page: serverPage, limit: serverLimit, total, results } = await fetchSearch(p, pageSize);
@@ -899,6 +977,8 @@ loadAndRender(initialPage);
 
 
 });
+
+
 
 
 
