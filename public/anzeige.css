@@ -1599,189 +1599,6 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   
   
   
-  
-  .seller-box {
-    max-width: 900px;
-    margin: 60px auto;
-    padding: 32px;
-    background: #ffffff;
-    border-radius: 16px;
-    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.06);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 24px;
-  }
-  
-  .seller-info {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  
-  .seller-name {
-    font-size: 20px;
-    font-weight: 600;
-    color: #203a43;
-  }
-  
-  .seller-rating i {
-    color: #ffc107;
-    margin-right: 2px;
-  }
-  
-  .rating-value {
-    font-weight: 600;
-    margin-left: 8px;
-  }
-  
-  .seller-cars-btn,
-  .rate-seller-btn {
-    padding: 12px 20px;
-    font-size: 15px;
-    font-weight: 600;
-    font-family: 'Poppins', sans-serif;
-    border-radius: 12px;
-    border: 2px solid transparent;
-    cursor: pointer;
-    transition: all 0.3s ease;
-  }
-  
-  .seller-cars-btn {
-    background-color: #f4f4f4;
-    color: #203a43;
-    border: 2px solid #dcdcdc;
-  }
-  
-  .seller-cars-btn:hover {
-    background-color: #e8e8e8;
-    border-color: #bfbfbf;
-  }
-  
-  .rate-seller-btn {
-    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-    color: white;
-  }
-  
-  .rate-seller-btn:hover {
-    background: linear-gradient(135deg, #1d3845, #294e61, #3b6276);
-  }
-  
-  
-  @media (max-width: 600px) {
-    .seller-box {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-    
-    .seller-cars-btn,
-    .rate-seller-btn {
-      width: 100%;
-    }
-  }
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  .rating-panel {
-    position: fixed;
-    bottom: 40px;
-    right: 40px;
-    background: #ffffff;
-    border-radius: 16px;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
-    padding: 24px;
-    z-index: 2000;
-    width: 320px;
-    display: none;
-    flex-direction: column;
-    gap: 16px;
-  }
-  
-  .rating-panel-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-weight: 600;
-    font-size: 18px;
-    color: #203a43;
-  }
-  
-  .close-rating {
-    background: none;
-    border: none;
-    font-size: 24px;
-    cursor: pointer;
-    color: #999;
-  }
-  
-  .star-rating i {
-    font-size: 22px;
-    color: #ccc;
-    cursor: pointer;
-    transition: color 0.3s ease;
-  }
-  
-  .star-rating i:hover,
-  .star-rating i:hover~i,
-  .star-rating i.selected,
-  .star-rating i.selected~i {
-    color: #ffc107;
-  }
-  
-  #ratingText {
-    width: 100%;
-    padding: 12px;
-    border-radius: 10px;
-    border: 1px solid #ccc;
-    resize: vertical;
-    font-family: 'Poppins', sans-serif;
-  }
-  
-  .submit-rating-btn {
-    background: linear-gradient(135deg, #00bfa6, #00917c);
-    color: white;
-    border: none;
-    padding: 10px 16px;
-    border-radius: 10px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s ease;
-  }
-  
-  .submit-rating-btn:hover {
-    background: linear-gradient(135deg, #009a87, #007b6a);
-  }
-  
-  
-  
-  
-  
-  .rating-panel.show {
-    display: flex;
-    animation: fadeInUp 0.4s ease forwards;
-  }
-  
-  @keyframes fadeInUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  
-  
-  
   @media screen and (max-width: 600px) {
     .contact-wrapper {
       position: relative;
@@ -1826,43 +1643,102 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   
   
   
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  .seller-badges { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; }
-.badge {
+  /* === Seller Card ======================================================== */
+.seller-card{
+  border:1px solid #e6eaf0;
+  background:#fff;
+  border-radius:14px;
+  padding:16px;
+  margin-top:18px;
+}
+
+.seller-header{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.seller-header .seller-ident{
+  display:flex; align-items:center; gap:10px; min-width:0;
+}
+
+.seller-title{
+  display:flex; align-items:center; gap:10px; min-width:0;
+}
+
+.seller-name{
+  font-weight:700; color:#1a2a33; font-size:16px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+
+.seller-badges{ display:flex; flex-wrap:wrap; gap:8px; }
+.badge{
   display:inline-flex; align-items:center; gap:6px;
   padding:4px 8px; border-radius:999px; font-size:12px;
   background:#eef3f7; color:#1a2a33; border:1px solid #e3e9ef;
 }
-.seller-grid { display:grid; grid-template-columns:1fr; gap:10px; margin-top:10px; }
-@media (min-width: 720px){ .seller-grid { grid-template-columns: 1fr 1fr; } }
 
-.seller-section { border:1px solid #e6eaf0; border-radius:10px; padding:14px; margin-top:14px; background:#fff; }
-.seller-section h4 { margin:0 0 8px; font-size:16px; }
-.seller-kv { display:grid; grid-template-columns: 140px 1fr; gap:8px 12px; font-size:14px; }
-.seller-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
-.seller-actions .btn {
-  display:inline-flex; align-items:center; gap:8px;
-  padding:8px 12px; border-radius:8px; border:1px solid #dfe6ee; background:#f7fafc; cursor:pointer;
+.seller-rating{
+  display:flex; align-items:center; gap:6px; color:#6b7a88; font-size:13px;
 }
-.seller-actions .btn[disabled] { opacity:.5; cursor:default; }
-.seller-hours { font-size:14px; color:#334; }
-.seller-hours li { display:flex; justify-content:space-between; gap:12px; border-bottom:1px dashed #eef2f7; padding:4px 0; }
-.toggle-impressum { background:none; border:none; color:#0b66c3; cursor:pointer; padding:0; }
+.seller-rating i{ color:#ffb300; }       /* Sterne */
+.seller-rating .count{ color:#6b7a88; }  /* (123) */
+
+.seller-body{ margin-top:12px; display:grid; gap:12px; }
+
+.seller-meta{
+  display:grid; gap:8px 14px;
+  grid-template-columns: 1fr;
+}
+@media (min-width:720px){
+  .seller-meta{ grid-template-columns: 180px 1fr; }
+}
+.kv-key{ color:#6b7a88; font-size:13px; }
+.kv-val{ color:#253544; font-size:14px; }
+
+.seller-services{ display:flex; flex-wrap:wrap; gap:8px; }
+
+.seller-actions{ display:flex; flex-wrap:wrap; gap:10px; margin-top:2px; }
+.seller-actions .btn{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:8px 12px; border-radius:8px; border:1px solid #dfe6ee;
+  background:#f7fafc; color:#1a2a33; cursor:pointer;
+}
+.seller-actions .btn[disabled]{ opacity:.5; cursor:default; }
+.seller-actions .btn i{ min-width:16px; text-align:center; }
+
+.seller-section{
+  border-top:1px dashed #e6eaf0; padding-top:12px; margin-top:6px;
+}
+.seller-section h4{
+  margin:0 0 8px; font-size:15px; color:#1a2a33;
+}
+
+.seller-hours{ list-style:none; padding:0; margin:0; }
+.seller-hours li{ display:flex; justify-content:space-between; gap:12px; padding:4px 0; border-bottom:1px dashed #eef2f7; }
+.seller-hours li:last-child{ border-bottom:none; }
+
+/* Avatar wiederverwenden (du hast diese Klassen bereits im Projekt) */
+.dealer-avatar{ width:42px; height:42px; border-radius:50%; overflow:hidden; border:1px solid #e3e9ef; background:#fff; display:flex; align-items:center; justify-content:center; position:relative; flex-shrink:0; }
+.dealer-avatar img{ width:100%; height:100%; object-fit:cover; display:block; opacity:0; transition:opacity .2s ease; }
+.dealer-avatar.has-logo img{ opacity:1; }
+.dealer-initials{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; color:#253544; background:#e9eef3; letter-spacing:.3px; }
+.dealer-avatar.has-logo .dealer-initials{ display:none; }
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  

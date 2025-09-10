@@ -198,6 +198,25 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   .dropdown.open > a::after{display:none}
 }
   
+
+/* smart sticky + hide-on-scroll */
+.navbar.smart-hide{
+  position: sticky;
+  top: 0;
+  transition: transform .25s ease;
+}
+
+.navbar.smart-hide.nav--hidden{
+  transform: translateY(-100%);
+}
+
+/* kein Abstand nötig */
+body { padding-top: 0 !important; }
+
+
+
+
+
   
   /* sorgt dafür, dass Anker-Ziele unter einer fixen Navbar korrekt einrasten */
 #results-section,

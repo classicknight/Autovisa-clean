@@ -390,41 +390,11 @@
   </div>
   
 </div>
-<!-- bestehend -->
-<div class="seller-box">
-  <div class="seller-info">
-    <div class="seller-name">Max Mustermann</div>
-    <div class="seller-rating">
-      <i class="fas fa-star"></i><i class="fas fa-star"></i>
-      <i class="fas fa-star"></i><i class="fas fa-star"></i>
-      <i class="fas fa-star-half-alt"></i>
-      <span class="rating-value">4.8</span>
-    </div>
-  </div>
-  <button class="seller-cars-btn">Alle Autos des Anbieters</button>
-  <button class="rate-seller-btn" onclick="toggleRatingPanel()">Händler bewerten</button>
-</div>
+<!-- Verkäuferkarte (wird per JS befüllt) -->
+<section id="seller-card" class="seller-card" aria-label="Anbieter"></section>
 
-<!-- NEU: Details-Container, wird per JS befüllt -->
-<div id="seller-extra"></div>
+<!-- Optional: vorhandenes Rating-Panel kann bleiben; wird weiter genutzt -->
 
-<div class="rating-panel" id="ratingPanel">
-  <div class="rating-panel-header">
-    <span>Händler bewerten</span>
-    <button class="close-rating" onclick="toggleRatingPanel()">×</button>
-  </div>
-  <div class="rating-panel-body">
-    <div class="star-rating" id="starRating">
-      <i class="fas fa-star" data-value="1"></i>
-      <i class="fas fa-star" data-value="2"></i>
-      <i class="fas fa-star" data-value="3"></i>
-      <i class="fas fa-star" data-value="4"></i>
-      <i class="fas fa-star" data-value="5"></i>
-    </div>
-    <textarea id="ratingText" placeholder="Deine Bewertung..." rows="4"></textarea>
-    <button class="submit-rating-btn" onclick="submitRating()">Absenden</button>
-  </div>
-</div>
 
 
 

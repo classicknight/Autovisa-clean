@@ -1354,3 +1354,44 @@ document.addEventListener("DOMContentLoaded", () => {
   const y = document.getElementById("year");
   if (y) y.textContent = new Date().getFullYear();
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(() => {
+  const nav = document.querySelector('.navbar.smart-hide');
+  if (!nav) return;
+
+  let lastY = window.pageYOffset;
+  let ticking = false;
+
+  function onScroll() {
+    const y = window.pageYOffset;
+    const goingDown = y > lastY + 4;
+    const goingUp   = y < lastY - 4;
+
+    // erst nach wenigen Pixeln reagieren, damit’s ruhig bleibt
+    if (goingDown && y > 120) nav.classList.add('nav--hidden');
+    else if (goingUp || y < 60) nav.classList.remove('nav--hidden');
+
+    lastY = y;
+    ticking = false;
+  }
+
+  window.addEventListener('scroll', () => {
+    if (!ticking) {
+      requestAnimationFrame(onScroll);
+      ticking = true;
+    }
+  }, { passive: true });
+})();
