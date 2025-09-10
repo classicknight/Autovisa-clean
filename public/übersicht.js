@@ -555,81 +555,92 @@ function getSellerData(inserat, nutzerData) {
       carList.appendChild(wrapper);
       initializeSlider(wrapper);
     
-      // --- Verkäuferzeile (Logo + Name + Standort) ---
-      const dealerInfoEl = wrapper.querySelector(".dealer-info");
-    
-      const rawType = String(
-        (inserat && inserat.seller && inserat.seller.type) ||
-        inserat?.verkauf_verkaeufer ||
-        ""
-      ).toLowerCase();
-    
-      const isHaendler =
-        rawType === "haendler" ||
-        rawType === "händler" ||
-        rawType.includes("händ") ||
-        rawType.includes("haend");
-    
-      const sellerName =
-        (inserat && inserat.seller && inserat.seller.name) ||
-        inserat?.verkauf_name ||
-        nutzerData?.firma ||
-        nutzerData?.name ||
-        (isHaendler ? "Händler" : "Privatanbieter");
-    
-      // Logo-Quelle:
-      // 1) Snapshot aus dem Inserat (falls vorhanden)
-      // 2) sonst generelles Profil-Logo des eingeloggten Users (Meine-Autos-Ansicht)
-      const sellerLogo =
-        (inserat && inserat.seller && inserat.seller.logoUrl) ||
-        (nutzerData && nutzerData.logoUrl) ||
-        "";
-    
-      const sellerLocation =
-        inserat.standort ||
-        [inserat.plz, inserat.ort].filter(Boolean).join(" ") ||
-        "Standort nicht angegeben";
-    
-      dealerInfoEl.innerHTML = `
-        <div class="dealer-row">
-          <div class="dealer-avatar">
-            <img alt="${sellerName} Logo" loading="lazy">
-            <span class="dealer-initials">${sellerInitials(sellerName)}</span>
-          </div>
-          <div class="dealer-meta">
-            <div class="dealer-name">${sellerName}</div>
-            <div class="dealer-location">${sellerLocation}</div>
-          </div>
-        </div>
-      `;
-    
-      const avatar = dealerInfoEl.querySelector(".dealer-avatar");
-      const img    = dealerInfoEl.querySelector(".dealer-avatar img");
-    
-      // Default: Initialen anzeigen
-      avatar.classList.remove("has-logo");
-      img.removeAttribute("src");
-    
-      if (sellerLogo) {
-        // Bei erfolgreichem Laden → Logo anzeigen
-        img.addEventListener("load", () => {
-          avatar.classList.add("has-logo");
-        }, { once: true });
-    
-        // Bei Fehler → wieder Initialen zeigen
-        img.addEventListener("error", () => {
-          avatar.classList.remove("has-logo");
-          img.removeAttribute("src");
-        }, { once: true });
-    
-        img.src = sellerLogo;
-    
-        // Cache-Fall: Bild evtl. schon fertig
-        if (img.complete && img.naturalWidth > 0) {
-          avatar.classList.add("has-logo");
-        }
-      }
-    
+   // --- Verkäuferzeile (Logo + Name + Standort) ---
+const dealerInfoEl = wrapper.querySelector(".dealer-info");
+
+// 1) Typ bestimmen (robust)
+const rawType = String(
+  inserat?.seller?.type ||
+  inserat?.verkauf_verkaeufer ||
+  ""
+).toLowerCase();
+
+const isHaendler =
+  rawType === "haendler" ||
+  rawType === "händler" ||
+  rawType.includes("händ") ||
+  rawType.includes("haend");
+
+// 2) Name
+const sellerName =
+  inserat?.seller?.name ||
+  inserat?.verkauf_name ||
+  nutzerData?.firma ||
+  nutzerData?.name ||
+  (isHaendler ? "Händler" : "Privatanbieter");
+
+// 3) Standort
+const sellerLocation =
+  inserat?.standort ||
+  [inserat?.plz, inserat?.ort].filter(Boolean).join(" ") ||
+  "Standort nicht angegeben";
+
+// 4) Fallback-Regel für Logo:
+//    - wenn Inserat einen Seller-Snapshot hat → den nutzen
+//    - sonst, wenn es MEIN Inserat ist → mein Profil-Logo nutzen
+const belongsToMe = String(inserat?.verkaeuferId || "") === String(nutzerData?.nutzerId || "");
+const sellerLogo =
+  (typeof inserat?.seller?.logoUrl === "string" && inserat.seller.logoUrl.trim()) ||
+  (belongsToMe ? (nutzerData?.logoUrl || "") : "");
+
+// 5) HTML einsetzen
+dealerInfoEl.innerHTML = `
+  <div class="dealer-row">
+    <div class="dealer-avatar">
+      <img alt="${sellerName} Logo" loading="lazy" decoding="async">
+      <span class="dealer-initials">${sellerInitials(sellerName)}</span>
+    </div>
+    <div class="dealer-meta">
+      <div class="dealer-name">${sellerName}</div>
+      <div class="dealer-location">${sellerLocation}</div>
+    </div>
+  </div>
+`;
+
+const avatar = dealerInfoEl.querySelector(".dealer-avatar");
+const img    = dealerInfoEl.querySelector(".dealer-avatar img");
+
+// Default: Initialen
+avatar.classList.remove("has-logo");
+img.removeAttribute("src");
+
+// Debug: zeig mir, was berechnet wurde
+console.debug("INSERAT", extractMongoId(inserat), {
+  belongsToMe, sellerName, sellerLogo, sellerLocation,
+  snapshot: inserat?.seller, nutzerLogo: nutzerData?.logoUrl
+});
+
+if (sellerLogo) {
+  // bei Erfolg → Logo zeigen
+  img.addEventListener("load", () => {
+    avatar.classList.add("has-logo");
+  }, { once: true });
+
+  // bei Fehler → Initialen lassen
+  img.addEventListener("error", () => {
+    avatar.classList.remove("has-logo");
+    img.removeAttribute("src");
+    console.warn("Logo konnte nicht geladen werden:", sellerLogo);
+  }, { once: true });
+
+  img.src = sellerLogo;
+
+  // Sofort-Fall (aus Cache): Safari/Chrome können 'complete' schon true haben
+  if (img.complete && img.naturalWidth > 0) {
+    avatar.classList.add("has-logo");
+  }
+}
+
       // Hochformat-Erkennung
       wrapper.querySelectorAll(".slide").forEach((media) => {
         if (media.tagName === "VIDEO") {
