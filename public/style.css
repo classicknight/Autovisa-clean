@@ -1200,30 +1200,34 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
 .dealer-avatar {
   width: 34px;
   height: 34px;
+  aspect-ratio: 1 / 1;         /* hält's rund bei Resize */
   border-radius: 50%;
   overflow: hidden;
   border: 1px solid #e3e9ef;
   background: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;          /* für Overlay-Positionierung */
   flex-shrink: 0;
-  position: relative;
+}
+
+/* Bild & Initialen ÜBERLAGERN statt nebeneinander */
+.dealer-avatar img,
+.dealer-avatar .dealer-initials {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 /* Bild nie via display:none verstecken (Safari lädt sonst nicht) */
 .dealer-avatar img {
-  width: 100%;
-  height: 100%;
   object-fit: cover;
   display: block;
   opacity: 0;                 /* unsichtbar bis geladen */
   transition: opacity .2s ease;
 }
 
+/* Fallback-Initialen sind default sichtbar */
 .dealer-initials {
-  width: 100%;
-  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1234,6 +1238,7 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
   letter-spacing: .3px;
 }
 
+/* Wenn Logo geladen: Bild zeigen, Initialen ausblenden */
 .dealer-avatar.has-logo img { opacity: 1; }
 .dealer-avatar.has-logo .dealer-initials { display: none; }
 
@@ -1269,7 +1274,6 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
 @media (prefers-reduced-motion: reduce){
   .dealer-avatar img { transition: none; }
 }
-
 
 
 

@@ -419,58 +419,65 @@ let serverTotal = 0;      // Gesamtanzahl vom Server für den Pager
     return res.json(); // { page, limit, total, results }
   }
   
-  // ---- DB -> UI Normalform (einheitliche Feldnamen) ----
-  function normalizeItem(raw) {
-    // EZ: bevorzugt 'erstzulassung' (YYYY-MM); sonst aus jahr/monat zusammensetzen
-    const ez =
-      raw.erstzulassung ||
-      (raw.verkauf_ez_jahr && raw.verkauf_ez_monat
-        ? `${String(raw.verkauf_ez_jahr)}-${String(raw.verkauf_ez_monat).padStart(2, "0")}`
-        : "");
+ // ---- DB -> UI Normalform (einheitliche Feldnamen) ----
+function normalizeItem(raw) {
+  // EZ ...
+  const ez =
+    raw.erstzulassung ||
+    (raw.verkauf_ez_jahr && raw.verkauf_ez_monat
+      ? `${String(raw.verkauf_ez_jahr)}-${String(raw.verkauf_ez_monat).padStart(2, "0")}`
+      : "");
 
-    // Preis: nimm brutto zuerst, sonst preis
-    const preis =
-      raw["brutto-preis"] ??
-      raw.brutto_preis ??
-      raw.verkauf_brutto ??
-      raw.preis ??
-      raw.verkauf_preis ?? "";
+  // ✅ Preis: nimm den ersten *echten Zahlenwert* (leer/NaN werden übersprungen)
+  const pickPrice = (...vals) => {
+    for (const v of vals) {
+      if (v === null || v === undefined) continue;
+      const s = String(v).trim();
+      if (!s) continue;
+      const n = Number(s.replace(/\./g, "").replace(",", "."));
+      if (Number.isFinite(n)) return n; // Zahl gefunden
+    }
+    return ""; // nichts gefunden → leer
+  };
 
-    return {
-      // ID bleibt wie geliefert (getMongoId() kümmert sich später)
-      _id: raw._id,
+  const preis = pickPrice(
+    raw["brutto-preis"],
+    raw.brutto_preis,
+    raw.verkauf_brutto,
+    raw.preis,
+    raw.verkauf_preis,   // wichtig für „Keine MwSt.“
+    raw.verkauf_netto    // falls Netto separat gepflegt ist
+  );
 
-      // Basis
-      titel: raw.titel || [raw.marke, raw.modell].filter(Boolean).join(" ").trim(),
-      marke: raw.marke || "",
-      modell: raw.modell || "",
+  return {
+    _id: raw._id,
+    titel: raw.titel || [raw.marke, raw.modell].filter(Boolean).join(" ").trim(),
+    marke: raw.marke || "",
+    modell: raw.modell || "",
 
-      // Normalisierte Kernwerte als String (wir parsen on-the-fly mit toNum)
-      preis,
-      kilometer: raw.verkauf_kilometer ?? raw.kilometer ?? raw.km ?? "",
-      erstzulassung: ez,
-      kraftstoff: raw.verkauf_kraftstoff ?? raw.kraftstoff ?? "",
-      getriebe: raw.verkauf_getriebe ?? raw.getriebe ?? "",
-      leistung: raw.verkauf_leistung ?? raw.leistung ?? raw.ps ?? "",
-      verbrauch_kombiniert: raw.verbrauch_kombiniert ?? raw.verkauf_verbrauch_kombiniert ?? "",
+    preis, // <- jetzt robust
 
-      // Metadaten/Anbieter
-      verkaeufer: raw.verkauf_verkaeufer ?? raw.verkaeufer ?? "",
-      name: raw.verkauf_name ?? raw.name ?? "",
-      standort: raw.standort ?? "",
-      telefon: raw.telefon ?? raw.phone ?? "",
+    kilometer: raw.verkauf_kilometer ?? raw.kilometer ?? raw.km ?? "",
+    erstzulassung: ez,
+    kraftstoff: raw.verkauf_kraftstoff ?? raw.kraftstoff ?? "",
+    getriebe: raw.verkauf_getriebe ?? raw.getriebe ?? "",
+    leistung: raw.verkauf_leistung ?? raw.leistung ?? raw.ps ?? "",
+    verbrauch_kombiniert: raw.verbrauch_kombiniert ?? raw.verkauf_verbrauch_kombiniert ?? "",
 
-      // Medien (Strings bevorzugt)
-      images: Array.isArray(raw.images) ? raw.images
-            : Array.isArray(raw.fotos)  ? raw.fotos
-            : Array.isArray(raw.media)  ? raw.media.map(m => m.url || m)
-            : [],
-      video: raw.video || "",
+    verkaeufer: raw.verkauf_verkaeufer ?? raw.verkaeufer ?? "",
+    name: raw.verkauf_name ?? raw.name ?? "",
+    standort: raw.standort ?? "",
+    telefon: raw.telefon ?? raw.phone ?? "",
 
-      // optional alles Rohdaten falls woanders gebraucht
-      raw
-    };
-  }
+    images: Array.isArray(raw.images) ? raw.images
+          : Array.isArray(raw.fotos)  ? raw.fotos
+          : Array.isArray(raw.media)  ? raw.media.map(m => m.url || m)
+          : [],
+    video: raw.video || "",
+
+    raw
+  };
+}
 
   function applyClientFilters(items) {
     // Sidebar-/Form-Felder (nur verwenden, wenn vorhanden)
