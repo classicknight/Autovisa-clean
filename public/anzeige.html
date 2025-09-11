@@ -391,113 +391,43 @@
   
 </div>
 <!-- Anbieter / Händler -->
+<!-- Anbieter -->
 <section class="seller-card" id="sellerCard">
   <h2 class="seller-heading">Anbieter</h2>
 
   <div class="seller-top">
-    <!-- Avatar + Stammdaten -->
     <div class="seller-id">
       <div class="dealer-avatar">
-        <img id="sellerLogo" alt="Logo des Anbieters">
+        <img id="sellerLogo" alt="Logo">
         <span class="dealer-initials" id="sellerInitials">AV</span>
       </div>
       <div class="seller-meta">
         <div class="seller-name" id="sellerName">—</div>
         <div class="seller-type-pill" id="sellerType">Privatanbieter</div>
-        <div class="seller-location" id="sellerLocation">Standort nicht angegeben</div>
+        <div class="seller-address" id="sellerAddress">—</div>
       </div>
     </div>
 
-    <!-- Rating + Aktionen -->
     <div class="seller-rating-wrap">
-      <div class="stars" aria-label="Bewertung">
-        <div class="stars-fill" id="starsFill" style="width:0%"></div>
-      </div>
-      <div class="rating-text">
-        <span id="ratingValue">–</span> / 5
-        <span class="rating-count" id="ratingCount"></span>
-      </div>
-      <div class="seller-actions">
-        <button class="btn-soft" id="btnAllCars" style="display:none">
-          <i class="fas fa-store"></i> Alle Fahrzeuge
-        </button>
-        <button class="btn-soft" id="btnRate" type="button" onclick="toggleRatingPanel()" aria-controls="ratingPanel">
-          <i class="fas fa-star"></i> Bewerten
-        </button>
-      </div>
+      <div class="stars"><div class="stars-fill" id="starsFill" style="width:0%"></div></div>
+      <div class="rating-text"><span id="ratingValue">–</span> / 5 <span class="rating-count" id="ratingCount"></span></div>
+      <button class="btn-soft" id="btnRate"><i class="fas fa-star"></i> Bewerten</button>
     </div>
   </div>
 
-  <!-- Daten-Spalten -->
-  <div class="seller-grid">
-    <!-- Unternehmensdaten -->
-    <div class="seller-card-box">
-      <div class="box-title"><i class="fas fa-address-card"></i> Unternehmensdaten</div>
-      <ul class="kv">
-        <li><span>Firma</span><strong id="kvFirma">—</strong></li>
-        <li><span>USt-ID</span><strong id="kvUst">—</strong></li>
-        <li><span>Handelsreg.</span><strong id="kvHr">—</strong></li>
-        <li><span>Adresse</span><strong id="kvAdr">—</strong></li>
-        <li>
-          <span>Webseite</span>
-          <strong id="kvWeb">
-            <a target="_blank" rel="noopener" href="#" id="kvWebLink" style="display:none">Öffnen</a>
-            <span id="kvWebNA">—</span>
-          </strong>
-        </li>
-      </ul>
-    </div>
-
-    <!-- Kontakt -->
-    <div class="seller-card-box">
-      <div class="box-title"><i class="fas fa-headset"></i> Kontakt</div>
-      <ul class="kv">
-        <li><span>Telefon</span><strong id="kvTel">—</strong></li>
-        <li><span>E-Mail</span><strong id="kvMail">—</strong></li>
-        <li><span>Ansprechpartner</span><strong id="kvPers">—</strong></li>
-        <li><span>Antwortzeit</span><strong id="kvResp">—</strong></li>
-      </ul>
-      <div class="cta-row">
-        <a class="btn-primary" id="callBtn" href="#"><i class="fas fa-phone"></i> Anrufen</a>
-        <button class="btn-primary ghost" id="msgBtn" type="button"><i class="fas fa-envelope"></i> Nachricht</button>
-      </div>
-    </div>
-
-    <!-- Öffnungszeiten (optional, wird per JS ein/ausgeblendet) -->
-    <div class="seller-card-box" id="hoursBox" style="display:none">
-      <div class="box-title"><i class="fas fa-clock"></i> Öffnungszeiten</div>
-      <ul class="hours" id="hoursList"></ul>
-    </div>
+  <div class="seller-contact">
+    <a class="btn-primary" id="callBtn" href="#"><i class="fas fa-phone"></i> Anrufen</a>
+    <a class="btn-primary ghost" id="mailBtn" href="#"><i class="fas fa-envelope"></i> E-Mail</a>
+    <button class="btn-primary ghost" id="msgBtn" type="button"><i class="fas fa-comment"></i> Nachricht</button>
   </div>
 </section>
-
-<!-- Kompaktes Bewertungs-Panel -->
-<div class="rating-panel" id="ratingPanel" aria-hidden="true" style="display:none">
-  <div class="rating-panel-header">
-    <span>Händler bewerten</span>
-    <button class="close-rating" type="button" onclick="toggleRatingPanel()" aria-label="Schließen">×</button>
-  </div>
-  <div class="rating-panel-body">
-    <div class="star-rating" id="starRating" role="radiogroup" aria-label="Bewertung auswählen">
-      <button type="button" class="star" data-value="1" aria-label="1 von 5"><i class="fas fa-star"></i></button>
-      <button type="button" class="star" data-value="2" aria-label="2 von 5"><i class="fas fa-star"></i></button>
-      <button type="button" class="star" data-value="3" aria-label="3 von 5"><i class="fas fa-star"></i></button>
-      <button type="button" class="star" data-value="4" aria-label="4 von 5"><i class="fas fa-star"></i></button>
-      <button type="button" class="star" data-value="5" aria-label="5 von 5"><i class="fas fa-star"></i></button>
-    </div>
-    <textarea id="ratingText" placeholder="Deine Bewertung …" rows="4"></textarea>
-    <button class="submit-rating-btn" type="button" onclick="submitRating()">Absenden</button>
-  </div>
-</div>
 
 <!-- Weitere Fahrzeuge dieses Händlers -->
-<section class="seller-more" id="sellerMore" style="display:none">
-  <h2 class="seller-more-heading">Weitere Fahrzeuge dieses Händlers</h2>
+<section class="seller-more" id="sellerMore" style="display:none;">
+  <h3 class="seller-more-heading">Weitere Fahrzeuge dieses Händlers</h3>
   <div class="seller-more-grid" id="sellerMoreGrid"></div>
-  <div class="seller-more-actions">
-    <a class="btn-primary" id="sellerAllLink" href="#"><i class="fas fa-store"></i> Alle Fahrzeuge anzeigen</a>
-  </div>
 </section>
+
 
 
 
