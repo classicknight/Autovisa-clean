@@ -1099,118 +1099,422 @@ function showPhoneNumber() {
 
 
 
+// =============== kleine Utils ===============
+const $id = (x) => document.getElementById(x);
+const setText = (id, v) => { const el = $id(id); if (el) el.textContent = v ?? "—"; };
+const show = (el) => el && (el.style.display = "");
+const hide = (el) => el && (el.style.display = "none");
+const toNum = (v) => {
+  if (v === null || v === undefined || v === "") return NaN;
+  return Number(String(v).replace(/\./g, "").replace(",", "."));
+};
+const fmtEUR = (v) => {
+  const n = toNum(v);
+  return Number.isFinite(n) ? n.toLocaleString("de-DE") + " €" : "Preis n. a.";
+};
+const sanitizePhone = (p) => String(p || "").replace(/[^\d+]/g, "");
 
+// Echte ID aus { _id: "..."} | {_id:{ $oid:"..."}} | id
+function getDocId(doc) {
+  if (!doc) return null;
+  if (doc._id && typeof doc._id === "object" && typeof doc._id.$oid === "string") return doc._id.$oid;
+  if (typeof doc._id === "string") return doc._id;
+  if (typeof doc.id === "string") return doc.id;
+  return null;
+}
 
-(function renderSeller(){
-  const box = document.getElementById('sellerCard');
+// Normiertes Inserat -> Payload für anzeige.html (falls wir aus „Weitere Fahrzeuge“ klicken)
+function toAnzeigePayload(item) {
+  const raw = item?.raw && typeof item.raw === "object" ? item.raw : {};
+  const merged = { ...raw, ...item };
+  if (merged.verkauf_kilometer == null && item.kilometer != null) merged.verkauf_kilometer = item.kilometer;
+  if (!merged.verkauf_erstzulassung && item.erstzulassung) merged.verkauf_erstzulassung = item.erstzulassung;
+  if (!merged.verkauf_kraftstoff && item.kraftstoff) merged.verkauf_kraftstoff = item.kraftstoff;
+  if (!merged.verkauf_getriebe && item.getriebe) merged.verkauf_getriebe = item.getriebe;
+  if (!merged.verkauf_leistung && item.leistung) merged.verkauf_leistung = item.leistung;
+  if (!merged.verkauf_verbrauch_kombiniert && item.verbrauch_kombiniert) merged.verkauf_verbrauch_kombiniert = item.verbrauch_kombiniert;
+  if (!merged.verkauf_verkaeufer && item.verkaeufer) merged.verkauf_verkaeufer = item.verkaeufer;
+  if (!merged.verkauf_name && item.name) merged.verkauf_name = item.name;
+  if (merged.verkauf_brutto == null && (merged.brutto_preis != null)) merged.verkauf_brutto = merged.brutto_preis;
+  if (merged.verkauf_brutto == null && (merged["brutto-preis"] != null)) merged.verkauf_brutto = merged["brutto-preis"];
+  if (merged.verkauf_preis == null && (item.preis != null)) merged.verkauf_preis = item.preis;
+  if (!merged.telefon && item.telefon) merged.telefon = item.telefon;
+  return merged;
+}
+
+// Robustes Logo-Laden (Safari/cache-sicher)
+function loadLogo(imgEl, avatarEl, url) {
+  avatarEl?.classList?.remove("has-logo");
+  imgEl?.removeAttribute?.("src");
+  if (!url || !imgEl || !avatarEl) return;
+  const probe = new Image();
+  probe.decoding = "async";
+  probe.onload = () => {
+    imgEl.src = probe.src;
+    avatarEl.classList.add("has-logo");
+  };
+  probe.onerror = () => {
+    avatarEl.classList.remove("has-logo");
+    imgEl.removeAttribute("src");
+  };
+  probe.src = url;
+  if (probe.complete && probe.naturalWidth > 0) {
+    imgEl.src = url;
+    avatarEl.classList.add("has-logo");
+  }
+}
+
+// Optional: Händlerprofil vom Server nachladen (für volle Adresse/Logo)
+// Erwartet Antwortobjekt mit Feldern wie in deinem Mongo-Beispiel.
+async function fetchSellerProfile(sellerId) {
+  try {
+    if (!sellerId) return null;
+    const res = await fetch(`/api/seller?id=${encodeURIComponent(sellerId)}`, { credentials: "include" });
+    if (!res.ok) return null;
+    return await res.json(); // z.B. { firma, strasse, hausnummer, plz, ort, land, telefon, email, logoUrl, website, ustId, registerNr, hours }
+  } catch {
+    return null;
+  }
+}
+
+// Verkäuferfahrzeuge laden
+async function fetchSellerCars(sellerId, limit = 6) {
+  try {
+    if (!sellerId) return { total: 0, results: [] };
+    const params = new URLSearchParams({ verkaeufer: sellerId, limit: String(limit), page: "1", sort: "neueste" });
+    const res = await fetch(`/api/search?${params.toString()}`, { credentials: "omit" });
+    if (!res.ok) return { total: 0, results: [] };
+    const data = await res.json(); // { total, results: [...] }
+    return { total: data?.total || 0, results: Array.isArray(data?.results) ? data.results : [] };
+  } catch {
+    return { total: 0, results: [] };
+  }
+}
+
+// Sektion „Weitere Fahrzeuge“ notfalls anlegen
+function ensureSellerMoreSection() {
+  let sec = $id("sellerMore");
+  if (sec) return sec;
+  const anchor = $id("sellerCard");
+  if (!anchor) return null;
+  sec = document.createElement("section");
+  sec.id = "sellerMore";
+  sec.className = "seller-more";
+  sec.innerHTML = `
+    <h3 class="seller-more-heading">Weitere Fahrzeuge dieses Händlers</h3>
+    <div class="seller-more-grid" id="sellerMoreGrid"></div>
+    <div class="seller-more-actions">
+      <button class="btn-soft" id="sellerMoreAllBtn"><i class="fas fa-store"></i> Alle Fahrzeuge anzeigen</button>
+    </div>
+  `;
+  anchor.insertAdjacentElement("afterend", sec);
+  return sec;
+}
+
+// Karten für „Weitere Fahrzeuge“ rendern
+function renderSellerMore(cards, sellerId) {
+  const sec = ensureSellerMoreSection();
+  const grid = $id("sellerMoreGrid");
+  const allBtn = $id("sellerMoreAllBtn");
+  if (!sec || !grid) return;
+
+  grid.innerHTML = "";
+  if (!cards.length) {
+    hide(sec);
+    return;
+  }
+
+  cards.forEach(item => {
+    const images = Array.isArray(item.images) ? item.images : (Array.isArray(item.fotos) ? item.fotos : []);
+    const media = images[0] || item.cover || "";
+    const titel = item.titel || [item.marke, item.modell].filter(Boolean).join(" ").trim() || "Fahrzeug";
+    const km    = item.verkauf_kilometer ?? item.kilometer ?? item.km ?? "";
+    const ez    = item.verkauf_erstzulassung || item.erstzulassung || "";
+    const preis = item.verkauf_brutto ?? item["brutto-preis"] ?? item.brutto_preis ?? item.preis ?? item.verkauf_preis;
+    const id    = getDocId(item);
+
+    const card = document.createElement("article");
+    card.className = "seller-more-card";
+    card.innerHTML = `
+      <div class="smc-media">
+        ${media ? `<img src="${media}" alt="">` : `<div style="width:100%;height:100%;background:#1f2a33"></div>`}
+      </div>
+      <div class="smc-body">
+        <div class="smc-title">${titel}</div>
+        <div class="smc-meta">
+          <span><i class="fas fa-road"></i> ${km ? Number(toNum(km)).toLocaleString("de-DE") + " km" : "—"}</span>
+          <span><i class="fas fa-calendar-alt"></i> ${ez || "—"}</span>
+        </div>
+        <div class="smc-price">${fmtEUR(preis)}</div>
+      </div>
+    `;
+    card.addEventListener("click", () => {
+      try { localStorage.setItem("ausgewaehltesInserat", JSON.stringify(toAnzeigePayload(item))); } catch {}
+      if (id) window.location.href = `anzeige.html?id=${encodeURIComponent(id)}`;
+      else     window.location.href = `anzeige.html`;
+    });
+    grid.appendChild(card);
+  });
+
+  if (sellerId && allBtn) {
+    allBtn.onclick = () => {
+      window.location.href = `suche.html?verkaeufer=${encodeURIComponent(sellerId)}&sort=neueste`;
+    };
+  }
+  show(sec);
+}
+
+// =============== Seller-Card Render ===============
+async function renderSeller() {
+  const box = $id("sellerCard");
   if (!box) return;
 
+  // A) Inserat aus localStorage holen
   let inserat = {};
   try { inserat = JSON.parse(localStorage.getItem("ausgewaehltesInserat") || "{}"); } catch {}
 
-  // Felder sammeln (robust)
+  // B) Basiswerte aus Inserat
   const rawType = String(inserat?.seller?.type || inserat?.verkauf_verkaeufer || "").toLowerCase();
-  const isDealer = ["haendler","händler"].some(k => rawType.includes(k)) || rawType === "haendler";
-  const name  = inserat?.seller?.name || inserat?.verkauf_name || (isDealer ? "Händler" : "Privatanbieter");
-  const logo  = inserat?.seller?.logoUrl || inserat?.logoUrl || "";
-  const loc   = inserat?.standort || [inserat?.plz, inserat?.ort].filter(Boolean).join(" ") || "Standort nicht angegeben";
-  const phone = inserat?.telefon || inserat?.seller?.phone || "";
-  const mail  = inserat?.seller?.email || inserat?.email || "";
-  const web   = inserat?.seller?.website || inserat?.website || "";
-  const ust   = inserat?.seller?.ustId || inserat?.ustId || "";
-  const hr    = inserat?.seller?.registerNr || inserat?.handelsreg || "";
-  const person= inserat?.seller?.ansprechpartner || inserat?.ansprechpartner || "";
-  const resp  = inserat?.seller?.antwortzeit || inserat?.antwortzeit || "";
-  const rating= Number(inserat?.seller?.rating || inserat?.rating || 0);
-  const rCnt  = Number(inserat?.seller?.reviews || inserat?.reviews || 0);
-  const sellerId = inserat?.verkaeuferId || inserat?.seller?.id || "";
+  const isDealer = rawType.includes("händ") || rawType.includes("haend") || rawType === "haendler" || rawType === "händler" || inserat?.seller?.role === "haendler";
+  let sellerId = inserat?.verkaeuferId || inserat?.seller?.id || inserat?.sellerId || "";
 
-  // Kopf
-  const initials = (name||"").trim().split(/\s+/).slice(0,2).map(p => p[0]?.toUpperCase()||"").join("") || "AV";
-  document.getElementById("sellerInitials").textContent = initials;
-  document.getElementById("sellerName").textContent = name;
-  document.getElementById("sellerType").textContent = isDealer ? "Händler" : "Privatanbieter";
-  document.getElementById("sellerLocation").textContent = loc;
-
-  // Logo laden (Safari-safe)
-  const avatar = box.querySelector(".dealer-avatar");
-  const img = document.getElementById("sellerLogo");
-  avatar.classList.remove("has-logo");
-  img.removeAttribute("src");
-  if (logo) {
-    img.addEventListener("load", () => avatar.classList.add("has-logo"), { once:true });
-    img.addEventListener("error", () => { avatar.classList.remove("has-logo"); img.removeAttribute("src"); }, { once:true });
-    img.src = logo;
-    if (img.complete && img.naturalWidth > 0) avatar.classList.add("has-logo");
+  // C) Optional Profil nachladen, um vollständige Adresse/Logo/Web zu bekommen
+  const profile = await fetchSellerProfile(sellerId);
+  // Wenn kein sellerId im Inserat steckt, versuch's aus Profil
+  if (!sellerId && profile && (profile._id || profile.id)) {
+    sellerId = getDocId(profile) || profile.id;
   }
 
-  // Sterne (breite = rating/5)
+  // D) Felder zusammenführen (Profil > Inserat > Fallback)
+  const name = (profile?.firma || profile?.name || inserat?.seller?.name || inserat?.verkauf_name || (isDealer ? "Händler" : "Privatanbieter")).trim();
+  const initials = name.split(/\s+/).slice(0,2).map(p => p[0]?.toUpperCase() || "").join("") || "AV";
+
+  const logoUrl =
+    profile?.logoUrl ||
+    inserat?.seller?.logoUrl ||
+    inserat?.logoUrl ||
+    "";
+
+  const addressFull = (() => {
+    const s = (t) => (t == null ? "" : String(t).trim());
+    // Vollständige Händleradresse bevorzugen
+    const parts = [
+      [s(profile?.strasse), s(profile?.hausnummer)].filter(Boolean).join(" "),
+      [s(profile?.plz), s(profile?.ort)].filter(Boolean).join(" "),
+      s(profile?.land)
+    ].filter(Boolean);
+    if (parts.length) return parts.join(", ");
+    // Fallback: aus Inserat
+    const loc = inserat?.standort || [inserat?.plz, inserat?.ort].filter(Boolean).join(" ");
+    return loc || "Standort nicht angegeben";
+  })();
+
+  const locationShort = (() => {
+    if (profile?.ort && profile?.plz) return `${profile.plz} ${profile.ort}`;
+    return inserat?.ort || inserat?.standort || "Standort nicht angegeben";
+  })();
+
+  const phone = profile?.telefon || inserat?.telefon || inserat?.seller?.phone || "";
+  const mail  = profile?.email   || inserat?.seller?.email || inserat?.email || "";
+  const web   = profile?.website || inserat?.seller?.website || inserat?.website || "";
+
+  const ust   = profile?.ustId || inserat?.seller?.ustId || inserat?.ustId || "";
+  const hr    = profile?.registerNr || inserat?.seller?.registerNr || inserat?.handelsreg || "";
+
+  const person= profile?.ansprechpartner || inserat?.seller?.ansprechpartner || inserat?.ansprechpartner || "";
+  const resp  = inserat?.seller?.antwortzeit || inserat?.antwortzeit || "";
+
+  const rating = Number(profile?.rating ?? inserat?.seller?.rating ?? inserat?.rating ?? 0);
+  const rCnt   = Number(profile?.reviews ?? inserat?.seller?.reviews ?? inserat?.reviews ?? 0);
+
+  // E) In DOM schreiben
+  setText("sellerInitials", initials);
+  setText("sellerName", name);
+  setText("sellerType", isDealer ? "Händler" : "Privatanbieter");
+  setText("sellerLocation", locationShort);
+
+  const avatar = box.querySelector(".dealer-avatar");
+  loadLogo($id("sellerLogo"), avatar, logoUrl);
+
   const w = Math.max(0, Math.min(5, rating)) / 5 * 100;
-  document.getElementById("starsFill").style.width = w + "%";
-  document.getElementById("ratingValue").textContent = rating ? rating.toFixed(1) : "–";
-  document.getElementById("ratingCount").textContent = rCnt ? `(${rCnt})` : "";
+  $id("starsFill").style.width = w + "%";
+  setText("ratingValue", rating ? rating.toFixed(1) : "–");
+  $id("ratingCount").textContent = rCnt ? `(${rCnt})` : "";
 
-  // Unternehmensdaten
-  document.getElementById("kvFirma").textContent = isDealer ? name : "—";
-  document.getElementById("kvUst").textContent   = isDealer && ust ? ust : "—";
-  document.getElementById("kvHr").textContent    = isDealer && hr  ? hr  : "—";
-  document.getElementById("kvAdr").textContent   = loc || "—";
+  // Unternehmensdaten-Box
+  const firmaVal = isDealer ? (profile?.firma || name) : "";
+  const companyBox = box.querySelector(".seller-card-box .box-title i.fas.fa-address-card")?.closest(".seller-card-box");
+  if (isDealer) {
+    setText("kvFirma", firmaVal || "—");
+    setText("kvUst",   ust   || "—");
+    setText("kvHr",    hr    || "—");
+    setText("kvAdr",   addressFull || "—");
 
-  const link = document.getElementById("kvWebLink");
-  const webNA = document.getElementById("kvWebNA");
-  if (web) {
-    link.href = web.startsWith("http") ? web : ("https://" + web);
-    link.style.display = "";
-    webNA.style.display = "none";
+    const link = $id("kvWebLink"), webNA = $id("kvWebNA");
+    if (web) {
+      link.href = web.startsWith("http") ? web : ("https://" + web);
+      show(link); hide(webNA);
+    } else { hide(link); show(webNA); }
   } else {
-    link.style.display = "none";
-    webNA.style.display = "";
+    // bei Privat: Unternehmensdaten ausblenden, wenn vorhanden
+    if (companyBox) companyBox.style.display = "none";
   }
 
   // Kontakt
-  const telFmt = String(phone||"").replace(/[^\d+]/g, "");
-  document.getElementById("kvTel").textContent  = phone || "—";
-  document.getElementById("kvMail").textContent = mail  || "—";
-  document.getElementById("kvPers").textContent = person|| "—";
-  document.getElementById("kvResp").textContent = resp  || "—";
+  const telFmt = sanitizePhone(phone);
+  setText("kvTel", phone || "—");
+  setText("kvMail", mail  || "—");
+  setText("kvPers", person|| "—");
+  setText("kvResp", resp  || "—");
 
-  const callBtn = document.getElementById("callBtn");
-  if (telFmt) callBtn.href = `tel:${telFmt}`; else { callBtn.removeAttribute("href"); callBtn.classList.add("ghost"); }
+  const callBtn = $id("callBtn");
+  if (telFmt) { callBtn.href = `tel:${telFmt}`; callBtn.classList.remove("ghost"); }
+  else        { callBtn.removeAttribute("href"); callBtn.classList.add("ghost"); }
 
-  document.getElementById("msgBtn").addEventListener("click", () => {
-    // öffne dein vorhandenes Kontaktpanel / Fokus aufs Formular
+  $id("msgBtn")?.addEventListener("click", () => {
+    // Öffne ggf. dein Kontakt-Panel
     document.getElementById("contactPanel")?.classList.add("open");
     document.querySelector("#messageForm textarea")?.focus();
   });
 
-  // Öffnungszeiten (falls vorhanden)
-  const hours = inserat?.seller?.hours || inserat?.oeffnungszeiten || null;
-  const hoursBox = document.getElementById("hoursBox");
-  if (hours && typeof hours === "object") {
+  // Öffnungszeiten (Profil bevorzugt)
+  const hours = profile?.hours || inserat?.seller?.hours || inserat?.oeffnungszeiten || null;
+  const hoursBox = $id("hoursBox");
+  if (hours && typeof hours === "object" && hoursBox) {
     const order = ["montag","dienstag","mittwoch","donnerstag","freitag","samstag","sonntag"];
     const mapDe = { montag:"Mo", dienstag:"Di", mittwoch:"Mi", donnerstag:"Do", freitag:"Fr", samstag:"Sa", sonntag:"So" };
     const todayIdx = (new Date().getDay() + 6) % 7; // Mo=0 … So=6
-    const ul = document.getElementById("hoursList");
+    const ul = $id("hoursList");
     ul.innerHTML = "";
     order.forEach((key, i) => {
-      const val = hours[key];
+      const val = hours[key] || hours[key.charAt(0).toUpperCase()+key.slice(1)] || ""; // toleranter
       const li = document.createElement("li");
       li.className = i === todayIdx ? "today" : "";
       li.innerHTML = `<span>${mapDe[key] || key}</span><span>${val || "—"}</span>`;
       ul.appendChild(li);
     });
-    hoursBox.style.display = "";
-  } else {
-    hoursBox.style.display = "none";
+    show(hoursBox);
+  } else if (hoursBox) {
+    hide(hoursBox);
   }
 
-  // „Alle Fahrzeuge“ nur zeigen, wenn du eine verkaeuferId hast und deine Suche das unterstützt
-  const allBtn = document.getElementById("btnAllCars");
-  if (sellerId) {
-    allBtn.style.display = "";
-    allBtn.addEventListener("click", () => {
-      // Falls dein Backend-Filter existiert:
-      window.location.href = `suche.html?verkaeufer=${encodeURIComponent(sellerId)}&sort=neueste`;
+  // „Alle Fahrzeuge“ Button
+  const allBtn = $id("btnAllCars");
+  if (isDealer && sellerId && allBtn) {
+    show(allBtn);
+    allBtn.onclick = () => window.location.href = `suche.html?verkaeufer=${encodeURIComponent(sellerId)}&sort=neueste`;
+  } else if (allBtn) {
+    hide(allBtn);
+  }
+
+  // Untere Händlerfahrzeuge laden (nur wenn Händler & ID vorhanden)
+  if (isDealer && sellerId) {
+    const { results } = await fetchSellerCars(sellerId, 6);
+    // Aktuelles Inserat ausblenden, falls es mitgeladen wurde
+    const currentId = getDocId(inserat);
+    const filtered = results.filter(r => getDocId(r) !== currentId);
+    renderSellerMore(filtered.slice(0, 6), sellerId);
+  }
+}
+
+// =============== Rating Panel ===============
+(function setupRatingPanel(){
+  // Erzeuge bei Bedarf das Panel (falls nicht im HTML)
+  let panel = $id("ratingPanel");
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.id = "ratingPanel";
+    panel.className = "rating-panel";
+    panel.innerHTML = `
+      <div class="rating-panel-header">
+        <span>Händler bewerten</span>
+        <button class="close-rating" id="closeRatingBtn" aria-label="Schließen">×</button>
+      </div>
+      <div class="rating-panel-body">
+        <div class="star-rating" id="starRating"></div>
+        <textarea id="ratingText" placeholder="Deine Bewertung…" rows="4"></textarea>
+        <button class="submit-rating-btn" id="submitRatingBtn">Absenden</button>
+      </div>
+    `;
+    document.body.appendChild(panel);
+  }
+
+  // Sterne erzeugen (1..5)
+  const starWrap = $id("starRating");
+  if (starWrap && !starWrap.children.length) {
+    for (let i=1; i<=5; i++){
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "star";
+      b.dataset.value = String(i);
+      b.innerHTML = `<i class="fas fa-star"></i>`;
+      starWrap.appendChild(b);
+    }
+  }
+
+  let chosen = 0;
+  function markStars(n){
+    chosen = n;
+    Array.from(starWrap.querySelectorAll(".star")).forEach((s,i)=>{
+      s.classList.toggle("active", i < n);
     });
   }
+
+  starWrap?.addEventListener("click", (e) => {
+    const btn = e.target.closest(".star");
+    if (!btn) return;
+    const n = Number(btn.dataset.value || 0);
+    markStars(n);
+  });
+
+  $id("btnRate")?.addEventListener("click", toggleRatingPanel);
+  $id("closeRatingBtn")?.addEventListener("click", toggleRatingPanel);
+
+  $id("submitRatingBtn")?.addEventListener("click", async () => {
+    const text = ($id("ratingText")?.value || "").trim();
+    let inserat = {};
+    try { inserat = JSON.parse(localStorage.getItem("ausgewaehltesInserat") || "{}"); } catch {}
+    const sellerId = inserat?.verkaeuferId || inserat?.seller?.id || inserat?.sellerId || "";
+
+    if (!sellerId) { alert("Kein Händler zugeordnet."); return; }
+    if (!chosen)   { alert("Bitte Sterne auswählen."); return; }
+
+    try {
+      const res = await fetch("/api/seller/rate", {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        credentials: "include",
+        body: JSON.stringify({ sellerId, rating: chosen, text })
+      });
+      if (res.status === 401) {
+        alert("Bitte einloggen, um zu bewerten.");
+        return;
+      }
+      if (!res.ok) throw new Error("Fehler beim Senden");
+      toggleRatingPanel();
+      alert("Danke für deine Bewertung!");
+      // Optional: Rating frisch laden/aktualisieren
+      renderSeller();
+    } catch (e) {
+      alert("Bewertung konnte nicht gespeichert werden.");
+    }
+  });
+
+  // Exponiere Toggle für bestehende Buttons im HTML
+  window.toggleRatingPanel = function toggleRatingPanel(){
+    const p = $id("ratingPanel");
+    if (!p) return;
+    const open = p.style.display !== "block";
+    p.style.display = open ? "block" : "none";
+    if (open) {
+      markStars(0);
+      const ta = $id("ratingText");
+      if (ta) { ta.value = ""; ta.focus(); }
+    }
+  };
 })();
+
+// =============== Boot ===============
+document.addEventListener("DOMContentLoaded", () => {
+  renderSeller();
+});

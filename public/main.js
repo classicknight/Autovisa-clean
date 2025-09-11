@@ -1364,37 +1364,61 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-
-
-// Smart Hide Navbar: runter = verstecken, rauf = zeigen
+// Smart Hide Navbar: runter = verstecken, rauf = zeigen (robust, mit Hysterese)
 (() => {
   const nav = document.querySelector('.navbar');
   if (!nav) return;
 
-  let lastY = window.pageYOffset || 0;
-  let ticking = false;
+  const navLinks = document.getElementById('nav-links'); // fürs Mobile-Menü
+  let lastY = window.scrollY;
+  let hidden = false;
+  const THRESH = 10; // Mindestbewegung in px, um zu togglen
 
-  function run() {
-    const y = window.pageYOffset || 0;
-    const dy = y - lastY;
-
-    // nicht verstecken, wenn Mobile-Menü offen
-    const menuOpen = document.querySelector('.nav-links.active, .dropdown.open');
-    if (!menuOpen) {
-      if (dy > 4 && y > 120) {
-        nav.classList.add('nav--hidden');   // runter
-      } else if (dy < -4 || y < 60) {
-        nav.classList.remove('nav--hidden'); // rauf / ganz oben
-      }
+  const show = () => {
+    if (hidden) {
+      nav.classList.remove('nav--hidden');
+      hidden = false;
     }
-    lastY = y;
-    ticking = false;
-  }
+  };
+  const hide = () => {
+    if (!hidden && window.scrollY > 120) {
+      nav.classList.add('nav--hidden');
+      hidden = true;
+    }
+  };
+
+  // bei Touch sofort neue Basis setzen (Mobile-Scroll fühlt sich damit natürlicher an)
+  window.addEventListener('touchstart', () => { lastY = window.scrollY; }, { passive:true });
 
   window.addEventListener('scroll', () => {
-    if (!ticking) {
-      requestAnimationFrame(run);
-      ticking = true;
+    const y = window.scrollY;
+
+    // Wenn Mobile-Menü offen: Navbar immer sichtbar lassen
+    if (navLinks?.classList.contains('active')) {
+      show();
+      lastY = y;
+      return;
     }
+
+    // ganz oben: immer sichtbar
+    if (y < 60) {
+      show();
+      lastY = y;
+      return;
+    }
+
+    // Richtung erkennen
+    if (y > lastY + THRESH) {
+      // runter
+      hide();
+    } else if (y < lastY - THRESH) {
+      // rauf
+      show();
+    }
+
+    lastY = y;
   }, { passive:true });
+
+  // Sicherheitsnetz: beim Laden sichtbare Navbar
+  nav.classList.remove('nav--hidden');
 })();

@@ -1639,25 +1639,31 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   }
   
   
-  
-  
-  
-  /* Seller card – gleiche Optik wie deine anderen Boxen */
+  /* =========================================================
+   Anbieter-Bereich (Seller Card + Rating Panel + More Cars)
+   ========================================================= */
+
+/* kleine Deko-Animation (falls noch nicht vorhanden) */
+@keyframes pulseLine {
+  0%,100% { transform:scaleX(1); opacity:.6; }
+  50%     { transform:scaleX(1.3); opacity:1; }
+}
+
+/* -------- Seller Card -------- */
 .seller-card{
-  max-width:900px;margin:60px auto; padding:36px 40px;
+  max-width:900px; margin:60px auto; padding:36px 40px;
   background:linear-gradient(135deg,#ffffff,#f9fbfc);
-  border-radius:20px;border:1px solid rgba(0,255,204,0.06);
+  border-radius:20px; border:1px solid rgba(0,255,204,0.06);
   box-shadow:0 20px 60px rgba(0,0,0,0.04); position:relative; overflow:hidden;
 }
 .seller-card::after{
   content:''; position:absolute; top:-40px; right:-40px; width:120px; height:120px;
   background:radial-gradient(circle,rgba(0,255,204,.1) 0%, transparent 70%); border-radius:50%;
 }
-
 .seller-heading{
-  font-size:24px;font-weight:700;margin-bottom:22px;
+  font-size:24px; font-weight:700; margin-bottom:22px;
   background:linear-gradient(135deg,#1a1a1a,#444);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
 }
 .seller-heading::after{
   content:''; display:block; margin-top:10px; height:3px; width:80px;
@@ -1668,16 +1674,21 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 .seller-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:20px; }
 .seller-id{ display:flex; align-items:center; gap:12px; min-width:0; }
 
-.dealer-avatar{
-  width:46px;height:46px;border-radius:50%;overflow:hidden;border:1px solid #e3e9ef;
-  background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;
+/* Avatar/Logo – Safari-safe: Bild nie display:none (nur opacity) */
+.seller-card .dealer-avatar{
+  width:46px; height:46px; border-radius:50%; overflow:hidden;
+  border:1px solid #e3e9ef; background:#fff; display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; position:relative;
 }
-.dealer-avatar img{ width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .2s ease; }
-.dealer-avatar.has-logo img{ opacity:1; }
-.dealer-initials{
-  width:100%;height:100%;display:flex;align-items:center;justify-content:center;
-  font-weight:700;font-size:13px;color:#253544;background:#e9eef3;letter-spacing:.3px;
+.seller-card .dealer-avatar img{
+  width:100%; height:100%; object-fit:cover; display:block; opacity:0; transition:opacity .2s ease;
 }
+.seller-card .dealer-avatar.has-logo img{ opacity:1; }
+.seller-card .dealer-initials{
+  width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+  font-weight:700; font-size:13px; color:#253544; background:#e9eef3; letter-spacing:.3px;
+}
+
 .seller-meta{ display:flex; flex-direction:column; gap:4px; min-width:0; }
 .seller-name{ font-weight:700; font-size:18px; color:#0f1f26; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .seller-type-pill{
@@ -1686,6 +1697,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 }
 .seller-location{ font-size:13px; color:#6b7a88; }
 
+/* Bewertung rechts */
 .seller-rating-wrap{ display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
 .stars{
   --size:18px; position:relative; width: calc(var(--size) * 5); height: var(--size);
@@ -1705,8 +1717,11 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 .btn-soft{
   padding:8px 12px; border-radius:10px; border:1px solid rgba(0,0,0,0.06);
   background:#f3f7f8; color:#0f2a2f; font-weight:600; font-size:14px; cursor:pointer;
+  transition:background .2s ease, transform .12s ease, box-shadow .2s ease;
 }
 .btn-soft:hover{ background:#e9f4f3; }
+.btn-soft:active{ transform:translateY(1px); }
+.btn-soft:focus-visible{ outline:2px solid #00bfa6; outline-offset:2px; }
 
 .seller-grid{
   display:grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr));
@@ -1733,11 +1748,12 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   padding:10px 14px; border-radius:12px; border:none;
   background: linear-gradient(90deg,#00ffcc,#00bfa6); color:#002a2b; font-weight:800;
   cursor:pointer; display:inline-flex; align-items:center; gap:8px; text-decoration:none;
-}
-.btn-primary.ghost{
-  background:transparent; color:#00bfa6; border:1.5px solid #00bfa6;
+  transition: filter .15s ease, transform .12s ease;
 }
 .btn-primary:hover{ filter:brightness(1.05); }
+.btn-primary:active{ transform:translateY(1px); }
+.btn-primary.ghost{ background:transparent; color:#00bfa6; border:1.5px solid #00bfa6; }
+.btn-primary:focus-visible{ outline:2px solid #00bfa6; outline-offset:3px; }
 
 @media (max-width:600px){
   .seller-card{ padding:28px 24px; }
@@ -1745,12 +1761,83 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   .seller-actions{ align-self:stretch; }
 }
 
-  
-  
-  
-  
-  
-  
+/* -------- Rating Panel (Bottom-Sheet mobil) -------- */
+.rating-panel{
+  position: fixed; right:24px; left:24px; bottom:24px;
+  max-width:520px; margin:0 auto;
+  background:linear-gradient(135deg,#ffffff,#f9fbfc);
+  border-radius:16px; border:1px solid rgba(0,255,204,0.06);
+  box-shadow:0 20px 60px rgba(0,0,0,.14); z-index:2000; display:none;
+}
+.rating-panel-header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 16px; border-bottom:1px solid rgba(0,0,0,.06);
+  font-weight:700; color:#102027
+}
+.rating-panel-body{ padding:14px 16px; display:flex; flex-direction:column; gap:12px; }
+
+.star-rating{ display:flex; gap:6px; }
+.star-rating .star{
+  background:#f3f7f8; border:1px solid rgba(0,0,0,.06);
+  width:40px; height:40px; display:flex; align-items:center; justify-content:center;
+  border-radius:8px; cursor:pointer; transition:transform .15s ease, background .2s ease;
+}
+.star-rating .star i{ color:#98a7b3; font-size:18px; transition: color .2s ease; }
+.star-rating .star:hover{ transform: translateY(-2px); background:#ecf4f3; }
+.star-rating .star.active i{ color:#00bfa6; }
+
+#ratingText{
+  width:100%; min-height:88px; resize:vertical;
+  border-radius:10px; border:1px solid rgba(0,0,0,.08);
+  background:#f7f9fa; padding:10px 12px; font-family:inherit; outline:none;
+}
+.submit-rating-btn{
+  align-self:flex-end; padding:10px 14px; border-radius:12px; border:none; cursor:pointer;
+  background:linear-gradient(90deg,#00ffcc,#00bfa6); color:#003034; font-weight:800;
+}
+.close-rating{ background:transparent; border:none; font-size:20px; cursor:pointer; color:#5a6b79; }
+
+@media (max-width:600px){
+  .rating-panel{ right:0; left:0; bottom:0; border-radius:16px 16px 0 0; }
+}
+
+/* -------- Weitere Fahrzeuge dieses Händlers -------- */
+.seller-more{
+  max-width:900px; margin:40px auto 70px; padding:24px 0 0; display:none;
+}
+.seller-more-heading{
+  font-size:22px; font-weight:800; margin:0 0 16px 0; padding:0 4px;
+  background:linear-gradient(135deg,#1a1a1a,#444);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+.seller-more-grid{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:16px;
+}
+.seller-more-card{
+  background:linear-gradient(135deg,#ffffff,#f9fbfc);
+  border:1px solid rgba(0,0,0,.04);
+  border-radius:14px; overflow:hidden;
+  box-shadow:0 14px 40px rgba(0,0,0,.05);
+  display:flex; flex-direction:column;
+  transition: transform .18s ease, box-shadow .25s ease;
+  cursor:pointer;
+}
+.seller-more-card:hover{ transform: translateY(-2px); box-shadow:0 18px 56px rgba(0,0,0,.08); }
+.smc-media{ width:100%; height:140px; background:#1f2a33; overflow:hidden; }
+.smc-media img, .smc-media video{ width:100%; height:100%; object-fit:cover; display:block; }
+
+.smc-body{ padding:12px 12px 14px; display:flex; flex-direction:column; gap:8px; }
+.smc-title{
+  font-size:14.5px; font-weight:700; color:#0f1f26; line-height:1.25;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}
+.smc-meta{ display:flex; flex-wrap:wrap; gap:8px 12px; color:#62707c; font-size:12.5px; }
+.smc-price{ font-size:15.5px; font-weight:800; color:#0b2929; }
+
+.seller-more-actions{ margin-top:14px; display:flex; justify-content:flex-end; }
+.seller-more-actions .btn-soft{ font-weight:700; }
+
   
   
   

@@ -199,21 +199,8 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 }
   
 
-/* Navbar smart-hide */
-body{ padding-top:0 !important; }
+.navbar.nav--hidden { transform: translateY(-100%); transition: transform .28s ease; }
 
-.navbar{
-  position: sticky;          /* bleibt oben "kleben" */
-  top: 0;
-  z-index: 1000;
-  transition: transform .25s ease;
-  will-change: transform;
-}
-
-/* beim Runterscrollen wegschieben */
-.navbar.nav--hidden{
-  transform: translateY(-100%);
-}
 
   
   /* sorgt dafür, dass Anker-Ziele unter einer fixen Navbar korrekt einrasten */
