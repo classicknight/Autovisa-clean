@@ -1645,7 +1645,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 
 
 
-  
+
 /* ===== Anbieter-Karte (Autovisa-Look) ===== */
 .seller-card{
   max-width:900px;margin:60px auto; padding:36px 40px;
@@ -1721,6 +1721,71 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   background:#f3f7f8; color:#0f2a2f; font-weight:600; font-size:14px; cursor:pointer;
 }
 .btn-soft:hover{ background:#e9f4f3; }
+
+
+
+
+/* --- FIX 1: Händler-Logo korrekt, Initialen ausblenden, zentriert --- */
+.dealer-avatar{
+  position: relative;
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid #e3e9ef;
+  background: #fff;
+  flex-shrink: 0;
+}
+.dealer-avatar img{
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: contain;           /* Logos nicht abgeschnitten */
+  padding: 6px;                  /* etwas Luft um’s Logo */
+  display: block;
+  opacity: 0;                    /* erst sichtbar, wenn geladen */
+  transition: opacity .2s ease;
+}
+.dealer-avatar .dealer-initials{
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px;
+  color: #253544; background: #e9eef3;
+}
+.dealer-avatar.has-logo img{ opacity: 1; }
+.dealer-avatar.has-logo .dealer-initials{ opacity: 0; pointer-events: none; }
+
+/* Avatar + Text schön ausrichten */
+.seller-id{ display:flex; align-items:center; gap:14px; }
+
+/* --- FIX 2: Key/Value-Liste (Telefon, E-Mail, Website, Sprachen) --- */
+.kv{
+  list-style: none;
+  display: flex; flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.kv li{
+  display: flex; align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+}
+.kv li span{ color:#6b7a88; display:flex; align-items:center; gap:8px; }
+.kv li strong{
+  color:#0f1f26; font-weight:600;
+  max-width: 60%;
+  text-align: right;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Öffnungszeiten */
+.hours{ list-style:none; display:flex; flex-direction:column; gap:8px; font-size:14px; }
+.hours li{ display:flex; justify-content:space-between; gap:10px; }
+.hours .today{ font-weight:700; color:#0b5e56; }
+
+
+
+
+
 
 /* ===== Weitere Fahrzeuge ===== */
 .seller-more{
