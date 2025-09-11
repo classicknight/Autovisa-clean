@@ -1097,16 +1097,16 @@ function showPhoneNumber() {
 
 
 
-
 // anzeige.js — Anbieterkarte inkl. Telefon, Website, Adresse, Öffnungszeiten, Sprachen + weitere Fahrzeuge
 
 // ---------- Utils ----------
 const $id = (x) => document.getElementById(x);
 const setText = (id, v) => { const el = $id(id); if (el) el.textContent = v ?? "—"; };
-const toNum = (v) => (v==null||v==="") ? NaN : Number(String(v).replace(/\./g,"").replace(",","."));
+const toNum = (v) => (v==null||v==="") ? NaN : Number(String(v).replace(/[\u202F\u00A0\s€]/g,"").replace(/\./g,"").replace(",","."));
 const fmtEUR = (v) => { const n = toNum(v); return Number.isFinite(n) ? n.toLocaleString("de-DE")+" €" : "Preis n. a."; };
 const sanitizePhone = (p) => String(p||"").replace(/[^\d+]/g,"");
 const ensureHttp = (u) => !u ? "" : (/^https?:\/\//i.test(u) ? u : "https://" + String(u).trim());
+const pickPrice = (...vals) => { for (const v of vals){ const n = toNum(v); if (Number.isFinite(n) && n>0) return n; } return NaN; };
 function getDocId(doc){ if(!doc) return null; if(doc._id && typeof doc._id==="object" && typeof doc._id.$oid==="string") return doc._id.$oid; if(typeof doc._id==="string") return doc._id; if(typeof doc.id==="string") return doc.id; return null; }
 
 // Daten für anzeige.html aufbereiten (wenn von „Weitere Fahrzeuge“ aus geklickt)
@@ -1118,10 +1118,17 @@ function toAnzeigePayload(item){
   if (!merged.verkauf_kraftstoff && item.kraftstoff) merged.verkauf_kraftstoff=item.kraftstoff;
   if (!merged.verkauf_getriebe && item.getriebe) merged.verkauf_getriebe=item.getriebe;
   if (!merged.verkauf_leistung && item.leistung) merged.verkauf_leistung=item.leistung;
+  if (merged.verkauf_verbrauch_kombiniert==null && item.verbrauch_kombiniert!=null) merged.verkauf_verbrauch_kombiniert=item.verbrauch_kombiniert;
+
+  // Preise robuster
   if (merged.verkauf_brutto==null && (merged.brutto_preis!=null)) merged.verkauf_brutto=merged.brutto_preis;
   if (merged.verkauf_brutto==null && (merged["brutto-preis"]!=null)) merged.verkauf_brutto=merged["brutto-preis"];
   if (merged.verkauf_preis==null && (item.preis!=null)) merged.verkauf_preis=item.preis;
+
   if (!merged.telefon && item.telefon) merged.telefon=item.telefon;
+  if (!merged.verkauf_verkaeufer && item.verkauf_verkaeufer) merged.verkauf_verkaeufer=item.verkauf_verkaeufer;
+  if (!merged.verkauf_name && item.verkauf_name) merged.verkauf_name=item.verkauf_name;
+
   return merged;
 }
 
@@ -1130,12 +1137,11 @@ function loadLogo(imgEl, avatarEl, url){
   avatarEl?.classList?.remove("has-logo");
   imgEl?.removeAttribute?.("src");
   if(!url || !imgEl || !avatarEl) return;
-  const probe = new Image();
-  probe.decoding = "async";
-  probe.onload = () => { imgEl.src = probe.src; avatarEl.classList.add("has-logo"); };
-  probe.onerror = () => { avatarEl.classList.remove("has-logo"); imgEl.removeAttribute("src"); };
-  probe.src = url;
-  if (probe.complete && probe.naturalWidth>0){ imgEl.src = url; avatarEl.classList.add("has-logo"); }
+  try { imgEl.loading = "eager"; } catch {}
+  imgEl.addEventListener("load", () => { if (imgEl.naturalWidth>0) avatarEl.classList.add("has-logo"); }, { once:true });
+  imgEl.addEventListener("error", () => { avatarEl.classList.remove("has-logo"); imgEl.removeAttribute("src"); }, { once:true });
+  imgEl.src = url;
+  if (imgEl.complete && imgEl.naturalWidth>0) avatarEl.classList.add("has-logo");
 }
 
 // Händlerprofil (aus haendlerformular.html gespeicherte Felder)
@@ -1161,57 +1167,53 @@ async function fetchSellerCars(sellerId, limit=6){
   }catch{ return { total:0, results:[] }; }
 }
 
-// ---- Mini-Slider (Swipe + Pfeile) für Karten ----
-function initCardMediaSlider(card){
-  const wrap = card.querySelector(".smc-slides");
-  if (!wrap) return;
-  const slides = Array.from(wrap.children);
-  let idx = 0, startX = 0, prev = 0, cur = 0, dragging = false, movedPx = 0;
+// ===== Medien-Slider (wie auf Startseite) =====
+function initMediaSlider(mediaContainer) {
+  if (!mediaContainer) return;
+  const slidesWrapper = mediaContainer.querySelector(".slides");
+  if (!slidesWrapper) return;
 
-  const setPos = () => { wrap.style.transform = `translateX(${cur}px)`; };
-  const oneWidth = () => (card.querySelector(".smc-media")?.clientWidth) || (wrap.clientWidth / (slides.length || 1)) || 1;
-  const snap = () => { const w = oneWidth(); cur = -idx * w; prev = cur; setPos(); };
+  const slides = Array.from(slidesWrapper.children);
+  const state = { currentIndex:0, isDragging:false, startPos:0, currentTranslate:0, prevTranslate:0, animationID:null };
 
-  // Pfeile
-  const left = card.querySelector(".smc-arrow.left");
-  const right = card.querySelector(".smc-arrow.right");
-  const go = (d) => { idx = Math.max(0, Math.min(slides.length - 1, idx + d)); snap(); };
-  left?.addEventListener("click", (e)=>{ e.stopPropagation(); go(-1); });
-  right?.addEventListener("click", (e)=>{ e.stopPropagation(); go(+1); });
+  slidesWrapper.style.display = "flex";
+  slidesWrapper.style.transition = "transform 0.3s ease";
+  slidesWrapper.style.willChange = "transform";
+  slides.forEach(slide => { slide.style.flex = "0 0 100%"; slide.style.minWidth = "100%"; });
 
-  // Swipe
-  const getX = (ev) => (ev.touches ? ev.touches[0].clientX : ev.clientX);
-  const down = (ev) => { dragging = true; startX = getX(ev); prev = cur; movedPx = 0; };
-  const move = (ev) => {
-    if (!dragging) return;
-    const dx = getX(ev) - startX;
-    movedPx = dx;
-    cur = prev + dx;
-    setPos();
+  const getX = (ev) => (typeof ev.clientX === "number" ? ev.clientX : (ev.touches && ev.touches[0]?.clientX) || 0);
+  const setSliderPosition = () => { slidesWrapper.style.transform = `translateX(${state.currentTranslate}px)`; };
+  const animation = () => { setSliderPosition(); if (state.isDragging) requestAnimationFrame(animation); };
+
+  const pointerDown = (ev) => { state.isDragging=true; state.startPos=getX(ev); state.animationID=requestAnimationFrame(animation); };
+  const pointerMove = (ev) => { if (!state.isDragging) return; const x=getX(ev); state.currentTranslate = state.prevTranslate + x - state.startPos; };
+  const pointerUp   = () => {
+    if (!state.isDragging) return;
+    state.isDragging=false; cancelAnimationFrame(state.animationID);
+    const movedBy = state.currentTranslate - state.prevTranslate;
+    if (movedBy < -50 && state.currentIndex < slides.length-1) state.currentIndex++;
+    else if (movedBy > 50 && state.currentIndex > 0)          state.currentIndex--;
+    updateSlidePosition();
   };
-  const up = () => {
-    if (!dragging) return;
-    dragging = false;
-    const w = oneWidth();
-    if (movedPx < -40 && idx < slides.length-1) idx++;
-    if (movedPx >  40 && idx > 0)             idx--;
-    snap();
+  const updateSlidePosition = () => {
+    const width = mediaContainer.clientWidth || 1;
+    state.currentTranslate = -state.currentIndex * width;
+    state.prevTranslate = state.currentTranslate;
+    setSliderPosition();
   };
 
-  wrap.addEventListener("mousedown", down);
-  window.addEventListener("mousemove", move);
-  window.addEventListener("mouseup", up);
-  wrap.addEventListener("touchstart", down, {passive:true});
-  wrap.addEventListener("touchmove", move, {passive:true});
-  wrap.addEventListener("touchend", up);
+  ["pointerdown","touchstart","mousedown"].forEach(ev=>slidesWrapper.addEventListener(ev, pointerDown));
+  ["pointermove","touchmove","mousemove"].forEach(ev=>slidesWrapper.addEventListener(ev, pointerMove));
+  ["pointerup","pointerleave","pointercancel","touchend","mouseup","mouseleave"].forEach(ev=>slidesWrapper.addEventListener(ev, pointerUp));
 
-  window.addEventListener("resize", snap);
-  requestAnimationFrame(snap);
+  mediaContainer.querySelector(".media-arrow.right")?.addEventListener("click", (e)=>{ e.stopPropagation(); if (state.currentIndex < slides.length-1){ state.currentIndex++; updateSlidePosition(); }});
+  mediaContainer.querySelector(".media-arrow.left") ?.addEventListener("click", (e)=>{ e.stopPropagation(); if (state.currentIndex > 0){               state.currentIndex--; updateSlidePosition(); }});
 
-  if (slides.length <= 1){ left?.remove(); right?.remove(); }
+  window.addEventListener("resize", updateSlidePosition);
+  updateSlidePosition();
 }
 
-// ---- „Weitere Fahrzeuge“ ----
+// ---- „Weitere Fahrzeuge“ (identisches Kartenlayout wie index.html) ----
 function renderSellerMore(items){
   const sec  = document.getElementById("sellerMore");
   const grid = document.getElementById("sellerMoreGrid");
@@ -1221,61 +1223,68 @@ function renderSellerMore(items){
   if(!items.length){ sec.style.display = "none"; return; }
 
   items.forEach(item=>{
-    const pics  = Array.isArray(item.images) ? item.images : Array.isArray(item.fotos) ? item.fotos : [];
-    const titel = item.titel || [item.marke, item.modell].filter(Boolean).join(" ").trim() || "Fahrzeug";
-    const preisV= item.verkauf_brutto ?? item["brutto-preis"] ?? item.brutto_preis ?? item.preis ?? item.verkauf_preis;
+    const imgs   = Array.isArray(item.images) ? item.images : Array.isArray(item.fotos) ? item.fotos : [];
+    const titel  = item.titel || [item.marke, item.modell].filter(Boolean).join(" ").trim() || "Fahrzeug";
+    const preisN = pickPrice(item["brutto-preis"], item.brutto_preis, item.verkauf_brutto, item.preis, item.verkauf_preis, item.verkauf_netto);
+    const preis  = fmtEUR(preisN);
 
+    // gewünschte Felder
     const kmV   = item.verkauf_kilometer ?? item.kilometer ?? item.km;
     const ezV   = item.verkauf_erstzulassung || item.erstzulassung;
     const fuelV = item.verkauf_kraftstoff || item.kraftstoff;
-    const psV   = item.verkauf_leistung ?? item.leistung;  // PS
+    const psV   = item.verkauf_leistung ?? item.leistung; // PS
     const gearV = item.verkauf_getriebe || item.getriebe;
-    const consV = item.verkauf_verbrauch_kombiniert || item.verbrauch_kombiniert || item.verbrauch;
+    const conV  = item.verkauf_verbrauch_kombiniert || item.verbrauch_kombiniert || item.verbrauch;
 
-    const kmTxt   = kmV != null && kmV !== "" ? `${Number(toNum(kmV)).toLocaleString("de-DE")} km` : "—";
-    const ezTxt   = ezV || "—";
-    const fuelTxt = fuelV || "—";
-    const psTxt   = psV != null && psV !== "" ? `${Number(toNum(psV)).toLocaleString("de-DE")} PS` : "—";
-    const gearTxt = gearV || "—";
-    const conTxt  = consV != null && consV !== "" ? `${String(consV).replace(",",".")} l/100 km` : "—";
+    const kmTxt = kmV != null && kmV !== "" ? `${Number(toNum(kmV)).toLocaleString("de-DE")} km` : "—";
+    const ezTxt = ezV || "—";
+    const fuTxt = fuelV || "—";
+    const psTxt = psV != null && psV !== "" ? `${Number(toNum(psV)).toLocaleString("de-DE")} PS` : "—";
+    const geTxt = gearV || "—";
+    const coTxt = conV != null && conV !== "" ? `${String(conV).replace(",",".")} l/100 km` : "—";
 
     const id = getDocId(item);
 
-    const card = document.createElement("article");
-    card.className = "seller-more-card";
+    const card = document.createElement("div");
+    card.className = "car-card";
     card.innerHTML = `
-      <div class="smc-media">
-        <div class="smc-slides">
-          ${(pics.length ? pics : [""]).map(src => `
-            <div class="smc-slide">${src ? `<img src="${src}" alt="">` : ``}</div>
-          `).join("")}
+      <div class="car-card-media">
+        <div class="media-container">
+          <div class="slides">
+            ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
+          </div>
+          <button class="media-arrow left"  type="button"><i class="fas fa-chevron-left"></i></button>
+          <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
         </div>
-        <button class="smc-arrow left"  type="button" aria-label="Vorheriges Bild"><i class="fas fa-chevron-left"></i></button>
-        <button class="smc-arrow right" type="button" aria-label="Nächstes Bild"><i class="fas fa-chevron-right"></i></button>
       </div>
-      <div class="smc-body">
-        <div class="smc-title">${titel}</div>
-        <div class="smc-price">${fmtEUR(preisV)}</div>
-        <div class="smc-specs">
-          <div class="smc-spec"><i class="fas fa-road"></i><span>${kmTxt}</span></div>
-          <div class="smc-spec"><i class="fas fa-calendar-alt"></i><span>${ezTxt}</span></div>
-          <div class="smc-spec"><i class="fas fa-gas-pump"></i><span>${fuelTxt}</span></div>
-          <div class="smc-spec"><i class="fas fa-gauge-high"></i><span>${psTxt}</span></div>
-          <div class="smc-spec"><i class="fas fa-gears"></i><span>${gearTxt}</span></div>
-          <div class="smc-spec"><i class="fas fa-tint"></i><span>${conTxt}</span></div>
+
+      <div class="car-details">
+        <div class="car-top-row">
+          <h2 class="car-title">${titel}</h2>
+          <p class="car-price">${preis}</p>
+        </div>
+
+        <div class="car-info-grid">
+          <p><i class="fas fa-road"></i> ${kmTxt}</p>
+          <p><i class="fas fa-calendar-alt"></i> EZ ${ezTxt}</p>
+          <p><i class="fas fa-gas-pump"></i> ${fuTxt}</p>
+          <p><i class="fas fa-gauge-high"></i> ${psTxt}</p>
+          <p><i class="fas fa-gears"></i> ${geTxt}</p>
+          <p><i class="fas fa-tint"></i> ${coTxt}</p>
         </div>
       </div>
     `;
 
+    // Klick zur Detailseite (Pfeile sollen nicht durchklicken)
     card.addEventListener("click", (e)=>{
-      if (e.target.closest(".smc-arrow")) return;
+      if (e.target.closest(".media-arrow")) return;
       try{ localStorage.setItem("ausgewaehltesInserat", JSON.stringify(toAnzeigePayload(item))); }catch{}
       if (id) window.location.href = `anzeige.html?id=${encodeURIComponent(id)}`;
       else     window.location.href = `anzeige.html`;
     });
 
     grid.appendChild(card);
-    initCardMediaSlider(card);
+    initMediaSlider(card.querySelector(".media-container"));
   });
 
   sec.style.display = "";
@@ -1409,6 +1418,7 @@ async function renderSeller(){
     };
   }
 
+  // Zusatzinfos unter Buttons
   ensureExtraInfoBlock();
   if (phone){ setText("sellerPhoneText", phone); $id("rowPhone").style.display="flex"; }
   if (mail){  setText("sellerMailText", mail);   $id("rowMail").style.display="flex"; }
@@ -1430,6 +1440,7 @@ async function renderSeller(){
   const hours = profile?.oeffnungszeiten || profile?.hours || inserat?.seller?.hours || inserat?.oeffnungszeiten || null;
   renderHours(hours);
 
+  // Weitere Fahrzeuge (unten, im Index-Look)
   const moreSec = $id("sellerMore");
   if (isDealer && (sellerId || profile?._id || profile?.id) && moreSec){
     const finalId = sellerId || getDocId(profile) || profile?.id || "";
@@ -1509,7 +1520,7 @@ async function renderSeller(){
       if (!res.ok) throw new Error();
       panel.style.display="none";
       alert("Danke für deine Bewertung!");
-      renderSeller();
+      renderSeller(); // Rating auffrischen
     }catch{
       alert("Bewertung konnte nicht gespeichert werden.");
     }
