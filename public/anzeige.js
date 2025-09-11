@@ -1095,9 +1095,7 @@ function showPhoneNumber() {
 
 
 
-
-
-// anzeige.js — Anbieterkarte inkl. Telefon, Website, Adresse, Öffnungszeiten, Sprachen + weitere Fahrzeuge
+// anzeige.js — Anbieterkarte + vollständige Händlerinfos + "Weitere Fahrzeuge"-Karten im Index-Look
 
 // ---------- Utils ----------
 const $id = (x) => document.getElementById(x);
@@ -1107,24 +1105,29 @@ const fmtEUR = (v) => { const n = toNum(v); return Number.isFinite(n) ? n.toLoca
 const sanitizePhone = (p) => String(p||"").replace(/[^\d+]/g,"");
 const ensureHttp = (u) => !u ? "" : (/^https?:\/\//i.test(u) ? u : "https://" + String(u).trim());
 const pickPrice = (...vals) => { for (const v of vals){ const n = toNum(v); if (Number.isFinite(n) && n>0) return n; } return NaN; };
+const sellerInitials = (name="") => name.trim().split(/\s+/).slice(0,2).map(p => (p[0]||"").toUpperCase()).join("") || "AV";
 function getDocId(doc){ if(!doc) return null; if(doc._id && typeof doc._id==="object" && typeof doc._id.$oid==="string") return doc._id.$oid; if(typeof doc._id==="string") return doc._id; if(typeof doc.id==="string") return doc.id; return null; }
 
 // Daten für anzeige.html aufbereiten (wenn von „Weitere Fahrzeuge“ aus geklickt)
 function toAnzeigePayload(item){
   const raw = item?.raw && typeof item.raw==="object" ? item.raw : {};
   const merged = { ...raw, ...item };
+
+  // technische Felder robust rüberziehen
   if (merged.verkauf_kilometer==null && item.kilometer!=null) merged.verkauf_kilometer=item.kilometer;
   if (!merged.verkauf_erstzulassung && item.erstzulassung) merged.verkauf_erstzulassung=item.erstzulassung;
   if (!merged.verkauf_kraftstoff && item.kraftstoff) merged.verkauf_kraftstoff=item.kraftstoff;
   if (!merged.verkauf_getriebe && item.getriebe) merged.verkauf_getriebe=item.getriebe;
   if (!merged.verkauf_leistung && item.leistung) merged.verkauf_leistung=item.leistung;
   if (merged.verkauf_verbrauch_kombiniert==null && item.verbrauch_kombiniert!=null) merged.verkauf_verbrauch_kombiniert=item.verbrauch_kombiniert;
+  if (!merged.verkauf_kurzbeschreibung && item.verkauf_kurzbeschreibung) merged.verkauf_kurzbeschreibung=item.verkauf_kurzbeschreibung;
 
   // Preise robuster
   if (merged.verkauf_brutto==null && (merged.brutto_preis!=null)) merged.verkauf_brutto=merged.brutto_preis;
   if (merged.verkauf_brutto==null && (merged["brutto-preis"]!=null)) merged.verkauf_brutto=merged["brutto-preis"];
   if (merged.verkauf_preis==null && (item.preis!=null)) merged.verkauf_preis=item.preis;
 
+  // Verkäufer
   if (!merged.telefon && item.telefon) merged.telefon=item.telefon;
   if (!merged.verkauf_verkaeufer && item.verkauf_verkaeufer) merged.verkauf_verkaeufer=item.verkauf_verkaeufer;
   if (!merged.verkauf_name && item.verkauf_name) merged.verkauf_name=item.verkauf_name;
@@ -1213,7 +1216,7 @@ function initMediaSlider(mediaContainer) {
   updateSlidePosition();
 }
 
-// ---- „Weitere Fahrzeuge“ (identisches Kartenlayout wie index.html) ----
+// ---- „Weitere Fahrzeuge“ (IDENTISCH zum Kartenlayout in index.html) ----
 function renderSellerMore(items){
   const sec  = document.getElementById("sellerMore");
   const grid = document.getElementById("sellerMoreGrid");
@@ -1222,19 +1225,33 @@ function renderSellerMore(items){
   grid.innerHTML = "";
   if(!items.length){ sec.style.display = "none"; return; }
 
-  items.forEach(item=>{
-    const imgs   = Array.isArray(item.images) ? item.images : Array.isArray(item.fotos) ? item.fotos : [];
-    const titel  = item.titel || [item.marke, item.modell].filter(Boolean).join(" ").trim() || "Fahrzeug";
-    const preisN = pickPrice(item["brutto-preis"], item.brutto_preis, item.verkauf_brutto, item.preis, item.verkauf_preis, item.verkauf_netto);
-    const preis  = fmtEUR(preisN);
+  items.forEach(inserat=>{
+    // Medien
+    const imgs  = Array.isArray(inserat.images) ? inserat.images : [];
+    const tel   = sanitizePhone(inserat.telefon);
+    const titel = inserat.titel || "Unbekanntes Fahrzeug";
 
-    // gewünschte Felder
-    const kmV   = item.verkauf_kilometer ?? item.kilometer ?? item.km;
-    const ezV   = item.verkauf_erstzulassung || item.erstzulassung;
-    const fuelV = item.verkauf_kraftstoff || item.kraftstoff;
-    const psV   = item.verkauf_leistung ?? item.leistung; // PS
-    const gearV = item.verkauf_getriebe || item.getriebe;
-    const conV  = item.verkauf_verbrauch_kombiniert || item.verbrauch_kombiniert || item.verbrauch;
+    // Preis identisch berechnet wie Startseite
+    const preisNum = pickPrice(
+      inserat["brutto-preis"],
+      inserat.brutto_preis,
+      inserat.verkauf_brutto,
+      inserat.preis,
+      inserat.verkauf_preis,
+      inserat.verkauf_netto
+    );
+    const preis = fmtEUR(preisNum);
+
+    const kurz  = inserat.verkauf_kurzbeschreibung || "";
+    const _id   = getDocId(inserat) || "";
+
+    // Specs (wie gewünscht)
+    const kmV   = inserat.verkauf_kilometer ?? inserat.kilometer ?? inserat.km;
+    const ezV   = inserat.verkauf_erstzulassung || inserat.erstzulassung;
+    const fuelV = inserat.verkauf_kraftstoff || inserat.kraftstoff;
+    const psV   = inserat.verkauf_leistung ?? inserat.leistung; // PS
+    const gearV = inserat.verkauf_getriebe || inserat.getriebe;
+    const conV  = inserat.verkauf_verbrauch_kombiniert || inserat.verbrauch_kombiniert || inserat.verbrauch;
 
     const kmTxt = kmV != null && kmV !== "" ? `${Number(toNum(kmV)).toLocaleString("de-DE")} km` : "—";
     const ezTxt = ezV || "—";
@@ -1243,12 +1260,31 @@ function renderSellerMore(items){
     const geTxt = gearV || "—";
     const coTxt = conV != null && conV !== "" ? `${String(conV).replace(",",".")} l/100 km` : "—";
 
-    const id = getDocId(item);
+    // Verkäuferdaten (gleiches Fallback wie index.html)
+    const rawType = String(inserat.seller?.type || inserat.verkauf_verkaeufer || "").toLowerCase();
+    const isHaendler =
+      rawType === "haendler" || rawType === "händler" || rawType.includes("händ") || rawType.includes("haend");
+    const sellerName =
+      inserat.seller?.name || inserat.verkauf_name || (isHaendler ? "Händler" : "Privatanbieter");
+    const sellerLogo =
+      inserat.seller?.logoUrl ||
+      inserat.raw?.seller?.logoUrl ||
+      inserat.logoUrl ||
+      "";
+    const sellerLocation =
+      inserat.standort || [inserat.plz, inserat.ort].filter(Boolean).join(" ") || "Standort nicht angegeben";
 
+    // Karte (HTML 1:1 wie auf Startseite)
     const card = document.createElement("div");
     card.className = "car-card";
     card.innerHTML = `
       <div class="car-card-media">
+        <div class="card-actions mobile-only">
+          <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
+          <a href="${tel ? `tel:${tel}` : '#'}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${tel ? "" : "aria-disabled='true'"} >
+            <i class="fas fa-phone"></i>
+          </a>
+        </div>
         <div class="media-container">
           <div class="slides">
             ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
@@ -1264,6 +1300,8 @@ function renderSellerMore(items){
           <p class="car-price">${preis}</p>
         </div>
 
+        <p class="car-subtitle">${kurz}</p>
+
         <div class="car-info-grid">
           <p><i class="fas fa-road"></i> ${kmTxt}</p>
           <p><i class="fas fa-calendar-alt"></i> EZ ${ezTxt}</p>
@@ -1272,25 +1310,51 @@ function renderSellerMore(items){
           <p><i class="fas fa-gears"></i> ${geTxt}</p>
           <p><i class="fas fa-tint"></i> ${coTxt}</p>
         </div>
+
+        <div class="dealer-info">
+          <div class="dealer-row">
+            <div class="dealer-avatar">
+              <img alt="${sellerName} Logo">
+              <span class="dealer-initials">${sellerInitials(sellerName)}</span>
+            </div>
+            <div class="dealer-meta">
+              <div class="dealer-name">${sellerName}</div>
+              <div class="dealer-location">${sellerLocation}</div>
+            </div>
+          </div>
+        </div>
       </div>
     `;
 
-    // Klick zur Detailseite (Pfeile sollen nicht durchklicken)
+    // Klick zur Detailseite (Pfeile/Buttons nicht durchklicken lassen)
     card.addEventListener("click", (e)=>{
-      if (e.target.closest(".media-arrow")) return;
-      try{ localStorage.setItem("ausgewaehltesInserat", JSON.stringify(toAnzeigePayload(item))); }catch{}
-      if (id) window.location.href = `anzeige.html?id=${encodeURIComponent(id)}`;
+      if (e.target.closest(".card-actions button, .card-actions a, .media-arrow")) return;
+      try{ localStorage.setItem("ausgewaehltesInserat", JSON.stringify(toAnzeigePayload(inserat))); }catch{}
+      if (_id) window.location.href = `anzeige.html?id=${encodeURIComponent(_id)}`;
       else     window.location.href = `anzeige.html`;
     });
 
     grid.appendChild(card);
     initMediaSlider(card.querySelector(".media-container"));
+
+    // Avatar/Logo (Safari-safe)
+    const avatar = card.querySelector(".dealer-avatar");
+    const img    = avatar.querySelector("img");
+    avatar.classList.remove("has-logo");
+    img.removeAttribute("src");
+    if (sellerLogo){
+      try { img.loading = "eager"; } catch {}
+      img.addEventListener("load", () => { if (img.naturalWidth>0) avatar.classList.add("has-logo"); }, { once:true });
+      img.addEventListener("error", () => { avatar.classList.remove("has-logo"); img.removeAttribute("src"); }, { once:true });
+      img.src = sellerLogo;
+      if (img.complete && img.naturalWidth>0) avatar.classList.add("has-logo");
+    }
   });
 
   sec.style.display = "";
 }
 
-// Zusätzlichen Info-Block unter den Buttons anlegen
+// ===== Zusatzinfos unter den Buttons (Telefon/Website/Sprachen/Öffnungszeiten) =====
 function ensureExtraInfoBlock(){
   let wrap = document.getElementById("sellerInfoExtra");
   if (wrap) return wrap;
@@ -1325,12 +1389,10 @@ function ensureExtraInfoBlock(){
   return wrap;
 }
 
-// Öffnungszeiten-Liste befüllen
 function renderHours(hours){
   const wrap = $id("hoursWrap");
   const list = $id("hoursList");
   if (!wrap || !list) return;
-
   if (!hours || typeof hours !== "object"){ wrap.style.display="none"; return; }
 
   const order = ["montag","dienstag","mittwoch","donnerstag","freitag","samstag","sonntag"];
@@ -1520,7 +1582,7 @@ async function renderSeller(){
       if (!res.ok) throw new Error();
       panel.style.display="none";
       alert("Danke für deine Bewertung!");
-      renderSeller(); // Rating auffrischen
+      renderSeller();
     }catch{
       alert("Bewertung konnte nicht gespeichert werden.");
     }
