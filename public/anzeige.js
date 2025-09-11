@@ -1591,3 +1591,33 @@ async function renderSeller(){
 
 // ---------- Boot ----------
 document.addEventListener("DOMContentLoaded", renderSeller);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function toggleSave(btn){
+  const saved = btn.classList.toggle('saved');
+  btn.setAttribute('aria-pressed', saved ? 'true' : 'false');
+
+  const icon = btn.querySelector('i');
+  if (icon){
+    icon.classList.toggle('far', !saved);
+    icon.classList.toggle('fas',  saved);
+  }
+  // Text hinter dem Icon aktualisieren
+  const label = saved ? ' Gespeichert' : ' Speichern';
+  const tn = Array.from(btn.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
+  if (tn) tn.nodeValue = label; else btn.appendChild(document.createTextNode(label));
+}
+

@@ -322,30 +322,39 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
     box-shadow: 0 0 10px rgba(0, 170, 102, 0.4);
     transform: scale(0.98);
   }
-  
-  .save-btn {
-    background: rgba(255, 255, 255, 0.55);
-    color: #203a43;
-    border: 2px solid rgba(226, 232, 240, 0.6);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-  }
-  .save-btn:hover {
-    background-color: #f1f5f9;
-  }
-  .save-btn i {
-    color: #ff5555;
-    transition: color 0.3s ease;
-  }
-  .save-btn.saved i {
-    color: #ff0000;
-    text-shadow: 0 0 6px rgba(255, 0, 0, 0.4);
-  }
-  .contact-btn:hover i,
-  .save-btn:hover i {
-    text-shadow: 0 0 8px rgba(0, 255, 204, 0.4);
-  }
-  
+ /* oben: großer Speichern-Button */
+.save-cta{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:10px 14px; border-radius:12px;
+  background:rgba(255,255,255,.55); color:#203a43;
+  border:2px solid rgba(226,232,240,.6);
+  backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  cursor:pointer; transition:background-color .2s ease;
+}
+.save-cta:hover{ background-color:#f1f5f9; }
+
+.save-cta i{
+  color:#ff5555; transition:color .3s ease, text-shadow .2s ease;
+}
+.save-cta.saved i{
+  color:#ff0000; text-shadow:0 0 6px rgba(255,0,0,.4);
+}
+.contact-btn:hover i,
+.save-cta:hover i{ text-shadow:0 0 8px rgba(0,255,204,.4); }
+
+/* Sammelregel anpassen (kein .save-btn/.save-cta mehr hier!) */
+.card-actions{ display:flex; gap:10px; }
+.card-actions button, .clean-phone{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:36px; height:36px; background:rgba(0,184,169,0.0);
+  border:1px solid #ccd5df; border-radius:50%; padding:0; font-size:16px;
+  cursor:pointer; text-decoration:none; color:inherit; box-shadow:0 2px 5px rgba(0,0,0,.06);
+  transition:background .2s ease, color .2s ease, border-color .2s ease;
+}
+.card-actions button:hover, .clean-phone:hover{ background:#00b8a9; color:#fff; border-color:#00b8a9; }
+.card-actions button i, .clean-phone i{ color:#1a2a33; transition:color .2s ease; }
+.card-actions button:hover i, .clean-phone:hover i{ color:#fff; }
+
   .contact-wrapper {
     position: relative;
   }
