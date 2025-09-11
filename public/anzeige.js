@@ -1096,15 +1096,21 @@ function showPhoneNumber() {
 
 
 
+
+
+
+// anzeige.js — Anbieterkarte inkl. Telefon, Website, Adresse, Öffnungszeiten, Sprachen + weitere Fahrzeuge
+
 // ---------- Utils ----------
 const $id = (x) => document.getElementById(x);
 const setText = (id, v) => { const el = $id(id); if (el) el.textContent = v ?? "—"; };
 const toNum = (v) => (v==null||v==="") ? NaN : Number(String(v).replace(/\./g,"").replace(",","."));
 const fmtEUR = (v) => { const n = toNum(v); return Number.isFinite(n) ? n.toLocaleString("de-DE")+" €" : "Preis n. a."; };
 const sanitizePhone = (p) => String(p||"").replace(/[^\d+]/g,"");
+const ensureHttp = (u) => !u ? "" : (/^https?:\/\//i.test(u) ? u : "https://" + String(u).trim());
 function getDocId(doc){ if(!doc) return null; if(doc._id && typeof doc._id==="object" && typeof doc._id.$oid==="string") return doc._id.$oid; if(typeof doc._id==="string") return doc._id; if(typeof doc.id==="string") return doc.id; return null; }
 
-// Daten für anzeige.html aufbereiten (wenn von "Weitere Fahrzeuge" aus geklickt)
+// Daten für anzeige.html aufbereiten (wenn von „Weitere Fahrzeuge“ aus geklickt)
 function toAnzeigePayload(item){
   const raw = item?.raw && typeof item.raw==="object" ? item.raw : {};
   const merged = { ...raw, ...item };
@@ -1133,7 +1139,9 @@ function loadLogo(imgEl, avatarEl, url){
   if (probe.complete && probe.naturalWidth>0){ imgEl.src = url; avatarEl.classList.add("has-logo"); }
 }
 
-// Händlerprofil vom Server (für vollständige Adresse/Logo/E-Mail/Telefon)
+// Händlerprofil vom Server (für vollständige Adresse/Logo/E-Mail/Telefon/Website/Sprachen/Öffnungszeiten)
+// Erwartete Felder (aus haendlerformular.html gespeichert):
+// { _id, firma, strasse, hausnummer, plz, ort, land, telefon, email, website, logoUrl, sprachen[], oeffnungszeiten{montag..sonntag}, rating, reviews }
 async function fetchSellerProfile(sellerId){
   try{
     if(!sellerId) return null;
@@ -1156,17 +1164,14 @@ async function fetchSellerCars(sellerId, limit=6){
 }
 
 // „Weitere Fahrzeuge“ rendern
-function renderSellerMore(items, sellerId){
+function renderSellerMore(items){
   const sec = $id("sellerMore");
   const grid = $id("sellerMoreGrid");
   if(!sec || !grid) return;
 
-  // Leeren
   grid.innerHTML = "";
-
   if(!items.length){ sec.style.display = "none"; return; }
 
-  // bauen
   items.forEach(item=>{
     const images = Array.isArray(item.images) ? item.images
                  : Array.isArray(item.fotos)  ? item.fotos : [];
@@ -1201,6 +1206,68 @@ function renderSellerMore(items, sellerId){
   sec.style.display = "";
 }
 
+// Zusätzlichen Info-Block unter den Buttons anlegen (falls im HTML nicht vorhanden)
+function ensureExtraInfoBlock(){
+  let wrap = document.getElementById("sellerInfoExtra");
+  if (wrap) return wrap;
+
+  wrap = document.createElement("div");
+  wrap.id = "sellerInfoExtra";
+  wrap.style.marginTop = "12px";
+  wrap.innerHTML = `
+    <ul class="kv" id="sellerKV" style="list-style:none;display:flex;flex-direction:column;gap:8px;">
+      <li id="rowPhone" style="display:none;display:flex;justify-content:space-between;gap:10px;">
+        <span><i class="fas fa-phone"></i> Telefon</span><strong id="sellerPhoneText"></strong>
+      </li>
+      <li id="rowMail" style="display:none;display:flex;justify-content:space-between;gap:10px;">
+        <span><i class="fas fa-envelope"></i> E-Mail</span><strong id="sellerMailText"></strong>
+      </li>
+      <li id="rowWeb" style="display:none;display:flex;justify-content:space-between;gap:10px;">
+        <span><i class="fas fa-globe"></i> Website</span><strong><a id="sellerWebsiteText" target="_blank" rel="noopener"></a></strong>
+      </li>
+      <li id="rowLang" style="display:none;display:flex;justify-content:space-between;gap:10px;">
+        <span><i class="fas fa-language"></i> Wir sprechen</span><strong id="sellerLanguages"></strong>
+      </li>
+    </ul>
+    <div id="hoursWrap" style="display:none;margin-top:10px;">
+      <div class="box-title" style="font-weight:700;display:flex;align-items:center;gap:8px;">
+        <i class="fas fa-clock" style="color:#00bfa6;"></i> Öffnungszeiten
+      </div>
+      <ul class="hours" id="hoursList" style="list-style:none;display:flex;flex-direction:column;gap:8px;"></ul>
+    </div>
+  `;
+  // hinter die Buttons hängen
+  const contact = $id("sellerCard")?.querySelector(".seller-contact");
+  (contact?.parentElement || $id("sellerCard"))?.appendChild(wrap);
+  return wrap;
+}
+
+// Öffnungszeiten-Liste befüllen
+function renderHours(hours){
+  const wrap = $id("hoursWrap");
+  const list = $id("hoursList");
+  if (!wrap || !list) return;
+
+  if (!hours || typeof hours !== "object"){ wrap.style.display="none"; return; }
+
+  const order = ["montag","dienstag","mittwoch","donnerstag","freitag","samstag","sonntag"];
+  const mapDe = { montag:"Mo", dienstag:"Di", mittwoch:"Mi", donnerstag:"Do", freitag:"Fr", samstag:"Sa", sonntag:"So" };
+  const todayIdx = (new Date().getDay() + 6) % 7; // Mo=0 … So=6
+
+  list.innerHTML = "";
+  order.forEach((key, i)=>{
+    const val = hours[key];
+    const li = document.createElement("li");
+    li.style.display = "flex";
+    li.style.justifyContent = "space-between";
+    li.style.gap = "10px";
+    if (i===todayIdx){ li.style.fontWeight = "700"; li.style.color = "#0b5e56"; }
+    li.innerHTML = `<span>${mapDe[key]||key}</span><span>${val || "—"}</span>`;
+    list.appendChild(li);
+  });
+  wrap.style.display = "";
+}
+
 // ---------- Haupt-Render ----------
 async function renderSeller(){
   const box = $id("sellerCard");
@@ -1215,18 +1282,18 @@ async function renderSeller(){
   const isDealer = rawType.includes("händ") || rawType.includes("haend") || rawType==="haendler" || rawType==="händler" || inserat?.seller?.role==="haendler";
   let sellerId   = inserat?.verkaeuferId || inserat?.seller?.id || inserat?.sellerId || "";
 
-  // Händlerprofil bevorzugen
+  // Händlerprofil vom Server
   const profile  = await fetchSellerProfile(sellerId);
   if(!sellerId && profile && (profile._id || profile.id)) sellerId = getDocId(profile) || profile.id;
 
-  // Name + Initialen
+  // Name + Initialen + Typ
   const name = (profile?.firma || profile?.name || inserat?.seller?.name || inserat?.verkauf_name || (isDealer ? "Händler" : "Privatanbieter")).trim();
   const initials = name.split(/\s+/).slice(0,2).map(p => p[0]?.toUpperCase()||"").join("") || "AV";
   setText("sellerName", name);
   setText("sellerInitials", initials);
   setText("sellerType", isDealer ? "Händler" : "Privatanbieter");
 
-  // Adresse: bei Händler vollständige Adresse, bei Privat nur Ort/PLZ (falls vorhanden)
+  // Vollständige Adresse bei Händler, sonst Standort
   const fullAddress = (() => {
     const s = (t) => (t==null ? "" : String(t).trim());
     if (isDealer) {
@@ -1237,7 +1304,6 @@ async function renderSeller(){
       ].filter(Boolean);
       if (parts.length) return parts.join(", ");
     }
-    // Fallback (Privat oder fehlendes Profil)
     return inserat?.standort || [inserat?.plz, inserat?.ort].filter(Boolean).join(" ") || "Standort nicht angegeben";
   })();
   setText("sellerAddress", fullAddress);
@@ -1255,9 +1321,10 @@ async function renderSeller(){
   setText("ratingValue", rating ? rating.toFixed(1) : "–");
   $id("ratingCount").textContent = rCnt ? `(${rCnt})` : "";
 
-  // Kontakt (Telefon + E-Mail)
+  // Kontakt & Website
   const phone = profile?.telefon || inserat?.telefon || inserat?.seller?.phone || "";
   const mail  = profile?.email   || inserat?.seller?.email || inserat?.email || "";
+  const web   = ensureHttp(profile?.website || profile?.web || inserat?.seller?.website || inserat?.website || "");
   const telFmt= sanitizePhone(phone);
 
   const callBtn = $id("callBtn");
@@ -1268,27 +1335,50 @@ async function renderSeller(){
   if (mail) { mailBtn.href = `mailto:${mail}`; mailBtn.classList.remove("ghost"); }
   else      { mailBtn.removeAttribute("href"); mailBtn.classList.add("ghost"); }
 
+  // Nachricht-Button (optional Kontaktpanel öffnen)
   $id("msgBtn")?.addEventListener("click", ()=>{
-    // falls du ein Kontaktpanel hast:
     document.getElementById("contactPanel")?.classList.add("open");
     document.querySelector("#messageForm textarea")?.focus();
   });
 
+  // Zusätzliche Infos unterhalb der Buttons platzieren (Telefon/Email/Website/Sprachen/Öffnungszeiten)
+  ensureExtraInfoBlock();
+
+  if (phone){ setText("sellerPhoneText", phone); $id("rowPhone").style.display="flex"; }
+  if (mail){  setText("sellerMailText", mail);   $id("rowMail").style.display="flex"; }
+  if (web){
+    const a = $id("sellerWebsiteText");
+    if (a){ a.href = web; a.textContent = web.replace(/^https?:\/\//i,""); }
+    $id("rowWeb").style.display="flex";
+  }
+
+  const langs = (() => {
+    const l = profile?.sprachen || profile?.languages || inserat?.seller?.languages || inserat?.sprachen || [];
+    return Array.isArray(l) ? l : (typeof l === "string" ? l.split(",").map(s=>s.trim()).filter(Boolean) : []);
+  })();
+  if (langs.length){
+    setText("sellerLanguages", langs.join(", "));
+    $id("rowLang").style.display="flex";
+  }
+
+  const hours = profile?.oeffnungszeiten || profile?.hours || inserat?.seller?.hours || inserat?.oeffnungszeiten || null;
+  renderHours(hours);
+
   // Weitere Fahrzeuge nur bei Händler mit ID
-  if (isDealer && sellerId) {
-    const { results } = await fetchSellerCars(sellerId, 6);
+  const moreSec = $id("sellerMore");
+  if (isDealer && (sellerId || profile?._id || profile?.id) && moreSec){
+    const finalId = sellerId || getDocId(profile) || profile?.id || "";
+    const { results } = await fetchSellerCars(finalId, 6);
     const currentId = getDocId(inserat);
     const filtered  = results.filter(r => getDocId(r) !== currentId);
-    renderSellerMore(filtered.slice(0,6), sellerId);
+    renderSellerMore(filtered.slice(0,6));
   } else {
-    const sec = $id("sellerMore");
-    if (sec) sec.style.display = "none";
+    if (moreSec) moreSec.style.display = "none";
   }
 }
 
-// ---------- Rating-Panel (leichtgewichtig) ----------
+// ---------- Einfaches Rating-Panel ----------
 (function setupRatingPanel(){
-  // Panel on demand erzeugen
   let panel = document.getElementById("ratingPanel");
   if (!panel){
     panel = document.createElement("div");
