@@ -1787,41 +1787,64 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 
 
 
+
 /* ===== Weitere Fahrzeuge ===== */
 .seller-more{
-  max-width:900px;margin:28px auto 60px; padding:0 4px;
+  max-width:900px; margin:28px auto 60px; padding:0 4px;
 }
 .seller-more-heading{
   font-size:20px; font-weight:700; margin:0 0 14px 0;
   background:linear-gradient(135deg,#1a1a1a,#444);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
 }
+
 .seller-more-grid{
-  display:grid; grid-template-columns: repeat(auto-fill,minmax(240px,1fr));
+  display:grid; grid-template-columns: repeat(auto-fill,minmax(260px,1fr));
   gap:14px;
 }
+
+/* Karte */
 .seller-more-card{
-  background:#f7f9fa; border-radius:12px; overflow:hidden;
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.03);
-  cursor:pointer; transition:transform .18s ease, box-shadow .18s ease;
-  display:flex; flex-direction:column;
+  background:#ffffff; border-radius:14px; overflow:hidden;
+  box-shadow:0 8px 28px rgba(0,0,0,.06), inset 0 0 0 1px rgba(0,0,0,.03);
+  cursor:pointer; display:flex; flex-direction:column;
+  transition:transform .18s ease, box-shadow .18s ease;
 }
-.smc-media{ width:100%; aspect-ratio:4/3; background:#1f2a33; overflow:hidden; }
-.smc-media img{ width:100%; height:100%; object-fit:cover; display:block; }
-.smc-body{ padding:12px 12px 14px; display:flex; flex-direction:column; gap:6px; }
-.smc-title{ font-weight:700; color:#0f1f26; font-size:15px; line-height:1.25; min-height:2.5em; }
-.smc-meta{ display:flex; gap:10px; color:#6b7a88; font-size:12.5px; }
-.smc-meta i{ color:#00bfa6; }
-.smc-price{ margin-top:2px; font-weight:800; color:#0f1f26; }
-.seller-more-card:hover{ transform:translateY(-2px); box-shadow:0 6px 18px rgba(0,0,0,0.06); }
+.seller-more-card:hover{ transform:translateY(-2px); box-shadow:0 14px 36px rgba(0,0,0,.09); }
+
+/* Mini-Slider */
+.smc-media{ position:relative; width:100%; aspect-ratio:4/3; background:#1f2a33; overflow:hidden; }
+.smc-slides{ display:flex; width:100%; height:100%; transition:transform .35s ease; will-change:transform; }
+.smc-slide{ flex:0 0 100%; width:100%; height:100%; }
+.smc-slide img{ width:100%; height:100%; object-fit:cover; display:block; }
+.smc-arrow{
+  position:absolute; top:50%; transform:translateY(-50%); z-index:2;
+  width:40px; height:40px; border-radius:50%; border:none; cursor:pointer;
+  background:rgba(255,255,255,.12); color:#fff; font-size:18px; display:flex; align-items:center; justify-content:center;
+  opacity:0; transition:opacity .2s ease, background .2s ease;
+}
+.smc-arrow:hover{ background:rgba(0,255,204,.25); }
+.seller-more-card:hover .smc-arrow{ opacity:1; }
+.smc-arrow.left{ left:10px; } .smc-arrow.right{ right:10px; }
+
+/* Body */
+.smc-body{ padding:12px 12px 14px; display:flex; flex-direction:column; gap:8px; }
+.smc-title{ font-weight:700; color:#0f1f26; font-size:15px; line-height:1.3; min-height:2.5em; }
+.smc-price{ font-weight:800; color:#0f1f26; font-size:16px; }
+
+/* Specs */
+.smc-specs{
+  display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:8px;
+}
+.smc-spec{
+  display:flex; align-items:center; gap:8px;
+  background:#f6f9f9; border-radius:8px; padding:8px 10px; font-size:13.5px; color:#0f1f26;
+  box-shadow: inset 0 0 0 1px rgba(0,255,204,.06);
+}
+.smc-spec i{ color:#00bfa6; min-width:16px; text-align:center; }
 
 /* Mobile */
 @media (max-width:600px){
-  .seller-card{ padding:28px 24px; }
-  .seller-top{ flex-direction:column; align-items:flex-start; gap:10px; }
-  .seller-rating-wrap{ align-items:flex-start; }
+  .seller-more-grid{ grid-template-columns: repeat(auto-fill,minmax(220px,1fr)); }
+  .smc-specs{ grid-template-columns: repeat(2, minmax(0,1fr)); }
 }
-
-  
-  
-  

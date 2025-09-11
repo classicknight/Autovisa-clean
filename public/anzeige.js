@@ -1098,7 +1098,6 @@ function showPhoneNumber() {
 
 
 
-
 // anzeige.js — Anbieterkarte inkl. Telefon, Website, Adresse, Öffnungszeiten, Sprachen + weitere Fahrzeuge
 
 // ---------- Utils ----------
@@ -1139,9 +1138,7 @@ function loadLogo(imgEl, avatarEl, url){
   if (probe.complete && probe.naturalWidth>0){ imgEl.src = url; avatarEl.classList.add("has-logo"); }
 }
 
-// Händlerprofil vom Server (für vollständige Adresse/Logo/E-Mail/Telefon/Website/Sprachen/Öffnungszeiten)
-// Erwartete Felder (aus haendlerformular.html gespeichert):
-// { _id, firma, strasse, hausnummer, plz, ort, land, telefon, email, website, logoUrl, sprachen[], oeffnungszeiten{montag..sonntag}, rating, reviews }
+// Händlerprofil (aus haendlerformular.html gespeicherte Felder)
 async function fetchSellerProfile(sellerId){
   try{
     if(!sellerId) return null;
@@ -1159,54 +1156,132 @@ async function fetchSellerCars(sellerId, limit=6){
     const res = await fetch(`/api/search?${params.toString()}`, { credentials:"omit" });
     if(!res.ok) return { total:0, results:[] };
     const data = await res.json();
-    return { total: data?.total||0, results: Array.isArray(data?.results)?data.results:[] };
+    const list = data?.results ?? data?.items ?? [];
+    return { total: data?.total||list.length||0, results: Array.isArray(list) ? list : [] };
   }catch{ return { total:0, results:[] }; }
 }
 
-// „Weitere Fahrzeuge“ rendern
+// ---- Mini-Slider (Swipe + Pfeile) für Karten ----
+function initCardMediaSlider(card){
+  const wrap = card.querySelector(".smc-slides");
+  if (!wrap) return;
+  const slides = Array.from(wrap.children);
+  let idx = 0, startX = 0, prev = 0, cur = 0, dragging = false, movedPx = 0;
+
+  const setPos = () => { wrap.style.transform = `translateX(${cur}px)`; };
+  const oneWidth = () => (card.querySelector(".smc-media")?.clientWidth) || (wrap.clientWidth / (slides.length || 1)) || 1;
+  const snap = () => { const w = oneWidth(); cur = -idx * w; prev = cur; setPos(); };
+
+  // Pfeile
+  const left = card.querySelector(".smc-arrow.left");
+  const right = card.querySelector(".smc-arrow.right");
+  const go = (d) => { idx = Math.max(0, Math.min(slides.length - 1, idx + d)); snap(); };
+  left?.addEventListener("click", (e)=>{ e.stopPropagation(); go(-1); });
+  right?.addEventListener("click", (e)=>{ e.stopPropagation(); go(+1); });
+
+  // Swipe
+  const getX = (ev) => (ev.touches ? ev.touches[0].clientX : ev.clientX);
+  const down = (ev) => { dragging = true; startX = getX(ev); prev = cur; movedPx = 0; };
+  const move = (ev) => {
+    if (!dragging) return;
+    const dx = getX(ev) - startX;
+    movedPx = dx;
+    cur = prev + dx;
+    setPos();
+  };
+  const up = () => {
+    if (!dragging) return;
+    dragging = false;
+    const w = oneWidth();
+    if (movedPx < -40 && idx < slides.length-1) idx++;
+    if (movedPx >  40 && idx > 0)             idx--;
+    snap();
+  };
+
+  wrap.addEventListener("mousedown", down);
+  window.addEventListener("mousemove", move);
+  window.addEventListener("mouseup", up);
+  wrap.addEventListener("touchstart", down, {passive:true});
+  wrap.addEventListener("touchmove", move, {passive:true});
+  wrap.addEventListener("touchend", up);
+
+  window.addEventListener("resize", snap);
+  requestAnimationFrame(snap);
+
+  if (slides.length <= 1){ left?.remove(); right?.remove(); }
+}
+
+// ---- „Weitere Fahrzeuge“ ----
 function renderSellerMore(items){
-  const sec = $id("sellerMore");
-  const grid = $id("sellerMoreGrid");
+  const sec  = document.getElementById("sellerMore");
+  const grid = document.getElementById("sellerMoreGrid");
   if(!sec || !grid) return;
 
   grid.innerHTML = "";
   if(!items.length){ sec.style.display = "none"; return; }
 
   items.forEach(item=>{
-    const images = Array.isArray(item.images) ? item.images
-                 : Array.isArray(item.fotos)  ? item.fotos : [];
-    const media  = images[0] || item.cover || "";
-    const titel  = item.titel || [item.marke, item.modell].filter(Boolean).join(" ").trim() || "Fahrzeug";
-    const km     = item.verkauf_kilometer ?? item.kilometer ?? item.km ?? "";
-    const ez     = item.verkauf_erstzulassung || item.erstzulassung || "";
-    const preis  = item.verkauf_brutto ?? item["brutto-preis"] ?? item.brutto_preis ?? item.preis ?? item.verkauf_preis;
-    const id     = getDocId(item);
+    const pics  = Array.isArray(item.images) ? item.images : Array.isArray(item.fotos) ? item.fotos : [];
+    const titel = item.titel || [item.marke, item.modell].filter(Boolean).join(" ").trim() || "Fahrzeug";
+    const preisV= item.verkauf_brutto ?? item["brutto-preis"] ?? item.brutto_preis ?? item.preis ?? item.verkauf_preis;
+
+    const kmV   = item.verkauf_kilometer ?? item.kilometer ?? item.km;
+    const ezV   = item.verkauf_erstzulassung || item.erstzulassung;
+    const fuelV = item.verkauf_kraftstoff || item.kraftstoff;
+    const psV   = item.verkauf_leistung ?? item.leistung;  // PS
+    const gearV = item.verkauf_getriebe || item.getriebe;
+    const consV = item.verkauf_verbrauch_kombiniert || item.verbrauch_kombiniert || item.verbrauch;
+
+    const kmTxt   = kmV != null && kmV !== "" ? `${Number(toNum(kmV)).toLocaleString("de-DE")} km` : "—";
+    const ezTxt   = ezV || "—";
+    const fuelTxt = fuelV || "—";
+    const psTxt   = psV != null && psV !== "" ? `${Number(toNum(psV)).toLocaleString("de-DE")} PS` : "—";
+    const gearTxt = gearV || "—";
+    const conTxt  = consV != null && consV !== "" ? `${String(consV).replace(",",".")} l/100 km` : "—";
+
+    const id = getDocId(item);
 
     const card = document.createElement("article");
     card.className = "seller-more-card";
     card.innerHTML = `
-      <div class="smc-media">${media ? `<img src="${media}" alt="">` : ""}</div>
+      <div class="smc-media">
+        <div class="smc-slides">
+          ${(pics.length ? pics : [""]).map(src => `
+            <div class="smc-slide">${src ? `<img src="${src}" alt="">` : ``}</div>
+          `).join("")}
+        </div>
+        <button class="smc-arrow left"  type="button" aria-label="Vorheriges Bild"><i class="fas fa-chevron-left"></i></button>
+        <button class="smc-arrow right" type="button" aria-label="Nächstes Bild"><i class="fas fa-chevron-right"></i></button>
+      </div>
       <div class="smc-body">
         <div class="smc-title">${titel}</div>
-        <div class="smc-meta">
-          <span><i class="fas fa-road"></i> ${km ? Number(toNum(km)).toLocaleString("de-DE")+" km" : "—"}</span>
-          <span><i class="fas fa-calendar-alt"></i> ${ez || "—"}</span>
+        <div class="smc-price">${fmtEUR(preisV)}</div>
+        <div class="smc-specs">
+          <div class="smc-spec"><i class="fas fa-road"></i><span>${kmTxt}</span></div>
+          <div class="smc-spec"><i class="fas fa-calendar-alt"></i><span>${ezTxt}</span></div>
+          <div class="smc-spec"><i class="fas fa-gas-pump"></i><span>${fuelTxt}</span></div>
+          <div class="smc-spec"><i class="fas fa-gauge-high"></i><span>${psTxt}</span></div>
+          <div class="smc-spec"><i class="fas fa-gears"></i><span>${gearTxt}</span></div>
+          <div class="smc-spec"><i class="fas fa-tint"></i><span>${conTxt}</span></div>
         </div>
-        <div class="smc-price">${fmtEUR(preis)}</div>
       </div>
     `;
-    card.addEventListener("click", ()=>{
+
+    card.addEventListener("click", (e)=>{
+      if (e.target.closest(".smc-arrow")) return;
       try{ localStorage.setItem("ausgewaehltesInserat", JSON.stringify(toAnzeigePayload(item))); }catch{}
       if (id) window.location.href = `anzeige.html?id=${encodeURIComponent(id)}`;
       else     window.location.href = `anzeige.html`;
     });
+
     grid.appendChild(card);
+    initCardMediaSlider(card);
   });
 
   sec.style.display = "";
 }
 
-// Zusätzlichen Info-Block unter den Buttons anlegen (falls im HTML nicht vorhanden)
+// Zusätzlichen Info-Block unter den Buttons anlegen
 function ensureExtraInfoBlock(){
   let wrap = document.getElementById("sellerInfoExtra");
   if (wrap) return wrap;
@@ -1216,16 +1291,16 @@ function ensureExtraInfoBlock(){
   wrap.style.marginTop = "12px";
   wrap.innerHTML = `
     <ul class="kv" id="sellerKV" style="list-style:none;display:flex;flex-direction:column;gap:8px;">
-      <li id="rowPhone" style="display:none;display:flex;justify-content:space-between;gap:10px;">
+      <li id="rowPhone" style="display:none;justify-content:space-between;gap:10px;">
         <span><i class="fas fa-phone"></i> Telefon</span><strong id="sellerPhoneText"></strong>
       </li>
-      <li id="rowMail" style="display:none;display:flex;justify-content:space-between;gap:10px;">
+      <li id="rowMail" style="display:none;justify-content:space-between;gap:10px;">
         <span><i class="fas fa-envelope"></i> E-Mail</span><strong id="sellerMailText"></strong>
       </li>
-      <li id="rowWeb" style="display:none;display:flex;justify-content:space-between;gap:10px;">
+      <li id="rowWeb" style="display:none;justify-content:space-between;gap:10px;">
         <span><i class="fas fa-globe"></i> Website</span><strong><a id="sellerWebsiteText" target="_blank" rel="noopener"></a></strong>
       </li>
-      <li id="rowLang" style="display:none;display:flex;justify-content:space-between;gap:10px;">
+      <li id="rowLang" style="display:none;justify-content:space-between;gap:10px;">
         <span><i class="fas fa-language"></i> Wir sprechen</span><strong id="sellerLanguages"></strong>
       </li>
     </ul>
@@ -1236,7 +1311,6 @@ function ensureExtraInfoBlock(){
       <ul class="hours" id="hoursList" style="list-style:none;display:flex;flex-direction:column;gap:8px;"></ul>
     </div>
   `;
-  // hinter die Buttons hängen
   const contact = $id("sellerCard")?.querySelector(".seller-contact");
   (contact?.parentElement || $id("sellerCard"))?.appendChild(wrap);
   return wrap;
@@ -1273,27 +1347,22 @@ async function renderSeller(){
   const box = $id("sellerCard");
   if(!box) return;
 
-  // Inserat holen
   let inserat = {};
   try{ inserat = JSON.parse(localStorage.getItem("ausgewaehltesInserat") || "{}"); }catch{}
 
-  // Basis
   const rawType  = String(inserat?.seller?.type || inserat?.verkauf_verkaeufer || "").toLowerCase();
   const isDealer = rawType.includes("händ") || rawType.includes("haend") || rawType==="haendler" || rawType==="händler" || inserat?.seller?.role==="haendler";
   let sellerId   = inserat?.verkaeuferId || inserat?.seller?.id || inserat?.sellerId || "";
 
-  // Händlerprofil vom Server
   const profile  = await fetchSellerProfile(sellerId);
   if(!sellerId && profile && (profile._id || profile.id)) sellerId = getDocId(profile) || profile.id;
 
-  // Name + Initialen + Typ
   const name = (profile?.firma || profile?.name || inserat?.seller?.name || inserat?.verkauf_name || (isDealer ? "Händler" : "Privatanbieter")).trim();
   const initials = name.split(/\s+/).slice(0,2).map(p => p[0]?.toUpperCase()||"").join("") || "AV";
   setText("sellerName", name);
   setText("sellerInitials", initials);
   setText("sellerType", isDealer ? "Händler" : "Privatanbieter");
 
-  // Vollständige Adresse bei Händler, sonst Standort
   const fullAddress = (() => {
     const s = (t) => (t==null ? "" : String(t).trim());
     if (isDealer) {
@@ -1308,12 +1377,10 @@ async function renderSeller(){
   })();
   setText("sellerAddress", fullAddress);
 
-  // Logo
   const avatar = box.querySelector(".dealer-avatar");
   const logoUrl = profile?.logoUrl || inserat?.seller?.logoUrl || inserat?.logoUrl || "";
   loadLogo($id("sellerLogo"), avatar, logoUrl);
 
-  // Rating
   const rating = Number(profile?.rating ?? inserat?.seller?.rating ?? inserat?.rating ?? 0);
   const rCnt   = Number(profile?.reviews ?? inserat?.seller?.reviews ?? inserat?.reviews ?? 0);
   const w = Math.max(0, Math.min(5, rating))/5*100;
@@ -1321,7 +1388,6 @@ async function renderSeller(){
   setText("ratingValue", rating ? rating.toFixed(1) : "–");
   $id("ratingCount").textContent = rCnt ? `(${rCnt})` : "";
 
-  // Kontakt & Website
   const phone = profile?.telefon || inserat?.telefon || inserat?.seller?.phone || "";
   const mail  = profile?.email   || inserat?.seller?.email || inserat?.email || "";
   const web   = ensureHttp(profile?.website || profile?.web || inserat?.seller?.website || inserat?.website || "");
@@ -1335,15 +1401,15 @@ async function renderSeller(){
   if (mail) { mailBtn.href = `mailto:${mail}`; mailBtn.classList.remove("ghost"); }
   else      { mailBtn.removeAttribute("href"); mailBtn.classList.add("ghost"); }
 
-  // Nachricht-Button (optional Kontaktpanel öffnen)
-  $id("msgBtn")?.addEventListener("click", ()=>{
-    document.getElementById("contactPanel")?.classList.add("open");
-    document.querySelector("#messageForm textarea")?.focus();
-  });
+  const msgBtn = $id("msgBtn");
+  if (msgBtn){
+    msgBtn.onclick = () => {
+      document.getElementById("contactPanel")?.classList.add("open");
+      document.querySelector("#messageForm textarea")?.focus();
+    };
+  }
 
-  // Zusätzliche Infos unterhalb der Buttons platzieren (Telefon/Email/Website/Sprachen/Öffnungszeiten)
   ensureExtraInfoBlock();
-
   if (phone){ setText("sellerPhoneText", phone); $id("rowPhone").style.display="flex"; }
   if (mail){  setText("sellerMailText", mail);   $id("rowMail").style.display="flex"; }
   if (web){
@@ -1364,7 +1430,6 @@ async function renderSeller(){
   const hours = profile?.oeffnungszeiten || profile?.hours || inserat?.seller?.hours || inserat?.oeffnungszeiten || null;
   renderHours(hours);
 
-  // Weitere Fahrzeuge nur bei Händler mit ID
   const moreSec = $id("sellerMore");
   if (isDealer && (sellerId || profile?._id || profile?.id) && moreSec){
     const finalId = sellerId || getDocId(profile) || profile?.id || "";
@@ -1444,7 +1509,7 @@ async function renderSeller(){
       if (!res.ok) throw new Error();
       panel.style.display="none";
       alert("Danke für deine Bewertung!");
-      renderSeller(); // Rating auffrischen
+      renderSeller();
     }catch{
       alert("Bewertung konnte nicht gespeichert werden.");
     }
