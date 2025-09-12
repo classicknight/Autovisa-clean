@@ -1679,7 +1679,8 @@ app.get("/api/search", async (req, res) => {
       marke, modell, ezFrom, km_max, price_max,
       getriebe, kraftstoff, sort,
       ort, umkreis,
-      page = "1", limit = "20"
+      page = "1", limit = "20",
+      modellausfuehrung // <— NEU: Freitext für Modellvariante
     } = req.query;
 
     const p   = Math.max(parseInt(page, 10)  || 1, 1);
@@ -1779,6 +1780,33 @@ app.get("/api/search", async (req, res) => {
       ...(Number.isFinite(kmMaxNum)    ? [{ $match: { km_num:    { $ne: null, $lte: kmMaxNum } } }] : [])
     ];
 
+    // NEU: Freitext-Filter „Modellvariante“ (gegen mehrere Felder, AND über Tokens)
+    const modVarRaw = String(modellausfuehrung || "").trim();
+    let variantStages = [];
+    if (modVarRaw) {
+      const tokens = modVarRaw
+        .split(/[,\s]+/)
+        .map(s => s.trim())
+        .filter(Boolean)
+        .slice(0, 6); // etwas begrenzen
+
+      if (tokens.length) {
+        const andClauses = tokens.map(w => {
+          const rx = new RegExp(escapeRegex(w), "i");
+          return {
+            $or: [
+              { titel: rx },                     // Anzeigentitel
+              { modell: rx },                    // Modellfeld
+              { beschreibung: rx },              // falls verfügbar
+              { modellvariante: rx },            // optionale Spalte
+              { verkauf_modellvariante: rx }     // optionale Spalte
+            ]
+          };
+        });
+        variantStages = [{ $match: { $and: andClauses } }];
+      }
+    }
+
     // Projektions- und Facet-Teil
     const endStages = [
       ...sortStages,
@@ -1810,7 +1838,7 @@ app.get("/api/search", async (req, res) => {
         pipeline = [
           { $geoNear: {
               near: point,
-              key: "standortCoords",  // <-- GeoJSON Point-Feld, 2dsphere-Index erforderlich
+              key: "standortCoords",  // 2dsphere-Index erforderlich
               distanceField: "dist",
               spherical: true,
               ...(umkreisKm > 0 ? { maxDistance: umkreisKm * 1000 } : {})
@@ -1818,6 +1846,7 @@ app.get("/api/search", async (req, res) => {
           },
           ...parseNumberStages,
           ...numberFilterStages,
+          ...variantStages,   // <— NEU an dieser Stelle
           ...endStages
         ];
       }
@@ -1828,6 +1857,7 @@ app.get("/api/search", async (req, res) => {
       pipeline = [
         ...parseNumberStages,
         ...numberFilterStages,
+        ...variantStages,     // <— NEU an dieser Stelle
         ...endStages
       ];
     }
@@ -1856,20 +1886,3 @@ app.get("/api/search", async (req, res) => {
 
 
 
-
-app.get("/dev/test-mail", async (req, res) => {
-  try {
-    const to = req.query.to;
-    if (!to) return res.status(400).send("Param ?to= fehlt");
-    const info = await transporter.sendMail({
-      from: MAIL_FROM,
-      replyTo: MAIL_REPLY_TO,
-      to,
-      subject: "Autovisa Test",
-      text: "Hallo 👋",
-    });
-    res.json({ ok: true, id: info.messageId });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
-});
