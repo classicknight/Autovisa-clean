@@ -1,4 +1,6 @@
 // === Module & Abhängigkeiten ===
+require("dotenv").config();
+
 const express = require("express");
 const multer = require("multer");
 const cookieParser = require("cookie-parser");
@@ -14,6 +16,12 @@ const crypto = require("crypto");
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 app.set("trust proxy", 1);
+// Helper: saubere URLs aus ENV
+function getUrls() {
+  const api = process.env.API_URL || process.env.BASE_URL || `http://localhost:${PORT}`;
+  const appUrl = process.env.PUBLIC_APP_URL || api;
+  return { api, appUrl };
+}
 
 // === MongoDB Konfiguration ===
 const mongoUri = process.env.MONGODB_URI;
@@ -32,6 +40,8 @@ client.connect()
       { updatedAt: 1 },
       { expireAfterSeconds: 60 * 60 * 24 * 30 }
     );
+    await db.collection("nutzer").createIndex({ email: 1 }, { unique: true });
+
     console.log("✅ Indexe für geosuggest bereit");
   })
   .catch(err => console.error("❌ MongoDB-Verbindung fehlgeschlagen:", err));
@@ -436,23 +446,22 @@ function checkLogin(req, res, next) {
     return res.status(401).json({ error: "Ungültiger Login." });
   }
 }
-
-// === 📧 Nodemailer-Konfiguration ===
-const smtpUser = process.env.SMTP_USER || "autovisa0607@gmail.com";
-const smtpPass = process.env.SMTP_PASS || "inhnziikdkyqtdmy"; // ⚠️ nur Dev-Fallback
+// === 📧 Mail (IONOS / beliebiger SMTP via .env) ===
+const MAIL_FROM = process.env.MAIL_FROM || "Autovisa <no-reply@autovisa.de>";
+const MAIL_REPLY_TO = process.env.MAIL_REPLY_TO || "support@autovisa.de";
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: { user: smtpUser, pass: smtpPass }
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: String(process.env.SMTP_SECURE || "false") === "true", // 465 => true
+  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
 });
 
-transporter.verify((error, success) => {
-  if (error) {
-    console.error("❌ SMTP-Fehler:", error);
-  } else {
-    console.log("✅ SMTP bereit:", success);
-  }
+transporter.verify((error) => {
+  if (error) console.error("❌ SMTP-Fehler:", error);
+  else console.log("✅ SMTP bereit");
 });
+
 
 // === 🔧 Email-Template Helper (einmalig definieren) ===
 function buildAutovisaEmail({
@@ -542,14 +551,15 @@ function buildAutovisaEmail({
 </body>
 </html>`;
 }
-
 // === 📝 Registrierung mit Verifizierungslink ===
 app.post("/register", async (req, res) => {
   let { name, email, password } = req.body;
 
-  name = (name || "").trim();
+  // Normalisieren
+  name  = (name  || "").trim();
   email = (email || "").trim().toLowerCase();
 
+  // Validierung
   if (!name || !email || !password) {
     return res.status(400).json({ error: "Alle Felder sind erforderlich." });
   }
@@ -560,31 +570,43 @@ app.post("/register", async (req, res) => {
   try {
     const nutzerColl = db.collection("nutzer");
 
+    // E-Mail darf nur einmal existieren
     const exists = await nutzerColl.findOne({ email });
     if (exists) {
       return res.status(400).json({ error: "E-Mail bereits registriert." });
     }
 
+    // Token + Passwort-Hash
     const token = crypto.randomBytes(20).toString("hex");
-    const hash = await bcrypt.hash(password, 12);
+    const hash  = await bcrypt.hash(password, 12);
 
+    // Nutzer-Dokument
     const neuerNutzer = {
-      id: Date.now().toString(),   // intern genutzte ID (string)
+      id: Date.now().toString(),   // interne string-ID
       name,
       email,
       password: hash,              // ✅ gehasht
       verified: false,
       token,
       role: "privat",
-      createdAt: new Date()
+      createdAt: new Date(),
     };
 
     await nutzerColl.insertOne(neuerNutzer);
 
-    const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
-    const verifyLink = `${baseUrl}/verify?token=${token}`;
-    const logoUrl = `${baseUrl}/${encodeURIComponent("AUTOVISA LOGO.PNG")}`;
+    // URLs aus ENV (robust, auch falls getUrls() nicht definiert ist)
+    const hasGetUrls = (typeof getUrls === "function");
+    const urls = hasGetUrls
+      ? getUrls()
+      : {
+          api:    process.env.API_URL || process.env.BASE_URL || `http://localhost:${PORT}`,
+          appUrl: process.env.PUBLIC_APP_URL || process.env.API_URL || process.env.BASE_URL || `http://localhost:${PORT}`,
+        };
 
+    const verifyLink = `${urls.api}/verify?token=${token}`;
+    const logoUrl    = `${urls.appUrl}/${encodeURIComponent("AUTOVISA LOGO.PNG")}`;
+
+    // Mailinhalt
     const subject = "Bitte bestätige deine Registrierung";
     const html = buildAutovisaEmail({
       subject,
@@ -603,30 +625,29 @@ ${verifyLink}
 
 Wenn du dich nicht registriert hast, ignoriere diese E-Mail.`;
 
-    const mailOptions = {
-      from: `"Autovisa" <${smtpUser}>`, // ✅ nutzt ENV/Fallback aus obiger Transporter-Konfig
+    // Versand (Absender/Reply-To kommen aus ENV via MAIL_FROM/MAIL_REPLY_TO)
+    const info = await transporter.sendMail({
+      from: MAIL_FROM,
+      replyTo: MAIL_REPLY_TO,
       to: email,
       subject,
       html,
-      text
-    };
+      text,
+    });
 
-    try {
-      const info = await transporter.sendMail(mailOptions);
-      console.log("✅ Bestätigungsmail gesendet:", info.response);
-      return res.json({ success: true, message: "E-Mail zur Bestätigung wurde gesendet." });
-    } catch (mailErr) {
-      console.error("❌ SMTP-Fehler beim Senden:", mailErr);
-      // Aufräumen: unbestätigtes Konto löschen
-      await nutzerColl.deleteOne({ email });
-      return res.status(500).json({ error: "E-Mail-Versand fehlgeschlagen. Bitte später erneut versuchen." });
-    }
+    console.log("✅ Bestätigungsmail gesendet:", info.messageId || info.response);
+    return res.json({ success: true, message: "E-Mail zur Bestätigung wurde gesendet." });
 
-  } catch (err) {
-    console.error("❌ Fehler bei Registrierung:", err);
-    return res.status(500).json({ error: "Interner Serverfehler." });
+  } catch (mailOrDbErr) {
+    console.error("❌ Fehler bei Registrierung/Versand:", mailOrDbErr);
+
+    // Falls der Nutzer bereits angelegt wurde, aber Versand scheiterte:
+    try { if (email) await db.collection("nutzer").deleteOne({ email, verified: false }); } catch {}
+
+    return res.status(500).json({ error: "Interner Fehler oder E-Mail-Versand fehlgeschlagen." });
   }
 });
+
 
 
 // === Login-Route mit MongoDB (plain + bcrypt unterstützt) ===
@@ -666,8 +687,8 @@ app.post("/login", async (req, res) => {
       return res.status(403).json({ error: "❌ Bitte bestätige zuerst deine E-Mail." });
     }
 
-    const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
-    const isSecureCookie = baseUrl.startsWith("https") || process.env.NODE_ENV === "production";
+    const { appUrl } = getUrls();
+    const isSecureCookie = appUrl.startsWith("https") || process.env.NODE_ENV === "production";
 
     // Sichere Session-Cookies setzen
     res.cookie("nutzer", JSON.stringify({
@@ -814,7 +835,6 @@ const uploadLogo = multer({
   }
 });
 
-
 // === Händlerregistrierung mit optionalem Logo-Upload ===
 app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) => {
   // Felder kommen bei multipart als Strings
@@ -825,26 +845,26 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
   } = req.body;
 
   // Normalisierung / Sanitizing
-  const _firma          = (firma || "").trim();
-  const _email          = (email || "").trim().toLowerCase();
-  const _strasse        = (strasse || "").trim();
-  const _hausnummer     = (hausnummer || "").trim();
-  const _plz            = (plz || "").trim();
-  const _ort            = (ort || "").trim();
-  const _land           = (land || "").trim();
-  const _telefon        = (telefon || "").trim();
-  const _telefon2       = (telefon2 || "").trim();
-  const _tarif          = (tarif || "").trim();
-  const _zahlungsmethode= (zahlungsmethode || "").trim();
-  const _kontoinhaber   = (kontoinhaber || "").trim();
-  const _iban           = (iban || "").replace(/\s+/g, "").toUpperCase();
-  const _bic            = (bic || "").replace(/\s+/g, "").toUpperCase();
-  const _impressum      = (impressum || "").trim();
+  const _firma           = (firma || "").trim();
+  const _email           = (email || "").trim().toLowerCase();
+  const _strasse         = (strasse || "").trim();
+  const _hausnummer      = (hausnummer || "").trim();
+  const _plz             = (plz || "").trim();
+  const _ort             = (ort || "").trim();
+  const _land            = (land || "").trim();
+  const _telefon         = (telefon || "").trim();
+  const _telefon2        = (telefon2 || "").trim();
+  const _tarif           = (tarif || "").trim();
+  const _zahlungsmethode = (zahlungsmethode || "").trim();
+  const _kontoinhaber    = (kontoinhaber || "").trim();
+  const _iban            = (iban || "").replace(/\s+/g, "").toUpperCase();
+  const _bic             = (bic || "").replace(/\s+/g, "").toUpperCase();
+  const _impressum       = (impressum || "").trim();
 
   const toBool = (v) => (v === true || v === "true" || v === "on" || v === 1 || v === "1");
-  const _whatsapp   = toBool(whatsapp);
-  const _agb        = toBool(agb);
-  const _datenschutz= toBool(datenschutz);
+  const _whatsapp    = toBool(whatsapp);
+  const _agb         = toBool(agb);
+  const _datenschutz = toBool(datenschutz);
 
   // Pflichtfelder + Basis-Checks
   if (!_firma || !_email || !password || !_agb || !_datenschutz) {
@@ -860,6 +880,7 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
   try {
     const nutzerColl = db.collection("nutzer");
 
+    // Keine doppelte E-Mail zulassen
     const existiert = await nutzerColl.findOne({ email: _email });
     if (existiert) {
       return res.status(400).json({ error: "E-Mail bereits registriert." });
@@ -875,7 +896,7 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
       try {
         const result = await uploadFileToCloudinary(req.file.path, {
           folder: `autovisa/${newId}/logo`,
-          resource_type: "image"
+          resource_type: "image",
         });
         logoUrl = result.secure_url || "";
         logoPublicId = result.public_id || "";
@@ -884,9 +905,11 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
       }
     }
 
+    // Token/Passwort
     const token = crypto.randomBytes(20).toString("hex");
     const hash  = await bcrypt.hash(password, 12);
 
+    // Händler-Dokument
     const neuerHaendler = {
       id: newId,
       role: "haendler",
@@ -917,16 +940,24 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
       // Auth
       password: hash,
       // Logo (optional)
-      ...(logoUrl ? { logoUrl, logoPublicId, logoUpdatedAt: new Date() } : {})
+      ...(logoUrl ? { logoUrl, logoPublicId, logoUpdatedAt: new Date() } : {}),
     };
 
     await nutzerColl.insertOne(neuerHaendler);
 
-    // Verifizierungs-Mail
-    const baseUrl   = process.env.BASE_URL || `http://localhost:${PORT}`;
-    const verifyLink= `${baseUrl}/verify?token=${token}`;
-    const brandLogo = `${baseUrl}/${encodeURIComponent("AUTOVISA LOGO.PNG")}`;
+    // URLs aus ENV (robust, falls getUrls() nicht definiert ist)
+    const hasGetUrls = (typeof getUrls === "function");
+    const urls = hasGetUrls
+      ? getUrls()
+      : {
+          api:    process.env.API_URL || process.env.BASE_URL || `http://localhost:${PORT}`,
+          appUrl: process.env.PUBLIC_APP_URL || process.env.API_URL || process.env.BASE_URL || `http://localhost:${PORT}`,
+        };
 
+    const verifyLink = `${urls.api}/verify?token=${token}`;
+    const brandLogo  = `${urls.appUrl}/${encodeURIComponent("AUTOVISA LOGO.PNG")}`;
+
+    // E-Mail
     const subject = "Bitte bestätigen Sie Ihre Händlerregistrierung";
     const html = buildAutovisaEmail({
       subject,
@@ -936,7 +967,7 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
       htmlText: "Bitte bestätigen Sie Ihre E-Mail-Adresse, um Ihr Händlerkonto zu aktivieren.",
       buttonText: "Händlerkonto bestätigen",
       buttonUrl: verifyLink,
-      footerNote: "Wenn Sie sich nicht bei Autovisa registriert haben, können Sie diese E-Mail ignorieren."
+      footerNote: "Wenn Sie sich nicht bei Autovisa registriert haben, können Sie diese E-Mail ignorieren.",
     });
     const text =
 `Hallo ${_firma},
@@ -945,31 +976,27 @@ ${verifyLink}
 
 Wenn Sie sich nicht registriert haben, ignorieren Sie diese E-Mail.`;
 
-    const mailOptions = {
-      from: `"Autovisa" <${smtpUser}>`,
+    // Versand (Absender/Reply-To aus ENV)
+    const info = await transporter.sendMail({
+      from: MAIL_FROM,
+      replyTo: MAIL_REPLY_TO,
       to: _email,
       subject,
       html,
-      text
-    };
+      text,
+    });
 
-    try {
-      const info = await transporter.sendMail(mailOptions);
-      console.log("✅ Händler-Mail gesendet:", info.response);
-      return res.json({ success: true, message: "Händlerregistrierung erfolgreich. E-Mail wurde versendet." });
-    } catch (mailErr) {
-      console.error("❌ SMTP-Fehler beim Senden (Händler):", mailErr);
-      // Aufräumen: Account entfernen, optional Cloudinary-Asset löschen
-      await nutzerColl.deleteOne({ email: _email });
-      if (logoPublicId) {
-        try { await cloudinary.uploader.destroy(logoPublicId, { resource_type: "image" }); } catch {}
-      }
-      return res.status(500).json({ error: "E-Mail-Versand fehlgeschlagen. Bitte später erneut versuchen." });
-    }
+    console.log("✅ Händler-Mail gesendet:", info.messageId || info.response);
+    return res.json({ success: true, message: "Händlerregistrierung erfolgreich. E-Mail wurde versendet." });
 
-  } catch (err) {
-    console.error("❌ Fehler bei /haendler-registrieren:", err);
-    return res.status(500).json({ error: "Interner Fehler bei der Registrierung." });
+  } catch (mailErr) {
+    console.error("❌ Fehler bei /haendler-registrieren:", mailErr);
+
+    // Aufräumen: Account entfernen, optional Cloudinary-Asset löschen
+    try { if (req.body?.email) await db.collection("nutzer").deleteOne({ email: (req.body.email || "").toLowerCase(), verified: false }); } catch {}
+    try { if (typeof logoPublicId === "string" && logoPublicId) await cloudinary.uploader.destroy(logoPublicId, { resource_type: "image" }); } catch {}
+
+    return res.status(500).json({ error: "E-Mail-Versand fehlgeschlagen. Bitte später erneut versuchen." });
   }
 });
 
@@ -1015,12 +1042,21 @@ app.post("/haendler/logo", checkLogin, uploadLogo.single("logo"), async (req, re
     res.status(500).json({ error: e.message || "Fehler beim Logo-Upload." });
   }
 });
-
-// === ✅ Verifikations-Route ===
+// === ✅ Verifikations-Route (Redirect auf Frontend) ===
 app.get("/verify", async (req, res) => {
   const { token } = req.query;
+
+  // Ziel-URL aus ENV ermitteln (falls getUrls() nicht existiert)
+  const hasGetUrls = (typeof getUrls === "function");
+  const { appUrl } = hasGetUrls
+    ? getUrls()
+    : { appUrl: process.env.PUBLIC_APP_URL || process.env.API_URL || process.env.BASE_URL || `http://localhost:${PORT}` };
+
+  // Keine Caches für diesen Endpunkt
+  res.set("Cache-Control", "no-store");
+
   if (!token || typeof token !== "string") {
-    return res.status(400).send("❌ Ungültiger oder fehlender Link.");
+    return res.redirect(`${appUrl}/login.html?verified=0&reason=invalid`);
   }
 
   try {
@@ -1029,7 +1065,8 @@ app.get("/verify", async (req, res) => {
     // Token suchen
     const user = await nutzerColl.findOne({ token });
     if (!user) {
-      return res.status(400).send("❌ Token ungültig oder bereits bestätigt.");
+      // Schon bestätigt oder Token falsch/abgelaufen
+      return res.redirect(`${appUrl}/login.html?verified=0&reason=token`);
     }
 
     // Verifizieren & Token entfernen
@@ -1038,33 +1075,14 @@ app.get("/verify", async (req, res) => {
       { $set: { verified: true, verifiedAt: new Date() }, $unset: { token: "" } }
     );
 
-    // Schöne Bestätigungsseite
-    return res.send(`
-      <!doctype html>
-      <meta charset="utf-8">
-      <title>Verifizierung erfolgreich</title>
-      <meta http-equiv="refresh" content="2;url=/login.html">
-      <style>
-        body{font-family:Arial,Helvetica,sans-serif;background:#f5f8fc;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
-        .card{background:#fff;padding:24px 28px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.08);text-align:center}
-        h1{margin:0 0 8px;font-size:20px}
-        p{margin:0 0 12px;color:#475a6a}
-        a.button{display:inline-block;padding:10px 16px;border-radius:8px;background:#00b8a9;color:#fff;text-decoration:none;font-weight:600}
-      </style>
-      <div class="card">
-        <h1>✅ E-Mail bestätigt</h1>
-        <p>Dein Konto ist jetzt freigeschaltet.</p>
-        <a class="button" href="/login.html">Zum Login</a>
-      </div>
-    `);
-    // Alternativ:
-    // return res.redirect("/login.html?verified=1");
-
+    // Erfolg
+    return res.redirect(`${appUrl}/login.html?verified=1`);
   } catch (err) {
     console.error("❌ Fehler bei /verify:", err);
-    return res.status(500).send("❌ Interner Fehler bei der Verifikation.");
+    return res.redirect(`${appUrl}/login.html?verified=0&reason=server`);
   }
 });
+
 
 // === Nachricht senden ===
 // Sicherheitsänderung: Sender NUR aus Session, nicht aus Body
@@ -1832,3 +1850,26 @@ app.get("/api/search", async (req, res) => {
 
 
 
+
+
+
+
+
+
+
+app.get("/dev/test-mail", async (req, res) => {
+  try {
+    const to = req.query.to;
+    if (!to) return res.status(400).send("Param ?to= fehlt");
+    const info = await transporter.sendMail({
+      from: MAIL_FROM,
+      replyTo: MAIL_REPLY_TO,
+      to,
+      subject: "Autovisa Test",
+      text: "Hallo 👋",
+    });
+    res.json({ ok: true, id: info.messageId });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
