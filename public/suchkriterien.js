@@ -226,12 +226,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     "911er Reihe (Alle)": /^(911|930|964|991|992|993|996|997|912|914|918)\b/,
 
-    "Golf (Alle)": /^Golf\s|^Golf$|^Golf-/i,
-    "Passat (Alle)": /^Passat\s|^Passat$|^Passat-/i,
-    "T3 (Alle)": /^T3(\s|$)/i,
-    "T4 (Alle)": /^T4(\s|$)/i,
-    "T5 (Alle)": /^T5(\s|$)/i,
-    "T6 (Alle)": /^T6(\s|$)/i
+  "Golf (Alle)":   /^Golf(?!\s*\(Alle\))(\s|$|-)/i,
+"Passat (Alle)": /^Passat(?!\s*\(Alle\))(\s|$|-)/i,
+"T3 (Alle)":     /^T3(?!\s*\(Alle\))(\s|$)/i,
+"T4 (Alle)":     /^T4(?!\s*\(Alle\))(\s|$)/i,
+"T5 (Alle)":     /^T5(?!\s*\(Alle\))(\s|$)/i,
+"T6 (Alle)":     /^T6(?!\s*\(Alle\))(\s|$)/i
+
   };
 
   // SlimSelect-Helfer
@@ -258,48 +259,45 @@ document.addEventListener("DOMContentLoaded", () => {
       { text: "Bitte zuerst Marke wählen", value: "", disabled: true, selected: true }
     ],
     events: {
-      // "Beliebig" automatisch entfernen, sobald etwas anderes gewählt wird
-      // und Gruppen (… (Alle)) nur für erlaubte Marken auf Einzelmodelle expandieren
       afterChange: (newSelected) => {
         const brand       = brandDropdown?.value || "";
         const allowGroups = ALLOW_GROUPS_FOR[brand] || [];
         const currentVals = (newSelected || []).map(s => s.value);
-  
-        // Wenn zusätzlich zu "Beliebig" etwas anderes gewählt wurde → "Beliebig" raus
+    
+        // "Beliebig" exklusiv
         let vals = (currentVals.includes(ALL_MODELS_VALUE) && currentVals.length > 1)
           ? currentVals.filter(v => v !== ALL_MODELS_VALUE)
           : currentVals;
-  
-        // Nur "Beliebig" gewählt → so lassen (exklusiv)
         if (vals.length === 1 && vals[0] === ALL_MODELS_VALUE) return;
-  
-        // Gruppen expandieren (nur wenn für Marke erlaubt)
+    
         const fullList = sanitizeModelList((brandToModels[brand] || []).map(String));
         const nextSet  = new Set();
-  
+    
         vals.forEach(v => {
           const rx = modelGroups[v];
           const isAllowedGroup = rx && allowGroups.includes(v);
           if (isAllowedGroup) {
-            fullList.forEach(m => { if (rx.test(m)) nextSet.add(m); });
+            fullList.forEach(m => {
+              if (/\(alle\)/i.test(m)) return;    // Gruppen-Label NICHT selektieren
+              if (rx.test(m)) nextSet.add(m);
+            });
           } else if (v && v !== ALL_MODELS_VALUE) {
             nextSet.add(v);
           }
         });
-  
+    
         const next = nextSet.size ? [...nextSet] : [ALL_MODELS_VALUE];
-  
-        // Nur setzen, wenn wirklich anders (verhindert Endlosschleifen)
-        const nowKey  = currentVals.slice().sort().join('|');
-        const nextKey = next.slice().sort().join('|');
+        const nowKey  = currentVals.slice().sort().join("|");
+        const nextKey = next.slice().sort().join("|");
         if (nowKey !== nextKey) slimModell.setSelected(next);
       }
     }
+    
   });
   
   // Modelle aus JSON
   const FILTER_OUT_BELIEBIG = true;     // "Beliebig" aus JSON entfernen (wir fügen es selbst ein)
-  const FILTER_OUT_ALLE_VARIANTS = true; // "(Alle)"-Einträge aus JSON entfernen (Gruppen steuern wir separat)
+  const FILTER_OUT_ALLE_VARIANTS = false; // "(Alle)"-Einträge aus JSON entfernen (Gruppen steuern wir separat)
   const ALL_MODELS_VALUE = "__ALL_MODELS__";
 
   // Nur diese Marken bekommen Gruppen (… (Alle))
@@ -334,31 +332,30 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   let brandToModels = {};
-
   function sanitizeModelList(listRaw = []) {
     const seen = new Set();
     const clean = [];
     let hadAndere = false;
-
+  
     for (const raw of listRaw) {
       if (raw == null) continue;
       const name = String(raw).trim();
       if (!name) continue;
       if (FILTER_OUT_BELIEBIG && /^beliebig$/i.test(name)) continue;
-      if (FILTER_OUT_ALLE_VARIANTS && /\(alle\)/i.test(name)) continue;
-
+      // "(Alle)" behalten (FILTER_OUT_ALLE_VARIANTS = false)
+  
       if (/^andere$/i.test(name)) { hadAndere = true; continue; }
-
+  
       const key = name.toLowerCase();
-      if (!seen.has(key)) {
-        seen.add(key);
-        clean.push(name);
-      }
+      if (!seen.has(key)) { seen.add(key); clean.push(name); }
     }
-    clean.sort((a,b)=> a.localeCompare(b, "de", { sensitivity:"base" }));
+  
+    // JSON-Reihenfolge beibehalten; "Andere" ans Ende setzen
     if (hadAndere) clean.push("Andere");
     return clean;
   }
+  
+  
 
   async function loadBrandModelMap() {
     try {
@@ -374,36 +371,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function rebuildModelOptions(brand) {
     if (!modelDropdown) return;
-
+  
     const rawList = (brandToModels && brandToModels[brand]) || [];
     const models  = sanitizeModelList(rawList);
-
-    // Gruppen nur, wenn Marke auf Allowlist und es echte Treffer gibt
-    let groupOptions = [];
-    const allowedForBrand = ALLOW_GROUPS_FOR[brand];
-    if (allowedForBrand && allowedForBrand.length) {
-      groupOptions = allowedForBrand
-        .filter(groupName => {
-          const rx = modelGroups[groupName];
-          return rx && models.some(m => rx.test(m));
-        })
-        .map(groupName => ({ text: groupName, value: groupName }));
-    }
-
-    // Reihenfolge: Beliebig → Gruppen → Einzelmodelle
+  
+    // Nur "Beliebig" + die Modelle in JSON-Reihenfolge
     const data = [
       { text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE },
-      ...groupOptions,
       ...models.map(m => ({ text: m, value: m }))
     ];
-
+  
     if (slimModell) {
-      slimModell.setData(
-        data.length
-          ? data
-          : [{ text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE }]
-      );
-      // Standard: Beliebig aktiv
+      slimModell.setData(data.length ? data : [{ text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE }]);
       slimModell.setSelected([ALL_MODELS_VALUE]);
     } else {
       modelDropdown.innerHTML = "";
@@ -416,7 +395,7 @@ document.addEventListener("DOMContentLoaded", () => {
       modelDropdown.value = ALL_MODELS_VALUE;
     }
   }
-
+  
 
   // Lade Daten & initialisiere
   (async () => {
@@ -449,35 +428,28 @@ document.addEventListener("DOMContentLoaded", () => {
       .split(",")
       .map(s => s.trim())
       .filter(Boolean);
-
-    if (qModels.length && slimModell) {
-      const brand = qBrand || brandDropdown?.value || "";
-      const list  = sanitizeModelList((brandToModels[brand] || []).map(String));
-
-      // expandiere Gruppen in Einzelmodelle (nur wenn für Marke erlaubt)
-      const allowedForBrand = ALLOW_GROUPS_FOR[brand] || [];
-      const expanded = new Set();
-
-      for (const item of qModels) {
-        if (allowedForBrand.includes(item) && modelGroups[item]) {
-          const rx = modelGroups[item];
-          list.forEach(m => { if (rx.test(m)) expanded.add(m); });
-        } else if (list.includes(item)) {
-          expanded.add(item);
+      if (qModels.length && slimModell) {
+        const brand = qBrand || brandDropdown?.value || "";
+        const list  = sanitizeModelList((brandToModels[brand] || []).map(String));
+        const allowedForBrand = ALLOW_GROUPS_FOR[brand] || [];
+        const expanded = new Set();
+      
+        for (const item of qModels) {
+          if (allowedForBrand.includes(item) && modelGroups[item]) {
+            const rx = modelGroups[item];
+            list.forEach(m => { if (!/\(alle\)/i.test(m) && rx.test(m)) expanded.add(m); });
+          } else if (list.includes(item)) {
+            expanded.add(item);
+          }
         }
-      }
-
-      const vals = [...expanded];
-      if (vals.length) {
-        slimModell.setSelected(vals);
+      
+        const vals = [...expanded];
+        slimModell.setSelected(vals.length ? vals : [ALL_MODELS_VALUE]);
       } else {
-        // Fallback: Beliebig
-        slimModell.setSelected([ALL_MODELS_VALUE]);
+        // Wenn keine Modelle in der URL: Beliebig aktiv
+        slimModell?.setSelected([ALL_MODELS_VALUE]);
       }
-    } else {
-      // Wenn keine Modelle in der URL: Beliebig aktiv
-      slimModell?.setSelected([ALL_MODELS_VALUE]);
-    }
+      
 
     // EZ von (index: ezFrom=YYYY-MM)
     const ezFrom = qs.get("ezFrom");

@@ -1,5 +1,5 @@
-// === Module & Abhängigkeiten ===
-require("dotenv").config();
+try { require("dotenv").config(); } catch {}
+
 
 const express = require("express");
 const multer = require("multer");

@@ -182,36 +182,38 @@ document.addEventListener("DOMContentLoaded", () => {
     // ============================
     const ALL_MODELS_VALUE = "__ALL_MODELS__";
     const FILTER_OUT_BELIEBIG_IN_JSON = true; // "Beliebig" aus JSON entfernen (wir fügen es kontrolliert selbst hinzu)
-    const FILTER_OUT_GROUP_ALLE = true;       // "(Alle)"-Einträge aus JSON entfernen (wir steuern Gruppen separat)
+    const FILTER_OUT_GROUP_ALLE = false;       // "(Alle)"-Einträge aus JSON entfernen (wir steuern Gruppen separat)
   
     let brandToModels = {}; // wird nach fetch befüllt
   
     function sanitizeModelList(listRaw = []) {
       const seen = new Set();
       const out = [];
-      let hadAndere = false;
-  
+    
       for (const raw of listRaw) {
         if (raw == null) continue;
         const name = String(raw).trim();
         if (!name) continue;
-  
+    
         if (FILTER_OUT_BELIEBIG_IN_JSON && /^beliebig$/i.test(name)) continue;
-        if (FILTER_OUT_GROUP_ALLE && /\(alle\)/i.test(name)) continue;
-  
-        if (/^andere$/i.test(name)) { hadAndere = true; continue; }
-  
+        // WICHTIG: "(Alle)" NICHT entfernen -> FILTER_OUT_GROUP_ALLE = false
+    
         const key = name.toLowerCase();
         if (!seen.has(key)) {
           seen.add(key);
           out.push(name);
         }
       }
-  
-      out.sort((a,b)=> a.localeCompare(b, "de", {sensitivity:"base"}));
-      if (hadAndere) out.push("Andere");
-      return out;
+    
+      // "Andere" ans Ende schieben (falls nicht ohnehin schon dort)
+      const idxAndere = out.findIndex(v => /^andere$/i.test(v));
+      if (idxAndere >= 0 && idxAndere !== out.length - 1) {
+        const [andere] = out.splice(idxAndere, 1);
+        out.push(andere);
+      }
+      return out; // keine Sortierung -> JSON-Reihenfolge bleibt erhalten
     }
+    
   
     async function loadBrandModelMap() {
       try {
@@ -230,42 +232,22 @@ document.addEventListener("DOMContentLoaded", () => {
         };
       }
     }
-  
     function rebuildModelOptions(brand) {
       if (!modellSel) return;
-  
+    
       const rawList = (brandToModels && brandToModels[brand]) || [];
       const models  = sanitizeModelList(rawList);
-  
-      // 1) Gruppen nur für freigegebene Marken & wenn es echte Treffer gibt
-      let groupOptions = [];
-      const allow = ALLOW_GROUPS_FOR[brand]; // array oder undefined
-      if (allow && allow.length) {
-        groupOptions = allow
-          .filter(groupName => {
-            const rx = modelGroups[groupName];
-            return rx && models.some(m => rx.test(m));
-          })
-          .map(groupName => ({ text: groupName, value: groupName }));
-      }
-  
-      // 2) Reihenfolge: Beliebig → Gruppen → Einzelmodelle
+    
+      // Keine groupOptions mehr voranstellen – nur Beliebig + Modelle in JSON-Reihenfolge
       const data = [
         { text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE },
-        ...groupOptions,
         ...models.map(m => ({ text: m, value: m }))
       ];
-  
+    
       if (ssModell) {
-        ssModell.setData(
-          data.length
-            ? data
-            : [{ text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE }]
-        );
-        // Standard: Beliebig aktiv
+        ssModell.setData(data.length ? data : [{ text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE }]);
         ssModell.setSelected([ALL_MODELS_VALUE]);
       } else {
-        // Fallback: normales <select>
         modellSel.innerHTML = "";
         data.forEach(({ text, value }) => {
           const opt = document.createElement("option");
@@ -273,10 +255,10 @@ document.addEventListener("DOMContentLoaded", () => {
           opt.textContent = text;
           modellSel.appendChild(opt);
         });
-        // Beliebig aktiv
         modellSel.value = ALL_MODELS_VALUE;
       }
     }
+    
   
     // Exklusivität: wenn "Beliebig (alle Modelle)" gewählt ist, alle anderen abwählen
     function enforceAllModelsExclusivity() {
@@ -289,7 +271,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     modellSel?.addEventListener("change", enforceAllModelsExclusivity);
   
-    // SlimSelect: Gruppen → auf Einzelmodelle expandieren, "Beliebig" exklusiv
     if (ssModell) {
       ssModell.settings.events = ssModell.settings.events || {};
       const prevAfterChange = ssModell.settings.events.afterChange;
@@ -297,47 +278,42 @@ document.addEventListener("DOMContentLoaded", () => {
         const selectedBrand  = markeSel?.value;
         const selectedValues = (newSelected || []).map(s => s.value);
         if (!selectedBrand || !brandToModels[selectedBrand]) return;
-  
-        // 1) "Beliebig" ist exklusiv
+    
+        // 1) "Beliebig" bleibt exklusiv
         if (selectedValues.includes(ALL_MODELS_VALUE)) {
           ssModell.setSelected([ALL_MODELS_VALUE]);
           return;
         }
-  
-        // 2) Gruppen → auf Einzelmodelle expandieren (nur falls erlaubt)
+    
+        // 2) Gruppen expandieren (ohne das Gruppen-Label selbst wie "… (Alle)")
         const allValuesToSelect = new Set();
         const allow = ALLOW_GROUPS_FOR[selectedBrand];
-  
+    
         selectedValues.forEach(val => {
           const isGroup = !!modelGroups[val];
-          if (isGroup) {
-            if (allow && allow.includes(val)) {
-              const rx = modelGroups[val];
-              brandToModels[selectedBrand].forEach(model => {
-                // expandiere nur über "bereinigte" Modelle
-                const cleanList = sanitizeModelList([model]);
-                if (cleanList.length && rx.test(cleanList[0])) {
-                  allValuesToSelect.add(cleanList[0]);
-                }
-              });
-            }
+          if (isGroup && allow && allow.includes(val)) {
+            const rx = modelGroups[val];
+            brandToModels[selectedBrand].forEach(model => {
+              const cleaned = sanitizeModelList([model])[0];
+              if (!cleaned) return;
+              if (/\(alle\)/i.test(cleaned)) return;       // Gruppen-Label nicht übernehmen
+              if (rx.test(cleaned)) allValuesToSelect.add(cleaned);
+            });
           } else {
             allValuesToSelect.add(val);
           }
         });
-  
-        // Falls nach Expansion nichts übrig ist → "Beliebig"
+    
         if (!allValuesToSelect.size) {
           ssModell.setSelected([ALL_MODELS_VALUE]);
         } else {
           ssModell.setSelected([...allValuesToSelect]);
         }
-  
-        // Chain: falls du noch eigenes afterChange vorher hattest
+    
         if (typeof prevAfterChange === "function") prevAfterChange(newSelected);
       };
     }
-  
+    
     // Initialisieren: Marken laden, ggf. Modelle füllen
     (async () => {
       await loadBrandModelMap();
