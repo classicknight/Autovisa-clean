@@ -1670,27 +1670,30 @@ async function geocodeToPoint(query) {
    });
    
    
-
 // === SUCHE: /api/search (inkl. optionalem Geo-Radius) ===
-// GET /api/search?marke=Audi&modell=A4,A6&ezFrom=2018-01&km_max=100000&price_max=30000&getriebe=automatik&kraftstoff=diesel&ort=10115%20Berlin&umkreis=50&sort=preis_asc&page=1&limit=20
+// GET /api/search?marke=Audi&modell=A4,A6&ezFrom=2018-01&ezTo=2022-12&km_max=100000&price_max=30000&getriebe=automatik&kraftstoff=diesel&ort=10115%20Berlin&umkreis=50&sort=preis_asc&page=1&limit=20
 app.get("/api/search", async (req, res) => {
   try {
     const {
-      marke, modell, ezFrom, km_max, price_max,
+      marke, modell, ezFrom, ezTo, km_max, price_max,
       getriebe, kraftstoff, sort,
       ort, umkreis,
       page = "1", limit = "20",
-      modellausfuehrung // <— NEU: Freitext für Modellvariante
+      modellausfuehrung,       // Freitext für Modell-Variante
+      fahrzeugtyp              // Mehrfach (kommasepariert)
     } = req.query;
 
     const p   = Math.max(parseInt(page, 10)  || 1, 1);
     const lim = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
     const skip = (p - 1) * lim;
 
+    // ---- Basisfilter
     const baseMatch = { status: "online" };
+
     if (marke) {
       baseMatch.marke = { $regex: `^${escapeRegex(marke)}$`, $options: "i" };
     }
+
     if (modell) {
       const arr = String(modell)
         .split(",")
@@ -1699,15 +1702,26 @@ app.get("/api/search", async (req, res) => {
         .map(m => new RegExp(`^${escapeRegex(m)}$`, "i"));
       if (arr.length) baseMatch.modell = { $in: arr };
     }
-    if (ezFrom)     baseMatch.erstzulassung      = { $gte: ezFrom };
-    if (getriebe)   baseMatch.verkauf_getriebe   = { $regex: `^${escapeRegex(getriebe)}`, $options: "i" };
-    if (kraftstoff) baseMatch.verkauf_kraftstoff = { $regex: escapeRegex(kraftstoff),   $options: "i" };
+
+    // EZ von/bis
+    if (ezFrom || ezTo) {
+      baseMatch.erstzulassung = {};
+      if (ezFrom) baseMatch.erstzulassung.$gte = ezFrom;
+      if (ezTo)   baseMatch.erstzulassung.$lte = ezTo;
+    }
+
+    if (getriebe) {
+      baseMatch.verkauf_getriebe = { $regex: `^${escapeRegex(getriebe)}`, $options: "i" };
+    }
+    if (kraftstoff) {
+      baseMatch.verkauf_kraftstoff = { $regex: escapeRegex(kraftstoff), $options: "i" };
+    }
 
     // Zahlen-Grenzen vorbereiten
     const priceMaxNum = parseInt(price_max, 10);
     const kmMaxNum    = parseInt(km_max, 10);
 
-    // Sortierung (Preis-null nach hinten)
+    // ---- Sortierung (Preis-null nach hinten)
     const sortStages =
       (sort === "preis_asc")
         ? [
@@ -1721,7 +1735,7 @@ app.get("/api/search", async (req, res) => {
           ]
         : [{ $sort: { veroeffentlichtAm: -1, _id: -1 } }];
 
-    // Preis/KM-Parsing (in beiden Pipelines)
+    // ---- Preis/KM Parsing (für numerische Filter/Sort)
     const parseNumberStages = [
       { $addFields: {
           _preis_raw: {
@@ -1773,14 +1787,14 @@ app.get("/api/search", async (req, res) => {
       }
     ];
 
-    // Grundfilter + optionale Zahlenfilter
+    // ---- Filter auf Basis der geparsten Zahlen
     const numberFilterStages = [
       { $match: baseMatch },
       ...(Number.isFinite(priceMaxNum) ? [{ $match: { preis_num: { $ne: null, $lte: priceMaxNum } } }] : []),
       ...(Number.isFinite(kmMaxNum)    ? [{ $match: { km_num:    { $ne: null, $lte: kmMaxNum } } }] : [])
     ];
 
-    // NEU: Freitext-Filter „Modellvariante“ (gegen mehrere Felder, AND über Tokens)
+    // ---- NEU: Freitext „Modellvariante“ (split in Tokens, AND)
     const modVarRaw = String(modellausfuehrung || "").trim();
     let variantStages = [];
     if (modVarRaw) {
@@ -1788,18 +1802,18 @@ app.get("/api/search", async (req, res) => {
         .split(/[,\s]+/)
         .map(s => s.trim())
         .filter(Boolean)
-        .slice(0, 6); // etwas begrenzen
+        .slice(0, 6);
 
       if (tokens.length) {
         const andClauses = tokens.map(w => {
           const rx = new RegExp(escapeRegex(w), "i");
           return {
             $or: [
-              { titel: rx },                     // Anzeigentitel
-              { modell: rx },                    // Modellfeld
-              { beschreibung: rx },              // falls verfügbar
-              { modellvariante: rx },            // optionale Spalte
-              { verkauf_modellvariante: rx }     // optionale Spalte
+              { titel: rx },
+              { modell: rx },
+              { beschreibung: rx },
+              { modellvariante: rx },
+              { verkauf_modellvariante: rx }
             ]
           };
         });
@@ -1807,7 +1821,58 @@ app.get("/api/search", async (req, res) => {
       }
     }
 
-    // Projektions- und Facet-Teil
+    // ---- NEU: Fahrzeugtyp (mehrere erlaubt, robuste Synonyme)
+    function makeVehTypeRegexes(inputCsv = "") {
+      const rawList = String(inputCsv)
+        .split(",")
+        .map(s => s.trim())
+        .filter(Boolean);
+      const rxes = [];
+
+      for (const raw of rawList) {
+        const v = raw.toLowerCase();
+
+        if (v.includes("cabrio") || v.includes("roadster")) {
+          rxes.push(/cabrio\s*\/?\s*roadster/i, /cabrio/i, /roadster/i);
+        } else if (v.includes("kleinwagen")) {
+          rxes.push(/kleinwagen/i);
+        } else if (v.includes("limousine")) {
+          rxes.push(/limousine/i);
+        } else if (v.includes("van") || v.includes("minibus")) {
+          rxes.push(/van\s*\/?\s*minibus/i, /van/i, /minibus/i);
+        } else if (v === "suv" || v.includes("suv")) {
+          rxes.push(/suv/i);
+        } else if (v.includes("kombi")) {
+          rxes.push(/kombi/i);
+        } else if (v.includes("coup")) {
+          // Coupé/Coupe
+          rxes.push(/coup[eé]/i);
+        } else {
+          // Fallback: exakter String (case-insensitive)
+          rxes.push(new RegExp(`^${escapeRegex(raw)}$`, "i"));
+        }
+      }
+      return rxes;
+    }
+
+    let vehTypeStages = [];
+    if (fahrzeugtyp) {
+      const rxes = makeVehTypeRegexes(fahrzeugtyp);
+      if (rxes.length) {
+        vehTypeStages = [{
+          $match: {
+            $or: [
+              { fahrzeugtyp:  { $in: rxes } },
+              { fahrzeug_art: { $in: rxes } },
+              { fahrzeugart:  { $in: rxes } },
+              { karosserie:   { $in: rxes } }
+            ]
+          }
+        }];
+      }
+    }
+
+    // ---- Projektion & Facet (Paging)
     const endStages = [
       ...sortStages,
       {
@@ -1827,7 +1892,7 @@ app.get("/api/search", async (req, res) => {
       { $project: { data: 1, total: { $ifNull: [{ $arrayElemAt: ["$total.count", 0] }, 0] } } }
     ];
 
-    // Optionaler Geo-Teil
+    // ---- Optionaler Geo-Teil
     const ortStr = String(ort || "").trim();
     const umkreisKm = Math.max(parseInt(umkreis, 10) || 0, 0);
     let pipeline;
@@ -1846,7 +1911,8 @@ app.get("/api/search", async (req, res) => {
           },
           ...parseNumberStages,
           ...numberFilterStages,
-          ...variantStages,   // <— NEU an dieser Stelle
+          ...variantStages,
+          ...vehTypeStages,
           ...endStages
         ];
       }
@@ -1857,7 +1923,8 @@ app.get("/api/search", async (req, res) => {
       pipeline = [
         ...parseNumberStages,
         ...numberFilterStages,
-        ...variantStages,     // <— NEU an dieser Stelle
+        ...variantStages,
+        ...vehTypeStages,
         ...endStages
       ];
     }
@@ -1871,14 +1938,6 @@ app.get("/api/search", async (req, res) => {
     res.status(500).json({ error: "Interner Fehler bei der Suche." });
   }
 });
-
-
-
-
-
-
-
-
 
 
 
