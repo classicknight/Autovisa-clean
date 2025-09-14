@@ -411,14 +411,14 @@ document.addEventListener("DOMContentLoaded", () => {
   function buildMonthYearFallback(hiddenInputId, { minYear = 1980, maxYear = new Date().getFullYear() } = {}) {
     const hidden = document.getElementById(hiddenInputId);
     if (!hidden) return;
-
+  
     // Original-Input als hidden verwenden
     hidden.type = 'hidden';
-
+  
     // UI: Monat + Jahr als <select>
     const wrapper = document.createElement('div');
     wrapper.className = 'month-year';
-
+  
     const selMonth = document.createElement('select');
     selMonth.setAttribute('aria-label', hiddenInputId + ' Monat');
     for (let m = 1; m <= 12; m++) {
@@ -427,7 +427,7 @@ document.addEventListener("DOMContentLoaded", () => {
       opt.textContent = new Date(2000, m - 1, 1).toLocaleString('de-DE', { month: 'long' });
       selMonth.appendChild(opt);
     }
-
+  
     const selYear = document.createElement('select');
     selYear.setAttribute('aria-label', hiddenInputId + ' Jahr');
     for (let y = maxYear; y >= minYear; y--) {
@@ -436,7 +436,7 @@ document.addEventListener("DOMContentLoaded", () => {
       opt.textContent = String(y);
       selYear.appendChild(opt);
     }
-
+  
     // Vorbelegung aus vorhandenem Wert (z. B. aus URL)
     const mm = /^\d{4}-\d{2}$/.test(hidden.value) ? hidden.value : '';
     if (mm) {
@@ -444,7 +444,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if ([...selYear.options].some(o => o.value === y)) selYear.value = y;
       if ([...selMonth.options].some(o => o.value === m)) selMonth.value = m;
     }
-
+  
     function sync() {
       if (selYear.value && selMonth.value) {
         hidden.value = `${selYear.value}-${selMonth.value}`;
@@ -455,13 +455,15 @@ document.addEventListener("DOMContentLoaded", () => {
     selMonth.addEventListener('change', sync);
     selYear.addEventListener('change', sync);
     sync();
-
+  
     wrapper.appendChild(selMonth);
     wrapper.appendChild(selYear);
-
-    const container = hidden.closest('.range-inputs') || hidden.parentElement;
-    container.insertBefore(wrapper, hidden.nextSibling);
+  
+    // WICHTIG: in der jeweiligen .range-item-Box einfügen (direkt vor das hidden Input)
+    const container = hidden.closest('.range-item') || hidden.parentElement;
+    container.insertBefore(wrapper, hidden);
   }
+  
   // ----------------------------------------------------------
 
   // Marke -> Modelle
@@ -688,7 +690,10 @@ function buildAdvancedQuery() {
   // Modellvariante (freies Textfeld)
   const modVar = document.getElementById("modellausfuehrung")?.value?.trim();
   if (modVar) qs.set("modellausfuehrung", modVar);
-
+  
+  const tueren = document.getElementById("tueren")?.value;
+  if (tueren) qs.set("tueren", tueren);
+  
   // Erstzulassung (YYYY-MM)
   const ezFrom = document.getElementById("ez-von")?.value;
   const ezTo   = document.getElementById("ez-bis")?.value;

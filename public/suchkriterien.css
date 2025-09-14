@@ -961,3 +961,31 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
     flex: 1 1 160px;
   }
   
+
+
+  /* Layout für von/bis-Kombination */
+.month-range {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.month-range .range-item {
+  flex: 1 1 160px;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+}
+.month-range .range-sub {
+  font-size: 12.5px;
+  color: #cbd5e1;
+  opacity: .9;
+  margin-bottom: 6px;
+}
+
+/* Fallback-Selects (Safari) passen sich der Optik an */
+.range-item .month-year { display:flex; gap:8px; }
+.range-item .month-year select {
+  flex: 1 1 0;
+  /* deine globalen <select>-Styles greifen hier bereits,
+     daher nur Layout, kein extra Look nötig */
+}

@@ -291,16 +291,21 @@
     <option value="">Beliebig</option>
     <option>2/3</option>
     <option>4/5</option>
-    <option>6/7</option>
   </select>
 </div>
 
 <!-- Erstzulassung -->
 <div class="search-group">
-  <label for="ez-von">Erstzulassung</label>
-  <div class="range-inputs">
-    <input type="month" id="ez-von" />
-    <input type="month" id="ez-bis" />
+  <label>Erstzulassung</label>
+  <div class="range-inputs month-range">
+    <div class="range-item">
+      <span class="range-sub">von</span>
+      <input type="month" id="ez-von" />
+    </div>
+    <div class="range-item">
+      <span class="range-sub">bis</span>
+      <input type="month" id="ez-bis" />
+    </div>
   </div>
 </div>
 

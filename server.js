@@ -1669,18 +1669,20 @@ async function geocodeToPoint(query) {
      }
    });
    
-   
-// === SUCHE: /api/search (inkl. optionalem Geo-Radius) ===
-// GET /api/search?marke=Audi&modell=A4,A6&ezFrom=2018-01&ezTo=2022-12&km_max=100000&price_max=30000&getriebe=automatik&kraftstoff=diesel&ort=10115%20Berlin&umkreis=50&sort=preis_asc&page=1&limit=20
+   // === SUCHE: /api/search (inkl. optionalem Geo-Radius) ===
+// Beispiel:
+// /api/search?marke=Audi&modell=A4,A6&ezFrom=2018-01&ezTo=2022-12&km_min=10000&km_max=100000&price_min=5000&price_max=30000&getriebe=automatik&kraftstoff=diesel&tueren=4/5&fahrzeugtyp=Limousine%2CKombi&ort=10115%20Berlin&umkreis=50&sort=preis_asc&page=1&limit=20
 app.get("/api/search", async (req, res) => {
   try {
     const {
-      marke, modell, ezFrom, ezTo, km_max, price_max,
+      marke, modell, ezFrom, ezTo,
+      km_min, km_max, price_min, price_max,
       getriebe, kraftstoff, sort,
       ort, umkreis,
       page = "1", limit = "20",
-      modellausfuehrung,       // Freitext für Modell-Variante
-      fahrzeugtyp              // Mehrfach (kommasepariert)
+      modellausfuehrung,   // Freitext für Modell-Variante
+      fahrzeugtyp,         // Mehrfach (kommasepariert)
+      tueren               // <— NEU
     } = req.query;
 
     const p   = Math.max(parseInt(page, 10)  || 1, 1);
@@ -1719,7 +1721,9 @@ app.get("/api/search", async (req, res) => {
 
     // Zahlen-Grenzen vorbereiten
     const priceMaxNum = parseInt(price_max, 10);
+    const priceMinNum = parseInt(price_min, 10);
     const kmMaxNum    = parseInt(km_max, 10);
+    const kmMinNum    = parseInt(km_min, 10);
 
     // ---- Sortierung (Preis-null nach hinten)
     const sortStages =
@@ -1790,11 +1794,13 @@ app.get("/api/search", async (req, res) => {
     // ---- Filter auf Basis der geparsten Zahlen
     const numberFilterStages = [
       { $match: baseMatch },
+      ...(Number.isFinite(priceMinNum) ? [{ $match: { preis_num: { $ne: null, $gte: priceMinNum } } }] : []),
       ...(Number.isFinite(priceMaxNum) ? [{ $match: { preis_num: { $ne: null, $lte: priceMaxNum } } }] : []),
+      ...(Number.isFinite(kmMinNum)    ? [{ $match: { km_num:    { $ne: null, $gte: kmMinNum } } }] : []),
       ...(Number.isFinite(kmMaxNum)    ? [{ $match: { km_num:    { $ne: null, $lte: kmMaxNum } } }] : [])
     ];
 
-    // ---- NEU: Freitext „Modellvariante“ (split in Tokens, AND)
+    // ---- Freitext „Modellvariante“ (split in Tokens, AND)
     const modVarRaw = String(modellausfuehrung || "").trim();
     let variantStages = [];
     if (modVarRaw) {
@@ -1821,7 +1827,7 @@ app.get("/api/search", async (req, res) => {
       }
     }
 
-    // ---- NEU: Fahrzeugtyp (mehrere erlaubt, robuste Synonyme)
+    // ---- Fahrzeugtyp (mehrere erlaubt, robuste Synonyme)
     function makeVehTypeRegexes(inputCsv = "") {
       const rawList = String(inputCsv)
         .split(",")
@@ -1840,15 +1846,13 @@ app.get("/api/search", async (req, res) => {
           rxes.push(/limousine/i);
         } else if (v.includes("van") || v.includes("minibus")) {
           rxes.push(/van\s*\/?\s*minibus/i, /van/i, /minibus/i);
-        } else if (v === "suv" || v.includes("suv")) {
+        } else if (v.includes("suv")) {
           rxes.push(/suv/i);
         } else if (v.includes("kombi")) {
           rxes.push(/kombi/i);
         } else if (v.includes("coup")) {
-          // Coupé/Coupe
           rxes.push(/coup[eé]/i);
         } else {
-          // Fallback: exakter String (case-insensitive)
           rxes.push(new RegExp(`^${escapeRegex(raw)}$`, "i"));
         }
       }
@@ -1871,6 +1875,48 @@ app.get("/api/search", async (req, res) => {
         }];
       }
     }
+
+    // ---- NEU: Türen-Filter
+    function buildTuerenStages(val) {
+      const raw = String(val || "").trim();
+      if (!raw) return [];
+
+      // Erlaubte Zahlen ableiten
+      let allowed = [];
+      if (/^2\s*\/\s*3$/.test(raw)) allowed = [2, 3];
+      else if (/^4\s*\/\s*5$/.test(raw)) allowed = [4, 5];
+      else {
+        const n = parseInt(raw, 10);
+        if (Number.isFinite(n)) allowed = [n];
+      }
+      if (!allowed.length) return [];
+
+      const allowedStr = allowed.map(n => String(n));
+      const slashCombo = allowedStr.join("/");
+
+      // Felder, die es je nach Import geben kann
+      const fields = [
+        "tueren","türen","anzahl_tueren","anzahl-tueren","tueranzahl",
+        "tueren_anzahl","türen_anzahl","doors","verkauf_tueren","verkauf_türen"
+      ];
+
+      const or = [];
+
+      // exakte Treffer auf String- oder Number-Feldern
+      for (const f of fields) {
+        or.push({ [f]: { $in: [...allowed, ...allowedStr, slashCombo] } });
+      }
+
+      // Fallback: Suche in Titel/Beschreibung nach „x-Tür(er)“
+      const numbersAlt = allowed.join("|"); // z.B. "2|3" oder "4|5"
+      const descRx = new RegExp(`\\b(?:${numbersAlt})(?:\\s*[\\-/]\\s*(?:${numbersAlt}))?\\s*(t[üu]r|t[üu]rer)`, "i");
+      or.push({ titel: descRx });
+      or.push({ beschreibung: descRx });
+
+      return [{ $match: { $or: or } }];
+    }
+
+    const tuerenStages = buildTuerenStages(tueren);
 
     // ---- Projektion & Facet (Paging)
     const endStages = [
@@ -1913,6 +1959,7 @@ app.get("/api/search", async (req, res) => {
           ...numberFilterStages,
           ...variantStages,
           ...vehTypeStages,
+          ...tuerenStages,      // <— NEU
           ...endStages
         ];
       }
@@ -1925,6 +1972,7 @@ app.get("/api/search", async (req, res) => {
         ...numberFilterStages,
         ...variantStages,
         ...vehTypeStages,
+        ...tuerenStages,        // <— NEU
         ...endStages
       ];
     }
@@ -1938,7 +1986,6 @@ app.get("/api/search", async (req, res) => {
     res.status(500).json({ error: "Interner Fehler bei der Suche." });
   }
 });
-
 
 
 
