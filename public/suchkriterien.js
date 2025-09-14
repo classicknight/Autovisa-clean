@@ -396,119 +396,198 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
   
+// Lade Daten & initialisiere
+(async () => {
+  await loadBrandModelMap();
 
-  // Lade Daten & initialisiere
-  (async () => {
-    await loadBrandModelMap();
+  // -------- Safari-Fallback für <input type="month"> --------
+  function supportsInputTypeMonth() {
+    const i = document.createElement('input');
+    i.setAttribute('type', 'month');
+    i.value = '2023-12';
+    return i.type === 'month' && i.value === '2023-12';
+  }
 
-    // Marke -> Modelle
-    brandDropdown?.addEventListener("change", () => {
-      const val = brandDropdown.value;
-      rebuildModelOptions(val);
-      // Bei Markenwechsel standardmäßig "Beliebig"
-      if (slimModell) slimModell.setSelected([ALL_MODELS_VALUE]);
-      else modelDropdown.value = ALL_MODELS_VALUE;
-    });
+  function buildMonthYearFallback(hiddenInputId, { minYear = 1980, maxYear = new Date().getFullYear() } = {}) {
+    const hidden = document.getElementById(hiddenInputId);
+    if (!hidden) return;
 
-    // URL-Parameter übernehmen (von index.html)
-    const qs = new URLSearchParams(location.search);
+    // Original-Input als hidden verwenden
+    hidden.type = 'hidden';
 
-    // Marke
-    const qBrand = qs.get("marke") || "";
-    if (qBrand && brandDropdown) {
-      if (slimMarke) slimMarke.setSelected(qBrand);
-      else brandDropdown.value = qBrand;
-      rebuildModelOptions(qBrand);
-    } else if (brandDropdown?.value) {
-      rebuildModelOptions(brandDropdown.value);
+    // UI: Monat + Jahr als <select>
+    const wrapper = document.createElement('div');
+    wrapper.className = 'month-year';
+
+    const selMonth = document.createElement('select');
+    selMonth.setAttribute('aria-label', hiddenInputId + ' Monat');
+    for (let m = 1; m <= 12; m++) {
+      const opt = document.createElement('option');
+      opt.value = String(m).padStart(2, '0');
+      opt.textContent = new Date(2000, m - 1, 1).toLocaleString('de-DE', { month: 'long' });
+      selMonth.appendChild(opt);
     }
 
-    // Modelle (kann Einzelmodelle ODER Gruppen enthalten)
-    const qModels = (qs.get("modell") || "")
-      .split(",")
-      .map(s => s.trim())
-      .filter(Boolean);
-      if (qModels.length && slimModell) {
-        const brand = qBrand || brandDropdown?.value || "";
-        const list  = sanitizeModelList((brandToModels[brand] || []).map(String));
-        const allowedForBrand = ALLOW_GROUPS_FOR[brand] || [];
-        const expanded = new Set();
-      
-        for (const item of qModels) {
-          if (allowedForBrand.includes(item) && modelGroups[item]) {
-            const rx = modelGroups[item];
-            list.forEach(m => { if (!/\(alle\)/i.test(m) && rx.test(m)) expanded.add(m); });
-          } else if (list.includes(item)) {
-            expanded.add(item);
-          }
-        }
-      
-        const vals = [...expanded];
-        slimModell.setSelected(vals.length ? vals : [ALL_MODELS_VALUE]);
-      } else {
-        // Wenn keine Modelle in der URL: Beliebig aktiv
-        slimModell?.setSelected([ALL_MODELS_VALUE]);
-      }
-      
-
-    // EZ von (index: ezFrom=YYYY-MM)
-    const ezFrom = qs.get("ezFrom");
-    const ezVonInput = document.getElementById("ez-von");
-    if (ezFrom && ezVonInput) {
-      const mm = /^\d{4}-\d{2}$/.test(ezFrom) ? ezFrom : null;
-      if (mm) ezVonInput.value = mm;
+    const selYear = document.createElement('select');
+    selYear.setAttribute('aria-label', hiddenInputId + ' Jahr');
+    for (let y = maxYear; y >= minYear; y--) {
+      const opt = document.createElement('option');
+      opt.value = String(y);
+      opt.textContent = String(y);
+      selYear.appendChild(opt);
     }
 
-    // km_max -> km-bis
-    const kmMax = qs.get("km_max");
-    const kmBis = document.getElementById("km-bis");
-    if (kmMax && kmBis) kmBis.value = kmMax;
+    // Vorbelegung aus vorhandenem Wert (z. B. aus URL)
+    const mm = /^\d{4}-\d{2}$/.test(hidden.value) ? hidden.value : '';
+    if (mm) {
+      const [y, m] = mm.split('-');
+      if ([...selYear.options].some(o => o.value === y)) selYear.value = y;
+      if ([...selMonth.options].some(o => o.value === m)) selMonth.value = m;
+    }
 
-    // price_max -> preis-bis
-    const priceMax = qs.get("price_max");
-    const preisBis = document.getElementById("preis-bis");
-    if (priceMax && preisBis) preisBis.value = priceMax;
-
-    // Ort
-    const ort = qs.get("ort");
-    const ortInput = document.getElementById("ort");
-    if (ort && ortInput) ortInput.value = ort;
-
-    // Umkreis (+ custom)
-    const umkreisSel = document.getElementById("umkreis");
-    const umkreisQS  = qs.get("umkreis");
-    if (umkreisSel && umkreisQS) {
-      const values = Array.from(umkreisSel.options).map(o => o.value);
-      if (values.includes(umkreisQS)) {
-        umkreisSel.value = umkreisQS;
-        window.toggleCustomUmkreis?.(umkreisSel.value);
+    function sync() {
+      if (selYear.value && selMonth.value) {
+        hidden.value = `${selYear.value}-${selMonth.value}`;
       } else {
-        umkreisSel.value = "custom";
-        window.toggleCustomUmkreis?.("custom");
-        const custom = document.getElementById("custom-umkreis");
-        if (custom) custom.value = umkreisQS;
+        hidden.value = '';
       }
     }
+    selMonth.addEventListener('change', sync);
+    selYear.addEventListener('change', sync);
+    sync();
 
-    // Getriebe (Automatik/Schalt)
-    const getriebe = (qs.get("getriebe") || "").toLowerCase();
-    if (getriebe) {
-      document.querySelectorAll('[label*="Getriebe"] input[type="checkbox"], .search-group input[type="checkbox"]').forEach(inp => {
+    wrapper.appendChild(selMonth);
+    wrapper.appendChild(selYear);
+
+    const container = hidden.closest('.range-inputs') || hidden.parentElement;
+    container.insertBefore(wrapper, hidden.nextSibling);
+  }
+  // ----------------------------------------------------------
+
+  // Marke -> Modelle
+  brandDropdown?.addEventListener("change", () => {
+    const val = brandDropdown.value;
+    rebuildModelOptions(val);
+    // Bei Markenwechsel standardmäßig "Beliebig"
+    if (slimModell) slimModell.setSelected([ALL_MODELS_VALUE]);
+    else modelDropdown.value = ALL_MODELS_VALUE;
+  });
+
+  // URL-Parameter übernehmen (von index.html)
+  const qs = new URLSearchParams(location.search);
+
+  // Marke
+  const qBrand = qs.get("marke") || "";
+  if (qBrand && brandDropdown) {
+    if (slimMarke) slimMarke.setSelected(qBrand);
+    else brandDropdown.value = qBrand;
+    rebuildModelOptions(qBrand);
+  } else if (brandDropdown?.value) {
+    rebuildModelOptions(brandDropdown.value);
+  }
+
+  // Modelle (kann Einzelmodelle ODER Gruppen enthalten)
+  const qModels = (qs.get("modell") || "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  if (qModels.length && slimModell) {
+    const brand = qBrand || brandDropdown?.value || "";
+    const list  = sanitizeModelList((brandToModels[brand] || []).map(String));
+    const allowedForBrand = ALLOW_GROUPS_FOR[brand] || [];
+    const expanded = new Set();
+
+    for (const item of qModels) {
+      if (allowedForBrand.includes(item) && modelGroups[item]) {
+        const rx = modelGroups[item];
+        list.forEach(m => { if (!/\(alle\)/i.test(m) && rx.test(m)) expanded.add(m); });
+      } else if (list.includes(item)) {
+        expanded.add(item);
+      }
+    }
+
+    const vals = [...expanded];
+    slimModell.setSelected(vals.length ? vals : [ALL_MODELS_VALUE]);
+  } else {
+    // Wenn keine Modelle in der URL: Beliebig aktiv
+    slimModell?.setSelected([ALL_MODELS_VALUE]);
+  }
+
+  // EZ von (index: ezFrom=YYYY-MM)
+  const ezFrom = qs.get("ezFrom");
+  const ezVonInput = document.getElementById("ez-von");
+  if (ezFrom && ezVonInput) {
+    const mm = /^\d{4}-\d{2}$/.test(ezFrom) ? ezFrom : null;
+    if (mm) ezVonInput.value = mm;
+  }
+
+  // EZ bis (index: ezTo=YYYY-MM)
+  const ezTo = qs.get("ezTo");
+  const ezBisInput = document.getElementById("ez-bis");
+  if (ezTo && ezBisInput) {
+    const mm2 = /^\d{4}-\d{2}$/.test(ezTo) ? ezTo : null;
+    if (mm2) ezBisInput.value = mm2;
+  }
+
+  // Safari-Fallback erst nach dem Setzen der URL-Werte bauen:
+  if (!supportsInputTypeMonth()) {
+    buildMonthYearFallback('ez-von', { minYear: 1980 });
+    buildMonthYearFallback('ez-bis', { minYear: 1980 });
+  }
+
+  // km_max -> km-bis
+  const kmMax = qs.get("km_max");
+  const kmBis = document.getElementById("km-bis");
+  if (kmMax && kmBis) kmBis.value = kmMax;
+
+  // price_max -> preis-bis
+  const priceMax = qs.get("price_max");
+  const preisBis = document.getElementById("preis-bis");
+  if (priceMax && preisBis) preisBis.value = priceMax;
+
+  // Ort
+  const ort = qs.get("ort");
+  const ortInput = document.getElementById("ort");
+  if (ort && ortInput) ortInput.value = ort;
+
+  // Umkreis (+ custom)
+  const umkreisSel = document.getElementById("umkreis");
+  const umkreisQS  = qs.get("umkreis");
+  if (umkreisSel && umkreisQS) {
+    const values = Array.from(umkreisSel.options).map(o => o.value);
+    if (values.includes(umkreisQS)) {
+      umkreisSel.value = umkreisQS;
+      window.toggleCustomUmkreis?.(umkreisSel.value);
+    } else {
+      umkreisSel.value = "custom";
+      window.toggleCustomUmkreis?.("custom");
+      const custom = document.getElementById("custom-umkreis");
+      if (custom) custom.value = umkreisQS;
+    }
+  }
+
+  // Getriebe (Automatik/Schalt)
+  const getriebe = (qs.get("getriebe") || "").toLowerCase();
+  if (getriebe) {
+    document
+      .querySelectorAll('[label*="Getriebe"] input[type="checkbox"], .search-group input[type="checkbox"]')
+      .forEach(inp => {
         const v = (inp.value || "").toLowerCase();
         if (getriebe.includes("auto") && v.includes("auto")) inp.checked = true;
         if (getriebe.includes("schalt") && v.includes("schalt")) inp.checked = true;
       });
-    }
+  }
 
-    // Kraftstoff
-    const kraftstoff = (qs.get("kraftstoff") || "").toLowerCase();
-    if (kraftstoff) {
-      document.querySelectorAll('.fuel-type-grid input[type="checkbox"]').forEach(inp => {
-        const v = (inp.parentElement?.innerText || inp.value || "").toLowerCase();
-        if (kraftstoff && v.includes(kraftstoff)) inp.checked = true;
-      });
-    }
-  })();
+  // Kraftstoff
+  const kraftstoff = (qs.get("kraftstoff") || "").toLowerCase();
+  if (kraftstoff) {
+    document.querySelectorAll('.fuel-type-grid input[type="checkbox"]').forEach(inp => {
+      const v = (inp.parentElement?.innerText || inp.value || "").toLowerCase();
+      if (kraftstoff && v.includes(kraftstoff)) inp.checked = true;
+    });
+  }
+})();
 
   /* =========================
      SlimSelects für restliche Felder (nur wenn vorhanden)

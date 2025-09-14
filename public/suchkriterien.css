@@ -947,3 +947,17 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   
   
   
+
+
+
+
+  .range-inputs .month-year {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .range-inputs .month-year select {
+    flex: 1 1 160px;
+  }
+  
