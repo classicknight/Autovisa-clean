@@ -1686,12 +1686,8 @@ app.get("/api/geosuggest", async (req, res) => {
     return res.json({ suggestions: [] });
   }
 });
-
 // ============================================================
-// /api/search  —  Suche mit optionalem Geo-Radius & vielen Filtern
-//  - bevorzugt ort_lat/ort_lon, sonst geocode(ort[, land])
-//  - Türen-Filter (2/3, 4/5, oder Zahl), robuste Feldnamen
-//  - Preis/km/PS/ccm/Verbrauch, EZ von/bis, Modellvariante, Fahrzeugtyp, ...
+// /api/search — Suche mit optionalem Geo-Radius & vielen Filtern
 // Voraussetzungen (oben im File vorhanden):
 //  - escapeRegex(string)
 //  - geocodeToPoint(query: string) -> { type:"Point", coordinates:[lon,lat] } | null
@@ -1712,13 +1708,13 @@ app.get("/api/search", async (req, res) => {
       // neu:
       ps_min, ps_max,          // Leistung (PS)
       ccm_min, ccm_max,        // Hubraum (cm³)
-      verbrauch_max,           // L/100 km
+      verbrauch_max,           // L/100 km (komb.)
       antrieb,                 // CSV: Frontantrieb,Heckantrieb,Allradantrieb
       schadstoffklasse,        // z.B. "Euro 6d"
       plakette,                // "Grün (4)" …
       partikelfilter,          // "1" => erforderlich
       halter_max,              // maximale Halter
-      farbe,                   // CSV
+      farbe,                   // CSV (Karosseriefarbe)
       merkmale                 // CSV (z. B. Scheckheftgepflegt,Fahrtauglich)
     } = req.query;
 
@@ -1754,7 +1750,7 @@ app.get("/api/search", async (req, res) => {
                           : NaN;
     const halterMaxNum = parseInt(halter_max, 10);
 
-    // ---- Sortierung (Preis-null nach hinten)
+    // ---- Sortierung
     const sortStages =
       (sort === "preis_asc")
         ? [
@@ -1771,7 +1767,6 @@ app.get("/api/search", async (req, res) => {
     // ---- Parsing/Normalisierung (Preis, KM, PS, ccm, Verbrauch, Halter)
     const parseNumberStages = [
       { $addFields: {
-          // vorhandene Preis-/KM-Felder
           _preis_raw: {
             $ifNull: [
               "$brutto-preis",
@@ -1782,8 +1777,6 @@ app.get("/api/search", async (req, res) => {
             ]
           },
           _km_raw:     { $ifNull: ["$verkauf_kilometer", { $ifNull: ["$kilometer", "$km"] }] },
-
-          // neu: PS/Hubraum/Verbrauch/Halter
           _ps_raw:     { $ifNull: [ "$verkauf_leistung", { $ifNull: [ "$leistung", "$ps" ] } ] },
           _ccm_raw:    { $ifNull: [ "$verkauf_hubraum",  { $ifNull: [ "$hubraum",  "$ccm" ] } ] },
           _verb_raw:   { $ifNull: [ "$verkauf_verbrauch_kombiniert", { $ifNull: [ "$verbrauch_kombiniert", "$verbrauch" ] } ] },
@@ -1818,22 +1811,42 @@ app.get("/api/search", async (req, res) => {
           }
         }
       },
-      // PS/ccm/Verbrauch/Halter via $regexFind (robust, auch bei "6,5 l/100km")
+      // PS/ccm/Verbrauch/Halter via $regexFind / $regexFindAll
       { $addFields: {
-          _ps_match:    { $regexFind:    { input: { $toString: "$_ps_raw"  }, regex: /(\d{2,4})/ } },
-          _ccm_match:   { $regexFind:    { input: { $toString: "$_ccm_raw" }, regex: /(\d{3,5})/ } },
-          _verb_norm:   { $replaceAll:   { input: { $toString: "$_verb_raw" }, find: ",", replacement: "." } },
-          _verb_match:  { $regexFind:    { input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)/ } },
-          _halter_match:{ $regexFind:    { input: { $toString: "$_halter_raw" }, regex: /(\d{1,2})/ } }
+          _ps_match:    { $regexFind:   { input: { $toString: "$_ps_raw"  }, regex: /(\d{2,4})/ } },
+          _ccm_match:   { $regexFind:   { input: { $toString: "$_ccm_raw" }, regex: /(\d{3,5})/ } },
+          _verb_norm:   { $replaceAll:  { input: { $toString: "$_verb_raw" }, find: ",", replacement: "." } },
+          _verb_all:    { $regexFindAll:{ input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)/ } }, // sammelt alle Zahlen (z.B. "4.6–5.2")
+          _halter_match:{ $regexFind:   { input: { $toString: "$_halter_raw" }, regex: /(\d{1,2})/ } }
         }
       },
       { $addFields: {
           preis_num:  { $convert: { input: "$_preis_clean", to: "int",    onError: null, onNull: null } },
           km_num:     { $convert: { input: "$_km_clean",    to: "int",    onError: null, onNull: null } },
-          ps_num:     { $convert: { input: { $ifNull: ["$_ps_match.match",    null] }, to: "int",    onError: null, onNull: null } },
-          ccm_num:    { $convert: { input: { $ifNull: ["$_ccm_match.match",   null] }, to: "int",    onError: null, onNull: null } },
-          verb_num:   { $convert: { input: { $ifNull: ["$_verb_match.match",  null] }, to: "double", onError: null, onNull: null } },
-          halter_num: { $convert: { input: { $ifNull: ["$_halter_match.match",null] }, to: "int",    onError: null, onNull: null } }
+          ps_num:     { $convert: { input: { $ifNull: ["$_ps_match.match",     null] }, to: "int",    onError: null, onNull: null } },
+          ccm_num:    { $convert: { input: { $ifNull: ["$_ccm_match.match",    null] }, to: "int",    onError: null, onNull: null } },
+          // Verbrauch: wenn Bereich angegeben, nimm den HÖHEREN Wert → konservativ für "max"-Filter
+          verb_num: {
+            $let: {
+              vars: {
+                nums: {
+                  $map: {
+                    input: { $ifNull: ["$_verb_all", []] },
+                    as: "m",
+                    in: { $convert: { input: "$$m.match", to: "double", onError: null, onNull: null } }
+                  }
+                }
+              },
+              in: {
+                $cond: [
+                  { $gt: [{ $size: "$$nums" }, 0] },
+                  { $max: "$$nums" },
+                  null
+                ]
+              }
+            }
+          },
+          halter_num: { $convert: { input: { $ifNull: ["$_halter_match.match", null] }, to: "int", onError: null, onNull: null } }
         }
       }
     ];
@@ -1847,7 +1860,7 @@ app.get("/api/search", async (req, res) => {
       ...(Number.isFinite(kmMaxNum)    ? [{ $match: { km_num:    { $ne: null, $lte: kmMaxNum } } }] : [])
     ];
 
-    // ---- EZ (YYYY-MM) aus mehreren möglichen Feldern
+    // ---- EZ (YYYY-MM) — optional!
     let ezStages = [];
     if (ezFrom || ezTo) {
       ezStages = [
@@ -1885,20 +1898,21 @@ app.get("/api/search", async (req, res) => {
       }
     }
 
-    // ---- Fahrzeugtyp (mehrere erlaubt, Synonyme)
+    // ---- Fahrzeugtyp (mehrere erlaubt, Synonyme + Titel/Beschreibung)
     function makeVehTypeRegexes(inputCsv = "") {
       const rawList = String(inputCsv).split(",").map(s => s.trim()).filter(Boolean);
       const rxes = [];
       for (const raw of rawList) {
         const v = raw.toLowerCase();
-        if (v.includes("cabrio") || v.includes("roadster")) rxes.push(/cabrio\s*\/?\s*roadster/i, /cabrio/i, /roadster/i);
-        else if (v.includes("kleinwagen")) rxes.push(/kleinwagen/i);
+        if (v.includes("cabrio") || v.includes("roadster")) rxes.push(/cabrio(?:\s*\/\s*roadster)?/i, /roadster/i);
+        else if (v.includes("kleinwagen")) rxes.push(/kleinwagen|kleinstwagen/i);
         else if (v.includes("limousine"))  rxes.push(/limousine/i);
-        else if (v.includes("van") || v.includes("minibus")) rxes.push(/van\s*\/?\s*minibus/i, /van/i, /minibus/i);
-        else if (v.includes("suv"))        rxes.push(/suv/i);
-        else if (v.includes("kombi"))      rxes.push(/kombi/i);
+        else if (v.includes("van") || v.includes("minibus")) rxes.push(/van|minibus|großraumlimousine|grossraumlimousine/i);
+        else if (v.includes("suv"))        rxes.push(/\bsuv\b|geländewagen|gelaendewagen|offroader/i);
+        else if (v.includes("kombi"))      rxes.push(/kombi|estate|station\s*wagon/i);
         else if (v.includes("coup"))       rxes.push(/coup[eé]/i);
-        else rxes.push(new RegExp(`^${escapeRegex(raw)}$`, "i"));
+        else if (v.includes("pickup"))     rxes.push(/pick[-\s]?up|pritsche|pickup/i);
+        else rxes.push(new RegExp(escapeRegex(raw), "i"));
       }
       return rxes;
     }
@@ -1909,10 +1923,14 @@ app.get("/api/search", async (req, res) => {
         vehTypeStages = [{
           $match: {
             $or: [
-              { fahrzeugtyp:  { $in: rxes } },
-              { fahrzeug_art: { $in: rxes } },
-              { fahrzeugart:  { $in: rxes } },
-              { karosserie:   { $in: rxes } }
+              { fahrzeugtyp:   { $in: rxes } },
+              { fahrzeug_art:  { $in: rxes } },
+              { fahrzeugart:   { $in: rxes } },
+              { karosserie:    { $in: rxes } },
+              { karosserieart: { $in: rxes } },
+              // Fallback auf Freitext:
+              { titel:         { $in: rxes } },
+              { beschreibung:  { $in: rxes } }
             ]
           }
         }];
@@ -1932,8 +1950,8 @@ app.get("/api/search", async (req, res) => {
       }
       if (!allowed.length) return [];
 
-      const allowedStr = allowed.map(String);
-      const slashCombo = allowedStr.join("/");
+      const allowedStr  = allowed.map(String);
+      const slashCombo  = allowedStr.join("/");
       const fields = [
         "tueren","türen","anzahl_tueren","anzahl-tueren","tueranzahl",
         "tueren_anzahl","türen_anzahl","doors","verkauf_tueren","verkauf_türen"
@@ -1942,7 +1960,7 @@ app.get("/api/search", async (req, res) => {
       const or = [];
       for (const f of fields) or.push({ [f]: { $in: [...allowed, ...allowedStr, slashCombo] } });
 
-      const numbersAlt = allowed.join("|"); // "2|3" o. "4|5"
+      const numbersAlt = allowed.join("|"); // "2|3" oder "4|5"
       const descRx = new RegExp(`\\b(?:${numbersAlt})(?:\\s*[\\-/]\\s*(?:${numbersAlt}))?\\s*(t[üu]r|t[üu]rer|t[üu]ren)\\b`, "i");
       or.push({ titel: descRx }, { beschreibung: descRx });
 
@@ -1950,7 +1968,7 @@ app.get("/api/search", async (req, res) => {
     }
     const tuerenStages = buildTuerenStages(tueren);
 
-    // ---- weitere Filter (PS/ccm/Verbrauch/Antrieb/Getriebe/Kraftstoff/Plakette/Schadstoff/DPF/Halter/Farbe/Merkmale)
+    // ---- Leistungs-/Hubraum-/Verbrauchs-/usw. Filter
     const powerFilterStages = [
       ...(Number.isFinite(psMinNum) ? [{ $match: { ps_num:  { $ne: null, $gte: psMinNum } } }] : []),
       ...(Number.isFinite(psMaxNum) ? [{ $match: { ps_num:  { $ne: null, $lte: psMaxNum } } }] : [])
@@ -2001,19 +2019,20 @@ app.get("/api/search", async (req, res) => {
     if (kraftstoff) {
       const k = String(kraftstoff).toLowerCase();
       let rx = /./; // fallback
-      if (k.startsWith("benzin")) rx = /benzin|otto/i;
-      else if (k.startsWith("diesel")) rx = /diesel/i;
-      else if (k.startsWith("elektro")) rx = /elektro|bev|strom/i;
-      else if (k.includes("hybrid")) rx = /hybrid/i;
-      else if (k.includes("wasserstoff")) rx = /wasserstoff|h2/i;
+      if (k.startsWith("benzin"))         rx = /benzin|otto/i;
+      else if (k.startsWith("diesel"))    rx = /diesel/i;
+      else if (k.startsWith("elektro"))   rx = /elektro|bev|strom|electric/i;
+      else if (k.includes("hybrid"))      rx = /hybrid|phev|plug[-\s]?in/i;
+      else if (k.includes("wasserstoff")) rx = /wasserstoff|h2|fuel\s*cell/i;
       else if (k.includes("cng") || k.includes("erdgas")) rx = /cng|erdgas/i;
       else if (k.includes("lpg") || k.includes("autogas")) rx = /lpg|autogas/i;
-      else if (k.startsWith("ethanol")) rx = /ethanol|e85/i;
+      else if (k.startsWith("ethanol"))   rx = /ethanol|e85/i;
       else rx = new RegExp(escapeRegex(kraftstoff), "i");
       fuelStages = [{
         $match: {
           $or: [
-            { kraftstoff: rx }, { verkauf_kraftstoff: rx }, { kraftstoffart: rx }
+            { kraftstoff: rx }, { verkauf_kraftstoff: rx }, { kraftstoffart: rx },
+            { beschreibung: rx } // Fallback
           ]
         }
       }];
@@ -2036,18 +2055,18 @@ app.get("/api/search", async (req, res) => {
     // Umweltplakette
     let plaketteStages = [];
     if (plakette) {
-      const p = plakette.toLowerCase();
+      const ptxt = plakette.toLowerCase();
       let rx = null;
-      if (p.includes("grün") || p.includes("(4)")) rx = /(gr[üu]n|\b4\b)/i;
-      else if (p.includes("gelb") || p.includes("(3)")) rx = /(gelb|\b3\b)/i;
-      else if (p.includes("rot")  || p.includes("(2)")) rx = /(rot|\b2\b)/i;
-      else if (p.includes("keine")) rx = /(keine|ohne)/i;
+      if (ptxt.includes("grün") || ptxt.includes("(4)")) rx = /(gr[üu]n|\b4\b)/i;
+      else if (ptxt.includes("gelb") || ptxt.includes("(3)")) rx = /(gelb|\b3\b)/i;
+      else if (ptxt.includes("rot")  || ptxt.includes("(2)")) rx = /(rot|\b2\b)/i;
+      else if (ptxt.includes("keine")) rx = /(keine|ohne)/i;
       if (rx) {
         plaketteStages = [{
           $match: {
             $or: [
-              { plakette:        { $regex: rx } },
-              { umweltplakette:  { $regex: rx } },
+              { plakette:         { $regex: rx } },
+              { umweltplakette:   { $regex: rx } },
               { feinstaubplakette:{ $regex: rx } }
             ]
           }
@@ -2073,32 +2092,63 @@ app.get("/api/search", async (req, res) => {
     const halterStages =
       Number.isFinite(halterMaxNum) ? [{ $match: { halter_num: { $ne: null, $lte: halterMaxNum } } }] : [];
 
-    // Farben
+    // Farben (Synonyme/mehr Feldnamen)
+    function colorRegexFor(token) {
+      const t = token.toLowerCase();
+      if (/schwarz/.test(t) || /black/.test(t))   return /schwarz|black/i;
+      if (/weiß|weiss|white/.test(t))             return /wei[ßs]|white/i;
+      if (/grau|gray|grey|anth/.test(t))          return /grau|gray|grey|anthrazit|anthracite/i;
+      if (/silber|silver/.test(t))                return /silber|silver/i;
+      if (/blau|blue/.test(t))                    return /blau|blue/i;
+      if (/rot|red/.test(t))                      return /rot|red/i;
+      if (/grün|gruen|green/.test(t))             return /gr[üu]n|green/i;
+      if (/braun|brown/.test(t))                  return /braun|brown/i;
+      if (/beige|sand/.test(t))                   return /beige|sand/i;
+      if (/gelb|yellow/.test(t))                  return /gelb|yellow/i;
+      if (/orange/.test(t))                       return /orange/i;
+      if (/violett|lila|purple/.test(t))          return /violett|lila|purple/i;
+      if (/gold/.test(t))                         return /gold/i;
+      if (/türkis|tuerkis|turquoise/.test(t))     return /t[üu]rkis|turquoise/i;
+      return new RegExp(escapeRegex(token), "i");
+    }
     let colorStages = [];
     if (farbe) {
-      const rxes = String(farbe).split(",").map(s => s.trim()).filter(Boolean)
-        .map(w => new RegExp(escapeRegex(w), "i"));
+      const rxes = String(farbe).split(",").map(s => s.trim()).filter(Boolean).map(colorRegexFor);
       if (rxes.length) {
         colorStages = [{
           $match: {
             $or: [
-              { farbe:           { $in: rxes } },
-              { außenfarbe:      { $in: rxes } },
-              { aussenfarbe:     { $in: rxes } },
-              { karosseriefarbe: { $in: rxes } }
+              { farbe:              { $in: rxes } },
+              { außenfarbe:         { $in: rxes } },
+              { aussenfarbe:        { $in: rxes } },
+              { karosseriefarbe:    { $in: rxes } },
+              { farbe_text:         { $in: rxes } },
+              { lackierung:         { $in: rxes } },
+              { lack:               { $in: rxes } },
+              { exterior_color:     { $in: rxes } },
+              { exterieur_farbe:    { $in: rxes } },
+              { beschreibung:       { $in: rxes } }, // Fallback
+              { titel:              { $in: rxes } }
             ]
           }
         }];
       }
     }
 
-    // Sonstige Merkmale
+    // Sonstige Merkmale (inkl. Fahrtauglich-Handling)
     let featureStages = [];
+    let driveabilityStages = [];
     if (merkmale) {
-      const rxes = String(merkmale).split(",").map(s => s.trim()).filter(Boolean)
-        .map(w => new RegExp(escapeRegex(w), "i"));
-      if (rxes.length) {
-        featureStages = [{
+      const rawList = String(merkmale).split(",").map(s => s.trim()).filter(Boolean);
+      const wantDriveable = rawList.some(m => /fahrtaug|fahrbereit/i.test(m));
+      // Negativ-Wörter, die wir bei „Fahrtauglich“ ausschließen wollen
+      const NEG_RX = /(nicht\s*fahr|fahrun*taug|bastler|defekt|nicht\s*fahrbereit)/i;
+
+      // generische Merkmale ohne „Fahrtauglich“ (damit kein „nicht fahrtauglich“ zufällig matcht)
+      const other = rawList.filter(m => !/fahrtaug|fahrbereit/i.test(m));
+      if (other.length) {
+        const rxes = other.map(w => new RegExp(escapeRegex(w), "i"));
+        featureStages.push({
           $match: {
             $or: [
               { beschreibung: { $in: rxes } },
@@ -2106,7 +2156,19 @@ app.get("/api/search", async (req, res) => {
               { ausstattung:  { $elemMatch: { $in: rxes } } }
             ]
           }
-        }];
+        });
+      }
+      if (wantDriveable) {
+        // explizit negative Erwähnungen ausschließen
+        driveabilityStages.push({
+          $match: {
+            $nor: [
+              { beschreibung: NEG_RX },
+              { titel:        NEG_RX },
+              { zustand:      NEG_RX }
+            ]
+          }
+        });
       }
     }
 
@@ -2121,7 +2183,7 @@ app.get("/api/search", async (req, res) => {
                 // interne Hilfsfelder entfernen
                 _preis_raw: 0, _km_raw: 0, _preis_clean: 0, _km_clean: 0,
                 _ps_raw: 0, _ccm_raw: 0, _verb_raw: 0, _halter_raw: 0,
-                _ps_match: 0, _ccm_match: 0, _verb_norm: 0, _verb_match: 0,
+                _ps_match: 0, _ccm_match: 0, _verb_norm: 0, _verb_all: 0,
                 _halter_match: 0, _preis_null: 0, _ez: 0
               }
             },
@@ -2168,6 +2230,7 @@ app.get("/api/search", async (req, res) => {
       ...halterStages,
       ...colorStages,
       ...featureStages,
+      ...driveabilityStages,
       ...variantStages,
       ...vehTypeStages,
       ...tuerenStages,
@@ -2199,7 +2262,3 @@ app.get("/api/search", async (req, res) => {
     res.status(500).json({ error: "Interner Fehler bei der Suche." });
   }
 });
-
-
-
-
