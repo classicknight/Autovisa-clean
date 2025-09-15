@@ -1028,3 +1028,30 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 .search-group input[type="month"]::-webkit-datetime-edit-year-field {
   color: #f5f8fc;
 }
+
+
+
+
+
+
+
+
+
+
+/* 1) Flex-Breite nur auf direkte Kinder anwenden */
+.range-inputs > * {
+  flex: 1 1 160px;
+  min-width: 160px;
+}
+
+/* 2) Innerhalb der Month-Range darf das eigentliche Feld NICHT wachsen */
+.month-range .range-item > * {
+  flex: 0 0 auto;
+}
+
+/* 3) (optional) explizite Höhe für Konsistenz auf iOS/Safari */
+.search-group input[type="month"] {
+  height: 48px;
+  line-height: 48px;     /* visuell mittig */
+  padding: 0 16px;       /* Höhe kommt von height */
+}
