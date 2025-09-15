@@ -1536,153 +1536,180 @@ async function geocodeToPoint(query) {
        return true;
      });
    }
-   
-   app.get("/api/geosuggest", async (req, res) => {
-     try {
-       const qRaw = String(req.query.q || "").trim();
-       if (!qRaw) return res.json({ suggestions: [] });
-   
-       const key = qRaw.toLowerCase();
-       const reqLimit = parseInt(req.query.limit, 10);
-       const lim = Math.min(Math.max(Number.isFinite(reqLimit) ? reqLimit : (key.length <= 3 ? 20 : 10), 1), 25);
-   
-       // 1) Memory-Cache
-       const mem = getGeoMem(key);
-       if (mem && mem.length) {
-         res.set("Cache-Control", "public, max-age=120");
-         return res.json({ suggestions: mem.slice(0, lim) });
-       }
-   
-       // 2) Mongo-Cache (keine leeren Ergebnisse nutzen)
-       const coll = db.collection("geosuggest");
-       const cached = await coll.findOne({ key });
-       if (cached && Array.isArray(cached.suggestions) && cached.suggestions.length &&
-           (Date.now() - new Date(cached.updatedAt).getTime()) < GEO_TTL_MS) {
-         setGeoMem(key, cached.suggestions);
-         res.set("Cache-Control", "public, max-age=120");
-         return res.json({ suggestions: cached.suggestions.slice(0, lim) });
-       }
-   
-       // Helper: Mapper für einheitliches Suggest-Format
-       const mapToSuggestion = (postcode, city, state, lat, lon, display) => {
-         const label = [postcode, city].filter(Boolean).join(" ") || display || city || postcode || "";
-         return {
-           value: label,
-           label,
-           city: city || "",
-           postcode: postcode || "",
-           state: state || "",
-           lat: Number(lat),
-           lon: Number(lon)
-         };
-       };
-   
-       // 3) Quelle 1: Nominatim
-       let suggestions = [];
-       try {
-         const ctrl = new AbortController();
-         const timer = setTimeout(() => ctrl.abort(), NOMINATIM_TIMEOUT_MS);
-         const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=de&limit=${lim}&q=${encodeURIComponent(qRaw)}`;
-         const r = await fetch(url, {
-           headers: {
-             "User-Agent": "autovisa/1.0 (contact: info@autovisa.de)",
-             "Accept-Language": "de-DE,de;q=0.9"
-           },
-           signal: ctrl.signal
-         }).catch(() => null);
-         clearTimeout(timer);
-   
-         if (r && r.ok) {
-           const arr = await r.json().catch(() => []);
-           // NICHT zu hart filtern – Nominatim gibt sehr unterschiedliche Typen zurück
-           suggestions = (Array.isArray(arr) ? arr : []).map(it => {
-             const a = it.address || {};
-             const city = a.city || a.town || a.village || a.hamlet || a.suburb || a.neighbourhood || a.locality || "";
-             const postcode = a.postcode || "";
-             const state = a.state || a.county || "";
-             return mapToSuggestion(postcode, city, state, it.lat, it.lon, it.display_name);
-           }).filter(s => s.label); // nur sinnvolle Einträge
-         } else {
-           console.warn("Nominatim not ok / blocked");
-         }
-       } catch (e) {
-         console.warn("Nominatim error:", e?.name === "AbortError" ? "Timeout" : e?.message || e);
-       }
-   
-       // 4) Fallback: Photon/Komoot, wenn leer
-       if (!suggestions.length) {
-         try {
-           const url2 = `https://photon.komoot.io/api/?q=${encodeURIComponent(qRaw)}&lang=de&limit=${lim}`;
-           const r2 = await fetch(url2, {
-             headers: { "User-Agent": "autovisa/1.0 (contact: info@autovisa.de)" }
-           }).catch(() => null);
-           if (r2 && r2.ok) {
-             const data = await r2.json().catch(() => null);
-             const feats = Array.isArray(data?.features) ? data.features : [];
-             suggestions = feats.map(f => {
-               const p = f.properties || {};
-               // Photon: city kann je nach Objekt in city / name / locality stecken
-               const city = p.city || p.name || p.locality || p.town || p.village || "";
-               const postcode = p.postcode || "";
-               const state = p.state || p.county || p.district || "";
-               const [lon, lat] = Array.isArray(f.geometry?.coordinates) ? f.geometry.coordinates : [null, null];
-               return mapToSuggestion(postcode, city, state, lat, lon, p.name);
-             }).filter(s => s.label);
-           } else {
-             console.warn("Photon not ok");
-           }
-         } catch (e) {
-           console.warn("Photon error:", e?.message || e);
-         }
-       }
-   
-       // 5) Dedupe + leichtes Scoring (Prefix bevorzugen)
-       const q = key;
-       suggestions = dedupeByLabel(suggestions)
-         .map(s => {
-           const lc = s.label.toLowerCase();
-           const score =
-             (s.postcode.startsWith(q) ? 3 : 0) +
-             (s.city.toLowerCase().startsWith(q) ? 3 : 0) +
-             (lc.startsWith(q) ? 1 : 0);
-           return { ...s, _score: score };
-         })
-         .sort((a, b) => (b._score - a._score) || (a.label.length - b.label.length))
-         .slice(0, lim)
-         .map(({ _score, ...rest }) => rest);
-   
-       // 6) Nur nicht-leere Ergebnisse cachen
-       if (suggestions.length) {
-         setGeoMem(key, suggestions);
-         await coll.updateOne(
-           { key },
-           { $set: { key, suggestions, updatedAt: new Date() } },
-           { upsert: true }
-         );
-         res.set("Cache-Control", "public, max-age=120");
-       }
-   
-       return res.json({ suggestions });
-     } catch (err) {
-       console.error("❌ /api/geosuggest fatal:", err);
-       return res.json({ suggestions: [] });
-     }
-   });
-   
-   // === SUCHE: /api/search (inkl. optionalem Geo-Radius) ===
-// Beispiel:
-// /api/search?marke=Audi&modell=A4,A6&ezFrom=2018-01&ezTo=2022-12&km_min=10000&km_max=100000&price_min=5000&price_max=30000&getriebe=automatik&kraftstoff=diesel&tueren=4/5&fahrzeugtyp=Limousine%2CKombi&ort=10115%20Berlin&umkreis=50&sort=preis_asc&page=1&limit=20
+   // ============================================================
+// /api/geosuggest  —  schnelle Ortsvorschläge (DE, OSM → Photon Fallback)
+// Voraussetzungen (oben im File vorhanden):
+//  - const GEO_TTL_MS, const NOMINATIM_TIMEOUT_MS
+//  - geoMem Map + getGeoMem/setGeoMem
+//  - dedupeByLabel(list)
+//  - globale "db" Verbindung
+// ============================================================
+app.get("/api/geosuggest", async (req, res) => {
+  try {
+    const qRaw = String(req.query.q || "").trim();
+    if (!qRaw) return res.json({ suggestions: [] });
+
+    const key = qRaw.toLowerCase();
+    const reqLimit = parseInt(req.query.limit, 10);
+    const lim = Math.min(Math.max(Number.isFinite(reqLimit) ? reqLimit : (key.length <= 3 ? 20 : 10), 1), 25);
+
+    // 1) Memory-Cache
+    const mem = getGeoMem(key);
+    if (mem && mem.length) {
+      res.set("Cache-Control", "public, max-age=120");
+      return res.json({ suggestions: mem.slice(0, lim) });
+    }
+
+    // 2) Mongo-Cache (keine leeren Ergebnisse nutzen)
+    const coll = db.collection("geosuggest");
+    const cached = await coll.findOne({ key });
+    if (
+      cached &&
+      Array.isArray(cached.suggestions) &&
+      cached.suggestions.length &&
+      (Date.now() - new Date(cached.updatedAt).getTime()) < GEO_TTL_MS
+    ) {
+      setGeoMem(key, cached.suggestions);
+      res.set("Cache-Control", "public, max-age=120");
+      return res.json({ suggestions: cached.suggestions.slice(0, lim) });
+    }
+
+    // Einheitliches Suggest-Format
+    const mapToSuggestion = (postcode, city, state, lat, lon, display) => {
+      const label = [postcode, city].filter(Boolean).join(" ") || display || city || postcode || "";
+      const latNum = Number(lat);
+      const lonNum = Number(lon);
+      if (!Number.isFinite(latNum) || !Number.isFinite(lonNum)) return null;
+      return {
+        value: label,
+        label,
+        city: city || "",
+        postcode: postcode || "",
+        state: state || "",
+        lat: latNum,
+        lon: lonNum
+      };
+    };
+
+    // 3) Quelle 1: Nominatim
+    let suggestions = [];
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), NOMINATIM_TIMEOUT_MS);
+      const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=de&limit=${lim}&q=${encodeURIComponent(qRaw)}`;
+      const r = await fetch(url, {
+        headers: {
+          "User-Agent": "autovisa/1.0 (contact: info@autovisa.de)",
+          "Accept-Language": "de-DE,de;q=0.9"
+        },
+        signal: ctrl.signal
+      }).catch(() => null);
+      clearTimeout(timer);
+
+      if (r && r.ok) {
+        const arr = await r.json().catch(() => []);
+        suggestions = (Array.isArray(arr) ? arr : [])
+          .map(it => {
+            const a = it.address || {};
+            const city = a.city || a.town || a.village || a.hamlet || a.suburb || a.neighbourhood || a.locality || "";
+            const postcode = a.postcode || "";
+            const state = a.state || a.county || "";
+            return mapToSuggestion(postcode, city, state, it.lat, it.lon, it.display_name);
+          })
+          .filter(Boolean)            // filtere nulls raus (NaN lat/lon)
+          .filter(s => s.label);      // sinnvolle Einträge
+      } else {
+        console.warn("Nominatim not ok / blocked");
+      }
+    } catch (e) {
+      console.warn("Nominatim error:", e?.name === "AbortError" ? "Timeout" : e?.message || e);
+    }
+
+    // 4) Fallback: Photon/Komoot, wenn leer
+    if (!suggestions.length) {
+      try {
+        const url2 = `https://photon.komoot.io/api/?q=${encodeURIComponent(qRaw)}&lang=de&limit=${lim}`;
+        const r2 = await fetch(url2, {
+          headers: { "User-Agent": "autovisa/1.0 (contact: info@autovisa.de)" }
+        }).catch(() => null);
+        if (r2 && r2.ok) {
+          const data = await r2.json().catch(() => null);
+          const feats = Array.isArray(data?.features) ? data.features : [];
+          suggestions = feats
+            .map(f => {
+              const p = f.properties || {};
+              const city = p.city || p.name || p.locality || p.town || p.village || "";
+              const postcode = p.postcode || "";
+              const state = p.state || p.county || p.district || "";
+              const [lon, lat] = Array.isArray(f.geometry?.coordinates) ? f.geometry.coordinates : [null, null];
+              return mapToSuggestion(postcode, city, state, lat, lon, p.name);
+            })
+            .filter(Boolean)
+            .filter(s => s.label);
+        } else {
+          console.warn("Photon not ok");
+        }
+      } catch (e) {
+        console.warn("Photon error:", e?.message || e);
+      }
+    }
+
+    // 5) Dedupe + leichtes Scoring (Prefix bevorzugen)
+    const q = key;
+    suggestions = dedupeByLabel(suggestions)
+      .map(s => {
+        const lc = s.label.toLowerCase();
+        const score =
+          (s.postcode.startsWith(q) ? 3 : 0) +
+          (s.city.toLowerCase().startsWith(q) ? 3 : 0) +
+          (lc.startsWith(q) ? 1 : 0);
+        return { ...s, _score: score };
+      })
+      .sort((a, b) => (b._score - a._score) || (a.label.length - b.label.length))
+      .slice(0, lim)
+      .map(({ _score, ...rest }) => rest);
+
+    // 6) Nur nicht-leere Ergebnisse cachen
+    if (suggestions.length) {
+      setGeoMem(key, suggestions);
+      await coll.updateOne(
+        { key },
+        { $set: { key, suggestions, updatedAt: new Date() } },
+        { upsert: true }
+      );
+      res.set("Cache-Control", "public, max-age=120");
+    }
+
+    return res.json({ suggestions });
+  } catch (err) {
+    console.error("❌ /api/geosuggest fatal:", err);
+    return res.json({ suggestions: [] });
+  }
+});
+
+
+// ============================================================
+// /api/search  —  Suche mit optionalem Geo-Radius & vielen Filtern
+//  - bevorzugt ort_lat/ort_lon, sonst geocode(ort[, land])
+//  - Türen-Filter (2/3, 4/5, oder Zahl), robuste Feldnamen
+//  - Preis/km-Min/Max, EZ von/bis, Modellvariante, Fahrzeugtyp
+// Voraussetzungen (oben im File vorhanden):
+//  - escapeRegex
+//  - geocodeToPoint(query)
+//  - globale "db" Verbindung
+//  - 2dsphere-Index: db.inserate.createIndex({ standortCoords: "2dsphere" })
+// ============================================================
 app.get("/api/search", async (req, res) => {
   try {
     const {
       marke, modell, ezFrom, ezTo,
       km_min, km_max, price_min, price_max,
       getriebe, kraftstoff, sort,
-      ort, umkreis,
+      land = "", ort, umkreis, ort_lat, ort_lon,     // <-- lat/lon & land
       page = "1", limit = "20",
-      modellausfuehrung,   // Freitext für Modell-Variante
-      fahrzeugtyp,         // Mehrfach (kommasepariert)
-      tueren               // <— NEU
+      modellausfuehrung,                            // Freitext
+      fahrzeugtyp,                                  // CSV
+      tueren                                        // CSV/„2/3“/„4/5“ oder Zahl
     } = req.query;
 
     const p   = Math.max(parseInt(page, 10)  || 1, 1);
@@ -1705,7 +1732,7 @@ app.get("/api/search", async (req, res) => {
       if (arr.length) baseMatch.modell = { $in: arr };
     }
 
-    // EZ von/bis
+    // EZ von/bis (YYYY-MM)
     if (ezFrom || ezTo) {
       baseMatch.erstzulassung = {};
       if (ezFrom) baseMatch.erstzulassung.$gte = ezFrom;
@@ -1829,15 +1856,10 @@ app.get("/api/search", async (req, res) => {
 
     // ---- Fahrzeugtyp (mehrere erlaubt, robuste Synonyme)
     function makeVehTypeRegexes(inputCsv = "") {
-      const rawList = String(inputCsv)
-        .split(",")
-        .map(s => s.trim())
-        .filter(Boolean);
+      const rawList = String(inputCsv).split(",").map(s => s.trim()).filter(Boolean);
       const rxes = [];
-
       for (const raw of rawList) {
         const v = raw.toLowerCase();
-
         if (v.includes("cabrio") || v.includes("roadster")) {
           rxes.push(/cabrio\s*\/?\s*roadster/i, /cabrio/i, /roadster/i);
         } else if (v.includes("kleinwagen")) {
@@ -1876,12 +1898,11 @@ app.get("/api/search", async (req, res) => {
       }
     }
 
-    // ---- NEU: Türen-Filter
+    // ---- Türen-Filter
     function buildTuerenStages(val) {
       const raw = String(val || "").trim();
       if (!raw) return [];
 
-      // Erlaubte Zahlen ableiten
       let allowed = [];
       if (/^2\s*\/\s*3$/.test(raw)) allowed = [2, 3];
       else if (/^4\s*\/\s*5$/.test(raw)) allowed = [4, 5];
@@ -1894,7 +1915,6 @@ app.get("/api/search", async (req, res) => {
       const allowedStr = allowed.map(n => String(n));
       const slashCombo = allowedStr.join("/");
 
-      // Felder, die es je nach Import geben kann
       const fields = [
         "tueren","türen","anzahl_tueren","anzahl-tueren","tueranzahl",
         "tueren_anzahl","türen_anzahl","doors","verkauf_tueren","verkauf_türen"
@@ -1902,14 +1922,14 @@ app.get("/api/search", async (req, res) => {
 
       const or = [];
 
-      // exakte Treffer auf String- oder Number-Feldern
+      // direkte Feldvergleiche (Number oder String)
       for (const f of fields) {
         or.push({ [f]: { $in: [...allowed, ...allowedStr, slashCombo] } });
       }
 
-      // Fallback: Suche in Titel/Beschreibung nach „x-Tür(er)“
+      // Textsuche in Titel/Beschreibung: „2/3-Türer“, „4-Türen“, „5 Türer“
       const numbersAlt = allowed.join("|"); // z.B. "2|3" oder "4|5"
-      const descRx = new RegExp(`\\b(?:${numbersAlt})(?:\\s*[\\-/]\\s*(?:${numbersAlt}))?\\s*(t[üu]r|t[üu]rer)`, "i");
+      const descRx = new RegExp(`\\b(?:${numbersAlt})(?:\\s*[\\-/]\\s*(?:${numbersAlt}))?\\s*(t[üu]r|t[üu]rer|t[üu]ren)\\b`, "i");
       or.push({ titel: descRx });
       or.push({ beschreibung: descRx });
 
@@ -1939,30 +1959,40 @@ app.get("/api/search", async (req, res) => {
     ];
 
     // ---- Optionaler Geo-Teil
-    const ortStr = String(ort || "").trim();
     const umkreisKm = Math.max(parseInt(umkreis, 10) || 0, 0);
     let pipeline;
 
-    if (ortStr) {
-      const point = await geocodeToPoint(ortStr);
-      if (point) {
-        pipeline = [
-          { $geoNear: {
-              near: point,
-              key: "standortCoords",  // 2dsphere-Index erforderlich
-              distanceField: "dist",
-              spherical: true,
-              ...(umkreisKm > 0 ? { maxDistance: umkreisKm * 1000 } : {})
-            }
-          },
-          ...parseNumberStages,
-          ...numberFilterStages,
-          ...variantStages,
-          ...vehTypeStages,
-          ...tuerenStages,      // <— NEU
-          ...endStages
-        ];
-      }
+    // 1) bevorzugt lat/lon nutzen, wenn übergeben
+    let point = null;
+    const lat = parseFloat(ort_lat);
+    const lon = parseFloat(ort_lon);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      point = { type: "Point", coordinates: [lon, lat] };
+    } else {
+      // 2) Fallback: Ort-String (mit Land-Hint) geocoden
+      const ortStr = String(ort || "").trim();
+      const landStr = String(land || "").trim();
+      const geoQuery = (ortStr && landStr) ? `${ortStr}, ${landStr}` : ortStr;
+      if (geoQuery) point = await geocodeToPoint(geoQuery);
+    }
+
+    if (point) {
+      pipeline = [
+        { $geoNear: {
+            near: point,
+            key: "standortCoords",                 // 2dsphere-Index erforderlich
+            distanceField: "dist",
+            spherical: true,
+            ...(umkreisKm > 0 ? { maxDistance: umkreisKm * 1000 } : {})
+          }
+        },
+        ...parseNumberStages,
+        ...numberFilterStages,
+        ...variantStages,
+        ...vehTypeStages,
+        ...tuerenStages,
+        ...endStages
+      ];
     }
 
     // Fallback ohne Geo
@@ -1972,7 +2002,7 @@ app.get("/api/search", async (req, res) => {
         ...numberFilterStages,
         ...variantStages,
         ...vehTypeStages,
-        ...tuerenStages,        // <— NEU
+        ...tuerenStages,
         ...endStages
       ];
     }

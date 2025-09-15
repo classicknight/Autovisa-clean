@@ -1,6 +1,3 @@
-
-
-
 /* ==== Reset & Base ==== */
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
@@ -938,4 +935,96 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   flex: 1 1 0;
   /* deine globalen <select>-Styles greifen hier bereits,
      daher nur Layout, kein extra Look nötig */
+}
+
+
+
+
+
+
+
+
+
+
+
+
+/* ✅ …oder so ändern, dass NUR number bleibt: */
+.range-inputs input[type="number"] {
+  background-color: #1a2733;
+  border: 1px solid #00b8a9;
+  border-radius: 6px;
+  color: #f5f8fc;
+  font-size: 15px;
+  padding: 10px ;
+  font-family: inherit;
+  flex: 1 1 160px;
+  width: 100%;
+  box-shadow: none;
+  transition: border-color 0.2s ease, box-shadow 0.3s ease;
+}
+.range-inputs input[type="number"]:focus {
+  border-color: #00d5c3;
+}
+
+
+
+
+
+/* optional: native month-UI an Look anpassen */
+.search-group input[type="month"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.search-group input[type="month"]::-webkit-calendar-picker-indicator {
+  filter: invert(85%);
+  opacity: .8;
+}
+
+
+
+/* Einheitlicher Look für alle von/bis-Felder */
+.range-inputs input,
+.range-inputs select {
+  background-color: #1a2733;
+  border: 1px solid #00b8a9;
+  border-radius: 6px;
+  color: #f5f8fc;
+  font-size: 15px;
+  padding: 12px 16px;
+  font-family: inherit;
+  flex: 1 1 160px;
+  min-width: 160px;
+  width: 100%;
+  box-shadow: none;
+  transition: border-color .2s ease, box-shadow .3s ease;
+}
+
+.range-inputs input:focus,
+.range-inputs select:focus {
+  border-color: #00d5c3;
+  box-shadow: 0 0 0 2px rgba(0,216,195,0.2);
+}
+
+/* iOS/ Safari: native Month-UI angleichen */
+.search-group input[type="month"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: #1a2733;   /* sicherheitshalber nochmal */
+  border: 1px solid #00b8a9;
+  border-radius: 6px;
+  color: #f5f8fc;
+  -webkit-text-fill-color: #f5f8fc; /* iOS-Farbe erzwingen */
+}
+
+.search-group input[type="month"]::-webkit-calendar-picker-indicator {
+  filter: invert(85%);
+  opacity: .85;
+}
+
+/* iOS: die Zahl/Trennstrich-Felder im Month-Input einfärben */
+.search-group input[type="month"]::-webkit-datetime-edit,
+.search-group input[type="month"]::-webkit-datetime-edit-text,
+.search-group input[type="month"]::-webkit-datetime-edit-month-field,
+.search-group input[type="month"]::-webkit-datetime-edit-year-field {
+  color: #f5f8fc;
 }
