@@ -1,5 +1,25 @@
-// JavaScript für vorschau.html – korrigiert: kein automatisches Scrollen mehr
+// vorschau.js — konsolidiert & domänen-robust
 
+// =========================
+// API-Basis für Domain-Wechsel
+// - optional <meta name="api-base" content="https://api.autovisa.de">
+// - optional window.API_BASE = "https://www.autovisa.de"
+// - Fallback: gleiche Origin
+// =========================
+const API_BASE =
+  (typeof window !== "undefined" && window.API_BASE) ||
+  document.querySelector('meta[name="api-base"]')?.content ||
+  "";
+
+const api = (path) => {
+  const p = String(path || "");
+  if (!API_BASE) return p; // relative (gleiche Origin)
+  return API_BASE.replace(/\/+$/, "") + "/" + p.replace(/^\/+/, "");
+};
+
+// =========================
+// Media-Slider-Status
+// =========================
 let mediaItems = [];
 let currentIndex = 0;
 let startX = 0;
@@ -10,15 +30,46 @@ let animationID;
 let slider;
 let container;
 
+// Lightbox
+let lastVehicle = null;
+let lastTap = 0;
+let currentLightboxIndex = 0;
+let lightboxStartX = 0;
+let lightboxIsDragging = false;
+
+// =========================
+// Utils
+// =========================
+const toNum = (v) => {
+  if (v === null || v === undefined) return NaN;
+  const s = String(v)
+    .trim()
+    .replace(/[\u202F\u00A0\s]/g, "")
+    .replace(/[€]/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+  const n = Number(s);
+  return Number.isFinite(n) ? n : NaN;
+};
+
+const fmtEUR = (n) => (Number.isFinite(n) ? n.toLocaleString("de-DE") + " €" : "");
+
+// =========================
+// Media laden
+// =========================
 async function fetchMedia() {
   try {
-    const res  = await fetch("/getVehicleData", { credentials: "include" });
-    const data = await res.json();
-    
+    const res = await fetch(api("/getVehicleData"), { credentials: "include" });
+    if (!res.ok) {
+      console.warn("⚠️ /getVehicleData HTTP", res.status, await res.text());
+      return;
+    }
+    const data = await res.json().catch(() => []);
     if (!Array.isArray(data) || data.length === 0) return;
-    const lastVehicle = data[data.length - 1];
+
+    lastVehicle = data[data.length - 1] || {};
     if (Array.isArray(lastVehicle.images)) {
-      mediaItems.push(...lastVehicle.images.map(src => ({ type: "img", src })));
+      mediaItems.push(...lastVehicle.images.map((src) => ({ type: "img", src })));
     }
     if (lastVehicle.video) {
       mediaItems.push({ type: "video", src: lastVehicle.video });
@@ -28,84 +79,66 @@ async function fetchMedia() {
   }
 }
 
-window.addEventListener("load", async () => {
-  await fetchMedia();
-
-  // Fallback-Bilder
-  if (mediaItems.length === 0) {
-    mediaItems = [
-      { type: "img", src: "platzhalter1.jpg" },
-      { type: "img", src: "platzhalter2.jpg" }
-    ];
-  }
-
-  initSlider();
-  setMedia(0);
-  setupSlider();
-
-  // ✅ Verhindert automatisches Scrollen nach unten
-  setTimeout(() => {
-    window.scrollTo({ top: 0, behavior: "instant" });
-  }, 100);
-});
-
+// =========================
+// Slider
+// =========================
 function initSlider() {
-    document.documentElement.style.setProperty('--media-count', mediaItems.length);
-    slider = document.getElementById("media-slider");
-    container = document.getElementById("media-display");
-    slider.innerHTML = "";
-    const thumbContainer = document.getElementById("thumbnail-track");
-    thumbContainer.innerHTML = "";
-  
-    mediaItems.forEach((item, i) => {
-      const wrapper = document.createElement("div");
-      wrapper.classList.add("media-slide-wrapper");
-      const el = document.createElement(item.type === "img" ? "img" : "video");
-      el.src = item.src;
-      el.classList.add("media-slide");
-      el.draggable = false;
-  
-      if (item.type === "video") {
-        el.controls = true;
-        el.playsInline = true;
-        el.preload = "metadata";
-        el.tabIndex = -1; // ✅ Fokus blockieren → kein Scroll-Jump
-      } else {
-        el.addEventListener("load", () => {
-          if (el.naturalHeight > el.naturalWidth) {
-            el.classList.add("portrait");
-          }
-        });
-      }
-  
-      el.addEventListener("click", () => openFullscreen(el));
-  
-      const btn = document.createElement("div");
-      btn.classList.add("fullscreen-btn");
-      btn.innerHTML = `<i class="fas fa-expand"></i>`;
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        openFullscreen(el);
+  document.documentElement.style.setProperty("--media-count", mediaItems.length);
+  slider = document.getElementById("media-slider");
+  container = document.getElementById("media-display");
+  if (!slider || !container) return;
+
+  slider.innerHTML = "";
+  const thumbContainer = document.getElementById("thumbnail-track");
+  if (thumbContainer) thumbContainer.innerHTML = "";
+
+  mediaItems.forEach((item, i) => {
+    const wrapper = document.createElement("div");
+    wrapper.classList.add("media-slide-wrapper");
+    const el = document.createElement(item.type === "img" ? "img" : "video");
+    el.src = item.src;
+    el.classList.add("media-slide");
+    el.draggable = false;
+
+    if (item.type === "video") {
+      el.controls = true;
+      el.playsInline = true;
+      el.preload = "metadata";
+      el.tabIndex = -1; // Fokus blockieren → kein Scroll-Jump
+    } else {
+      el.addEventListener("load", () => {
+        if (el.naturalHeight > el.naturalWidth) el.classList.add("portrait");
       });
-  
-      wrapper.appendChild(el);
-      wrapper.appendChild(btn);
-      slider.appendChild(wrapper);
-  
+    }
+
+    el.addEventListener("click", () => openFullscreen(el));
+
+    const btn = document.createElement("div");
+    btn.classList.add("fullscreen-btn");
+    btn.innerHTML = `<i class="fas fa-expand"></i>`;
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openFullscreen(el);
+    });
+
+    wrapper.appendChild(el);
+    wrapper.appendChild(btn);
+    slider.appendChild(wrapper);
+
+    if (thumbContainer) {
       const thumb = document.createElement(item.type === "img" ? "img" : "video");
       thumb.src = item.src;
       thumb.classList.add("media-thumb");
       thumb.addEventListener("click", () => setMedia(i));
       thumbContainer.appendChild(thumb);
-    });
-  
-    setTimeout(() => {
-      updateSlider(false);
-    }, 100);
-  }
-  
+    }
+  });
+
+  setTimeout(() => updateSlider(false), 100);
+}
 
 function setupSlider() {
+  if (!container) return;
   container.addEventListener("pointerdown", dragStart, { passive: false });
   container.addEventListener("pointermove", dragMove, { passive: false });
   container.addEventListener("pointerup", dragEnd);
@@ -116,10 +149,10 @@ function setupSlider() {
 
 function dragStart(e) {
   isDragging = true;
-  slider.classList.add("dragging");
+  slider?.classList.add("dragging");
   startX = e.clientX;
   animationID = requestAnimationFrame(animation);
-  slider.style.transition = "none";
+  if (slider) slider.style.transition = "none";
 }
 
 function dragMove(e) {
@@ -132,8 +165,8 @@ function dragMove(e) {
 function dragEnd() {
   cancelAnimationFrame(animationID);
   isDragging = false;
-  slider.classList.remove("dragging");
-  const slideWidth = container.offsetWidth;
+  slider?.classList.remove("dragging");
+  const slideWidth = container?.offsetWidth || 0;
   const movedBy = currentTranslate - prevTranslate;
   if (movedBy < -50 && currentIndex < mediaItems.length - 1) currentIndex++;
   else if (movedBy > 50 && currentIndex > 0) currentIndex--;
@@ -146,10 +179,11 @@ function animation() {
 }
 
 function setSliderPosition() {
-  slider.style.transform = `translateX(${currentTranslate}px)`;
+  if (slider) slider.style.transform = `translateX(${currentTranslate}px)`;
 }
 
 function updateSlider() {
+  if (!container || !slider) return;
   const slideWidth = container.offsetWidth;
   const targetTranslate = -currentIndex * slideWidth;
   slider.style.transition = "transform 0.5s ease";
@@ -179,49 +213,36 @@ function nextMedia() {
 }
 
 function updateActiveThumb() {
-    const thumbs = document.querySelectorAll(".media-thumb");
-    thumbs.forEach((thumb, i) => {
-      thumb.classList.toggle("active-thumb", i === currentIndex);
-      if (i === currentIndex) {
-        thumb.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-      }
-    });
-  }
-  
-
-  function openFullscreen(media) {
-    // ❌ Kein Bild oder Video übergeben → abbrechen
-    if (!media || !(media.tagName === "IMG" || media.tagName === "VIDEO")) return;
-  
-    // 🔍 Alle Slides sammeln (Bilder + Videos)
-    const allSlides = document.querySelectorAll(".media-slide");
-  
-    // 🔢 Aktuelles Medium im Array finden
-    currentLightboxIndex = Array.from(allSlides).findIndex(el => el.src === media.src);
-  
-    // 📦 Lightbox-Overlay holen
-    const overlay = document.getElementById("lightbox-overlay");
-  
-    // ❗ Fehler abfangen, wenn Overlay fehlt
-    if (!overlay) {
-      console.warn("⚠️ Lightbox-Overlay (#lightbox-overlay) nicht gefunden.");
-      return;
+  const thumbs = document.querySelectorAll(".media-thumb");
+  thumbs.forEach((thumb, i) => {
+    thumb.classList.toggle("active-thumb", i === currentIndex);
+    if (i === currentIndex) {
+      thumb.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
     }
-  
-    // ✅ Overlay anzeigen
-    overlay.classList.add("show");
-  
-    // 📸 Medium anzeigen
-    renderLightboxMedia(media);
-  
-    // 🔢 Bildzähler aktualisieren
-    updateLightboxCounter();
+  });
+}
+
+// =========================
+// Lightbox
+// =========================
+function openFullscreen(media) {
+  if (!media || !(media.tagName === "IMG" || media.tagName === "VIDEO")) return;
+  const allSlides = document.querySelectorAll(".media-slide");
+  currentLightboxIndex = Array.from(allSlides).findIndex((el) => el.src === media.src);
+  const overlay = document.getElementById("lightbox-overlay");
+  if (!overlay) {
+    console.warn("⚠️ Lightbox-Overlay (#lightbox-overlay) nicht gefunden.");
+    return;
   }
-  
+  overlay.classList.add("show");
+  renderLightboxMedia(media);
+  updateLightboxCounter();
+}
 
 function renderLightboxMedia(media) {
-  const container = document.getElementById("lightbox-content");
-  container.innerHTML = "";
+  const c = document.getElementById("lightbox-content");
+  if (!c) return;
+  c.innerHTML = "";
   const el = document.createElement(media.tagName.toLowerCase());
   el.src = media.src;
   el.className = "lightbox-inner-media";
@@ -230,34 +251,37 @@ function renderLightboxMedia(media) {
     el.autoplay = true;
     el.playsInline = true;
   }
-  container.appendChild(el);
+  c.appendChild(el);
 }
 
 function updateLightboxCounter() {
   const counter = document.getElementById("lightbox-counter");
-  if (counter) {
-    counter.textContent = `Bild ${currentLightboxIndex + 1} von ${mediaItems.length}`;
-  }
+  if (counter) counter.textContent = `Bild ${currentLightboxIndex + 1} von ${mediaItems.length}`;
 }
 
 function closeLightbox() {
   const overlay = document.getElementById("lightbox-overlay");
+  if (!overlay) return;
   overlay.classList.remove("show");
-  document.getElementById("lightbox-content").innerHTML = "";
+  const c = document.getElementById("lightbox-content");
+  if (c) c.innerHTML = "";
 }
 
 function navigateLightbox(direction) {
   const allSlides = document.querySelectorAll(".media-slide");
   currentLightboxIndex = Math.max(0, Math.min(currentLightboxIndex + direction, allSlides.length - 1));
   const nextMedia = allSlides[currentLightboxIndex];
-  renderLightboxMedia(nextMedia);
-  updateLightboxCounter();
+  if (nextMedia) {
+    renderLightboxMedia(nextMedia);
+    updateLightboxCounter();
+  }
 }
 
 function setupLightboxSwipe() {
   const overlay = document.getElementById("lightbox-overlay");
   const content = document.getElementById("lightbox-content");
-  [overlay, content].forEach(el => {
+  [overlay, content].forEach((el) => {
+    if (!el) return;
     el.addEventListener("pointerdown", lightboxDragStart);
     el.addEventListener("pointermove", lightboxDragMove);
     el.addEventListener("pointerup", lightboxDragEnd);
@@ -270,7 +294,7 @@ function lightboxDragStart(e) {
   if (e.pointerType !== "touch" && e.pointerType !== "mouse") return;
   lightboxIsDragging = true;
   lightboxStartX = e.clientX;
-  document.getElementById("lightbox-overlay").classList.add("dragging");
+  document.getElementById("lightbox-overlay")?.classList.add("dragging");
 }
 
 function lightboxDragMove(e) {
@@ -281,7 +305,7 @@ function lightboxDragMove(e) {
   if (media) media.style.transform = `translateX(${deltaX}px)`;
   if (Math.abs(deltaX) > 50) {
     lightboxIsDragging = false;
-    document.getElementById("lightbox-overlay").classList.remove("dragging");
+    document.getElementById("lightbox-overlay")?.classList.remove("dragging");
     if (deltaX > 0) navigateLightbox(-1);
     else navigateLightbox(1);
   }
@@ -290,16 +314,18 @@ function lightboxDragMove(e) {
 function lightboxDragEnd(e) {
   if (!lightboxIsDragging) return;
   lightboxIsDragging = false;
-  document.getElementById("lightbox-overlay").classList.remove("dragging");
+  document.getElementById("lightbox-overlay")?.classList.remove("dragging");
   const deltaX = e.clientX - lightboxStartX;
   if (Math.abs(deltaX) > 80) {
     if (deltaX > 0) navigateLightbox(-1);
     else navigateLightbox(1);
   } else {
     const media = document.querySelector("#lightbox-content .lightbox-inner-media");
-    media.style.transition = "transform 0.3s ease";
-    media.style.transform = "translateX(0)";
-    setTimeout(() => media.style.transition = "", 300);
+    if (media) {
+      media.style.transition = "transform 0.3s ease";
+      media.style.transform = "translateX(0)";
+      setTimeout(() => (media.style.transition = ""), 300);
+    }
   }
 }
 
@@ -308,831 +334,223 @@ function handleTapFullscreen(e) {
   const delta = now - lastTap;
   lastTap = now;
   if (delta < 300 && delta > 0) {
-    const media = e.target.closest(".lightbox-inner-media") || document.querySelector("#lightbox-content .lightbox-inner-media");
+    const media =
+      e.target.closest(".lightbox-inner-media") ||
+      document.querySelector("#lightbox-content .lightbox-inner-media");
     if (media) {
       const request = media.requestFullscreen || media.webkitRequestFullscreen;
       const exit = document.exitFullscreen || document.webkitExitFullscreen;
       if (document.fullscreenElement || document.webkitFullscreenElement) {
         exit?.call(document);
       } else if (request) {
-        request.call(media).catch(err => console.error("Fullscreen konnte nicht aktiviert werden:", err));
+        request.call(media).catch((err) => console.error("Fullscreen konnte nicht aktiviert werden:", err));
       }
     }
   }
 }
 
-let lastTap = 0;
-let currentLightboxIndex = 0;
-let lightboxStartX = 0;
-let lightboxIsDragging = false;
-
-// Tarifanzeige
+// =========================
+// Tarif / Navbar
+// =========================
 function updateNavbarTarif() {
   const tarifBadge = document.getElementById("tarifAnzeige");
   if (!tarifBadge) return;
   const tarifPreise = {
     "0–3 Fahrzeuge": "Kostenlos",
-    "4–10 Fahrzeuge": "4,90 € / Monat",
-    "11–25 Fahrzeuge": "9,90 € / Monat",
-    "26–50 Fahrzeuge": "17,90 € / Monat",
-    "51–100 Fahrzeuge": "29,90 € / Monat",
-    "100+ Fahrzeuge": "Auf Anfrage"
+    "4–10 Fahrzeuge": "4,90 € / Monat",
+    "11–25 Fahrzeuge": "9,90 € / Monat",
+    "26–50 Fahrzeuge": "17,90 € / Monat",
+    "51–100 Fahrzeuge": "29,90 € / Monat",
+    "100+ Fahrzeuge": "Auf Anfrage",
   };
-  fetch("/getTarif")
-    .then(res => res.json())
-    .then(data => {
-      if (data.tarif) {
+  fetch(api("/getTarif"), { credentials: "include" })
+    .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+    .then((data) => {
+      if (data?.tarif) {
         const preis = tarifPreise[data.tarif] || "";
         tarifBadge.innerHTML = `<i class="fas fa-tag"></i> Aktiver Tarif: ${data.tarif} – ${preis}`;
       }
     })
-    .catch(err => console.warn("⚠️ Tarif konnte nicht geladen werden:", err));
-}document.addEventListener("DOMContentLoaded", () => {
-  fetch("/getNutzerInfo", { credentials: "include" })
-    .then(res => res.json())
-    .then(data => {
-      console.log("✅ Daten von /getNutzerInfo erhalten:", data);
-
-      if (!data.eingeloggt || !data.nutzerId) {
-        const ziel = sessionStorage.getItem("verkaeuferTyp") === "haendler" ? "haendler.html" : "privat.html";
-        console.warn("⛔ Nicht eingeloggt. Weiterleitung zu:", ziel);
-        window.location.href = ziel;
-        return;
-      }
-
-      // 🟢 Nutzer-Infos speichern
-      localStorage.setItem("nutzerId", data.nutzerId);
-      localStorage.setItem("userRole", data.rolle || "");
-
-      // Restliche Setup-Logik mit try/catch:
-      try {
-        updateNavbarTarif();
-        console.log("✅ updateNavbarTarif erfolgreich");
-      } catch (e) {
-        console.error("❌ Fehler in updateNavbarTarif:", e);
-      }
-
-      try {
-        setupLightboxSwipe();
-        console.log("✅ setupLightboxSwipe erfolgreich");
-      } catch (e) {
-        console.error("❌ Fehler in setupLightboxSwipe:", e);
-      }
-
-      try {
-        const btn = document.getElementById("toggle-description-btn");
-        const description = document.getElementById("car-description");
-        if (btn && description) {
-          btn.addEventListener("click", () => {
-            description.classList.toggle("expanded");
-            btn.textContent = description.classList.contains("expanded")
-              ? "Weniger anzeigen"
-              : "Mehr anzeigen";
-          });
-          console.log("✅ Toggle Beschreibung-Button aktiviert");
-        }
-      } catch (e) {
-        console.error("❌ Fehler beim Toggle-Button:", e);
-      }
-
-      try {
-        const fullscreenBtn = document.getElementById("lightbox-fullscreen-btn");
-        if (fullscreenBtn) {
-          fullscreenBtn.addEventListener("click", () => {
-            const media = document.querySelector("#lightbox-content .lightbox-inner-media");
-            if (media) {
-              const request = media.requestFullscreen || media.webkitRequestFullscreen;
-              if (request) {
-                request.call(media).catch(err =>
-                  console.error("❌ Fullscreen-Fehler:", err)
-                );
-              }
-            }
-          });
-          console.log("✅ Fullscreen-Button aktiviert");
-        }
-      } catch (e) {
-        console.error("❌ Fehler beim Fullscreen-Button:", e);
-      }
-
-      try {
-        setupNavbar();
-        console.log("✅ setupNavbar erfolgreich");
-      } catch (e) {
-        console.error("❌ Fehler in setupNavbar:", e);
-      }
-    })
-    .catch(err => {
-      console.error("❌ Fehler beim Abrufen der Nutzerinfo:", err);
-      const ziel = sessionStorage.getItem("verkaeuferTyp") === "haendler" ? "haendler.html" : "privat.html";
-      console.warn("⛔ Fehler → Weiterleitung zu:", ziel);
-      window.location.href = ziel;
+    .catch(async (err) => {
+      const msg = err?.status ? `${err.status} ${await err.text().catch(() => "")}` : String(err);
+      console.warn("⚠️ Tarif konnte nicht geladen werden:", msg);
     });
-});
-
-
-
-
-  function goBackToMedia() {
-    window.location.href = "medien.html";
-  }
-  
-
-
-
-  function goToEditVehicleData() {
-    window.location.href = "fahrzeugdaten.html";
-  }
-  
-  function goToEditDetails() {
-    const userRole = localStorage.getItem("userRole");
-  
-    // 🔁 Leite korrekt weiter – je nach Rolle
-    if (userRole === "haendler") {
-      window.location.href = "fahrzeugdetails.html?rolle=haendler";
-    } else {
-      window.location.href = "fahrzeugdetails.html?rolle=privat";
-    }
-  }
-  
-  document.addEventListener("DOMContentLoaded", async () => {
-    // --- Helfer: robustes Parsing & Formatierung
-    const toNum = (v) => {
-      if (v === null || v === undefined) return NaN;
-      // entferne normale + geschützte + schmale Leerzeichen und €
-      const s = String(v)
-        .trim()
-        .replace(/[\u202F\u00A0\s]/g, "") // schmale/non-breaking spaces + normale Spaces
-        .replace(/[€]/g, "")
-        .replace(/\./g, "")
-        .replace(",", ".");
-      const n = Number(s);
-      return Number.isFinite(n) ? n : NaN;
-    };
-    const fmtEUR = (n) => (Number.isFinite(n) ? n.toLocaleString("de-DE") + " €" : "");
-  
-    try {
-      // ⚠️ geschützte Route → Cookies mitsenden
-      const res  = await fetch("/getVehicleData", { credentials: "include" });
-      const data = await res.json();
-      if (!Array.isArray(data) || data.length === 0) return;
-  
-      const last = data[data.length - 1] || {};
-  
-      // ===== Preise =====
-      const priceMain = document.getElementById("price-main"); // großer Preis
-      const priceNet  = document.getElementById("price-net");  // Netto (optional)
-      const mwstType  = document.getElementById("mwst-type");  // „zzgl. MwSt.“ / „Keine MwSt.“
-      const priceType = document.getElementById("price-type"); // „Brutto“ / „Endpreis“
-  
-      // MwSt-Status erkennen (robust)
-      const mwstRaw = String(last.verkauf_mwst || "").trim().toLowerCase();
-      const isKeine = mwstRaw.includes("keine"); // „Keine MwSt.“
-      const isZzgl  = mwstRaw.includes("zzgl");  // „zzgl. MwSt.“
-  
-      // Eingehende Preisfelder robust lesen (inkl. Alt-Feldern)
-      const brutto = toNum(last.verkauf_brutto ?? last["brutto-preis"]);
-      const netto  = toNum(last.verkauf_netto  ?? last["netto-preis"]);
-      const einzel = toNum(last.verkauf_preis  ?? last.preis);
-  
-      // Hauptpreis bestimmen
-      let mainPriceNum = NaN;
-      if (isKeine) {
-        // Endpreis (ohne MwSt.) anzeigen → Einzelpreis
-        mainPriceNum = Number.isFinite(einzel) ? einzel : NaN;
-      } else if (isZzgl) {
-        // „zzgl. MwSt.“ → Brutto bevorzugen, sonst Einzelpreis
-        mainPriceNum = Number.isFinite(brutto) ? brutto : (Number.isFinite(einzel) ? einzel : NaN);
-      } else {
-        // unbekannter Zustand → best effort: Brutto > Einzelpreis
-        mainPriceNum = Number.isFinite(brutto) ? brutto : (Number.isFinite(einzel) ? einzel : NaN);
-      }
-  
-      if (priceMain) priceMain.textContent = Number.isFinite(mainPriceNum) ? fmtEUR(mainPriceNum) : "";
-      if (priceNet)  priceNet.textContent  = (isZzgl && Number.isFinite(netto)) ? fmtEUR(netto) : "";
-  
-      if (mwstType)  mwstType.textContent  = last.verkauf_mwst || (isKeine ? "Keine MwSt." : (isZzgl ? "zzgl. MwSt." : ""));
-      if (priceType) priceType.textContent = isKeine ? "Endpreis" : "Brutto";
-  
-      // ===== Titel =====
-      const titleEl = document.getElementById("car-title");
-      if (titleEl && last.verkauf_modell) {
-        titleEl.textContent = last.verkauf_modell;
-      }
-  
-      // ===== Verkäufer-Typ =====
-      const sellerType = document.getElementById("seller-type");
-      if (sellerType && last.verkauf_verkaeufer) {
-        sellerType.textContent = last.verkauf_verkaeufer;
-      }
-  
-      // ===== Innenausstattung (Material/Farbe) =====
-      const innenmaterial = localStorage.getItem("details_innenmaterial") || last.verkauf_innenmaterial || "";
-      const innenfarbe    = localStorage.getItem("details_innenfarbe")    || last.verkauf_innenfarbe    || "";
-      const innenText     = [innenmaterial, innenfarbe].filter(Boolean).join(" / ");
-      const innenEl       = document.getElementById("v-innenausstattung");
-      if (innenEl) innenEl.textContent = innenText;
-  
-      // ===== Einparkhilfe =====
-      const einparkhilfe = localStorage.getItem("details_einparkhilfe") || last.verkauf_einparkhilfe || "";
-      const el = document.getElementById("v-einparkhilfe");
-      if (el) el.textContent = einparkhilfe;
-  
-      // ===== Fahrzeugbeschreibung (sicher & mit Umbrüchen) + Toggle =====
-      const descBox   = document.getElementById("car-description-box");   // Container
-      const descEl    = document.getElementById("car-description");       // .car-description-content
-      const toggleBtn = document.getElementById("toggle-description-btn");
-  
-      if (descEl && descBox) {
-        const text = (last.fahrzeugbeschreibung || "").replace(/\r\n/g, "\n");
-        descEl.textContent = text; // kein innerHTML → XSS-sicher
-  
-        // Nach dem Rendern prüfen, ob überhaupt Overflow besteht
-        requestAnimationFrame(() => {
-          const needsToggle = descEl.scrollHeight > descEl.clientHeight;
-          if (toggleBtn) {
-            toggleBtn.style.display = needsToggle ? "inline-block" : "none";
-            // initial zusammengeklappt
-            descBox.classList.remove("expanded");
-            toggleBtn.setAttribute("aria-expanded", "false");
-            toggleBtn.textContent = "Mehr anzeigen";
-  
-            toggleBtn.onclick = () => {
-              const open = descBox.classList.toggle("expanded");
-              toggleBtn.setAttribute("aria-expanded", open ? "true" : "false");
-              toggleBtn.textContent = open ? "Weniger anzeigen" : "Mehr anzeigen";
-            };
-          }
-        });
-      }
-
-
-  
-      // Weitere Fahrzeug-Infos
-      const ez = document.getElementById("info-ez");
-      const km = document.getElementById("info-km");
-      const ps = document.getElementById("info-ps");
-      const kraftstoff = document.getElementById("info-kraftstoff");
-      const getriebe = document.getElementById("info-getriebe");
-      const verkaeufer = document.getElementById("info-verkaeufer");
-  
-      if (ez && last.verkauf_erstzulassung) {
-        ez.textContent = last.verkauf_erstzulassung;
-      }
-  
-      if (km && last.verkauf_kilometer) {
-        km.textContent = `${Number(last.verkauf_kilometer).toLocaleString("de-DE")} km`;
-      }
-  
-      if (ps && last.verkauf_leistung) {
-        ps.textContent = `${last.verkauf_leistung} PS`;
-      }
-  
-      if (kraftstoff && last.verkauf_kraftstoff) {
-        kraftstoff.textContent = last.verkauf_kraftstoff;
-      }
-  
-      if (getriebe && last.verkauf_getriebe) {
-        getriebe.textContent = last.verkauf_getriebe;
-      }
-  
-      if (verkaeufer && last.verkauf_verkaeufer) {
-        verkaeufer.textContent = last.verkauf_verkaeufer;
-      }
-
-
-// Technische Daten (Vorschau-Zuweisungen)
-const td = {
-    typ: "v-typ",
-    verbrauch_kombiniert: "v-verbrauch-kombiniert",
-    verbrauch_innerorts: "v-verbrauch-innerorts",
-    verbrauch_ausserorts: "v-verbrauch-ausserorts",
-    vorbesitzer: "v-vorbesitzer",
-    fahrzeugtyp: "v-fahrzeugtyp",
-    hubraum: "v-hubraum",
-    antrieb: "v-antrieb",
-    co2_emission: "v-co2",
-    schadstoffklasse: "v-schadstoffklasse",
-    umweltplakette: "v-umweltplakette",
-    tueren: "v-tueren",
-    partikelfilter: "v-partikelfilter",
-    zustand: "v-zustand",
-     // 🟢 NEUE FELDER:
-  fahrzeugart: "v-fahrzeugart",
-  halter: "v-halter",
-  fahrtauglich: "v-fahrtauglich",
-  beschaedigt: "v-beschaedigt",
-  unfall: "v-unfall",// ✅ Richtig eingefügt
-  hu: "v-hu",
-  karosseriefarbe: "v-karosseriefarbe",
-  airbags: "v-airbags",
-  klimatisierung: "v-klimatisierung"
-
-  };
-  
-  // Werte aus localStorage (z. B. aus "fahrzeugdetails") anzeigen
-  for (const key in td) {
-    const el = document.getElementById(td[key]);
-    const value = localStorage.getItem("details_" + key) || last[`verkauf_${key}`];
-    if (el && value) {
-      el.textContent = value;
-    }
-  }
-  
-  // ✅ Ausstattung laden und anzeigen
-const ausstattungContainer = document.getElementById("v-ausstattung");
-const ausstattungBlock = document.getElementById("ausstattung-block");
-
-const ausstattungen = [
-    "abstandsregeltempomat",
-    "applecarplay",
-    "androidauto",
-    "frontscheibenheizung",
-    "heckklappe",
-    "led",
-    "multifunktion",
-    "navigation",
-    "sitzheizung",
-    "rueckfahrkamera",
-    "nichtraucher",
-    "scheckheft",
-    "garantie",
-    "mettalic",
-    "abs",
-    "esp",
-    "asr",
-    "berganfahrassistent",
-    "muedigkeitswarner",
-    "spurhalteassistent",
-    "totwinkelassistent",
-    "notbremsassistent",
-    "notrufsystem",
-    "verkehrszeichenerkennung",
-    "isofixhinten",
-    "isofixbeifahrer",
-    "scheinwerferreinigung",
-    "blendfreiesfernlicht",
-    "fernlichtassistent",
-    "innenspiegelabblendend",
-    "nachtsichtassistent",
-    "nebelscheinwerfer",
-    "lichtsensor",
-    "regensensor",
-    "alarmanlage",
-    "wegfahrsperre",
-    "keylesszv",
-    "zentralverriegelung",
-    "standheizung",
-    "frontscheibebeheizbar",
-    "lenkradbeheizbar",
-    "einparkhilfeselbstlenkend",
-    
-    "kamerahinten",
-    "kamera360",
-    "sitzheizungvorne",
-    "sitzheizunghinten",
-    "sitzeelektrisch",
-    "sportsitze",
-    "armlehne",
-    "lordosenstuetze",
-    "massagesitze",
-    "sitzbelueftung",
-    "beifahrersitzumklappbar",
-    "elektrfensterheber",
-    "elektrspiegel",
-    "elektheckklappe",
-    "servolenkung",
-    "ambientebeleuchtung",
-    "lederlenkrad",
-    "radio",
-    "dab",
-    "cd",
-    "tv",
-    "navi",
-    "soundsystem",
-    "touchscreen",
-    "sprachsteuerung",
-    "multifunktionslenkrad",
-    "freisprecheinrichtung",
-    "usb",
-    "bluetooth",
-    "wlan",
-    "streaming",
-    "induktionsladen",
-    "bordcomputer",
-    "headup",
-    "volldigital",
-    "alufelgen",
-    "sommerreifen",
-    "winterreifen",
-    "allwetterreifen",
-    "reifendruckkontrolle",
-    "winterpaket",
-    "raucherpaket",
-    "sportpaket",
-    "sportfahrwerk",
-    "luftfederung",
-    "gepaeckabtrennung",
-    "skisack",
-    "schiebedach",
-    "panoramadach",
-    "dachreling",
-    "behindertengerecht",
-    "taxi"
-  ];
-  
-
-  const ausstattungLabels = {
-    abstandsregeltempomat: "Abstandsregeltempomat",
-    applecarplay: "Apple CarPlay",
-    androidauto: "Android Auto",
-    frontscheibenheizung: "Frontscheibenheizung",
-    heckklappe: "Elektrische Heckklappe",
-    led: "LED-Scheinwerfer",
-    multifunktion: "Multifunktionslenkrad",
-    navigation: "Navigationssystem",
-    sitzheizung: "Sitzheizung",
-    rueckfahrkamera: "Rückfahrkamera",
-    nichtraucher: "Nichtraucherfahrzeug",
-    scheckheft: "Scheckheftgepflegt",
-    garantie: "Garantie / Werksgarantie",
-    mettalic: "Metallic-Lackierung",
-    abs: "ABS",
-    esp: "ESP",
-    asr: "ASR (Traktionskontrolle)",
-    berganfahrassistent: "Berganfahrassistent",
-    muedigkeitswarner: "Müdigkeitswarner",
-    spurhalteassistent: "Spurhalteassistent",
-    totwinkelassistent: "Totwinkelassistent",
-    notbremsassistent: "Notbremsassistent",
-    notrufsystem: "Notrufsystem",
-    verkehrszeichenerkennung: "Verkehrszeichenerkennung",
-    isofixhinten: "Isofix (hinten)",
-    isofixbeifahrer: "Isofix Beifahrersitz",
-    scheinwerferreinigung: "Scheinwerferreinigung",
-    blendfreiesfernlicht: "Blendfreies Fernlicht",
-    fernlichtassistent: "Fernlichtassistent",
-    innenspiegelabblendend: "Innenspiegel automatisch abblendend",
-    nachtsichtassistent: "Nachtsichtassistent",
-    nebelscheinwerfer: "Nebelscheinwerfer",
-    lichtsensor: "Lichtsensor",
-    regensensor: "Regensensor",
-    alarmanlage: "Alarmanlage",
-    wegfahrsperre: "Elektrische Wegfahrsperre",
-    keylesszv: "Schlüssellose Zentralverriegelung",
-    zentralverriegelung: "Zentralverriegelung",
-    standheizung: "Standheizung",
-    frontscheibebeheizbar: "Beheizbare Frontscheibe",
-    lenkradbeheizbar: "Beheizbares Lenkrad",
-    einparkhilfeselbstlenkend: "Selbstlenkende Einparkhilfe",
- 
-    kamerahinten: "Rückfahrkamera",
-    kamera360: "360°-Kamera",
-    sitzheizungvorne: "Sitzheizung vorne",
-    sitzheizunghinten: "Sitzheizung hinten",
-    sitzeelektrisch: "Elektrische Sitzeinstellung",
-    sportsitze: "Sportsitze",
-    armlehne: "Armlehne",
-    lordosenstuetze: "Lordosenstütze",
-    massagesitze: "Massagesitze",
-    sitzbelueftung: "Sitzbelüftung",
-    beifahrersitzumklappbar: "Umklappbarer Beifahrersitz",
-    elektrfensterheber: "Elektrische Fensterheber",
-    elektrspiegel: "Elektrische Seitenspiegel",
-    elektheckklappe: "Elektrische Heckklappe",
-    servolenkung: "Servolenkung",
-    ambientebeleuchtung: "Ambientebeleuchtung",
-    lederlenkrad: "Lederlenkrad",
-    radio: "Radio",
-    dab: "DAB-Radio",
-    cd: "CD-Spieler",
-    tv: "TV-Empfang",
-    navi: "Navigationssystem",
-    soundsystem: "Soundsystem",
-    touchscreen: "Touchscreen",
-    sprachsteuerung: "Sprachsteuerung",
-    freisprecheinrichtung: "Freisprecheinrichtung",
-    usb: "USB-Anschluss",
-    bluetooth: "Bluetooth",
-    wlan: "WLAN / Wifi Hotspot",
-    streaming: "Musikstreaming integriert",
-    induktionsladen: "Induktionsladen für Smartphones",
-    bordcomputer: "Bordcomputer",
-    headup: "Head-up Display",
-    volldigital: "Volldigitales Kombiinstrument",
-    alufelgen: "Leichtmetallfelgen",
-    sommerreifen: "Sommerreifen",
-    winterreifen: "Winterreifen",
-    allwetterreifen: "Allwetterreifen",
-    reifendruckkontrolle: "Reifendruckkontrollsystem",
-    winterpaket: "Winterpaket",
-    raucherpaket: "Raucherpaket",
-    sportpaket: "Sportpaket",
-    sportfahrwerk: "Sportfahrwerk",
-    luftfederung: "Luftfederung",
-    gepaeckabtrennung: "Gepäckraumabtrennung",
-    skisack: "Skisack",
-    schiebedach: "Schiebedach",
-    panoramadach: "Panorama-Dach",
-    dachreling: "Dachreling",
-    behindertengerecht: "Behindertengerecht",
-    taxi: "Taxi"
-  };
-  
-
-let hatAusstattung = false;
-
-ausstattungen.forEach(key => {
-  const checked = localStorage.getItem("details_" + key) === "true" || last[`verkauf_${key}`] === true;
-  if (checked && ausstattungLabels[key]) {
-    const div = document.createElement("div");
-    div.classList.add("equipment-item");
-    div.innerHTML = `<i class="fas fa-check"></i> ${ausstattungLabels[key]}`;
-    ausstattungContainer.appendChild(div);
-    hatAusstattung = true;
-  }
-});
-
-if (hatAusstattung) {
-  ausstattungBlock.style.display = "block";
 }
 
-  
-    } catch (err) {
-      console.error("❌ Fehler beim Laden der Vorschau-Daten:", err);
-    }
-  });
-  document.addEventListener("DOMContentLoaded", async () => {
-    let nutzer = null;
-    let sellerId = null; // 👈 hier puffern
-  
-    const publishBtn     = document.querySelector(".publish-button");
-    const kontaktOverlay = document.getElementById("kontaktOverlay");
-    const kontaktForm    = document.getElementById("kontaktForm");
-  
-    publishBtn?.addEventListener("click", async () => {
-      try {
-        const info = await fetch("/getNutzerInfo", { credentials: "include" }).then(r => r.json());
-        if (!info?.eingeloggt) {
-          alert("❌ Du bist nicht eingeloggt!");
-          window.location.href = "login.html";
-          return;
-        }
-        nutzer = info;
-  
-        // 🔑 Robust alle gängigen Felder probieren
-        sellerId =
-          info.id ||
-          info._id ||
-          info.userId ||
-          info.userid ||
-          info.nutzerId ||
-          (info.user && (info.user.id || info.user._id)) ||
-          null;
-  
-        // Falls noch nicht gefunden: lieber stoppen statt kaputt veröffentlichen
-        if (!sellerId) {
-          console.warn("Konnte sellerId aus /getNutzerInfo nicht ermitteln:", info);
-          alert("❌ Verkäufer-ID konnte nicht ermittelt werden. Bitte neu einloggen.");
-          return;
-        }
-  
-        // Felder füllen
-        document.getElementById("kontaktNameInput").value    = info.firma || info.name || "";
-        document.getElementById("kontaktStrasseInput").value = info.strasse || "";
-        document.getElementById("kontaktPlzInput").value     = info.plz || "";
-        document.getElementById("kontaktOrtInput").value     = info.ort || "";
-        document.getElementById("kontaktTelefonInput").value = info.telefon || "";
-  
-        kontaktOverlay.style.display = "flex";
-      } catch (err) {
-        console.error("Fehler beim Laden der Nutzerdaten:", err);
-        alert("❌ Konnte Nutzerdaten nicht laden.");
-      }
-    });
-  
-    kontaktForm?.addEventListener("submit", async (e) => {
-      e.preventDefault();
-  
-      if (!sellerId) {
-        alert("❌ Verkäufer-ID fehlt. Bitte Seite neu laden und erneut versuchen.");
-        return;
-      }
-  
-      const kontaktDaten = {
-        verkaeuferId: sellerId, // 👈 jetzt sicher vorhanden
-  
-        name:    document.getElementById("kontaktNameInput").value.trim(),
-        strasse: document.getElementById("kontaktStrasseInput").value.trim(),
-        plz:     document.getElementById("kontaktPlzInput").value.trim(),
-        ort:     document.getElementById("kontaktOrtInput").value.trim(),
-        telefon: document.getElementById("kontaktTelefonInput").value.trim(),
-  
-        verkauf_verkaeufer: (nutzer?.rolle === "haendler") ? "Händler" : "Privatverkäufer",
-        verkauf_name: document.getElementById("kontaktNameInput").value.trim(),
-        standort: `${document.getElementById("kontaktPlzInput").value.trim()} ${document.getElementById("kontaktOrtInput").value.trim()}`
-      };
-  
-      try {
-        const res  = await fetch("/veroeffentlichen", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(kontaktDaten)
-        });
-        const text = await res.text();
-  
-        if (res.ok) {
-          sessionStorage.setItem("resetWizard", "1");
-          try {
-            localStorage.removeItem("haendlerSteps");
-            localStorage.removeItem("fahrzeugdaten");
-            Object.keys(localStorage).forEach(k => { if (k.startsWith("details_")) localStorage.removeItem(k); });
-            sessionStorage.removeItem("inseratGestartet");
-            sessionStorage.removeItem("hatGespeichert");
-          } catch {}
-  
-          alert("✅ Inserat veröffentlicht!");
-          window.location.href = "übersicht.html";
-        } else {
-          alert("❌ Fehler beim Veröffentlichen:\n" + text);
-        }
-      } catch (err) {
-        console.error("❌ Netzwerkfehler beim Veröffentlichen:", err);
-        alert("Netzwerkfehler beim Veröffentlichen.");
-      }
-    });
-  });
-  
-  function closeKontaktPopup() {
-    document.getElementById("kontaktOverlay").style.display = "none";
+// =========================
+// Kleine Router-Buttons
+// =========================
+function goBackToMedia() {
+  window.location.href = "medien.html";
+}
+function goToEditVehicleData() {
+  window.location.href = "fahrzeugdaten.html";
+}
+function goToEditDetails() {
+  const userRole = localStorage.getItem("userRole");
+  if (userRole === "haendler") {
+    window.location.href = "fahrzeugdetails.html?rolle=haendler";
+  } else {
+    window.location.href = "fahrzeugdetails.html?rolle=privat";
   }
-  
-  
+}
 
+// Expose für onclick="" im HTML
+window.goBackToMedia = goBackToMedia;
+window.goToEditVehicleData = goToEditVehicleData;
+window.goToEditDetails = goToEditDetails;
+window.closeLightbox = closeLightbox;
 
+// =========================
+// Ausstattung (Whitelist + Labels)
+// =========================
+const ausstattungen = [
+  "abstandsregeltempomat", "applecarplay", "androidauto", "frontscheibenheizung", "heckklappe",
+  "led", "multifunktion", "navigation", "sitzheizung", "rueckfahrkamera", "nichtraucher",
+  "scheckheft", "garantie", "mettalic", "abs", "esp", "asr", "berganfahrassistent",
+  "muedigkeitswarner", "spurhalteassistent", "totwinkelassistent", "notbremsassistent",
+  "notrufsystem", "verkehrszeichenerkennung", "isofixhinten", "isofixbeifahrer",
+  "scheinwerferreinigung", "blendfreiesfernlicht", "fernlichtassistent",
+  "innenspiegelabblendend", "nachtsichtassistent", "nebelscheinwerfer", "lichtsensor",
+  "regensensor", "alarmanlage", "wegfahrsperre", "keylesszv", "zentralverriegelung",
+  "standheizung", "frontscheibebeheizbar", "lenkradbeheizbar", "einparkhilfeselbstlenkend",
+  "kamerahinten", "kamera360", "sitzheizungvorne", "sitzheizunghinten", "sitzeelektrisch",
+  "sportsitze", "armlehne", "lordosenstuetze", "massagesitze", "sitzbelueftung",
+  "beifahrersitzumklappbar", "elektrfensterheber", "elektrspiegel", "elektheckklappe",
+  "servolenkung", "ambientebeleuchtung", "lederlenkrad", "radio", "dab", "cd", "tv", "navi",
+  "soundsystem", "touchscreen", "sprachsteuerung", "multifunktionslenkrad",
+  "freisprecheinrichtung", "usb", "bluetooth", "wlan", "streaming", "induktionsladen",
+  "bordcomputer", "headup", "volldigital", "alufelgen", "sommerreifen", "winterreifen",
+  "allwetterreifen", "reifendruckkontrolle", "winterpaket", "raucherpaket", "sportpaket",
+  "sportfahrwerk", "luftfederung", "gepaeckabtrennung", "skisack", "schiebedach",
+  "panoramadach", "dachreling", "behindertengerecht", "taxi",
+];
 
+const ausstattungLabels = {
+  abstandsregeltempomat: "Abstandsregeltempomat",
+  applecarplay: "Apple CarPlay",
+  androidauto: "Android Auto",
+  frontscheibenheizung: "Frontscheibenheizung",
+  heckklappe: "Elektrische Heckklappe",
+  led: "LED-Scheinwerfer",
+  multifunktion: "Multifunktionslenkrad",
+  navigation: "Navigationssystem",
+  sitzheizung: "Sitzheizung",
+  rueckfahrkamera: "Rückfahrkamera",
+  nichtraucher: "Nichtraucherfahrzeug",
+  scheckheft: "Scheckheftgepflegt",
+  garantie: "Garantie / Werksgarantie",
+  mettalic: "Metallic-Lackierung",
+  abs: "ABS",
+  esp: "ESP",
+  asr: "ASR (Traktionskontrolle)",
+  berganfahrassistent: "Berganfahrassistent",
+  muedigkeitswarner: "Müdigkeitswarner",
+  spurhalteassistent: "Spurhalteassistent",
+  totwinkelassistent: "Totwinkelassistent",
+  notbremsassistent: "Notbremsassistent",
+  notrufsystem: "Notrufsystem",
+  verkehrszeichenerkennung: "Verkehrszeichenerkennung",
+  isofixhinten: "Isofix (hinten)",
+  isofixbeifahrer: "Isofix Beifahrersitz",
+  scheinwerferreinigung: "Scheinwerferreinigung",
+  blendfreiesfernlicht: "Blendfreies Fernlicht",
+  fernlichtassistent: "Fernlichtassistent",
+  innenspiegelabblendend: "Innenspiegel automatisch abblendend",
+  nachtsichtassistent: "Nachtsichtassistent",
+  nebelscheinwerfer: "Nebelscheinwerfer",
+  lichtsensor: "Lichtsensor",
+  regensensor: "Regensensor",
+  alarmanlage: "Alarmanlage",
+  wegfahrsperre: "Elektrische Wegfahrsperre",
+  keylesszv: "Schlüssellose Zentralverriegelung",
+  zentralverriegelung: "Zentralverriegelung",
+  standheizung: "Standheizung",
+  frontscheibebeheizbar: "Beheizbare Frontscheibe",
+  lenkradbeheizbar: "Beheizbares Lenkrad",
+  einparkhilfeselbstlenkend: "Selbstlenkende Einparkhilfe",
+  kamerahinten: "Rückfahrkamera",
+  kamera360: "360°-Kamera",
+  sitzheizungvorne: "Sitzheizung vorne",
+  sitzheizunghinten: "Sitzheizung hinten",
+  sitzeelektrisch: "Elektrische Sitzeinstellung",
+  sportsitze: "Sportsitze",
+  armlehne: "Armlehne",
+  lordosenstuetze: "Lordosenstütze",
+  massagesitze: "Massagesitze",
+  sitzbelueftung: "Sitzbelüftung",
+  beifahrersitzumklappbar: "Umklappbarer Beifahrersitz",
+  elektrfensterheber: "Elektrische Fensterheber",
+  elektrspiegel: "Elektrische Seitenspiegel",
+  elektheckklappe: "Elektrische Heckklappe",
+  servolenkung: "Servolenkung",
+  ambientebeleuchtung: "Ambientebeleuchtung",
+  lederlenkrad: "Lederlenkrad",
+  radio: "Radio",
+  dab: "DAB-Radio",
+  cd: "CD-Spieler",
+  tv: "TV-Empfang",
+  navi: "Navigationssystem",
+  soundsystem: "Soundsystem",
+  touchscreen: "Touchscreen",
+  sprachsteuerung: "Sprachsteuerung",
+  multifunktionslenkrad: "Multifunktionslenkrad",
+  freisprecheinrichtung: "Freisprecheinrichtung",
+  usb: "USB-Anschluss",
+  bluetooth: "Bluetooth",
+  wlan: "WLAN / Wifi Hotspot",
+  streaming: "Musikstreaming integriert",
+  induktionsladen: "Induktionsladen für Smartphones",
+  bordcomputer: "Bordcomputer",
+  headup: "Head-up Display",
+  volldigital: "Volldigitales Kombiinstrument",
+  alufelgen: "Leichtmetallfelgen",
+  sommerreifen: "Sommerreifen",
+  winterreifen: "Winterreifen",
+  allwetterreifen: "Allwetterreifen",
+  reifendruckkontrolle: "Reifendruckkontrollsystem",
+  winterpaket: "Winterpaket",
+  raucherpaket: "Raucherpaket",
+  sportpaket: "Sportpaket",
+  sportfahrwerk: "Sportfahrwerk",
+  luftfederung: "Luftfederung",
+  gepaeckabtrennung: "Gepäckraumabtrennung",
+  skisack: "Skisack",
+  schiebedach: "Schiebedach",
+  panoramadach: "Panorama-Dach",
+  dachreling: "Dachreling",
+  behindertengerecht: "Behindertengerecht",
+  taxi: "Taxi",
+};
 
+// =========================
+// Kontakt-Popup
+// =========================
+function openKontaktPopup() {
+  document.getElementById("kontaktOverlay")?.classList.add("show");
+}
+function closeKontaktPopup() {
+  document.getElementById("kontaktOverlay")?.classList.remove("show");
+}
+window.openKontaktPopup = openKontaktPopup;
+window.closeKontaktPopup = closeKontaktPopup;
 
-
-  const erlaubteAusstattungen = [
-    // Bisherige:
-    "Gepäckraumabtrennung",
-    "Skisack",
-    "Schiebedach",
-    "Panorama-Dach",
-    "Dachreling",
-    "Behindertengerecht",
-    "Taxi",
-    "Winterpaket",
-    "Raucherpaket",
-    "Sportpaket",
-    "Sportfahrwerk",
-    "Luftfederung",
-  
-    // Infotainment – Multimedia
-  
-  
-    "TV",
-    "Navigationssystem",
-    "Soundsystem",
-  
-    // Bedienung & Steuerung
-    "Touchscreen",
-    "Sprachsteuerung",
-    "Multifunktionslenkrad",
- 
-  
-    // Konnektivität & Schnittstellen
-    
-    "Bluetooth",
-    "Apple CarPlay",
-    "Android Auto",
-    "WLAN / Wifi Hotspot",
-    "Musikstreaming integriert",
-    "Induktionsladen für Smartphones",
-  
-    // Instrumentenanzeige
-    "Bordcomputer",
-    "Head-up Display",
-    "Volldigitales Kombiinstrument",
-  
-    // Reifen und Felgen
-    "Leichtmetallfelgen",
-    "Sommerreifen",
-    "Winterreifen",
-    "Allwetterreifen"
-  ];
-  
-  function getZufaelligeAusstattung(ausstattungArray) {
-    if (!Array.isArray(ausstattungArray)) return "Besondere Ausstattung";
-  
-    const gefiltert = ausstattungArray.filter(item => erlaubt.includes(item));
-    if (gefiltert.length === 0) return "Besondere Ausstattung";
-  
-    return gefiltert
-      .sort(() => 0.5 - Math.random())
-      .slice(0, 3)
-      .join(" • ");
-  }
-  
-  const subtitle = document.getElementById("car-subtitle");
-  if (subtitle && last.verkauf_ausstattung) {
-    subtitle.textContent = getZufaelligeAusstattung(last.verkauf_ausstattung);
-  }
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-  function openKontaktPopup() {
-    document.getElementById("kontaktOverlay")?.classList.add("show");
-  }
-  function closeKontaktPopup() {
-    document.getElementById("kontaktOverlay")?.classList.remove("show");
-  }
-
-  document.addEventListener("DOMContentLoaded", () => {
-    const form = document.getElementById("kontaktForm");
-    if (!form) return;
-
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-
-      const name    = document.getElementById("kontaktNameInput")?.value.trim()   || "";
-      const strasse = document.getElementById("kontaktStrasseInput")?.value.trim()|| "";
-      const plz     = document.getElementById("kontaktPlzInput")?.value.trim()    || "";
-      const ort     = document.getElementById("kontaktOrtInput")?.value.trim()    || "";
-      const telefon = document.getElementById("kontaktTelefonInput")?.value.trim()|| "";
-
-      // Mini-Validierung
-      if (!name || !telefon) {
-        alert("Bitte Name und Telefonnummer angeben.");
-        return;
-      }
-
-      // Button sperren (Doppelklick verhindern)
-      const submitBtn = form.querySelector('button[type="submit"]');
-      submitBtn.disabled = true; submitBtn.textContent = "Veröffentliche…";
-
-      try {
-        // Das Server-Endpoint /veroeffentlichen nutzt diese Felder bereits.
-        const res = await fetch("/veroeffentlichen", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ name, telefon, plz, ort, strasse })
-        });
-
-        if (!res.ok) throw new Error(await res.text());
-        alert("Inserat wurde veröffentlicht.");
-        closeKontaktPopup();
-        // Zur Übersicht oder Suchseite weiterleiten:
-        window.location.href = "übersicht.html";
-      } catch (err) {
-        console.error(err);
-        alert("Veröffentlichen fehlgeschlagen.");
-      } finally {
-        submitBtn.disabled = false; submitBtn.textContent = "Jetzt veröffentlichen";
-      }
-    });
-  });
-
-
-
-
-
-
-
-
-
-
-
-
-
-  // --- Geo-Vorschläge (nutzt /api/geosuggest) ---
-(function setupGeoSuggest() {
+// =========================
+// Geo-Suggest (für Kontakt-Ort)
+// =========================
+function setupGeoSuggest() {
   const ortInput = document.getElementById("kontaktOrtInput");
   const plzInput = document.getElementById("kontaktPlzInput");
   const datalist = document.getElementById("kontaktOrtSuggestions");
+  if (!ortInput || !datalist) return;
 
   let debounceTimer = null;
   let lastItems = [];
 
-  function debounced(fn, ms) {
+  const debounced = (fn, ms) => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(fn, ms);
-  }
+  };
 
   ortInput.addEventListener("input", () => {
     const q = ortInput.value.trim();
@@ -1143,11 +561,13 @@ if (hatAusstattung) {
     }
     debounced(async () => {
       try {
-        const res = await fetch(`/api/geosuggest?q=${encodeURIComponent(q)}&limit=6`, { credentials: "omit" });
-        const data = await res.json().catch(() => ({ suggestions: [] }));
+        const res = await fetch(api(`/api/geosuggest?q=${encodeURIComponent(q)}&limit=6`), {
+          credentials: "omit",
+        });
+        const data = (await res.json().catch(() => ({}))) || {};
         const items = Array.isArray(data.suggestions) ? data.suggestions : [];
         lastItems = items;
-        datalist.innerHTML = items.map(s => `<option value="${s.label}"></option>`).join("");
+        datalist.innerHTML = items.map((s) => `<option value="${s.label}"></option>`).join("");
       } catch {
         datalist.innerHTML = "";
         lastItems = [];
@@ -1155,14 +575,356 @@ if (hatAusstattung) {
     }, 180);
   });
 
-  // Wenn ein Vorschlag gewählt wurde, PLZ nach Möglichkeit automatisch setzen
+  // PLZ automatisch setzen
   ortInput.addEventListener("change", () => {
     const val = ortInput.value.trim();
     if (!val) return;
-    const hit = lastItems.find(x => x.label === val) ||
-                lastItems.find(x => val.toLowerCase().includes(String(x.city || "").toLowerCase()));
-    if (hit?.postcode && !plzInput.value.trim()) {
+    const hit =
+      lastItems.find((x) => x.label === val) ||
+      lastItems.find((x) => val.toLowerCase().includes(String(x.city || "").toLowerCase()));
+    if (hit?.postcode && !plzInput?.value?.trim()) {
       plzInput.value = hit.postcode;
     }
   });
-})();
+}
+
+// =========================
+// Hauptinitialisierung
+// =========================
+document.addEventListener("DOMContentLoaded", async () => {
+  // Nutzerinfo & Zugang
+  try {
+    const info = await fetch(api("/getNutzerInfo"), { credentials: "include" }).then((r) => r.json());
+    if (!info?.eingeloggt || !info?.nutzerId) {
+      const ziel = sessionStorage.getItem("verkaeuferTyp") === "haendler" ? "haendler.html" : "privat.html";
+      console.warn("⛔ Nicht eingeloggt. Weiterleitung zu:", ziel);
+      window.location.href = ziel;
+      return;
+    }
+    localStorage.setItem("nutzerId", info.nutzerId);
+    localStorage.setItem("userRole", info.rolle || "");
+    try {
+      updateNavbarTarif();
+    } catch (e) {
+      console.error("❌ Fehler in updateNavbarTarif:", e);
+    }
+  } catch (err) {
+    console.error("❌ Fehler beim Abrufen der Nutzerinfo:", err);
+    const ziel = sessionStorage.getItem("verkaeuferTyp") === "haendler" ? "haendler.html" : "privat.html";
+    window.location.href = ziel;
+    return;
+  }
+
+  // Lightbox-Gesten
+  try {
+    setupLightboxSwipe();
+  } catch (e) {
+    console.error("❌ Fehler in setupLightboxSwipe:", e);
+  }
+
+  // Beschreibung-Toggle
+  try {
+    const btn = document.getElementById("toggle-description-btn");
+    const description = document.getElementById("car-description");
+    if (btn && description) {
+      btn.addEventListener("click", () => {
+        description.classList.toggle("expanded");
+        btn.textContent = description.classList.contains("expanded") ? "Weniger anzeigen" : "Mehr anzeigen";
+      });
+    }
+  } catch (e) {
+    console.error("❌ Fehler beim Toggle-Button:", e);
+  }
+
+  // Navbar, falls vorhanden
+  try {
+    if (typeof window.setupNavbar === "function") window.setupNavbar();
+  } catch (e) {
+    console.error("❌ Fehler in setupNavbar:", e);
+  }
+
+  // Media holen
+  await fetchMedia();
+
+  // Fallback-Bilder
+  if (mediaItems.length === 0) {
+    mediaItems = [
+      { type: "img", src: "platzhalter1.jpg" },
+      { type: "img", src: "platzhalter2.jpg" },
+    ];
+  }
+
+  initSlider();
+  setMedia(0);
+  setupSlider();
+
+  // Kein Auto-Scroll
+  setTimeout(() => window.scrollTo({ top: 0, behavior: "auto" }), 100);
+
+  // =========================
+  // Preis / Kopfbereich / Basisinfos
+  // =========================
+  try {
+    if (!lastVehicle) {
+      // Falls /getVehicleData nichts liefert, nicht crashen
+      lastVehicle = {};
+    }
+
+    // Preise
+    const priceMain = document.getElementById("price-main");
+    const priceNet = document.getElementById("price-net");
+    const mwstType = document.getElementById("mwst-type");
+    const priceType = document.getElementById("price-type");
+
+    const mwstRaw = String(lastVehicle.verkauf_mwst || "").trim().toLowerCase();
+    const isKeine = mwstRaw.includes("keine");
+    const isZzgl = mwstRaw.includes("zzgl");
+
+    const brutto = toNum(lastVehicle.verkauf_brutto ?? lastVehicle["brutto-preis"]);
+    const netto = toNum(lastVehicle.verkauf_netto ?? lastVehicle["netto-preis"]);
+    const einzel = toNum(lastVehicle.verkauf_preis ?? lastVehicle.preis);
+
+    let mainPriceNum = NaN;
+    if (isKeine) {
+      mainPriceNum = Number.isFinite(einzel) ? einzel : NaN;
+    } else if (isZzgl) {
+      mainPriceNum = Number.isFinite(brutto) ? brutto : Number.isFinite(einzel) ? einzel : NaN;
+    } else {
+      mainPriceNum = Number.isFinite(brutto) ? brutto : Number.isFinite(einzel) ? einzel : NaN;
+    }
+
+    if (priceMain) priceMain.textContent = Number.isFinite(mainPriceNum) ? fmtEUR(mainPriceNum) : "";
+    if (priceNet) priceNet.textContent = isZzgl && Number.isFinite(netto) ? fmtEUR(netto) : "";
+    if (mwstType) mwstType.textContent = lastVehicle.verkauf_mwst || (isKeine ? "Keine MwSt." : isZzgl ? "zzgl. MwSt." : "");
+    if (priceType) priceType.textContent = isKeine ? "Endpreis" : "Brutto";
+
+    // Titel / Verkäufer
+    const titleEl = document.getElementById("car-title");
+    if (titleEl && lastVehicle.verkauf_modell) titleEl.textContent = lastVehicle.verkauf_modell;
+
+    const sellerType = document.getElementById("seller-type");
+    if (sellerType && lastVehicle.verkauf_verkaeufer) sellerType.textContent = lastVehicle.verkauf_verkaeufer;
+
+    // Beschreibung mit Toggle (Overflow-Erkennung)
+    const descBox = document.getElementById("car-description-box");
+    const descEl = document.getElementById("car-description");
+    const toggleBtn = document.getElementById("toggle-description-btn");
+    if (descEl && descBox) {
+      const text = String(lastVehicle.fahrzeugbeschreibung || "").replace(/\r\n/g, "\n");
+      descEl.textContent = text;
+      requestAnimationFrame(() => {
+        const needsToggle = descEl.scrollHeight > descEl.clientHeight;
+        if (toggleBtn) {
+          toggleBtn.style.display = needsToggle ? "inline-block" : "none";
+          descBox.classList.remove("expanded");
+          toggleBtn.setAttribute("aria-expanded", "false");
+          toggleBtn.textContent = "Mehr anzeigen";
+          toggleBtn.onclick = () => {
+            const open = descBox.classList.toggle("expanded");
+            toggleBtn.setAttribute("aria-expanded", open ? "true" : "false");
+            toggleBtn.textContent = open ? "Weniger anzeigen" : "Mehr anzeigen";
+          };
+        }
+      });
+    }
+
+    // Weitere Fahrzeug-Infos
+    const ez = document.getElementById("info-ez");
+    const km = document.getElementById("info-km");
+    const ps = document.getElementById("info-ps");
+    const kraftstoff = document.getElementById("info-kraftstoff");
+    const getriebe = document.getElementById("info-getriebe");
+    const verkaeufer = document.getElementById("info-verkaeufer");
+
+    if (ez && lastVehicle.verkauf_erstzulassung) ez.textContent = lastVehicle.verkauf_erstzulassung;
+    if (km && lastVehicle.verkauf_kilometer)
+      km.textContent = `${Number(lastVehicle.verkauf_kilometer).toLocaleString("de-DE")} km`;
+    if (ps && lastVehicle.verkauf_leistung) ps.textContent = `${lastVehicle.verkauf_leistung} PS`;
+    if (kraftstoff && lastVehicle.verkauf_kraftstoff) kraftstoff.textContent = lastVehicle.verkauf_kraftstoff;
+    if (getriebe && lastVehicle.verkauf_getriebe) getriebe.textContent = lastVehicle.verkauf_getriebe;
+    if (verkaeufer && lastVehicle.verkauf_verkaeufer) verkaeufer.textContent = lastVehicle.verkauf_verkaeufer;
+
+    // Technische Daten (Mapping)
+    const td = {
+      typ: "v-typ",
+      verbrauch_kombiniert: "v-verbrauch-kombiniert",
+      verbrauch_innerorts: "v-verbrauch-innerorts",
+      verbrauch_ausserorts: "v-verbrauch-ausserorts",
+      vorbesitzer: "v-vorbesitzer",
+      fahrzeugtyp: "v-fahrzeugtyp",
+      hubraum: "v-hubraum",
+      antrieb: "v-antrieb",
+      co2_emission: "v-co2",
+      schadstoffklasse: "v-schadstoffklasse",
+      umweltplakette: "v-umweltplakette",
+      tueren: "v-tueren",
+      partikelfilter: "v-partikelfilter",
+      zustand: "v-zustand",
+      // Neue Felder:
+      fahrzeugart: "v-fahrzeugart",
+      halter: "v-halter",
+      fahrtauglich: "v-fahrtauglich",
+      beschaedigt: "v-beschaedigt",
+      unfall: "v-unfall",
+      hu: "v-hu",
+      karosseriefarbe: "v-karosseriefarbe",
+      airbags: "v-airbags",
+      klimatisierung: "v-klimatisierung",
+    };
+
+    for (const key in td) {
+      const outEl = document.getElementById(td[key]);
+      const value = localStorage.getItem("details_" + key) ?? lastVehicle[`verkauf_${key}`];
+      if (!outEl) continue;
+      if (value !== undefined && value !== null && String(value).trim() !== "") {
+        outEl.textContent = String(value);
+      }
+    }
+
+    // Ausstattung
+    const ausstattungContainer = document.getElementById("v-ausstattung");
+    const ausstattungBlock = document.getElementById("ausstattung-block");
+    if (ausstattungContainer) {
+      let hatAusstattung = false;
+      ausstattungen.forEach((key) => {
+        const checked =
+          localStorage.getItem("details_" + key) === "true" || lastVehicle[`verkauf_${key}`] === true;
+        if (checked && ausstattungLabels[key]) {
+          const div = document.createElement("div");
+          div.classList.add("equipment-item");
+          div.innerHTML = `<i class="fas fa-check"></i> ${ausstattungLabels[key]}`;
+          ausstattungContainer.appendChild(div);
+          hatAusstattung = true;
+        }
+      });
+      if (hatAusstattung && ausstattungBlock) ausstattungBlock.style.display = "block";
+
+      // Kleines Sub-Highlight aus erlaubter Liste (zufällig)
+      const erlaubteAusstattungen = [
+        "Gepäckraumabtrennung", "Skisack", "Schiebedach", "Panorama-Dach", "Dachreling", "Behindertengerecht", "Taxi",
+        "Winterpaket", "Raucherpaket", "Sportpaket", "Sportfahrwerk", "Luftfederung", "TV", "Navigationssystem",
+        "Soundsystem", "Touchscreen", "Sprachsteuerung", "Multifunktionslenkrad", "Bluetooth", "Apple CarPlay",
+        "Android Auto", "WLAN / Wifi Hotspot", "Musikstreaming integriert", "Induktionsladen für Smartphones",
+        "Bordcomputer", "Head-up Display", "Volldigitales Kombiinstrument", "Leichtmetallfelgen", "Sommerreifen",
+        "Winterreifen", "Allwetterreifen",
+      ];
+
+      const subtitle = document.getElementById("car-subtitle");
+      if (subtitle) {
+        const list = Array.isArray(lastVehicle?.verkauf_ausstattung)
+          ? lastVehicle.verkauf_ausstattung
+          : [];
+        const gefiltert = list.filter((x) => erlaubteAusstattungen.includes(x));
+        const pick = (arr, n) => arr.sort(() => 0.5 - Math.random()).slice(0, n);
+        const text = gefiltert.length ? pick(gefiltert, 3).join(" • ") : "";
+        if (text) subtitle.textContent = text;
+      }
+    }
+  } catch (err) {
+    console.error("❌ Fehler beim Laden der Vorschau-Daten:", err);
+  }
+
+  // =========================
+  // Veröffentlichen (Popup + Submit)
+  // =========================
+  (function setupPublishFlow() {
+    let nutzer = null;
+    let sellerId = null;
+
+    const publishBtn = document.querySelector(".publish-button");
+    const kontaktOverlay = document.getElementById("kontaktOverlay");
+    const kontaktForm = document.getElementById("kontaktForm");
+
+    publishBtn?.addEventListener("click", async () => {
+      try {
+        const info = await fetch(api("/getNutzerInfo"), { credentials: "include" }).then((r) => r.json());
+        if (!info?.eingeloggt) {
+          alert("❌ Du bist nicht eingeloggt!");
+          window.location.href = "login.html";
+          return;
+        }
+        nutzer = info;
+        sellerId =
+          info.id ||
+          info._id ||
+          info.userId ||
+          info.userid ||
+          info.nutzerId ||
+          (info.user && (info.user.id || info.user._id)) ||
+          null;
+        if (!sellerId) {
+          console.warn("Konnte sellerId aus /getNutzerInfo nicht ermitteln:", info);
+          alert("❌ Verkäufer-ID konnte nicht ermittelt werden. Bitte neu einloggen.");
+          return;
+        }
+
+        // Felder füllen
+        document.getElementById("kontaktNameInput")?.setAttribute("value", info.firma || info.name || "");
+        document.getElementById("kontaktStrasseInput")?.setAttribute("value", info.strasse || "");
+        document.getElementById("kontaktPlzInput")?.setAttribute("value", info.plz || "");
+        document.getElementById("kontaktOrtInput")?.setAttribute("value", info.ort || "");
+        document.getElementById("kontaktTelefonInput")?.setAttribute("value", info.telefon || "");
+
+        if (kontaktOverlay) kontaktOverlay.style.display = "flex";
+      } catch (err) {
+        console.error("Fehler beim Laden der Nutzerdaten:", err);
+        alert("❌ Konnte Nutzerdaten nicht laden.");
+      }
+    });
+
+    kontaktForm?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!sellerId) {
+        alert("❌ Verkäufer-ID fehlt. Bitte Seite neu laden und erneut versuchen.");
+        return;
+      }
+
+      const kontaktDaten = {
+        verkaeuferId: sellerId,
+        name: document.getElementById("kontaktNameInput")?.value.trim() || "",
+        strasse: document.getElementById("kontaktStrasseInput")?.value.trim() || "",
+        plz: document.getElementById("kontaktPlzInput")?.value.trim() || "",
+        ort: document.getElementById("kontaktOrtInput")?.value.trim() || "",
+        telefon: document.getElementById("kontaktTelefonInput")?.value.trim() || "",
+        verkauf_verkaeufer: (nutzer?.rolle === "haendler") ? "Händler" : "Privatverkäufer",
+        verkauf_name: document.getElementById("kontaktNameInput")?.value.trim() || "",
+        standort: `${document.getElementById("kontaktPlzInput")?.value.trim() || ""} ${document
+          .getElementById("kontaktOrtInput")
+          ?.value.trim() || ""}`,
+      };
+
+      try {
+        const res = await fetch(api("/veroeffentlichen"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(kontaktDaten),
+        });
+        const text = await res.text();
+
+        if (res.ok) {
+          sessionStorage.setItem("resetWizard", "1");
+          try {
+            localStorage.removeItem("haendlerSteps");
+            localStorage.removeItem("fahrzeugdaten");
+            Object.keys(localStorage).forEach((k) => {
+              if (k.startsWith("details_")) localStorage.removeItem(k);
+            });
+            sessionStorage.removeItem("inseratGestartet");
+            sessionStorage.removeItem("hatGespeichert");
+          } catch {}
+          alert("✅ Inserat veröffentlicht!");
+          window.location.href = "übersicht.html";
+        } else {
+          alert("❌ Fehler beim Veröffentlichen:\n" + text);
+        }
+      } catch (err) {
+        console.error("❌ Netzwerkfehler beim Veröffentlichen:", err);
+        alert("Netzwerkfehler beim Veröffentlichen.");
+      }
+    });
+  })();
+
+  // Geo-Suggest für Kontaktformular
+  setupGeoSuggest();
+});
