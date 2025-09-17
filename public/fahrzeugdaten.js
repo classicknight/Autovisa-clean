@@ -128,7 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const n = Number(cleaned);
     return Number.isFinite(n) ? String(n) : "";
   };
-  const pad2 = (s) => String(s || "").padStart(2, "0");
+  const pad2 = (n) => String(n).padStart(2, "0");
 
   // ============================
   // State laden
@@ -158,19 +158,33 @@ document.addEventListener("DOMContentLoaded", () => {
   const nettoInput        = $("netto-preis");
   const preisInput        = $("preis");
 
-  const ezMonat = $("ez-monat");
-  const ezJahr  = $("ez-jahr");
+  // EZ-Felder robust holen (unterstützt alternative IDs)
+  const ezMonat = $("ez-monat") || $("first-registration-month") || $("verkauf-ez-monat");
+  const ezJahr  = $("ez-jahr")  || $("first-registration-year")  || $("verkauf-ez-jahr");
 
   // ============================
-  // Jahre befüllen (1990..jetzt)
+  // Jahre befüllen (1980..jetzt)
   // ============================
   if (ezJahr) {
     const aktuellesJahr = new Date().getFullYear();
-    if (!Array.from(ezJahr.options).length) {
-      for (let j = aktuellesJahr; j >= 1990; j--) {
+    const minYear = 1980;
+
+    // Nur befüllen, wenn noch KEINE echten Jahres-Optionen existieren
+    const hatJahre = Array.from(ezJahr.options).some(o => /^\d{4}$/.test(o.value));
+    if (!hatJahre) {
+      // Falls kein Platzhalter vorhanden, einen setzen
+      if (!ezJahr.querySelector('option[disabled][selected]')) {
+        const ph = document.createElement("option");
+        ph.value = "";
+        ph.textContent = "Jahr";
+        ph.disabled = true;
+        ph.selected = true;
+        ezJahr.appendChild(ph);
+      }
+      for (let j = aktuellesJahr; j >= minYear; j--) {
         const opt = document.createElement("option");
-        opt.value = j;
-        opt.textContent = j;
+        opt.value = String(j);
+        opt.textContent = String(j);
         ezJahr.appendChild(opt);
       }
     }
@@ -188,30 +202,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const stored = fahrzeugdaten[key];
       if (stored != null) {
-        if (field.type === "checkbox") field.checked = stored === "true";
-        else field.value = stored;
+        if (field.type === "checkbox") {
+          field.checked = stored === "true";
+        } else {
+          field.value = stored;
+        }
       }
 
       const speichern = () => {
-        const value =
-          field.type === "checkbox" ? String(field.checked) : String(field.value || "");
-
+        const value = field.type === "checkbox" ? String(field.checked) : String(field.value || "");
         fahrzeugdaten[key] = value;
 
         // EZ zusätzlich als normiertes Feld ablegen (YYYY-MM)
         if (ezJahr && ezMonat) {
-          const jahr = ezJahr.value;
+          const jahr  = ezJahr.value;
           const monat = ezMonat.value;
           if (jahr && monat) {
             const iso = `${jahr}-${pad2(monat)}`;
-            fahrzeugdaten.erstzulassung = iso;            // neutral
-            fahrzeugdaten.verkauf_erstzulassung = iso;    // für Vorschau
+            fahrzeugdaten.erstzulassung         = iso; // neutral
+            fahrzeugdaten.verkauf_erstzulassung = iso; // für Vorschau
           }
         }
 
         localStorage.setItem("fahrzeugdaten", JSON.stringify(fahrzeugdaten));
-        updateProgressBar();
-        aktualisiereTitel();
+        if (typeof updateProgressBar === "function") updateProgressBar();
+        if (typeof aktualisiereTitel === "function")  aktualisiereTitel();
       };
 
       field.addEventListener("input", speichern);
@@ -219,10 +234,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Erstzulassung aus gespeicherten Daten wiederherstellen
+  // ============================
+  // EZ aus Storage wiederherstellen
+  // ============================
   if (fahrzeugdaten.erstzulassung && ezMonat && ezJahr) {
     const [jahr, monat] = String(fahrzeugdaten.erstzulassung).split("-");
-    if (jahr) ezJahr.value = jahr;
+    if (jahr)  ezJahr.value  = jahr;
     if (monat) ezMonat.value = monat;
   }
 
@@ -269,6 +286,9 @@ document.addEventListener("DOMContentLoaded", () => {
     aktualisiereTitel();
     updateProgressBar();
   }
+
+  // (… dein weiterer Code folgt hier — fetch der marken-modelle.json, Titel-Logik, Progress-Bar, Preis-Logik, Save-Handler, etc.)
+
 
   fetch("data/marken-modelle.json", { credentials: "omit" })
     .then((res) => res.json())

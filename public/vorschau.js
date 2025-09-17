@@ -405,25 +405,25 @@ window.closeLightbox = closeLightbox;
 // Ausstattung (Whitelist + Labels)
 // =========================
 const ausstattungen = [
-  "abstandsregeltempomat", "applecarplay", "androidauto", "frontscheibenheizung", "heckklappe",
-  "led", "multifunktion", "navigation", "sitzheizung", "rueckfahrkamera", "nichtraucher",
-  "scheckheft", "garantie", "mettalic", "abs", "esp", "asr", "berganfahrassistent",
-  "muedigkeitswarner", "spurhalteassistent", "totwinkelassistent", "notbremsassistent",
-  "notrufsystem", "verkehrszeichenerkennung", "isofixhinten", "isofixbeifahrer",
-  "scheinwerferreinigung", "blendfreiesfernlicht", "fernlichtassistent",
-  "innenspiegelabblendend", "nachtsichtassistent", "nebelscheinwerfer", "lichtsensor",
-  "regensensor", "alarmanlage", "wegfahrsperre", "keylesszv", "zentralverriegelung",
-  "standheizung", "frontscheibebeheizbar", "lenkradbeheizbar", "einparkhilfeselbstlenkend",
-  "kamerahinten", "kamera360", "sitzheizungvorne", "sitzheizunghinten", "sitzeelektrisch",
-  "sportsitze", "armlehne", "lordosenstuetze", "massagesitze", "sitzbelueftung",
-  "beifahrersitzumklappbar", "elektrfensterheber", "elektrspiegel", "elektheckklappe",
-  "servolenkung", "ambientebeleuchtung", "lederlenkrad", "radio", "dab", "cd", "tv", "navi",
-  "soundsystem", "touchscreen", "sprachsteuerung", "multifunktionslenkrad",
-  "freisprecheinrichtung", "usb", "bluetooth", "wlan", "streaming", "induktionsladen",
-  "bordcomputer", "headup", "volldigital", "alufelgen", "sommerreifen", "winterreifen",
-  "allwetterreifen", "reifendruckkontrolle", "winterpaket", "raucherpaket", "sportpaket",
-  "sportfahrwerk", "luftfederung", "gepaeckabtrennung", "skisack", "schiebedach",
-  "panoramadach", "dachreling", "behindertengerecht", "taxi",
+  "abstandsregeltempomat","applecarplay","androidauto","frontscheibenheizung","heckklappe",
+  "led","multifunktion","navigation","sitzheizung","rueckfahrkamera","nichtraucher",
+  "scheckheft","garantie","mettalic","abs","esp","asr","berganfahrassistent",
+  "muedigkeitswarner","spurhalteassistent","totwinkelassistent","notbremsassistent",
+  "notrufsystem","verkehrszeichenerkennung","isofixhinten","isofixbeifahrer",
+  "scheinwerferreinigung","blendfreiesfernlicht","fernlichtassistent",
+  "innenspiegelabblendend","nachtsichtassistent","nebelscheinwerfer","lichtsensor",
+  "regensensor","alarmanlage","wegfahrsperre","keylesszv","zentralverriegelung",
+  "standheizung","frontscheibebeheizbar","lenkradbeheizbar","einparkhilfeselbstlenkend",
+  "kamerahinten","kamera360","sitzheizungvorne","sitzheizunghinten","sitzeelektrisch",
+  "sportsitze","armlehne","lordosenstuetze","massagesitze","sitzbelueftung",
+  "beifahrersitzumklappbar","elektrfensterheber","elektrspiegel","elektheckklappe",
+  "servolenkung","ambientebeleuchtung","lederlenkrad","radio","dab","cd","tv","navi",
+  "soundsystem","touchscreen","sprachsteuerung","multifunktionslenkrad",
+  "freisprecheinrichtung","usb","bluetooth","wlan","streaming","induktionsladen",
+  "bordcomputer","headup","volldigital","alufelgen","sommerreifen","winterreifen",
+  "allwetterreifen","reifendruckkontrolle","winterpaket","raucherpaket","sportpaket",
+  "sportfahrwerk","luftfederung","gepaeckabtrennung","skisack","schiebedach",
+  "panoramadach","dachreling","behindertengerecht","taxi",
 ];
 
 const ausstattungLabels = {
@@ -744,6 +744,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (getriebe && lastVehicle.verkauf_getriebe) getriebe.textContent = lastVehicle.verkauf_getriebe;
     if (verkaeufer && lastVehicle.verkauf_verkaeufer) verkaeufer.textContent = lastVehicle.verkauf_verkaeufer;
 
+    // ===== Innenausstattung & Einparkhilfe in Vorschau einblenden =====
+    // Innenausstattung (Material / Farbe) → #v-innenausstattung
+    {
+      const innenOut = document.getElementById("v-innenausstattung");
+      if (innenOut) {
+        const mat =
+          localStorage.getItem("details_innenmaterial") ||
+          lastVehicle?.verkauf_innenmaterial ||
+          lastVehicle?.innenmaterial || "";
+        const col =
+          localStorage.getItem("details_innenfarbe") ||
+          lastVehicle?.verkauf_innenfarbe ||
+          lastVehicle?.innenfarbe || "";
+        const txt = [mat, col].filter(Boolean).join(" / ");
+        innenOut.textContent = txt;
+      }
+    }
+    // Einparkhilfe (Vorne / Hinten / Vorne & Hinten) → #v-einparkhilfe
+    {
+      const eph = document.getElementById("v-einparkhilfe");
+      if (eph) {
+        const ausLS = localStorage.getItem("details_einparkhilfe") || "";
+        const ausDB = lastVehicle?.verkauf_einparkhilfe || lastVehicle?.einparkhilfe || "";
+        eph.textContent = ausLS || ausDB || "";
+      }
+    }
+
     // Technische Daten (Mapping)
     const td = {
       typ: "v-typ",
@@ -774,8 +801,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     for (const key in td) {
       const outEl = document.getElementById(td[key]);
-      const value = localStorage.getItem("details_" + key) ?? lastVehicle[`verkauf_${key}`];
       if (!outEl) continue;
+
+      // robust: LS(details_key) → LS(details_verkauf_key) → DB(verkauf_key) → DB(key)
+      const ls1 = localStorage.getItem("details_" + key);
+      const ls2 = localStorage.getItem("details_verkauf_" + key);
+      const db  = (lastVehicle?.[`verkauf_${key}`] ?? lastVehicle?.[key]);
+
+      const value = ls1 ?? ls2 ?? db;
       if (value !== undefined && value !== null && String(value).trim() !== "") {
         outEl.textContent = String(value);
       }
@@ -788,7 +821,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       let hatAusstattung = false;
       ausstattungen.forEach((key) => {
         const checked =
-          localStorage.getItem("details_" + key) === "true" || lastVehicle[`verkauf_${key}`] === true;
+          localStorage.getItem("details_" + key) === "true" ||
+          localStorage.getItem("details_verkauf_" + key) === "true" ||
+          lastVehicle?.[`verkauf_${key}`] === true ||
+          lastVehicle?.[key] === true;
+
         if (checked && ausstattungLabels[key]) {
           const div = document.createElement("div");
           div.classList.add("equipment-item");
@@ -928,3 +965,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Geo-Suggest für Kontaktformular
   setupGeoSuggest();
 });
+
+
+
+
+
+
+
