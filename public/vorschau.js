@@ -592,6 +592,9 @@ function setupGeoSuggest() {
 // Hauptinitialisierung
 // =========================
 document.addEventListener("DOMContentLoaded", async () => {
+  // ⬅️ NEU: userInfo außerhalb des try verfügbar machen
+  let userInfo = null;
+
   // Nutzerinfo & Zugang
   try {
     const info = await fetch(api("/getNutzerInfo"), { credentials: "include" }).then((r) => r.json());
@@ -601,13 +604,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       window.location.href = ziel;
       return;
     }
+    userInfo = info; // ⬅️ NEU: merken
     localStorage.setItem("nutzerId", info.nutzerId);
     localStorage.setItem("userRole", info.rolle || "");
-    try {
-      updateNavbarTarif();
-    } catch (e) {
-      console.error("❌ Fehler in updateNavbarTarif:", e);
-    }
+    try { updateNavbarTarif(); } catch (e) { console.error("❌ Fehler in updateNavbarTarif:", e); }
   } catch (err) {
     console.error("❌ Fehler beim Abrufen der Nutzerinfo:", err);
     const ziel = sessionStorage.getItem("verkaeuferTyp") === "haendler" ? "haendler.html" : "privat.html";
@@ -616,11 +616,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // Lightbox-Gesten
-  try {
-    setupLightboxSwipe();
-  } catch (e) {
-    console.error("❌ Fehler in setupLightboxSwipe:", e);
-  }
+  try { setupLightboxSwipe(); } catch (e) { console.error("❌ Fehler in setupLightboxSwipe:", e); }
 
   // Beschreibung-Toggle
   try {
@@ -637,11 +633,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // Navbar, falls vorhanden
-  try {
-    if (typeof window.setupNavbar === "function") window.setupNavbar();
-  } catch (e) {
-    console.error("❌ Fehler in setupNavbar:", e);
-  }
+  try { if (typeof window.setupNavbar === "function") window.setupNavbar(); }
+  catch (e) { console.error("❌ Fehler in setupNavbar:", e); }
 
   // Media holen
   await fetchMedia();
@@ -672,17 +665,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Preise
     const priceMain = document.getElementById("price-main");
-    const priceNet = document.getElementById("price-net");
-    const mwstType = document.getElementById("mwst-type");
+    const priceNet  = document.getElementById("price-net");
+    const mwstType  = document.getElementById("mwst-type");
     const priceType = document.getElementById("price-type");
 
     const mwstRaw = String(lastVehicle.verkauf_mwst || "").trim().toLowerCase();
     const isKeine = mwstRaw.includes("keine");
-    const isZzgl = mwstRaw.includes("zzgl");
+    const isZzgl  = mwstRaw.includes("zzgl");
 
     const brutto = toNum(lastVehicle.verkauf_brutto ?? lastVehicle["brutto-preis"]);
-    const netto = toNum(lastVehicle.verkauf_netto ?? lastVehicle["netto-preis"]);
-    const einzel = toNum(lastVehicle.verkauf_preis ?? lastVehicle.preis);
+    const netto  = toNum(lastVehicle.verkauf_netto  ?? lastVehicle["netto-preis"]);
+    const einzel = toNum(lastVehicle.verkauf_preis  ?? lastVehicle.preis);
 
     let mainPriceNum = NaN;
     if (isKeine) {
@@ -694,20 +687,37 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (priceMain) priceMain.textContent = Number.isFinite(mainPriceNum) ? fmtEUR(mainPriceNum) : "";
-    if (priceNet) priceNet.textContent = isZzgl && Number.isFinite(netto) ? fmtEUR(netto) : "";
-    if (mwstType) mwstType.textContent = lastVehicle.verkauf_mwst || (isKeine ? "Keine MwSt." : isZzgl ? "zzgl. MwSt." : "");
+    if (priceNet)  priceNet.textContent  = isZzgl && Number.isFinite(netto) ? fmtEUR(netto) : "";
+    if (mwstType)  mwstType.textContent  = lastVehicle.verkauf_mwst || (isKeine ? "Keine MwSt." : isZzgl ? "zzgl. MwSt." : "");
     if (priceType) priceType.textContent = isKeine ? "Endpreis" : "Brutto";
 
-    // Titel / Verkäufer
+    // Titel
     const titleEl = document.getElementById("car-title");
     if (titleEl && lastVehicle.verkauf_modell) titleEl.textContent = lastVehicle.verkauf_modell;
 
-    const sellerType = document.getElementById("seller-type");
-    if (sellerType && lastVehicle.verkauf_verkaeufer) sellerType.textContent = lastVehicle.verkauf_verkaeufer;
+    // ⬅️ KORRIGIERT: Verkäuferlabel robust bestimmen (Session → Seller-Snapshot → Entwurf → localStorage)
+    const mapRoleToLabel = (roleOrLabel) => {
+      const r = String(roleOrLabel || "").toLowerCase();
+      if (r.includes("haendler") || r.includes("händler") || r === "dealer") return "Händler";
+      if (r.includes("privat")) return "Privatverkäufer";
+      if (roleOrLabel === "Händler" || roleOrLabel === "Privatverkäufer") return roleOrLabel;
+      return "";
+    };
+
+    const sellerLabel =
+      mapRoleToLabel(userInfo?.rolle) ||                              // aus aktueller Session
+      mapRoleToLabel(lastVehicle?.seller?.type) ||                    // aus Seller-Snapshot von /getVehicleData
+      mapRoleToLabel(lastVehicle?.verkauf_verkaeufer) ||              // aus Entwurf
+      mapRoleToLabel(localStorage.getItem("userRole")) ||             // als Fallback localStorage
+      "Verkäufer";
+
+    // Kopfbereich-Label
+    const sellerTypeEl = document.getElementById("seller-type");
+    if (sellerTypeEl) sellerTypeEl.textContent = sellerLabel;
 
     // Beschreibung mit Toggle (Overflow-Erkennung)
-    const descBox = document.getElementById("car-description-box");
-    const descEl = document.getElementById("car-description");
+    const descBox  = document.getElementById("car-description-box");
+    const descEl   = document.getElementById("car-description");
     const toggleBtn = document.getElementById("toggle-description-btn");
     if (descEl && descBox) {
       const text = String(lastVehicle.fahrzeugbeschreibung || "").replace(/\r\n/g, "\n");
@@ -729,20 +739,23 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // Weitere Fahrzeug-Infos
-    const ez = document.getElementById("info-ez");
-    const km = document.getElementById("info-km");
-    const ps = document.getElementById("info-ps");
-    const kraftstoff = document.getElementById("info-kraftstoff");
-    const getriebe = document.getElementById("info-getriebe");
-    const verkaeufer = document.getElementById("info-verkaeufer");
+    const ez        = document.getElementById("info-ez");
+    const km        = document.getElementById("info-km");
+    const ps        = document.getElementById("info-ps");
+    const kraftstoff= document.getElementById("info-kraftstoff");
+    const getriebe  = document.getElementById("info-getriebe");
+    const verkaeufer= document.getElementById("info-verkaeufer");
 
     if (ez && lastVehicle.verkauf_erstzulassung) ez.textContent = lastVehicle.verkauf_erstzulassung;
-    if (km && lastVehicle.verkauf_kilometer)
-      km.textContent = `${Number(lastVehicle.verkauf_kilometer).toLocaleString("de-DE")} km`;
-    if (ps && lastVehicle.verkauf_leistung) ps.textContent = `${lastVehicle.verkauf_leistung} PS`;
+    if (km && lastVehicle.verkauf_kilometer) km.textContent = `${Number(lastVehicle.verkauf_kilometer).toLocaleString("de-DE")} km`;
+    if (ps && lastVehicle.verkauf_leistung)  ps.textContent  = `${lastVehicle.verkauf_leistung} PS`;
     if (kraftstoff && lastVehicle.verkauf_kraftstoff) kraftstoff.textContent = lastVehicle.verkauf_kraftstoff;
-    if (getriebe && lastVehicle.verkauf_getriebe) getriebe.textContent = lastVehicle.verkauf_getriebe;
-    if (verkaeufer && lastVehicle.verkauf_verkaeufer) verkaeufer.textContent = lastVehicle.verkauf_verkaeufer;
+    if (getriebe && lastVehicle.verkauf_getriebe)       getriebe.textContent   = lastVehicle.verkauf_getriebe;
+
+    // ⬅️ KORRIGIERT: Info-Kachel „Verkäufer“ mit dem gleichen, robust ermittelten Label
+    if (verkaeufer) verkaeufer.textContent = sellerLabel;
+    // Damit künftige Zugriffe auch den konsistenten Wert haben:
+    lastVehicle.verkauf_verkaeufer = sellerLabel;
 
     // ===== Innenausstattung & Einparkhilfe in Vorschau einblenden =====
     // Innenausstattung (Material / Farbe) → #v-innenausstattung
@@ -771,92 +784,188 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
-    // Technische Daten (Mapping)
-    const td = {
-      typ: "v-typ",
-      verbrauch_kombiniert: "v-verbrauch-kombiniert",
-      verbrauch_innerorts: "v-verbrauch-innerorts",
-      verbrauch_ausserorts: "v-verbrauch-ausserorts",
-      vorbesitzer: "v-vorbesitzer",
-      fahrzeugtyp: "v-fahrzeugtyp",
-      hubraum: "v-hubraum",
-      antrieb: "v-antrieb",
-      co2_emission: "v-co2",
-      schadstoffklasse: "v-schadstoffklasse",
-      umweltplakette: "v-umweltplakette",
-      tueren: "v-tueren",
-      partikelfilter: "v-partikelfilter",
-      zustand: "v-zustand",
-      // Neue Felder:
-      fahrzeugart: "v-fahrzeugart",
-      halter: "v-halter",
-      fahrtauglich: "v-fahrtauglich",
-      beschaedigt: "v-beschaedigt",
-      unfall: "v-unfall",
-      hu: "v-hu",
-      karosseriefarbe: "v-karosseriefarbe",
-      airbags: "v-airbags",
-      klimatisierung: "v-klimatisierung",
-    };
+  // =========================
+// Technische Daten (Mapping)
+// =========================
+const td = {
+  typ: "v-typ",
+  verbrauch_kombiniert: "v-verbrauch-kombiniert",
+  verbrauch_innerorts: "v-verbrauch-innerorts",
+  verbrauch_ausserorts: "v-verbrauch-ausserorts",
+  vorbesitzer: "v-vorbesitzer",
+  fahrzeugtyp: "v-fahrzeugtyp",
+  hubraum: "v-hubraum",
+  antrieb: "v-antrieb",
+  co2_emission: "v-co2",
+  schadstoffklasse: "v-schadstoffklasse",
+  umweltplakette: "v-umweltplakette",
+  tueren: "v-tueren",
+  partikelfilter: "v-partikelfilter",
+  zustand: "v-zustand",
+  // Neue Felder:
+  fahrzeugart: "v-fahrzeugart",
+  halter: "v-halter",
+  fahrtauglich: "v-fahrtauglich",
+  beschaedigt: "v-beschaedigt",
+  unfall: "v-unfall",
+  hu: "v-hu",
+  karosseriefarbe: "v-karosseriefarbe",
+  airbags: "v-airbags",
+  klimatisierung: "v-klimatisierung",
+  // Licht (Kurvenlicht NICHT hier – das kommt als Ausstattung)
+  scheinwerfer: "v-scheinwerfer",
+  tagfahrlicht: "v-tagfahrlicht"
+};
 
-    for (const key in td) {
-      const outEl = document.getElementById(td[key]);
-      if (!outEl) continue;
+// robusten Wert holen (LS → verkauf_* → Rohfeld), Platzhalter rausfiltern
+function pickTechValue(key) {
+  const raw =
+    localStorage.getItem("details_" + key) ??
+    localStorage.getItem("details_verkauf_" + key) ??
+    lastVehicle?.[`verkauf_${key}`] ??
+    lastVehicle?.[key] ??
+    "";
+  const val = String(raw).trim();
+  if (!val || val === "-" || /^bitte\s*wähle?n?$/i.test(val) || /^please\s*select$/i.test(val)) return "";
+  return val;
+}
 
-      // robust: LS(details_key) → LS(details_verkauf_key) → DB(verkauf_key) → DB(key)
-      const ls1 = localStorage.getItem("details_" + key);
-      const ls2 = localStorage.getItem("details_verkauf_" + key);
-      const db  = (lastVehicle?.[`verkauf_${key}`] ?? lastVehicle?.[key]);
+// Felder ausgeben
+for (const key in td) {
+  const outEl = document.getElementById(td[key]);
+  if (!outEl) continue;
+  const value = pickTechValue(key);
+  outEl.textContent = value || "–";
+}
 
-      const value = ls1 ?? ls2 ?? db;
-      if (value !== undefined && value !== null && String(value).trim() !== "") {
-        outEl.textContent = String(value);
-      }
+// =========================
+// Emissionsklasse (A–G) berechnen & anzeigen
+// =========================
+(function () {
+  const el = document.getElementById("v-emissionsklasse");
+  if (!el) return;
+
+  const fuel = (
+    localStorage.getItem("details_kraftstoff") ||
+    lastVehicle?.verkauf_kraftstoff ||
+    lastVehicle?.kraftstoff ||
+    ""
+  ).toLowerCase();
+
+  // 1) CO₂ direkt verwenden, falls vorhanden
+  let co2 = toNum(
+    localStorage.getItem("details_co2_emission") ||
+    lastVehicle?.verkauf_co2_emission ||
+    lastVehicle?.co2_emission
+  );
+
+  // 2) sonst grob aus Verbrauch kombiniert ableiten
+  if (!Number.isFinite(co2)) {
+    const v = toNum(
+      localStorage.getItem("details_verbrauch_kombiniert") ||
+      lastVehicle?.verkauf_verbrauch_kombiniert ||
+      lastVehicle?.verbrauch_kombiniert
+    );
+    if (Number.isFinite(v)) {
+      // einfache Näherung g/km je l/100km
+      let factor = 24;
+      if (/diesel/.test(fuel)) factor = 26.2;
+      else if (/benzin|super|otto/.test(fuel)) factor = 23.2;
+      else if (/cng|erdgas/.test(fuel)) factor = 17.2;
+      else if (/lpg|autogas/.test(fuel)) factor = 16.0;
+      else if (/strom|elektro|bev/.test(fuel)) factor = 0;
+      co2 = v * factor;
     }
+  }
 
-    // Ausstattung
-    const ausstattungContainer = document.getElementById("v-ausstattung");
-    const ausstattungBlock = document.getElementById("ausstattung-block");
-    if (ausstattungContainer) {
-      let hatAusstattung = false;
-      ausstattungen.forEach((key) => {
-        const checked =
-          localStorage.getItem("details_" + key) === "true" ||
-          localStorage.getItem("details_verkauf_" + key) === "true" ||
-          lastVehicle?.[`verkauf_${key}`] === true ||
-          lastVehicle?.[key] === true;
+  // 3) Elektrofahrzeuge = A+
+  let grade = "–";
+  if (/strom|elektro|bev/.test(fuel)) {
+    grade = "A+";
+  } else if (Number.isFinite(co2)) {
+    const bands = [
+      { max: 75,  grade: "A+" },
+      { max: 95,  grade: "A"  },
+      { max: 115, grade: "B"  },
+      { max: 130, grade: "C"  },
+      { max: 150, grade: "D"  },
+      { max: 170, grade: "E"  },
+      { max: 190, grade: "F"  },
+      { max: Infinity, grade: "G" }
+    ];
+    grade = (bands.find(b => co2 <= b.max) || {}).grade || "–";
+  }
 
-        if (checked && ausstattungLabels[key]) {
-          const div = document.createElement("div");
-          div.classList.add("equipment-item");
-          div.innerHTML = `<i class="fas fa-check"></i> ${ausstattungLabels[key]}`;
-          ausstattungContainer.appendChild(div);
-          hatAusstattung = true;
-        }
-      });
-      if (hatAusstattung && ausstattungBlock) ausstattungBlock.style.display = "block";
+  el.textContent = grade;
+})();
 
-      // Kleines Sub-Highlight aus erlaubter Liste (zufällig)
-      const erlaubteAusstattungen = [
-        "Gepäckraumabtrennung", "Skisack", "Schiebedach", "Panorama-Dach", "Dachreling", "Behindertengerecht", "Taxi",
-        "Winterpaket", "Raucherpaket", "Sportpaket", "Sportfahrwerk", "Luftfederung", "TV", "Navigationssystem",
-        "Soundsystem", "Touchscreen", "Sprachsteuerung", "Multifunktionslenkrad", "Bluetooth", "Apple CarPlay",
-        "Android Auto", "WLAN / Wifi Hotspot", "Musikstreaming integriert", "Induktionsladen für Smartphones",
-        "Bordcomputer", "Head-up Display", "Volldigitales Kombiinstrument", "Leichtmetallfelgen", "Sommerreifen",
-        "Winterreifen", "Allwetterreifen",
-      ];
+// =========================
+// Ausstattung
+// =========================
+const ausstattungContainer = document.getElementById("v-ausstattung");
+const ausstattungBlock = document.getElementById("ausstattung-block");
+if (ausstattungContainer) {
+  let hatAusstattung = false;
 
-      const subtitle = document.getElementById("car-subtitle");
-      if (subtitle) {
-        const list = Array.isArray(lastVehicle?.verkauf_ausstattung)
-          ? lastVehicle.verkauf_ausstattung
-          : [];
-        const gefiltert = list.filter((x) => erlaubteAusstattungen.includes(x));
-        const pick = (arr, n) => arr.sort(() => 0.5 - Math.random()).slice(0, n);
-        const text = gefiltert.length ? pick(gefiltert, 3).join(" • ") : "";
-        if (text) subtitle.textContent = text;
-      }
+  // Booleans aus Whitelist rendern
+  ausstattungen.forEach((key) => {
+    const checked =
+      localStorage.getItem("details_" + key) === "true" ||
+      localStorage.getItem("details_verkauf_" + key) === "true" ||
+      lastVehicle?.[`verkauf_${key}`] === true ||
+      lastVehicle?.[key] === true;
+
+    if (checked && ausstattungLabels[key]) {
+      const div = document.createElement("div");
+      div.classList.add("equipment-item");
+      div.innerHTML = `<i class="fas fa-check"></i> ${ausstattungLabels[key]}`;
+      ausstattungContainer.appendChild(div);
+      hatAusstattung = true;
     }
+  });
+
+  // Kurvenlicht (Select-Wert) als Ausstattung ergänzen
+  {
+    const kl = (
+      localStorage.getItem("details_kurvenlicht") ||
+      localStorage.getItem("details_verkauf_kurvenlicht") ||
+      lastVehicle?.verkauf_kurvenlicht ||
+      lastVehicle?.kurvenlicht ||
+      ""
+    ).trim();
+    if (kl) {
+      const div = document.createElement("div");
+      div.classList.add("equipment-item");
+      div.innerHTML = `<i class="fas fa-check"></i> ${kl}`;
+      ausstattungContainer.appendChild(div);
+      hatAusstattung = true;
+    }
+  }
+
+  if (hatAusstattung && ausstattungBlock) ausstattungBlock.style.display = "block";
+
+  // Sub-Highlight in der Unterzeile (zufällig aus erlaubter Liste)
+  const erlaubteAusstattungen = [
+    "Gepäckraumabtrennung", "Skisack", "Schiebedach", "Panorama-Dach", "Dachreling", "Behindertengerecht", "Taxi",
+    "Winterpaket", "Raucherpaket", "Sportpaket", "Sportfahrwerk", "Luftfederung", "TV", "Navigationssystem",
+    "Soundsystem", "Touchscreen", "Sprachsteuerung", "Multifunktionslenkrad", "Bluetooth", "Apple CarPlay",
+    "Android Auto", "WLAN / Wifi Hotspot", "Musikstreaming integriert", "Induktionsladen für Smartphones",
+    "Bordcomputer", "Head-up Display", "Volldigitales Kombiinstrument", "Leichtmetallfelgen", "Sommerreifen",
+    "Winterreifen", "Allwetterreifen",
+  ];
+
+  const subtitle = document.getElementById("car-subtitle");
+  if (subtitle) {
+    const list = Array.isArray(lastVehicle?.verkauf_ausstattung)
+      ? lastVehicle.verkauf_ausstattung
+      : [];
+    const gefiltert = list.filter((x) => erlaubteAusstattungen.includes(x));
+    const pick = (arr, n) => arr.sort(() => 0.5 - Math.random()).slice(0, n);
+    const text = gefiltert.length ? pick(gefiltert, 3).join(" • ") : "";
+    if (text) subtitle.textContent = text;
+  }
+}
+
   } catch (err) {
     console.error("❌ Fehler beim Laden der Vorschau-Daten:", err);
   }
