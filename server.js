@@ -1,6 +1,5 @@
 try { require("dotenv").config(); } catch {}
 
-
 const express = require("express");
 const multer = require("multer");
 const cookieParser = require("cookie-parser");
@@ -42,7 +41,18 @@ client.connect()
     );
     await db.collection("nutzer").createIndex({ email: 1 }, { unique: true });
 
-    console.log("✅ Indexe für geosuggest bereit");
+    // ✅ TTL für Fahrzeugs-Entwürfe: 30 Minuten ab letzter Änderung
+    await db.collection("fahrzeugeEntwurf").createIndex(
+      { updatedAt: 1 },
+      { expireAfterSeconds: 60 * 30 } // 30 Minuten
+    );
+    // Alte Entwürfe ohne updatedAt einmalig „heilen“
+    await db.collection("fahrzeugeEntwurf").updateMany(
+      { updatedAt: { $exists: false } },
+      { $set: { updatedAt: new Date() } }
+    );
+
+    console.log("✅ Indexe inkl. TTL für fahrzeugeEntwurf bereit");
   })
   .catch(err => console.error("❌ MongoDB-Verbindung fehlgeschlagen:", err));
 
@@ -93,8 +103,6 @@ const upload = multer({
   }
 });
 
-
-
 // Helper: lokale Datei → Cloudinary (Bilder normal, Videos chunked)
 function uploadFileToCloudinary(filePath, { folder, resource_type }) {
   return new Promise((resolve, reject) => {
@@ -115,7 +123,8 @@ app.post("/saveFahrzeugdaten", checkLogin, async (req, res) => {
     const ergebnis = await collection.insertOne({
       ...daten,
       nutzerId: req.nutzer.id,
-      erstelltAm: new Date()
+      erstelltAm: new Date(),
+      updatedAt: new Date() // ⬅️ wichtig für TTL
     });
     res.json({ success: true, fahrzeugId: ergebnis.insertedId });
   } catch (err) {
@@ -128,12 +137,19 @@ app.post("/saveDetails", checkLogin, async (req, res) => {
   try {
     const details = req.body;
     const collection = db.collection("fahrzeugeEntwurf");
+
+    // nur frische Entwürfe finden (≤ 30 Min)
+    const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
     const letzter = await collection.findOne(
-      { nutzerId: req.nutzer.id },
-      { sort: { _id: -1 } }
+      { nutzerId: req.nutzer.id, updatedAt: { $gte: thirtyMinAgo } },
+      { sort: { updatedAt: -1, _id: -1 } }
     );
-    if (!letzter) return res.status(400).json({ error: "Kein Fahrzeug gefunden." });
-    await collection.updateOne({ _id: letzter._id }, { $set: details });
+    if (!letzter) return res.status(400).json({ error: "Kein (frischer) Fahrzeugentwurf gefunden." });
+
+    await collection.updateOne(
+      { _id: letzter._id },
+      { $set: { ...details, updatedAt: new Date() } } // ⬅️ updatedAt refreshen
+    );
     res.json({ success: true });
   } catch (err) {
     console.error("❌ Fehler in /saveDetails:", err);
@@ -150,13 +166,16 @@ app.post(
 
     try {
       const collection = db.collection("fahrzeugeEntwurf");
+
+      // nur frische Entwürfe finden (≤ 30 Min)
+      const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
       const letzter = await collection.findOne(
-        { nutzerId: req.nutzer.id },
-        { sort: { _id: -1 } }
+        { nutzerId: req.nutzer.id, updatedAt: { $gte: thirtyMinAgo } },
+        { sort: { updatedAt: -1, _id: -1 } }
       );
       if (!letzter) {
         cleanup([...(req.files?.images || []), ...(req.files?.video || [])]);
-        return res.status(400).json({ error: "Kein Fahrzeug gefunden." });
+        return res.status(400).json({ error: "Kein (frischer) Fahrzeugentwurf gefunden." });
       }
 
       const files = req.files || {};
@@ -212,6 +231,7 @@ app.post(
       }
       if (uploadedVideoUrl) updateDoc.video = uploadedVideoUrl;
 
+      updateDoc.updatedAt = new Date(); // ⬅️ TTL-Refresh bei Medienänderung
       await collection.updateOne({ _id: letzter._id }, { $set: updateDoc });
 
       res.json({
@@ -227,12 +247,17 @@ app.post(
   }
 );
 
-// === Vorschau: Nur Fahrzeuge dieses Nutzers laden  ⬅️ GEÄNDERT: Seller-Snapshot wird mitgegeben
+// === Vorschau: Nur frische Entwürfe dieses Nutzers (≤ 30 Min) laden + Seller-Snapshot
 app.get("/getVehicleData", checkLogin, async (req, res) => {
   try {
+    const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
+
     const drafts = await db.collection("fahrzeugeEntwurf")
-      .find({ nutzerId: req.nutzer.id })
-      .sort({ _id: -1 })
+      .find({
+        nutzerId: req.nutzer.id,
+        updatedAt: { $gte: thirtyMinAgo }      // ⬅️ nur frische Drafts
+      })
+      .sort({ updatedAt: -1, _id: -1 })        // neueste zuerst
       .toArray();
 
     // Verkäuferdaten für Snapshot holen
