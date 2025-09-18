@@ -1,12 +1,25 @@
+// ===== API-Basis wie in den anderen Dateien =====
+const API_BASE =
+  (typeof window !== "undefined" && window.API_BASE) ||
+  document.querySelector('meta[name="api-base"]')?.content ||
+  "";
+
+function api(path) {
+  const p = String(path || "");
+  if (!API_BASE) return p; // gleiche Origin
+  return API_BASE.replace(/\/+$/, "") + "/" + p.replace(/^\/+/, "");
+}
+
 // ===== Globale Zustände =====
 let globalImageFiles = [];
 let globalVideoFiles = [];
-let hasDraft = false; // <— NEU
+let hasDraft = false;
 
 async function ensureDraftExists() {
   try {
-    const r = await fetch("/getVehicleData", { credentials: "include" });
-    const list = await r.json();
+    const r = await fetch(api("/getVehicleData"), { credentials: "include" });
+    if (!r.ok) { hasDraft = false; return false; }
+    const list = await r.json().catch(() => []);
     hasDraft = Array.isArray(list) && list.length > 0;
     return hasDraft;
   } catch {
@@ -14,6 +27,7 @@ async function ensureDraftExists() {
     return false;
   }
 }
+
 
 // ===== Uploader mit Preview, Reorder, Remove =====
 function setupUpload(boxId, inputId, previewId, isVideo = false, maxFiles = 20) {
@@ -131,11 +145,11 @@ function setupUpload(boxId, inputId, previewId, isVideo = false, maxFiles = 20) 
   }
 }
 
-// ===== Seite initialisieren =====
+// --- DOMContentLoaded ---
 window.addEventListener("DOMContentLoaded", async () => {
   // 🔐 Login prüfen
   try {
-    const info = await fetch("/getNutzerInfo", { credentials: "include" }).then(r => r.json());
+    const info = await fetch(api("/getNutzerInfo"), { credentials: "include" }).then(r => r.json());
     if (!info?.eingeloggt) {
       try { localStorage.setItem("redirectAfterLogin", "medien.html"); } catch {}
       window.location.href = "login.html";
@@ -147,7 +161,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // Bevor irgendwas – sicherstellen, dass es einen Entwurf gibt
+  // Entwurf vorhanden?
   const draftOk = await ensureDraftExists();
   if (!draftOk) {
     safeToast("Bitte zuerst die Fahrzeugdaten (Schritt 1) speichern.", "error");
@@ -155,18 +169,17 @@ window.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // Uploader aktivieren
+  // Uploader
   setupUpload("image-upload-box", "image-input", "image-preview", false, 20);
   setupUpload("video-upload-box", "video-input", "video-preview", true, 1);
 
-  // Bereits gespeicherte Medien laden (zur Anzeige)
+  // Bereits gespeicherte Medien vorladen
   await preloadExistingMedia();
 
-  // Speichern-Handler
+  // Speichern
   const saveBtn = document.getElementById("saveMedia");
-  const loader = document.getElementById("upload-loader");
+  const loader  = document.getElementById("upload-loader");
   saveBtn?.addEventListener("click", async () => {
-    // Guard auch hier, falls Seite lange offen war und Entwurf zwischendurch gelöscht wurde
     if (!(await ensureDraftExists())) {
       safeToast("Kein Fahrzeugentwurf gefunden. Bitte Schritt 1 speichern.", "error");
       return;
@@ -189,17 +202,9 @@ window.addEventListener("DOMContentLoaded", async () => {
     globalVideoFiles.forEach(f => { if (!f.serverPath) fd.append("video",  f); });
 
     try {
-      const res = await fetch("/saveMedia", {
-        method: "POST",
-        credentials: "include",
-        body: fd
-      });
+      const res  = await fetch(api("/saveMedia"), { method: "POST", credentials: "include", body: fd });
       const data = await res.json().catch(() => ({}));
-
-      if (!res.ok || !data?.success) {
-        const msg = data?.error || "Fehler beim Speichern der Medien.";
-        throw new Error(msg);
-      }
+      if (!res.ok || !data?.success) throw new Error(data?.error || "Fehler beim Speichern der Medien.");
 
       safeMarkStepDone(3);
       safeToast(data.message || "Medien gespeichert ✅");
@@ -207,7 +212,6 @@ window.addEventListener("DOMContentLoaded", async () => {
       const userRole = localStorage.getItem("userRole");
       const ziel = userRole === "haendler" ? "haendler.html" : "privat.html";
       setTimeout(() => (window.location.href = ziel), 700);
-
     } catch (err) {
       console.error("❌ Uploadfehler:", err);
       safeToast(String(err.message || err) || "Upload fehlgeschlagen.", "error");
@@ -221,8 +225,9 @@ window.addEventListener("DOMContentLoaded", async () => {
 // ===== Bereits gespeicherte Medien nachladen =====
 async function preloadExistingMedia() {
   try {
-    const res = await fetch("/getVehicleData", { credentials: "include" });
-    const data = await res.json();
+    const res  = await fetch(api("/getVehicleData"), { credentials: "include" });
+    if (!res.ok) return;
+    const data = await res.json().catch(() => []);
     if (!Array.isArray(data) || data.length === 0) return;
 
     const last = data[data.length - 1];
@@ -234,12 +239,7 @@ async function preloadExistingMedia() {
         img.src = imgPath;
         img.classList.add("preview-thumb");
         imagePreview?.appendChild(img);
-
-        globalImageFiles.push({
-          name: `server-image-${i}.jpg`,
-          type: "image/jpeg",
-          serverPath: imgPath
-        });
+        globalImageFiles.push({ name: `server-image-${i}.jpg`, type: "image/jpeg", serverPath: imgPath });
       });
     }
 
@@ -250,17 +250,13 @@ async function preloadExistingMedia() {
       video.controls = true;
       video.classList.add("preview-thumb");
       videoPreview?.appendChild(video);
-
-      globalVideoFiles.push({
-        name: "server-video.mp4",
-        type: "video/mp4",
-        serverPath: last.video
-      });
+      globalVideoFiles.push({ name: "server-video.mp4", type: "video/mp4", serverPath: last.video });
     }
   } catch (err) {
     console.error("Fehler beim Laden der gespeicherten Medien:", err);
   }
 }
+
 
 // ===== Fallbacks =====
 function safeToast(message, type = "success") {
