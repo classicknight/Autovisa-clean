@@ -58,8 +58,15 @@ const fmtEUR = (n) => (Number.isFinite(n) ? n.toLocaleString("de-DE") + " €" :
 // Media laden
 // =========================
 async function fetchMedia() {
+  // wichtig: reset, sonst bleiben alte Items im Speicher
+  mediaItems = [];
+  lastVehicle = null;
+
   try {
-    const res = await fetch(api("/getVehicleData"), { credentials: "include" });
+    const res = await fetch(api(`/getVehicleData?_=${Date.now()}`), {
+      credentials: "include",
+      cache: "no-store"
+    });
     if (!res.ok) {
       console.warn("⚠️ /getVehicleData HTTP", res.status, await res.text());
       return;
@@ -68,6 +75,7 @@ async function fetchMedia() {
     if (!Array.isArray(data) || data.length === 0) return;
 
     lastVehicle = data[data.length - 1] || {};
+
     if (Array.isArray(lastVehicle.images)) {
       mediaItems.push(...lastVehicle.images.map((src) => ({ type: "img", src })));
     }
@@ -78,6 +86,7 @@ async function fetchMedia() {
     console.error("❌ Fehler beim Laden der Fahrzeugdaten:", err);
   }
 }
+
 
 // =========================
 // Slider
@@ -757,15 +766,20 @@ if (km && lastVehicle?.verkauf_kilometer) {
 
 // Leistung: PS + kW zusammen anzeigen (kW wird genutzt, falls vorhanden;
 // falls kW fehlt, wird aus PS ≈ PS*0.7355 berechnet, damit die Anzeige komplett ist)
+// Leistung: erst Serverwerte, dann LS-Fallback. kW anzeigen, ggf. aus PS ableiten.
 if (leistungEl) {
   const psVal = toNum(
+    lastVehicle?.verkauf_leistung ??
+    lastVehicle?.leistung ??
     localStorage.getItem("details_verkauf_leistung") ??
-    localStorage.getItem("details_ps") ??
-    lastVehicle?.verkauf_leistung
+    localStorage.getItem("details_ps")
   );
+
   let kwVal = toNum(
+    lastVehicle?.verkauf_leistung_kw ??
+    lastVehicle?.leistung_kw ??
     localStorage.getItem("details_verkauf_leistung_kw") ??
-    lastVehicle?.verkauf_leistung_kw
+    localStorage.getItem("details_kw")
   );
 
   if (!Number.isFinite(kwVal) && Number.isFinite(psVal)) {
@@ -778,6 +792,7 @@ if (leistungEl) {
   else if (Number.isFinite(kwVal))                           txt = `${kwVal} kW`;
   leistungEl.textContent = txt;
 }
+
 
 if (kraftstoff && lastVehicle?.verkauf_kraftstoff) {
   kraftstoff.textContent = lastVehicle.verkauf_kraftstoff;
@@ -852,18 +867,20 @@ const td = {
   // leistung_kw: "v-kw",
 };
 
-// robusten Wert holen (LS → verkauf_* → Rohfeld)
 function pickTechValue(key) {
   const raw =
-    localStorage.getItem("details_" + key) ??
-    localStorage.getItem("details_verkauf_" + key) ??
+    // 1) frisch vom Server / Entwurf
     lastVehicle?.[`verkauf_${key}`] ??
     lastVehicle?.[key] ??
+    // 2) nur falls oben nichts da ist → lokale Entwurfsreste
+    localStorage.getItem("details_" + key) ??
+    localStorage.getItem("details_verkauf_" + key) ??
     "";
   const val = String(raw).trim();
   if (!val || val === "-" || /^bitte\s*wähle?n?$/i.test(val) || /^please\s*select$/i.test(val)) return "";
   return val;
 }
+
 
 // Felder ausgeben
 for (const key in td) {
