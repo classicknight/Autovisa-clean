@@ -519,3 +519,12 @@ select{
 .form-group.col-3  { grid-column: span 3; }
 
 /* Mobil: bleibt dank .form-group { grid-column: span 12; } automatisch vollbreit. */
+
+/* 3-Spalten-Reihen (12er Grid → je 4 Spalten) */
+.form-row.form-row--three .form-group { grid-column: span 4; }
+/* vorhandene 3n-Vollbreite-Regel hier überschreiben */
+.form-row.form-row--three > .form-group:nth-child(3n) { grid-column: span 4; }
+
+@media (max-width: 900px){
+  .form-row.form-row--three .form-group { grid-column: span 12; }
+}

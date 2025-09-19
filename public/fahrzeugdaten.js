@@ -168,6 +168,33 @@ document.addEventListener("DOMContentLoaded", async () => {
   const bruttoInput       = $("brutto-preis");
   const nettoInput        = $("netto-preis");
   const preisInput        = $("preis");
+  // === Leistung: PS ↔ kW Sync (optional, aber nice) ===
+  const psInput = $("leistung_ps");
+  const kwInput = $("leistung_kw");
+
+  let syncingPower = false;
+  const PS2KW = (ps) => Math.round(Number(ps) * 0.7355);
+  const KW2PS = (kw) => Math.round(Number(kw) / 0.7355);
+
+  if (psInput && kwInput) {
+    psInput.addEventListener("input", () => {
+      if (syncingPower) return;
+      syncingPower = true;
+      const ps = Number(psInput.value);
+      if (Number.isFinite(ps) && ps > 0) kwInput.value = String(PS2KW(ps));
+      else if (!psInput.value) kwInput.value = "";
+      syncingPower = false;
+    });
+
+    kwInput.addEventListener("input", () => {
+      if (syncingPower) return;
+      syncingPower = true;
+      const kw = Number(kwInput.value);
+      if (Number.isFinite(kw) && kw > 0) psInput.value = String(KW2PS(kw));
+      else if (!kwInput.value) psInput.value = "";
+      syncingPower = false;
+    });
+  }
 
   // EZ-Felder robust holen (unterstützt alternative IDs)
   const ezMonat = $("ez-monat") || $("first-registration-month") || $("verkauf-ez-monat");
@@ -346,11 +373,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ============================
   function updateProgressBar() {
     const ids = Array.from(new Set([
-      "marke","modell","kilometer","leistung","hubraum",
+      "marke","modell","kilometer","leistung_ps","leistung_kw","hubraum",
       "kraftstoff","getriebe","antriebsart","fahrzeugtyp",
       "tueren","türen","partikelfilter","verbrauch_kombiniert","co2_emission",
-      "verbrauch_innerorts","verbrauch_ausserorts","schadstoffklasse","umweltplakette"
+      "verbrauch_innerorts","verbrauch_ausserorts","schadstoffklasse","umweltplakette",
+      "emissionsklasse"
     ]));
+
     const felder = ids
       .map(id => $(id))
       .filter(el => !!el && !el.disabled);
@@ -472,25 +501,31 @@ document.addEventListener("DOMContentLoaded", async () => {
       erstzulassung: ezIso,
       verkauf_erstzulassung: ezIso,
 
-      // Kernfelder
-      verkauf_kilometer:           getNum("kilometer", "km"),
-      verkauf_leistung:            getNum("leistung", "ps"),
-      verkauf_hubraum:             getNum("hubraum", "ccm"),
-      verkauf_kraftstoff:          getVal("kraftstoff", "kraftstoffart"),
-      verkauf_getriebe:            getVal("getriebe", "getriebeart"),
-      verkauf_antrieb:             getVal("antriebsart", "antrieb"),
+         // Kernfelder (Leistung jetzt aus neuen IDs holen)
+    verkauf_kilometer:            getNum("kilometer", "km"),
+    verkauf_leistung:             getNum("leistung_ps","leistung","ps"), // PS
+    verkauf_leistung_kw:          getNum("leistung_kw"),                 // kW  ➜ NEU
+    verkauf_hubraum:              getNum("hubraum","ccm"),
+    verkauf_kraftstoff:           getVal("kraftstoff","kraftstoffart"),
+    verkauf_getriebe:             getVal("getriebe","getriebeart"),
+    verkauf_antrieb:              getVal("antriebsart","antrieb"),
 
-      verkauf_fahrzeugtyp:         getVal("fahrzeugtyp"),
-      verkauf_tueren:              getVal("tueren", "türen"),
-      verkauf_partikelfilter:      getVal("partikelfilter"),
+    verkauf_fahrzeugtyp:          getVal("fahrzeugtyp"),
+    verkauf_tueren:               getVal("tueren","türen"),
+    verkauf_partikelfilter:       getVal("partikelfilter"),
 
-      verkauf_verbrauch_kombiniert: getVal("verbrauch_kombiniert"),
-      verkauf_verbrauch_innerorts:  getVal("verbrauch_innerorts"),
-      verkauf_verbrauch_ausserorts: getVal("verbrauch_ausserorts"),
-      verkauf_co2_emission:         getVal("co2_emission"),
+    verkauf_verbrauch_kombiniert: getVal("verbrauch_kombiniert"),
+    verkauf_verbrauch_innerorts:  getVal("verbrauch_innerorts"),
+    verkauf_verbrauch_ausserorts: getVal("verbrauch_ausserorts"),
+    verkauf_co2_emission:         getVal("co2_emission"),
 
-      verkauf_schadstoffklasse:    getVal("schadstoffklasse"),
-      verkauf_umweltplakette:      getVal("umweltplakette")
+    verkauf_schadstoffklasse:     getVal("schadstoffklasse"),
+    verkauf_umweltplakette:       getVal("umweltplakette"),
+
+    // Emissions-/Energieeffizienzklasse (nur übernehmen, NICHT berechnen)
+    emissionsklasse:              getVal("emissionsklasse"),     // neutral
+    verkauf_emissionsklasse:      getVal("emissionsklasse")    // für Vorschau
+
     };
 
     // In Memory mergen & persistieren
@@ -527,3 +562,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   updateProgressBar();
   aktualisiereTitel();
 });
+
+
+

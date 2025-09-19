@@ -738,53 +738,84 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
     }
 
-    // Weitere Fahrzeug-Infos
-    const ez        = document.getElementById("info-ez");
-    const km        = document.getElementById("info-km");
-    const ps        = document.getElementById("info-ps");
-    const kraftstoff= document.getElementById("info-kraftstoff");
-    const getriebe  = document.getElementById("info-getriebe");
-    const verkaeufer= document.getElementById("info-verkaeufer");
-
-    if (ez && lastVehicle.verkauf_erstzulassung) ez.textContent = lastVehicle.verkauf_erstzulassung;
-    if (km && lastVehicle.verkauf_kilometer) km.textContent = `${Number(lastVehicle.verkauf_kilometer).toLocaleString("de-DE")} km`;
-    if (ps && lastVehicle.verkauf_leistung)  ps.textContent  = `${lastVehicle.verkauf_leistung} PS`;
-    if (kraftstoff && lastVehicle.verkauf_kraftstoff) kraftstoff.textContent = lastVehicle.verkauf_kraftstoff;
-    if (getriebe && lastVehicle.verkauf_getriebe)       getriebe.textContent   = lastVehicle.verkauf_getriebe;
-
-    // ⬅️ KORRIGIERT: Info-Kachel „Verkäufer“ mit dem gleichen, robust ermittelten Label
-    if (verkaeufer) verkaeufer.textContent = sellerLabel;
-    // Damit künftige Zugriffe auch den konsistenten Wert haben:
-    lastVehicle.verkauf_verkaeufer = sellerLabel;
-
-    // ===== Innenausstattung & Einparkhilfe in Vorschau einblenden =====
-    // Innenausstattung (Material / Farbe) → #v-innenausstattung
-    {
-      const innenOut = document.getElementById("v-innenausstattung");
-      if (innenOut) {
-        const mat =
-          localStorage.getItem("details_innenmaterial") ||
-          lastVehicle?.verkauf_innenmaterial ||
-          lastVehicle?.innenmaterial || "";
-        const col =
-          localStorage.getItem("details_innenfarbe") ||
-          lastVehicle?.verkauf_innenfarbe ||
-          lastVehicle?.innenfarbe || "";
-        const txt = [mat, col].filter(Boolean).join(" / ");
-        innenOut.textContent = txt;
-      }
-    }
-    // Einparkhilfe (Vorne / Hinten / Vorne & Hinten) → #v-einparkhilfe
-    {
-      const eph = document.getElementById("v-einparkhilfe");
-      if (eph) {
-        const ausLS = localStorage.getItem("details_einparkhilfe") || "";
-        const ausDB = lastVehicle?.verkauf_einparkhilfe || lastVehicle?.einparkhilfe || "";
-        eph.textContent = ausLS || ausDB || "";
-      }
-    }
-
   // =========================
+// Weitere Fahrzeug-Infos
+// =========================
+const ez         = document.getElementById("info-ez");
+const km         = document.getElementById("info-km");
+const leistungEl = document.getElementById("info-ps"); // nutzt weiter die Stelle "info-ps"
+const kraftstoff = document.getElementById("info-kraftstoff");
+const getriebe   = document.getElementById("info-getriebe");
+const verkaeufer = document.getElementById("info-verkaeufer");
+
+if (ez && lastVehicle?.verkauf_erstzulassung) {
+  ez.textContent = lastVehicle.verkauf_erstzulassung;
+}
+if (km && lastVehicle?.verkauf_kilometer) {
+  km.textContent = `${Number(lastVehicle.verkauf_kilometer).toLocaleString("de-DE")} km`;
+}
+
+// Leistung: PS + kW zusammen anzeigen (kW wird genutzt, falls vorhanden;
+// falls kW fehlt, wird aus PS ≈ PS*0.7355 berechnet, damit die Anzeige komplett ist)
+if (leistungEl) {
+  const psVal = toNum(
+    localStorage.getItem("details_verkauf_leistung") ??
+    localStorage.getItem("details_ps") ??
+    lastVehicle?.verkauf_leistung
+  );
+  let kwVal = toNum(
+    localStorage.getItem("details_verkauf_leistung_kw") ??
+    lastVehicle?.verkauf_leistung_kw
+  );
+
+  if (!Number.isFinite(kwVal) && Number.isFinite(psVal)) {
+    kwVal = Math.round(psVal * 0.7355);
+  }
+
+  let txt = "";
+  if (Number.isFinite(psVal) && Number.isFinite(kwVal))      txt = `${psVal} PS (${kwVal} kW)`;
+  else if (Number.isFinite(psVal))                           txt = `${psVal} PS`;
+  else if (Number.isFinite(kwVal))                           txt = `${kwVal} kW`;
+  leistungEl.textContent = txt;
+}
+
+if (kraftstoff && lastVehicle?.verkauf_kraftstoff) {
+  kraftstoff.textContent = lastVehicle.verkauf_kraftstoff;
+}
+if (getriebe && lastVehicle?.verkauf_getriebe) {
+  getriebe.textContent = lastVehicle.verkauf_getriebe;
+}
+
+// Verkäufer-Kachel konsistent
+if (verkaeufer) verkaeufer.textContent = sellerLabel;
+lastVehicle.verkauf_verkaeufer = sellerLabel;
+
+// ===== Innenausstattung & Einparkhilfe in Vorschau einblenden =====
+{
+  const innenOut = document.getElementById("v-innenausstattung");
+  if (innenOut) {
+    const mat =
+      localStorage.getItem("details_innenmaterial") ||
+      lastVehicle?.verkauf_innenmaterial ||
+      lastVehicle?.innenmaterial || "";
+    const col =
+      localStorage.getItem("details_innenfarbe") ||
+      lastVehicle?.verkauf_innenfarbe ||
+      lastVehicle?.innenfarbe || "";
+    const txt = [mat, col].filter(Boolean).join(" / ");
+    innenOut.textContent = txt;
+  }
+}
+{
+  const eph = document.getElementById("v-einparkhilfe");
+  if (eph) {
+    const ausLS = localStorage.getItem("details_einparkhilfe") || "";
+    const ausDB = lastVehicle?.verkauf_einparkhilfe || lastVehicle?.einparkhilfe || "";
+    eph.textContent = ausLS || ausDB || "";
+  }
+}
+
+// =========================
 // Technische Daten (Mapping)
 // =========================
 const td = {
@@ -814,10 +845,14 @@ const td = {
   klimatisierung: "v-klimatisierung",
   // Licht (Kurvenlicht NICHT hier – das kommt als Ausstattung)
   scheinwerfer: "v-scheinwerfer",
-  tagfahrlicht: "v-tagfahrlicht"
+  tagfahrlicht: "v-tagfahrlicht",
+  // ➕ Emissions-/Energieeffizienzklasse direkt anzeigen
+  emissionsklasse: "v-emissionsklasse",
+  // (optional) falls du kW auch als separate technische Zeile willst:
+  // leistung_kw: "v-kw",
 };
 
-// robusten Wert holen (LS → verkauf_* → Rohfeld), Platzhalter rausfiltern
+// robusten Wert holen (LS → verkauf_* → Rohfeld)
 function pickTechValue(key) {
   const raw =
     localStorage.getItem("details_" + key) ??
@@ -839,65 +874,19 @@ for (const key in td) {
 }
 
 // =========================
-// Emissionsklasse (A–G) berechnen & anzeigen
+// Emissionsklasse direkt (ohne Berechnung) setzen
 // =========================
-(function () {
+{
   const el = document.getElementById("v-emissionsklasse");
-  if (!el) return;
-
-  const fuel = (
-    localStorage.getItem("details_kraftstoff") ||
-    lastVehicle?.verkauf_kraftstoff ||
-    lastVehicle?.kraftstoff ||
-    ""
-  ).toLowerCase();
-
-  // 1) CO₂ direkt verwenden, falls vorhanden
-  let co2 = toNum(
-    localStorage.getItem("details_co2_emission") ||
-    lastVehicle?.verkauf_co2_emission ||
-    lastVehicle?.co2_emission
-  );
-
-  // 2) sonst grob aus Verbrauch kombiniert ableiten
-  if (!Number.isFinite(co2)) {
-    const v = toNum(
-      localStorage.getItem("details_verbrauch_kombiniert") ||
-      lastVehicle?.verkauf_verbrauch_kombiniert ||
-      lastVehicle?.verbrauch_kombiniert
-    );
-    if (Number.isFinite(v)) {
-      // einfache Näherung g/km je l/100km
-      let factor = 24;
-      if (/diesel/.test(fuel)) factor = 26.2;
-      else if (/benzin|super|otto/.test(fuel)) factor = 23.2;
-      else if (/cng|erdgas/.test(fuel)) factor = 17.2;
-      else if (/lpg|autogas/.test(fuel)) factor = 16.0;
-      else if (/strom|elektro|bev/.test(fuel)) factor = 0;
-      co2 = v * factor;
-    }
+  if (el) {
+    const val =
+      localStorage.getItem("details_emissionsklasse") ||
+      localStorage.getItem("details_verkauf_emissionsklasse") ||
+      lastVehicle?.verkauf_emissionsklasse ||
+      lastVehicle?.emissionsklasse || "";
+    if (val) el.textContent = val;
   }
-
-  // 3) Elektrofahrzeuge = A+
-  let grade = "–";
-  if (/strom|elektro|bev/.test(fuel)) {
-    grade = "A+";
-  } else if (Number.isFinite(co2)) {
-    const bands = [
-      { max: 75,  grade: "A+" },
-      { max: 95,  grade: "A"  },
-      { max: 115, grade: "B"  },
-      { max: 130, grade: "C"  },
-      { max: 150, grade: "D"  },
-      { max: 170, grade: "E"  },
-      { max: 190, grade: "F"  },
-      { max: Infinity, grade: "G" }
-    ];
-    grade = (bands.find(b => co2 <= b.max) || {}).grade || "–";
-  }
-
-  el.textContent = grade;
-})();
+}
 
 // =========================
 // Ausstattung

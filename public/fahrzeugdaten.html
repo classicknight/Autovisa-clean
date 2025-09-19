@@ -269,20 +269,23 @@
     </div>
   </div>
   
-  <!-- Motor: Leistung & Hubraum -->
-  <div class="form-row">
-    <div class="form-group">
-      <label for="leistung">Leistung (PS)</label>
-      <input type="number" id="leistung" name="verkauf_leistung" placeholder="z. B. 190" min="1" required>
-    </div>
-  
-  
-
-    <div class="form-group">
-      <label for="hubraum">Hubraum (cm³)</label>
-      <input type="number" id="hubraum" name="hubraum" placeholder="z. B. 1968">
-    </div>
+<!-- Motor: Leistung (PS + kW) & Hubraum -->
+<div class="form-row form-row--three">
+  <div class="form-group">
+    <label for="leistung_ps">Leistung (PS)</label>
+    <input type="number" id="leistung_ps" name="verkauf_leistung" placeholder="z. B. 190" min="1" required>
   </div>
+  
+  <div class="form-group">
+    <label for="leistung_kw">Leistung (kW)</label>
+    <input type="number" id="leistung_kw" name="verkauf_leistung_kw" placeholder="z. B. 140" min="1">
+  </div>
+  
+  <div class="form-group">
+    <label for="hubraum">Hubraum (cm³)</label>
+    <input type="number" id="hubraum" name="hubraum" placeholder="z. B. 1968">
+  </div>
+</div>
 
   <!-- Antrieb & Getriebe -->
   <div class="form-row">
@@ -387,36 +390,52 @@
     </div>
   </div>
 
-  <!-- Schadstoffklasse & Plakette -->
-  <div class="form-row">
-    <div class="form-group">
-      <label for="schadstoffklasse">Schadstoffklasse</label>
-      <select id="schadstoffklasse" name="schadstoffklasse">
-        <option value="" disabled selected>Bitte wählen</option>
-        <option value="Keine Angabe">Keine Angabe</option>
-        <option value="Euro 1">Euro 1</option>
-        <option value="Euro 2">Euro 2</option>
-        <option value="Euro 3">Euro 3</option>
-        <option value="Euro 4">Euro 4</option>
-        <option value="Euro 5">Euro 5</option>
-        <option value="Euro 6">Euro 6</option>
-        <option value="Euro 6c">Euro 6c</option>
-        <option value="Euro 6d-TEMP">Euro 6d-TEMP</option>
-        <option value="Euro 6d">Euro 6d</option>
-      </select>
-    </div>
-
-    <div class="form-group">
-      <label for="umweltplakette">Umweltplakette</label>
-      <select id="umweltplakette" name="umweltplakette">
-        <option value="" disabled selected>Bitte wählen</option>
-        <option value="Keine">Keine</option>
-        <option value="Rot">Rot (Stufe 2)</option>
-        <option value="Gelb">Gelb (Stufe 3)</option>
-        <option value="Grün">Grün (Stufe 4)</option>
-      </select>
-    </div>
+<!-- Schadstoffklasse, Umweltplakette & Energieeffizienzklasse -->
+<div class="form-row form-row--three">
+  <div class="form-group">
+    <label for="schadstoffklasse">Schadstoffklasse</label>
+    <select id="schadstoffklasse" name="schadstoffklasse">
+      <option value="" disabled selected>Bitte wählen</option>
+      <option value="Keine Angabe">Keine Angabe</option>
+      <option value="Euro 1">Euro 1</option>
+      <option value="Euro 2">Euro 2</option>
+      <option value="Euro 3">Euro 3</option>
+      <option value="Euro 4">Euro 4</option>
+      <option value="Euro 5">Euro 5</option>
+      <option value="Euro 6">Euro 6</option>
+      <option value="Euro 6c">Euro 6c</option>
+      <option value="Euro 6d-TEMP">Euro 6d-TEMP</option>
+      <option value="Euro 6d">Euro 6d</option>
+    </select>
   </div>
+  
+  <div class="form-group">
+    <label for="umweltplakette">Umweltplakette</label>
+    <select id="umweltplakette" name="umweltplakette">
+      <option value="" disabled selected>Bitte wählen</option>
+      <option value="Keine">Keine</option>
+      <option value="Rot">Rot (Stufe 2)</option>
+      <option value="Gelb">Gelb (Stufe 3)</option>
+      <option value="Grün">Grün (Stufe 4)</option>
+    </select>
+  </div>
+  
+  <div class="form-group">
+    <label for="emissionsklasse">Energieeffizienzklasse</label>
+    <select id="emissionsklasse" name="emissionsklasse">
+      <option value="" disabled selected>Bitte wählen</option>
+      <option value="A+">A+</option>
+      <option value="A">A</option>
+      <option value="B">B</option>
+      <option value="C">C</option>
+      <option value="D">D</option>
+      <option value="E">E</option>
+      <option value="F">F</option>
+      <option value="G">G</option>
+      <option value="Keine Angabe">Keine Angabe</option>
+    </select>
+  </div>
+</div>
 
 <!-- Speichern + Zurück -->
 <div class="form-row" style="justify-content: space-between; margin-top: 30px;">
