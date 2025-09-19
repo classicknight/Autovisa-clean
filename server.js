@@ -115,23 +115,38 @@ function uploadFileToCloudinary(filePath, { folder, resource_type }) {
 }
 
 /* ===================== Fahrzeugspeichern / Medien ===================== */
-
 app.post("/saveFahrzeugdaten", checkLogin, async (req, res) => {
   try {
     const daten = req.body;
     const collection = db.collection("fahrzeugeEntwurf");
-    const ergebnis = await collection.insertOne({
-      ...daten,
-      nutzerId: req.nutzer.id,
-      erstelltAm: new Date(),
-      updatedAt: new Date() // ⬅️ wichtig für TTL
-    });
-    res.json({ success: true, fahrzeugId: ergebnis.insertedId });
+
+    const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
+    const letzter = await collection.findOne(
+      { nutzerId: req.nutzer.id, updatedAt: { $gte: thirtyMinAgo } },
+      { sort: { updatedAt: -1, _id: -1 } }
+    );
+
+    if (letzter) {
+      await collection.updateOne(
+        { _id: letzter._id },
+        { $set: { ...daten, updatedAt: new Date() } }
+      );
+      return res.json({ success: true, fahrzeugId: letzter._id });
+    } else {
+      const r = await collection.insertOne({
+        ...daten,
+        nutzerId: req.nutzer.id,
+        erstelltAm: new Date(),
+        updatedAt: new Date()
+      });
+      return res.json({ success: true, fahrzeugId: r.insertedId });
+    }
   } catch (err) {
     console.error("❌ Fehler bei /saveFahrzeugdaten:", err);
     res.status(500).json({ error: "Serverfehler beim Speichern." });
   }
 });
+
 
 app.post("/saveDetails", checkLogin, async (req, res) => {
   try {
@@ -1300,7 +1315,6 @@ async function geocodeToPoint(query) {
   );
   return coords;
 }
-
 app.post("/veroeffentlichen", checkLogin, async (req, res) => {
   try {
     const sellerId = req.nutzer?.id;
@@ -1310,10 +1324,29 @@ app.post("/veroeffentlichen", checkLogin, async (req, res) => {
     const inserateColl = db.collection("inserate");
     const nutzerColl   = db.collection("nutzer");
 
-    const lastVehicle = await entwurfColl.findOne({ nutzerId: sellerId }, { sort: { _id: -1 } });
-    if (!lastVehicle) return res.status(400).send("Kein Fahrzeug zum Veröffentlichen gefunden.");
+    // 1) Entwurf ermitteln
+    const { draftId } = req.body || {};
+    let draft;
 
-    // Händler-Snapshot ziehen (inkl. Logo)
+    if (draftId) {
+      // Falls Frontend eine Draft-ID mitsendet → genau den Entwurf publizieren
+      let _id;
+      try { _id = new ObjectId(String(draftId)); }
+      catch { return res.status(400).send("Ungültige Draft-ID."); }
+
+      draft = await entwurfColl.findOne({ _id, nutzerId: sellerId });
+      if (!draft) return res.status(404).send("Entwurf nicht gefunden oder gehört nicht zu dir.");
+    } else {
+      // Sonst: den zuletzt geänderten frischen Entwurf (≤ 30 Min) nehmen
+      const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
+      draft = await entwurfColl.findOne(
+        { nutzerId: sellerId, updatedAt: { $gte: thirtyMinAgo } },
+        { sort: { updatedAt: -1, _id: -1 } }
+      );
+      if (!draft) return res.status(400).send("Kein (frischer) Entwurf zum Veröffentlichen gefunden.");
+    }
+
+    // 2) Verkäufer-Snapshot laden (inkl. Logo)
     const haendler = await nutzerColl.findOne(
       { id: sellerId },
       { projection: { id: 1, role: 1, firma: 1, name: 1, logoUrl: 1 } }
@@ -1326,26 +1359,30 @@ app.post("/veroeffentlichen", checkLogin, async (req, res) => {
       logoUrl: haendler?.logoUrl || ""
     };
 
+    // 3) Entwurfs-Payload sanitisieren (interne Felder entfernen)
+    const { _id, updatedAt, erstelltAm, __status, ...payload } = draft;
+
+    // 4) Live-Inserat bauen (mit sinnvollen Defaults)
     const neuesInserat = {
-      ...lastVehicle,
+      ...payload, // enthält Medien, technische Daten, etc.
       verkaeuferId: sellerId,
       status: "online",
       veroeffentlichtAm: new Date(),
-      verkauf_kurzbeschreibung: getZufaelligeAusstattung(lastVehicle.verkauf_ausstattung || []),
+      verkauf_kurzbeschreibung: getZufaelligeAusstattung(payload.verkauf_ausstattung || []),
 
       // Konsistent setzen (Body-Overrides nur, wenn vorhanden)
       verkauf_verkaeufer: (seller.type === "haendler") ? "Händler" : "Privatverkäufer",
-      verkauf_name: req.body?.name || lastVehicle.verkauf_name || seller.name,
+      verkauf_name: req.body?.name || payload.verkauf_name || seller.name,
       standort: (req.body?.plz && req.body?.ort)
         ? `${req.body.plz} ${req.body.ort}`
-        : (lastVehicle.standort || "Nicht angegeben"),
-      telefon: req.body?.telefon || lastVehicle.telefon || "",
+        : (payload.standort || "Nicht angegeben"),
+      telefon: req.body?.telefon || payload.telefon || "",
 
-      // ⬇️ WICHTIG: denormalisierte Verkäuferdaten inkl. Logo
+      // Denormalisierte Verkäuferdaten (für schnelle Anzeige)
       seller
     };
 
-    // Geocoding (optional)
+    // 5) (Optional) Geokodierung
     const locString = (req.body?.plz && req.body?.ort)
       ? `${req.body.plz} ${req.body.ort}`
       : (neuesInserat.standort || "");
@@ -1353,19 +1390,22 @@ app.post("/veroeffentlichen", checkLogin, async (req, res) => {
       try {
         const point = await geocodeToPoint(locString);
         if (point) neuesInserat.standortCoords = point;
-      } catch (e) { console.warn("Geocoding fehlgeschlagen:", e?.message || e); }
+      } catch (e) {
+        console.warn("Geocoding fehlgeschlagen:", e?.message || e);
+      }
     }
 
-    delete neuesInserat._id;
+    // 6) Speichern & Entwurf entfernen
     await inserateColl.insertOne(neuesInserat);
-    await entwurfColl.deleteOne({ _id: lastVehicle._id, nutzerId: sellerId });
+    await entwurfColl.deleteOne({ _id: draft._id, nutzerId: sellerId });
 
-    res.send("Inserat erfolgreich veröffentlicht.");
+    return res.json({ success: true, message: "Inserat erfolgreich veröffentlicht." });
   } catch (err) {
     console.error("❌ Fehler bei /veroeffentlichen:", err);
-    res.status(500).send("Fehler beim Veröffentlichen.");
+    return res.status(500).send("Fehler beim Veröffentlichen.");
   }
 });
+
 
 
 

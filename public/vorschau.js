@@ -74,7 +74,8 @@ async function fetchMedia() {
     const data = await res.json().catch(() => []);
     if (!Array.isArray(data) || data.length === 0) return;
 
-    lastVehicle = data[data.length - 1] || {};
+    lastVehicle = data[0] || {};
+
 
     if (Array.isArray(lastVehicle.images)) {
       mediaItems.push(...lastVehicle.images.map((src) => ({ type: "img", src })));
