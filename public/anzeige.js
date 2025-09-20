@@ -8,6 +8,22 @@
    ========================================================= */
 
 /* ------------------------ API-Helper ------------------------ */
+// --- Zusatz-Utils für technische Daten ---
+const asYN = (v) => {
+  if (v === true || v === "true" || v === 1 || v === "1") return "Ja";
+  if (v === false || v === "false" || v === 0 || v === "0") return "Nein";
+  const s = String(v ?? "").trim();
+  return s || "–";
+};
+const firstNonEmpty = (...vals) => {
+  for (const v of vals) {
+    if (v === null || v === undefined) continue;
+    const s = String(v).trim();
+    if (s) return s;
+  }
+  return "";
+};
+
 const API_BASE =
   (typeof window !== "undefined" && window.API_BASE) ||
   document.querySelector('meta[name="api-base"]')?.content ||
@@ -196,71 +212,131 @@ function fillTop(inserat) {
   if (sellerTypeEl) sellerTypeEl.textContent = sellerLabel;
 }
 
-/* ------------------------ Technische Daten ------------------------ */
 function fillTechnical(inserat) {
-  const td = {
-    zustand: "v-zustand",
-    fahrzeugart: "v-fahrzeugart",
-    halter: "v-halter",
-    fahrtauglich: "v-fahrtauglich",
-    beschaedigt: "v-beschaedigt",
-    unfall: "v-unfall",
-    verkauf_tueren: "v-tueren",
-    verkauf_fahrzeugtyp: "v-fahrzeugtyp",
-    verkauf_hubraum: "v-hubraum",
-    verkauf_verbrauch_kombiniert: "v-verbrauch-kombiniert",
-    verkauf_verbrauch_innerorts: "v-verbrauch-innerorts",
-    verkauf_verbrauch_ausserorts: "v-verbrauch-ausserorts",
-    verkauf_antrieb: "v-antrieb",
-    verkauf_co2_emission: "v-co2",
-    verkauf_schadstoffklasse: "v-schadstoffklasse",
-    verkauf_umweltplakette: "v-umweltplakette",
-    partikelfilter: "v-partikelfilter",
-    klimatisierung: "v-klimatisierung",
-    airbags: "v-airbags",
-    verkauf_emissionsklasse: "v-emissionsklasse",
-    emissionsklasse: "v-emissionsklasse",
-  };
-  Object.entries(td).forEach(([key, id]) => {
+  // einfache Textfelder (direkte Strings)
+  const simpleMap = [
+    ["zustand", "v-zustand"],
+    ["fahrzeugart", "v-fahrzeugart"],
+    ["verkauf_fahrzeugtyp", "v-fahrzeugtyp"],
+    ["verkauf_hubraum", "v-hubraum"],
+    ["verkauf_verbrauch_kombiniert", "v-verbrauch-kombiniert"],
+    ["verkauf_verbrauch_innerorts", "v-verbrauch-innerorts"],
+    ["verkauf_verbrauch_ausserorts", "v-verbrauch-ausserorts"],
+    ["verkauf_antrieb", "v-antrieb"],
+    ["verkauf_co2_emission", "v-co2"],
+    ["verkauf_schadstoffklasse", "v-schadstoffklasse"],
+    ["verkauf_umweltplakette", "v-umweltplakette"],
+    ["klimatisierung", "v-klimatisierung"],
+    ["airbags", "v-airbags"],
+    // Emissions-/Energieeffizienzklasse (A–G)
+    ["verkauf_emissionsklasse", "v-emissionsklasse"],
+    ["emissionsklasse", "v-emissionsklasse"],
+  ];
+
+  // render simple text values
+  simpleMap.forEach(([key, id]) => {
     const el = document.getElementById(id);
     if (!el) return;
     const val = String(inserat[key] ?? "").trim();
     el.textContent = val || "–";
   });
 
+  // Halter (Anzahl)
+  const halterEl = document.getElementById("v-halter");
+  if (halterEl) {
+    const raw =
+      inserat.halter ??
+      inserat.anzahlhalter ??
+      inserat.verkauf_halter ??
+      inserat["anzahl-der-halter"];
+    halterEl.textContent = String(raw ?? "").trim() || "–";
+  }
+
+  // Türen
+  const tuerenEl = document.getElementById("v-tueren");
+  if (tuerenEl) {
+    const raw = inserat.verkauf_tueren ?? inserat.tueren ?? inserat.türen ?? inserat.anzahltueren;
+    tuerenEl.textContent = String(raw ?? "").trim() || "–";
+  }
+
+  // HU
   const huEl = document.getElementById("v-hu");
   if (huEl) {
-    const huRaw = inserat.hu || "";
-    const m = inserat.tuevMonat || "";
-    const j = inserat.tuevJahr || "";
-    const hu = String(huRaw || `${m} ${j}`.trim()).trim();
+    const huRaw = firstNonEmpty(inserat.hu, inserat.tuev, inserat.tüv);
+    const m = firstNonEmpty(inserat.tuevMonat, inserat.tüvMonat, inserat.huMonat);
+    const j = firstNonEmpty(inserat.tuevJahr, inserat.tüvJahr, inserat.huJahr);
+    const hu = huRaw || `${m} ${j}`.trim();
     huEl.textContent = hu || "–";
   }
 
+  // Innenausstattung (Material / Farbe)
   const innenOut = document.getElementById("v-innenausstattung");
   if (innenOut) {
-    const mat = inserat.verkauf_innenmaterial ?? inserat.innenmaterial ?? "";
-    const col = inserat.verkauf_innenfarbe ?? inserat.innenfarbe ?? "";
+    const mat = firstNonEmpty(inserat.verkauf_innenmaterial, inserat.innenmaterial, inserat.sitzmaterial);
+    const col = firstNonEmpty(inserat.verkauf_innenfarbe, inserat.innenfarbe, inserat.sitzfarbe);
     const txt = [mat, col].filter(Boolean).join(" / ");
     innenOut.textContent = txt || "–";
   }
 
+  // Karosseriefarbe (falls Element existiert – z. B. in Vorschau)
+  const colorEl = document.getElementById("v-karosseriefarbe");
+  if (colorEl) {
+    const col = firstNonEmpty(
+      inserat.verkauf_karosseriefarbe,
+      inserat.karosseriefarbe,
+      inserat.verkauf_aussenfarbe,
+      inserat.aussenfarbe,
+      inserat["außenfarbe"],
+      inserat.farbe
+    );
+    colorEl.textContent = col || "–";
+  }
+
+  // Scheinwerfer (z. B. LED, Xenon) – robust
+  const headEl = document.getElementById("v-scheinwerfer");
+  if (headEl) {
+    const head = firstNonEmpty(inserat.verkauf_scheinwerfer, inserat.scheinwerfer, inserat.licht);
+    headEl.textContent = head || "–";
+  }
+
+  // Tagfahrlicht (Ja/Nein oder Text)
+  const tflEl = document.getElementById("v-tagfahrlicht");
+  if (tflEl) {
+    const tfl = inserat.verkauf_tagfahrlicht ?? inserat.tagfahrlicht ?? inserat.tagesfahrlicht;
+    tflEl.textContent = asYN(tfl);
+  }
+
+  // Einparkhilfe (String bevorzugen, sonst zusammensetzen)
   const eph = document.getElementById("v-einparkhilfe");
   if (eph) {
-    const ausDB = inserat.verkauf_einparkhilfe || inserat.einparkhilfe || "";
-    if (String(ausDB).trim()) {
+    const ausDB = firstNonEmpty(inserat.verkauf_einparkhilfe, inserat.einparkhilfe);
+    if (ausDB) {
       eph.textContent = ausDB;
     } else {
       const bits = [];
       if (inserat.einparkhilfeVorne) bits.push("vorn");
       if (inserat.einparkhilfeHinten) bits.push("hinten");
       if (inserat.einparkhilfeSelbstlenkend) bits.push("selbstlenkend");
-      if (inserat.kameraHinten) bits.push("Kamera hinten");
+      if (inserat.kameraHinten || inserat.kamerahinten) bits.push("Kamera hinten");
       if (inserat.kamera360) bits.push("360° Kamera");
       eph.textContent = bits.length ? bits.join(", ") : "–";
     }
   }
+
+  // Boolesche Felder mit Ja/Nein (wenn vorhanden)
+  const ynMap = [
+    ["fahrtauglich", "v-fahrtauglich"],
+    ["beschaedigt", "v-beschaedigt"],
+    ["unfall", "v-unfall"],
+    ["partikelfilter", "v-partikelfilter"],
+  ];
+  ynMap.forEach(([key, id]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = asYN(inserat[key]);
+  });
 }
+
 
 /* ------------------------ Ausstattung ------------------------ */
 const AUSSTATTUNG_KEYS = [
@@ -520,8 +596,16 @@ function updateSlider() {
 }
 function highlightThumb(idx) {
   const thumbs = document.querySelectorAll(".media-thumb");
-  thumbs.forEach((t, i) => t.classList.toggle("active", i === idx));
+  thumbs.forEach((t, i) => {
+    const isActive = i === idx;
+    t.classList.toggle("active", isActive);
+    t.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+  // aktiv sichtbarer machen
+  const active = thumbs[idx];
+  active?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
 }
+
 function setMedia(index) {
   currentIndex = Math.max(0, Math.min(index, mediaItems.length - 1));
   updateSlider();
@@ -1381,3 +1465,70 @@ window.closeLightbox = closeLightbox;
 window.navigateLightbox = navigateLightbox;
 window.toggleContactPanel = toggleContactPanel;
 window.toggleRatingPanel = toggleRatingPanel;
+
+
+
+function setupNavbar() {
+  const navLinks  = document.getElementById("nav-links");
+  const hamburger = document.getElementById("hamburger");
+
+  const closeAll = (exceptLi = null) => {
+    document.querySelectorAll(".navbar .dropdown").forEach((li) => {
+      if (li !== exceptLi) {
+        li.classList.remove("open");
+        const trigger = li.querySelector(":scope > a[aria-haspopup='true']");
+        const menu    = li.querySelector(":scope > .dropdown-menu");
+        trigger?.setAttribute("aria-expanded", "false");
+        menu?.classList.remove("show");
+      }
+    });
+  };
+
+  const toggleDropdown = (trigger) => {
+    const li   = trigger.closest(".dropdown");
+    const menu = li?.querySelector(":scope > .dropdown-menu");
+    if (!li || !menu) return;
+    const willOpen = !li.classList.contains("open");
+    closeAll(willOpen ? li : null);
+    li.classList.toggle("open", willOpen);
+    trigger.setAttribute("aria-expanded", willOpen ? "true" : "false");
+    menu.classList.toggle("show", willOpen);
+  };
+
+  // Hamburger
+  hamburger?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const willOpen = !navLinks?.classList.contains("active");
+    navLinks?.classList.toggle("active", willOpen);
+    hamburger.setAttribute("aria-expanded", willOpen ? "true" : "false");
+    if (!willOpen) closeAll();
+  });
+
+  // Dropdowns per Klick (kein Hover)
+  document.querySelectorAll(".navbar .dropdown > a[aria-haspopup='true']").forEach((a) => {
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleDropdown(a);
+    });
+  });
+
+  // Outside-Click schließt alles
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".navbar")) {
+      navLinks?.classList.remove("active");
+      hamburger?.setAttribute("aria-expanded", "false");
+      closeAll();
+    }
+  });
+
+  // ESC schließt alles
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      navLinks?.classList.remove("active");
+      hamburger?.setAttribute("aria-expanded", "false");
+      closeAll();
+    }
+  });
+}
