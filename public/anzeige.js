@@ -492,12 +492,9 @@ function fillMedia(inserat) {
 
   document.documentElement.style.setProperty("--media-count", mediaItems.length);
   slider.innerHTML = "";
-  thumbs && (thumbs.innerHTML = "");
+  if (thumbs) thumbs.innerHTML = "";
 
   mediaItems.forEach((item, idx) => {
-    const wrapper = document.createElement("div");
-    wrapper.classList.add("media-slide-wrapper");
-
     const el = document.createElement(item.type === "img" ? "img" : "video");
     el.src = item.src;
     el.classList.add("media-slide");
@@ -515,18 +512,7 @@ function fillMedia(inserat) {
     }
 
     el.addEventListener("click", () => openFullscreen(el));
-
-    const btn = document.createElement("div");
-    btn.classList.add("fullscreen-btn");
-    btn.innerHTML = `<i class="fas fa-expand"></i>`;
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      openFullscreen(el);
-    });
-
-    wrapper.appendChild(el);
-    wrapper.appendChild(btn);
-    slider.appendChild(wrapper);
+    slider.appendChild(el);
 
     if (thumbs) {
       const th = document.createElement(item.type === "img" ? "img" : "video");
@@ -541,12 +527,13 @@ function fillMedia(inserat) {
     }
   });
 
+  // Start auf Slide 0
   setTimeout(() => {
     setMedia(0);
-    updateSlider(false);
+    updateSlider();
   }, 0);
 
-  // Gesten
+  // Gesten – Logik bleibt, keine Optik
   container.addEventListener("pointerdown", dragStart, { passive: false });
   container.addEventListener("pointermove", dragMove, { passive: false });
   container.addEventListener("pointerup", dragEnd);
@@ -560,7 +547,7 @@ function dragStart(e) {
   slider?.classList.add("dragging");
   startX = e.clientX;
   animationID = requestAnimationFrame(animation);
-  if (slider) slider.style.transition = "none";
+  
 }
 function dragMove(e) {
   if (!isDragging) return;
@@ -588,7 +575,7 @@ function updateSlider() {
   if (!container || !slider) return;
   const slideWidth = container.offsetWidth;
   const targetTranslate = -currentIndex * slideWidth;
-  slider.style.transition = "transform 0.5s ease";
+  
   slider.style.transform = `translateX(${targetTranslate}px)`;
   currentTranslate = targetTranslate;
   prevTranslate = targetTranslate;
@@ -601,10 +588,20 @@ function highlightThumb(idx) {
     t.classList.toggle("active", isActive);
     t.setAttribute("aria-selected", isActive ? "true" : "false");
   });
-  // aktiv sichtbarer machen
-  const active = thumbs[idx];
-  active?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+
+  const active   = thumbs[idx];
+  const scroller = document.querySelector(".media-detail-thumbnails-scroll") 
+                || active?.parentElement; // <- Fallback
+
+  if (!scroller || !active) return;
+
+  const cRect = scroller.getBoundingClientRect();
+  const aRect = active.getBoundingClientRect();
+  const delta = (aRect.left + aRect.width/2) - (cRect.left + cRect.width/2);
+
+  scroller.scrollTo({ left: scroller.scrollLeft + delta, behavior: "smooth" });
 }
+
 
 
 function setMedia(index) {

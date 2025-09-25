@@ -500,7 +500,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
     box-shadow: 0 24px 80px rgba(0, 255, 204, 0.1);
   }
   
-  .media-detail-wrapper {
+  .media-detail-wrapper, #media-display {
     position: relative;
     display: flex;
     align-items: center;
@@ -520,7 +520,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
     border-radius: 12px;
   }
   
-  .media-slider {
+  .media-slider, #media-slider {
     display: flex;
     height: 100%;
     touch-action: pan-y;
@@ -606,7 +606,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
     padding-bottom: 10px;
   }
   
-  .media-detail-thumbnails {
+  .media-detail-thumbnails, #thumbnail-track {
     display: flex;
     gap: 10px;
     padding: 0 5px;
@@ -729,7 +729,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
     opacity: 1;
   }
   
-  .lightbox-overlay {
+  .lightbox-overlay, #lightbox-overlay {
     display: none;
     position: fixed;
     inset: 0;
@@ -741,7 +741,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
     backdrop-filter: blur(4px);
   }
   
-  .lightbox-overlay.show {
+  .lightbox-overlay.show, #lightbox-overlay.show {
     display: flex;
   }
   
@@ -2051,3 +2051,81 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 
 
 
+
+
+
+
+
+
+
+
+  /* === Fullscreen/Lightbox minimal – kein Glow, keine Ecke, kein Design === */
+
+/* Content/Systematik vereinheitlichen (id + class abdecken) */
+.lightbox-content,
+#lightbox-content {
+  /* zentriert durch Flex-Overlay, keine eigene Positionierung */
+  position: static !important;
+  inset: auto !important;
+  transform: none !important;
+
+  max-width: 90vw !important;
+  max-height: 90vh !important;
+
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+
+  animation: none !important; /* kein ZoomIn */
+}
+
+/* Das eigentliche Bild/Video – ebenfalls ohne Rahmen/Schatten */
+#lightbox-content .lightbox-inner-media {
+  max-width: 95vw !important;
+  max-height: 95vh !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Overlay bleibt schlicht schwarz */
+.lightbox-overlay,
+#lightbox-overlay {
+  background: rgba(0,0,0,0.9) !important;
+}
+
+/* Pfeile neutral (oder auskommentieren, wenn du sie ganz weg willst) */
+.lightbox-prev,
+.lightbox-next {
+  background: rgba(255,255,255,0.08) !important;
+}
+.lightbox-prev:hover,
+.lightbox-next:hover {
+  background: rgba(255,255,255,0.15) !important; /* kein Grün */
+}
+
+/* Zähler neutralisieren oder ausblenden */
+#lightbox-counter {
+  background: rgba(0,0,0,0.5) !important; /* neutral */
+  /* oder: display: none !important; */
+}
+
+/* Close-Button neutral lassen (keine grüne Tönung) */
+.lightbox-close-btn {
+  background: rgba(0,0,0,0.6) !important;
+}
+.lightbox-close-btn:hover {
+  background: rgba(255,255,255,0.2) !important;
+}
+
+/* OPTIONAL: absolut minimal – UI-Elemente komplett ausblenden
+.lightbox-prev,
+.lightbox-next,
+#lightbox-counter {
+  display: none !important;
+}
+*/
