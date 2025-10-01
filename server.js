@@ -1,3 +1,4 @@
+
 try { require("dotenv").config(); } catch {}
 
 const express = require("express");
@@ -1122,7 +1123,99 @@ app.get("/verify", async (req, res) => {
     return res.redirect(`${appUrl}/login.html?verified=0&reason=server`);
   }
 });
+// ====== E-Mail-Benachrichtigung bei neuer Chat-Nachricht ======
+const NOTIFY_ENABLED = (process.env.NOTIFY_EMAILS ?? "1") !== "0";
+const NOTIFY_MIN_INTERVAL_MIN = parseInt(process.env.NOTIFY_MIN_INTERVAL_MIN || "10", 10);
 
+function getAppUrls() {
+  try { return getUrls(); }
+  catch {
+    const api = process.env.API_URL || process.env.BASE_URL || `http://localhost:${PORT}`;
+    const appUrl = process.env.PUBLIC_APP_URL || api;
+    return { api, appUrl };
+  }
+}
+
+function escapeHtml(s = "") {
+  return s.replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+async function sendNewMessageEmail({ to, recipientName, senderName, messagePreview, chatUrl }) {
+  if (!to) return;
+  const { appUrl } = getAppUrls();
+  const logoUrl = `${appUrl}/${encodeURIComponent("AUTOVISA LOGO.PNG")}`;
+
+  const subject = `Neue Nachricht von ${senderName} auf Autovisa`;
+  const html = buildAutovisaEmail({
+    subject,
+    logoUrl,
+    greeting: `Hallo ${recipientName || ""},`,
+    title: "Du hast eine neue Nachricht",
+    htmlText: `
+      <p><b>${escapeHtml(senderName)}</b> hat dir eine neue Nachricht geschickt:</p>
+      <blockquote style="margin:12px 0; padding:10px 12px; background:#f6faf9; border-left:3px solid #00b8a9;">
+        ${escapeHtml(String(messagePreview || "").slice(0, 400))}
+      </blockquote>
+      <p>Antworte direkt im Chat.</p>
+    `,
+    buttonText: "Zum Chat",
+    buttonUrl: chatUrl,
+    footerNote: "Diese Benachrichtigung wurde automatisch gesendet. Du kannst E-Mail-Benachrichtigungen jederzeit in deinen Einstellungen deaktivieren."
+  });
+
+  const text =
+`Hallo ${recipientName || ""},
+
+${senderName} hat dir auf Autovisa eine neue Nachricht geschickt:
+
+"${String(messagePreview || "").slice(0, 400)}"
+
+Zum Chat:
+${chatUrl}
+`;
+
+  await transporter.sendMail({
+    from: MAIL_FROM,
+    replyTo: MAIL_REPLY_TO,
+    to,
+    subject,
+    html,
+    text
+  });
+}
+
+// Throttling: max. 1 Mail pro 10 Min je (empfaengerId, senderId, fahrzeugId)
+async function shouldSendNowAndTouchThrottle({ empfaengerId, senderId, fahrzeugId }) {
+  try {
+    const coll = db.collection("notifyThrottle");
+    const key = `${empfaengerId}:${senderId}:${fahrzeugId}`;
+    const now = new Date();
+    const minAgo = new Date(Date.now() - NOTIFY_MIN_INTERVAL_MIN * 60 * 1000);
+
+    // Atomar mit Aggregations-Pipeline upsert (erfordert MongoDB 4.2+)
+    const r = await coll.findOneAndUpdate(
+      { key },
+      [
+        {
+          $set: {
+            key,
+            previous: { $ifNull: ["$last", new Date(0)] },
+            last: now
+          }
+        }
+      ],
+      { upsert: true, returnDocument: "after" }
+    );
+
+    const previous = r?.value?.previous || new Date(0);
+    return previous < minAgo;
+  } catch (e) {
+    console.warn("Notify throttle error:", e?.message || e);
+    return true; // im Zweifel senden
+  }
+}
 
 // === Nachricht senden ===
 // Sicherheitsänderung: Sender NUR aus Session, nicht aus Body
@@ -1152,6 +1245,51 @@ app.post("/nachricht-senden", checkLogin, async (req, res) => {
     };
 
     await nachrichtenColl.insertOne(neueNachricht);
+
+    // === E-Mail-Benachrichtigung an Empfänger (gedrosselt) ===
+    try {
+      if (NOTIFY_ENABLED) {
+        const okToSend = await shouldSendNowAndTouchThrottle({
+          empfaengerId: String(empfaengerId),
+          senderId: String(senderId),
+          fahrzeugId: String(fahrzeugId)
+        });
+
+        if (okToSend) {
+          const nutzerColl = db.collection("nutzer");
+          const [empf, sndr] = await Promise.all([
+            nutzerColl.findOne({ id: String(empfaengerId) }, { projection: { email: 1, name: 1, firma: 1 } }),
+            nutzerColl.findOne({ id: String(senderId) },    { projection: { name: 1, firma: 1 } })
+          ]);
+
+          const recipientEmail = empf?.email || "";
+          const recipientName  = empf?.firma || empf?.name || "Nutzer";
+          const senderName     = absenderName || sndr?.firma || sndr?.name || "Interessent";
+
+          if (recipientEmail) {
+            const { appUrl } = getAppUrls();
+            const chatUrl = `${appUrl}/chat.html?user=${encodeURIComponent(empfaengerId)}&with=${encodeURIComponent(senderId)}&fahrzeug=${encodeURIComponent(fahrzeugId)}`;
+
+            await sendNewMessageEmail({
+              to: recipientEmail,
+              recipientName,
+              senderName,
+              messagePreview: neueNachricht.nachricht,
+              chatUrl
+            });
+            console.log(`✅ Mail-Benachrichtigung an ${recipientEmail} gesendet.`);
+          } else {
+            console.log("ℹ️ Empfänger ohne E-Mail – Benachrichtigung übersprungen.");
+          }
+        } else {
+          console.log("⏳ Benachrichtigung gedrosselt (Intervall).");
+        }
+      }
+    } catch (mailErr) {
+      console.error("⚠️ Konnte Benachrichtigung nicht senden:", mailErr);
+    }
+
+    // API-Antwort erst am Ende zurückgeben
     res.json({ success: true });
 
   } catch (err) {
@@ -1159,6 +1297,7 @@ app.post("/nachricht-senden", checkLogin, async (req, res) => {
     res.status(500).json({ error: "Fehler beim Speichern der Nachricht." });
   }
 });
+
 
 
 
