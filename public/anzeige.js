@@ -515,16 +515,33 @@ function fillMedia(inserat) {
     slider.appendChild(el);
 
     if (thumbs) {
-      const th = document.createElement(item.type === "img" ? "img" : "video");
-      th.className = "media-thumb";
-      th.src = item.src;
-      th.onclick = () => setMedia(idx);
       if (item.type === "video") {
+        const wrap = document.createElement("div");
+        wrap.className = "media-thumb-wrap";
+    
+        const th = document.createElement("video");
+        th.className = "media-thumb";
+        th.src = item.src;
         th.muted = true;
         th.playsInline = true;
+        th.onclick = () => setMedia(idx);
+    
+        const badge = document.createElement("span");
+        badge.className = "play-badge";
+        badge.textContent = "▶";
+    
+        wrap.appendChild(th);
+        wrap.appendChild(badge);
+        thumbs.appendChild(wrap);
+      } else {
+        const th = document.createElement("img");
+        th.className = "media-thumb";
+        th.src = item.src;
+        th.onclick = () => setMedia(idx);
+        thumbs.appendChild(th);
       }
-      thumbs.appendChild(th);
     }
+    
   });
 
   // Start auf Slide 0
@@ -1535,5 +1552,11 @@ function setupNavbar() {
     }
   });
 }
+
+
+
+
+
+
 
 
