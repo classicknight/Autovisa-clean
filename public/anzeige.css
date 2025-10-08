@@ -1871,10 +1871,12 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
     gap:8px;                           /* ⬅️ enger */
   }
   .car-top-row{ display:flex; align-items:center; gap:10px; min-width:0; }
-  .car-title{
-    font-size:17px; font-weight:600; color:#1a2a33; flex:1 1 auto;
-    min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:0;
-  }
+/* nur in Karten anwenden, nicht global */
+.car-card .car-title{
+  font-size:17px; font-weight:600; color:#1a2a33; flex:1 1 auto;
+  min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:0;
+}
+
   .car-price{
     font-size:18px; padding:6px 12px; background:#f1f5f9; border-radius:10px;
     color:#1a2a33; font-weight:600; white-space:nowrap; flex-shrink:0;
@@ -1941,12 +1943,13 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
     .results-section{ padding:0 12px; }
     #carResults, .car-results{ grid-template-columns:1fr; gap:20px; }
     .media-container{ aspect-ratio:4/3; }
-    .car-title{ font-size:16px; }
+    .car-card .car-title{ font-size:16px; } /* nur Karten */
     .car-price{ font-size:16px; padding:5px 10px; }
     .car-subtitle{ -webkit-line-clamp:2; }
     .car-info-grid{ font-size:13px; gap:6px 12px; }
     .dealer-info{ font-size:12.5px; }
   }
+  
   
   /* Bewegungs-Reduktion */
   @media (prefers-reduced-motion: reduce){
