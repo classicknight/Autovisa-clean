@@ -585,13 +585,15 @@ function highlightThumb(idx) {
   const thumbs = document.querySelectorAll(".media-thumb");
   thumbs.forEach((t, i) => {
     const isActive = i === idx;
-    t.classList.toggle("active", isActive);
+    // ❌ alt: t.classList.toggle("active", isActive);
+    // ✅ neu:
+    t.classList.toggle("active-thumb", isActive);
     t.setAttribute("aria-selected", isActive ? "true" : "false");
   });
 
   const active   = thumbs[idx];
   const scroller = document.querySelector(".media-detail-thumbnails-scroll") 
-                || active?.parentElement; // <- Fallback
+                || active?.parentElement;
 
   if (!scroller || !active) return;
 
@@ -625,7 +627,6 @@ function nextMedia() {
 let lightboxIndex = 0;
 let lbStartX = 0;
 let lbDragging = false;
-
 function openFullscreen(media) {
   if (!media || !/^(IMG|VIDEO)$/.test(media.tagName)) return;
 
@@ -641,11 +642,8 @@ function openFullscreen(media) {
 
   const isMobile = window.matchMedia("(max-width: 768px)").matches;
 
-  // Mobil: simpler Vollbildmodus (per CSS via .lb-simple reduziert)
-  document.body.classList.toggle("lb-simple", isMobile);
-
+  // nur per Klasse öffnen – Look kommt aus CSS
   overlay.classList.add("show");
-  overlay.style.background = isMobile ? "#000" : "rgba(0,0,0,0.95)";
 
   function renderLightboxMedia(sourceEl) {
     if (!sourceEl) return;
@@ -661,21 +659,7 @@ function openFullscreen(media) {
       el.playsInline = true;
     }
 
-    if (isMobile) {
-      Object.assign(el.style, {
-        width: "100vw",
-        height: "100vh",
-        maxWidth: "100vw",
-        maxHeight: "100vh",
-        objectFit: "contain",
-        margin: "0 auto",
-        background: "#000",
-        border: "none",
-        outline: "none",
-        boxShadow: "none",
-      });
-    }
-
+    // keine Inline-Styles – CSS regelt Größen/Hintergrund/Schatten
     content.appendChild(el);
   }
 
@@ -689,14 +673,14 @@ function openFullscreen(media) {
   // Keyboard: mobil nur ESC; Desktop zusätzlich ← →
   const onKey = (e) => {
     if (e.key === "Escape") closeLightbox();
-    if (!isMobile && e.key === "ArrowLeft") navigateLightbox(-1);
+    if (!isMobile && e.key === "ArrowLeft")  navigateLightbox(-1);
     if (!isMobile && e.key === "ArrowRight") navigateLightbox(1);
   };
   if (overlay._onKey) window.removeEventListener("keydown", overlay._onKey);
   overlay._onKey = onKey;
   window.addEventListener("keydown", onKey);
 
-  // Pointer-Swipe nur auf Desktop (Handler rechnen isMob *bei jedem Event* neu)
+  // Pointer-Swipe nur Desktop (kein zusätzlicher Inline-Style am Media)
   if (!overlay._lbBound) {
     const down = (e) => {
       const isMob = window.matchMedia("(max-width: 768px)").matches;
@@ -742,7 +726,7 @@ function openFullscreen(media) {
     overlay._lbBound = true;
   }
 
-  // Für navigateLightbox() verfügbar machen
+  // für navigateLightbox()
   window._lb_render = (el) => renderLightboxMedia(el);
   window._lb_update = () => updateLightboxCounter();
 }
@@ -755,12 +739,11 @@ function navigateLightbox(direction) {
 }
 
 function closeLightbox() {
-  document.body.classList.remove("lb-simple");
   const overlay = document.getElementById("lightbox-overlay");
   const content = document.getElementById("lightbox-content");
   if (!overlay) return;
   overlay.classList.remove("show");
-  overlay.style.background = ""; // inline Style zurücksetzen
+  // keine Inline-Resets nötig
   if (overlay._onKey) window.removeEventListener("keydown", overlay._onKey);
   if (content) content.innerHTML = "";
   lbDragging = false;
