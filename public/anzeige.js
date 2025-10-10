@@ -50,10 +50,19 @@ const PS2KW = (ps) => Math.round(Number(ps) * 0.7355);
 const escapeHTML = (str = "") =>
   String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const renderMultilineToHTML = (text = "") => {
-  const safe = escapeHTML(text).replace(/\r\n/g, "\n");
-  const blocks = safe.split(/\n{2,}/).map((b) => b.replace(/\n/g, "<br>"));
+  const safe = escapeHTML(String(text || "")).replace(/\r\n/g, "\n");
+  // 1) Trim Ränder
+  let s = safe.trim();
+  // 2) 3+ Leerzeilen -> exakt 2 (Absatztrenner)
+  s = s.replace(/\n{3,}/g, "\n\n");
+  // 3) In Absätze splitten
+  const blocks = s.split(/\n{2}/).map((b) => {
+    // innerhalb eines Absatzes mehrere \n -> genau ein <br>
+    return b.replace(/\n+/g, "<br>");
+  });
   return blocks.length ? `<p>${blocks.join("</p><p>")}</p>` : "";
 };
+
 const sanitizePhone = (p) => String(p || "").replace(/[^\d+]/g, "");
 const ensureHttp = (u) => (!u ? "" : /^https?:\/\//i.test(u) ? u : "https://" + String(u).trim());
 const pickPrice = (...vals) => {
@@ -516,24 +525,15 @@ function fillMedia(inserat) {
 
     if (thumbs) {
       if (item.type === "video") {
-        const wrap = document.createElement("div");
-        wrap.className = "media-thumb-wrap";
-    
         const th = document.createElement("video");
         th.className = "media-thumb";
         th.src = item.src;
         th.muted = true;
         th.playsInline = true;
         th.onclick = () => setMedia(idx);
-    
-        const badge = document.createElement("span");
-        badge.className = "play-badge";
-        badge.textContent = "▶";
-    
-        wrap.appendChild(th);
-        wrap.appendChild(badge);
-        thumbs.appendChild(wrap);
+        thumbs.appendChild(th);
       } else {
+
         const th = document.createElement("img");
         th.className = "media-thumb";
         th.src = item.src;
