@@ -159,7 +159,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const brandDropdown = document.getElementById("marke");
   const modelDropdown = document.getElementById("modell");
 
-  // Gruppen-Definitionen (bleiben wie gehabt)
+  // Gruppen-Definitionen
   const modelGroups = {
     "1er Reihe (Alle)": /^1(1[0-9]|2[0-9]|3[0-9]|4[0-9]|14[0-9]|1er M Coupé)/i,
     "2er Reihe (Alle)": /^2(1[0-9]|2[0-9]|3[0-9])/i,
@@ -226,13 +226,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     "911er Reihe (Alle)": /^(911|930|964|991|992|993|996|997|912|914|918)\b/,
 
-  "Golf (Alle)":   /^Golf(?!\s*\(Alle\))(\s|$|-)/i,
-"Passat (Alle)": /^Passat(?!\s*\(Alle\))(\s|$|-)/i,
-"T3 (Alle)":     /^T3(?!\s*\(Alle\))(\s|$)/i,
-"T4 (Alle)":     /^T4(?!\s*\(Alle\))(\s|$)/i,
-"T5 (Alle)":     /^T5(?!\s*\(Alle\))(\s|$)/i,
-"T6 (Alle)":     /^T6(?!\s*\(Alle\))(\s|$)/i
-
+    "Golf (Alle)":   /^Golf(?!\s*\(Alle\))(\s|$|-)/i,
+    "Passat (Alle)": /^Passat(?!\s*\(Alle\))(\s|$|-)/i,
+    "T3 (Alle)":     /^T3(?!\s*\(Alle\))(\s|$)/i,
+    "T4 (Alle)":     /^T4(?!\s*\(Alle\))(\s|$)/i,
+    "T5 (Alle)":     /^T5(?!\s*\(Alle\))(\s|$)/i,
+    "T6 (Alle)":     /^T6(?!\s*\(Alle\))(\s|$)/i
   };
 
   // SlimSelect-Helfer
@@ -263,44 +262,43 @@ document.addEventListener("DOMContentLoaded", () => {
         const brand       = brandDropdown?.value || "";
         const allowGroups = ALLOW_GROUPS_FOR[brand] || [];
         const currentVals = (newSelected || []).map(s => s.value);
-    
+
         // "Beliebig" exklusiv
         let vals = (currentVals.includes(ALL_MODELS_VALUE) && currentVals.length > 1)
           ? currentVals.filter(v => v !== ALL_MODELS_VALUE)
           : currentVals;
         if (vals.length === 1 && vals[0] === ALL_MODELS_VALUE) return;
-    
+
         const fullList = sanitizeModelList((brandToModels[brand] || []).map(String));
         const nextSet  = new Set();
-    
+
         vals.forEach(v => {
           const rx = modelGroups[v];
           const isAllowedGroup = rx && allowGroups.includes(v);
           if (isAllowedGroup) {
             fullList.forEach(m => {
-              if (/\(alle\)/i.test(m)) return;    // Gruppen-Label NICHT selektieren
+              if (/\(alle\)/i.test(m)) return; // Gruppen-Label NICHT selektieren
               if (rx.test(m)) nextSet.add(m);
             });
           } else if (v && v !== ALL_MODELS_VALUE) {
             nextSet.add(v);
           }
         });
-    
+
         const next = nextSet.size ? [...nextSet] : [ALL_MODELS_VALUE];
         const nowKey  = currentVals.slice().sort().join("|");
         const nextKey = next.slice().sort().join("|");
         if (nowKey !== nextKey) slimModell.setSelected(next);
       }
     }
-    
   });
-  
+
   // Modelle aus JSON
-  const FILTER_OUT_BELIEBIG = true;     // "Beliebig" aus JSON entfernen (wir fügen es selbst ein)
-  const FILTER_OUT_ALLE_VARIANTS = false; // "(Alle)"-Einträge aus JSON entfernen (Gruppen steuern wir separat)
+  const FILTER_OUT_BELIEBIG = true;
+  const FILTER_OUT_ALLE_VARIANTS = false;
   const ALL_MODELS_VALUE = "__ALL_MODELS__";
 
-  // Nur diese Marken bekommen Gruppen (… (Alle))
+  // Nur diese Marken bekommen Gruppen
   const ALLOW_GROUPS_FOR = {
     "Bentley": ["Continental (Alle)"],
     "BMW": [
@@ -336,26 +334,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const seen = new Set();
     const clean = [];
     let hadAndere = false;
-  
+
     for (const raw of listRaw) {
       if (raw == null) continue;
       const name = String(raw).trim();
       if (!name) continue;
       if (FILTER_OUT_BELIEBIG && /^beliebig$/i.test(name)) continue;
-      // "(Alle)" behalten (FILTER_OUT_ALLE_VARIANTS = false)
-  
+      // "(Alle)" behalten
       if (/^andere$/i.test(name)) { hadAndere = true; continue; }
-  
+
       const key = name.toLowerCase();
       if (!seen.has(key)) { seen.add(key); clean.push(name); }
     }
-  
-    // JSON-Reihenfolge beibehalten; "Andere" ans Ende setzen
     if (hadAndere) clean.push("Andere");
     return clean;
   }
-  
-  
 
   async function loadBrandModelMap() {
     try {
@@ -371,16 +364,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function rebuildModelOptions(brand) {
     if (!modelDropdown) return;
-  
+
     const rawList = (brandToModels && brandToModels[brand]) || [];
     const models  = sanitizeModelList(rawList);
-  
-    // Nur "Beliebig" + die Modelle in JSON-Reihenfolge
+
     const data = [
       { text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE },
       ...models.map(m => ({ text: m, value: m }))
     ];
-  
+
     if (slimModell) {
       slimModell.setData(data.length ? data : [{ text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE }]);
       slimModell.setSelected([ALL_MODELS_VALUE]);
@@ -395,201 +387,208 @@ document.addEventListener("DOMContentLoaded", () => {
       modelDropdown.value = ALL_MODELS_VALUE;
     }
   }
-  
-// Lade Daten & initialisiere
-(async () => {
-  await loadBrandModelMap();
 
-  // -------- Safari-Fallback für <input type="month"> --------
-  function supportsInputTypeMonth() {
-    const i = document.createElement('input');
-    i.setAttribute('type', 'month');
-    i.value = '2023-12';
-    return i.type === 'month' && i.value === '2023-12';
-  }
+  // Lade Daten & initialisiere
+  (async () => {
+    await loadBrandModelMap();
 
-  function buildMonthYearFallback(hiddenInputId, { minYear = 1980, maxYear = new Date().getFullYear() } = {}) {
-    const hidden = document.getElementById(hiddenInputId);
-    if (!hidden) return;
-  
-    // Original-Input als hidden verwenden
-    hidden.type = 'hidden';
-  
-    // UI: Monat + Jahr als <select>
-    const wrapper = document.createElement('div');
-    wrapper.className = 'month-year';
-  
-    const selMonth = document.createElement('select');
-    selMonth.setAttribute('aria-label', hiddenInputId + ' Monat');
-    for (let m = 1; m <= 12; m++) {
-      const opt = document.createElement('option');
-      opt.value = String(m).padStart(2, '0');
-      opt.textContent = new Date(2000, m - 1, 1).toLocaleString('de-DE', { month: 'long' });
-      selMonth.appendChild(opt);
+    // -------- Safari-Fallback für <input type="month"> --------
+    function supportsInputTypeMonth() {
+      const i = document.createElement('input');
+      i.setAttribute('type', 'month');
+      i.value = '2023-12';
+      return i.type === 'month' && i.value === '2023-12';
     }
-  
-    const selYear = document.createElement('select');
-    selYear.setAttribute('aria-label', hiddenInputId + ' Jahr');
-    for (let y = maxYear; y >= minYear; y--) {
-      const opt = document.createElement('option');
-      opt.value = String(y);
-      opt.textContent = String(y);
-      selYear.appendChild(opt);
-    }
-  
-    // Vorbelegung aus vorhandenem Wert (z. B. aus URL)
-    const mm = /^\d{4}-\d{2}$/.test(hidden.value) ? hidden.value : '';
-    if (mm) {
-      const [y, m] = mm.split('-');
-      if ([...selYear.options].some(o => o.value === y)) selYear.value = y;
-      if ([...selMonth.options].some(o => o.value === m)) selMonth.value = m;
-    }
-  
-    function sync() {
-      if (selYear.value && selMonth.value) {
-        hidden.value = `${selYear.value}-${selMonth.value}`;
-      } else {
-        hidden.value = '';
+
+    function buildMonthYearFallback(
+      hiddenInputId,
+      { minYear = 1980, maxYear = new Date().getFullYear() } = {}
+    ) {
+      const hidden = document.getElementById(hiddenInputId);
+      if (!hidden) return;
+
+      // Original-<input type="month"> als hidden nutzen
+      hidden.type = "hidden";
+
+      // Wrapper
+      const wrapper = document.createElement("div");
+      wrapper.className = "month-year";
+
+      // Monat-Select mit Platzhalter (kein Default)
+      const selMonth = document.createElement("select");
+      selMonth.setAttribute("aria-label", hiddenInputId + " Monat");
+      const phMonat = document.createElement("option");
+      phMonat.value = "";
+      phMonat.textContent = "Monat";
+      selMonth.appendChild(phMonat);
+      for (let m = 1; m <= 12; m++) {
+        const opt = document.createElement("option");
+        opt.value = String(m).padStart(2, "0");
+        opt.textContent = new Date(2000, m - 1, 1).toLocaleString("de-DE", { month: "long" });
+        selMonth.appendChild(opt);
       }
-    }
-    selMonth.addEventListener('change', sync);
-    selYear.addEventListener('change', sync);
-    sync();
-  
-    wrapper.appendChild(selMonth);
-    wrapper.appendChild(selYear);
-  
-    // WICHTIG: in der jeweiligen .range-item-Box einfügen (direkt vor das hidden Input)
-    const container = hidden.closest('.range-item') || hidden.parentElement;
-    container.insertBefore(wrapper, hidden);
-  }
-  
-  // ----------------------------------------------------------
 
-  // Marke -> Modelle
-  brandDropdown?.addEventListener("change", () => {
-    const val = brandDropdown.value;
-    rebuildModelOptions(val);
-    // Bei Markenwechsel standardmäßig "Beliebig"
-    if (slimModell) slimModell.setSelected([ALL_MODELS_VALUE]);
-    else modelDropdown.value = ALL_MODELS_VALUE;
-  });
-
-  // URL-Parameter übernehmen (von index.html)
-  const qs = new URLSearchParams(location.search);
-
-  // Marke
-  const qBrand = qs.get("marke") || "";
-  if (qBrand && brandDropdown) {
-    if (slimMarke) slimMarke.setSelected(qBrand);
-    else brandDropdown.value = qBrand;
-    rebuildModelOptions(qBrand);
-  } else if (brandDropdown?.value) {
-    rebuildModelOptions(brandDropdown.value);
-  }
-
-  // Modelle (kann Einzelmodelle ODER Gruppen enthalten)
-  const qModels = (qs.get("modell") || "")
-    .split(",")
-    .map(s => s.trim())
-    .filter(Boolean);
-
-  if (qModels.length && slimModell) {
-    const brand = qBrand || brandDropdown?.value || "";
-    const list  = sanitizeModelList((brandToModels[brand] || []).map(String));
-    const allowedForBrand = ALLOW_GROUPS_FOR[brand] || [];
-    const expanded = new Set();
-
-    for (const item of qModels) {
-      if (allowedForBrand.includes(item) && modelGroups[item]) {
-        const rx = modelGroups[item];
-        list.forEach(m => { if (!/\(alle\)/i.test(m) && rx.test(m)) expanded.add(m); });
-      } else if (list.includes(item)) {
-        expanded.add(item);
+      // Jahr-Select mit Platzhalter (kein Default)
+      const selYear = document.createElement("select");
+      selYear.setAttribute("aria-label", hiddenInputId + " Jahr");
+      const phJahr = document.createElement("option");
+      phJahr.value = "";
+      phJahr.textContent = "Jahr";
+      selYear.appendChild(phJahr);
+      for (let y = maxYear; y >= minYear; y--) {
+        const opt = document.createElement("option");
+        opt.value = String(y);
+        opt.textContent = String(y);
+        selYear.appendChild(opt);
       }
+
+      // Nur synchronisieren, wenn BEIDE gewählt sind
+      function sync() {
+        const y = selYear.value;
+        const m = selMonth.value;
+        hidden.value = (y && m) ? `${y}-${m}` : "";
+      }
+      selMonth.addEventListener("change", sync);
+      selYear.addEventListener("change", sync);
+
+      // Vorbelegung NUR, wenn hidden schon gültig ist (z. B. aus URL)
+      const mm = /^\d{4}-\d{2}$/.test(hidden.value) ? hidden.value : "";
+      if (mm) {
+        const [y, m] = mm.split("-");
+        if ([...selYear.options].some(o => o.value === y)) selYear.value = y;
+        if ([...selMonth.options].some(o => o.value === m)) selMonth.value = m;
+        sync();
+      }
+
+      wrapper.appendChild(selMonth);
+      wrapper.appendChild(selYear);
+      const container = hidden.closest(".range-item") || hidden.parentElement;
+      container.insertBefore(wrapper, hidden);
     }
+    // ----------------------------------------------------------
 
-    const vals = [...expanded];
-    slimModell.setSelected(vals.length ? vals : [ALL_MODELS_VALUE]);
-  } else {
-    // Wenn keine Modelle in der URL: Beliebig aktiv
-    slimModell?.setSelected([ALL_MODELS_VALUE]);
-  }
-
-  // EZ von (index: ezFrom=YYYY-MM)
-  const ezFrom = qs.get("ezFrom");
-  const ezVonInput = document.getElementById("ez-von");
-  if (ezFrom && ezVonInput) {
-    const mm = /^\d{4}-\d{2}$/.test(ezFrom) ? ezFrom : null;
-    if (mm) ezVonInput.value = mm;
-  }
-
-  // EZ bis (index: ezTo=YYYY-MM)
-  const ezTo = qs.get("ezTo");
-  const ezBisInput = document.getElementById("ez-bis");
-  if (ezTo && ezBisInput) {
-    const mm2 = /^\d{4}-\d{2}$/.test(ezTo) ? ezTo : null;
-    if (mm2) ezBisInput.value = mm2;
-  }
-
-  // Safari-Fallback erst nach dem Setzen der URL-Werte bauen:
-  if (!supportsInputTypeMonth()) {
-    buildMonthYearFallback('ez-von', { minYear: 1980 });
-    buildMonthYearFallback('ez-bis', { minYear: 1980 });
-  }
-
-  // km_max -> km-bis
-  const kmMax = qs.get("km_max");
-  const kmBis = document.getElementById("km-bis");
-  if (kmMax && kmBis) kmBis.value = kmMax;
-
-  // price_max -> preis-bis
-  const priceMax = qs.get("price_max");
-  const preisBis = document.getElementById("preis-bis");
-  if (priceMax && preisBis) preisBis.value = priceMax;
-
-  // Ort
-  const ort = qs.get("ort");
-  const ortInput = document.getElementById("ort");
-  if (ort && ortInput) ortInput.value = ort;
-
-  // Umkreis (+ custom)
-  const umkreisSel = document.getElementById("umkreis");
-  const umkreisQS  = qs.get("umkreis");
-  if (umkreisSel && umkreisQS) {
-    const values = Array.from(umkreisSel.options).map(o => o.value);
-    if (values.includes(umkreisQS)) {
-      umkreisSel.value = umkreisQS;
-      window.toggleCustomUmkreis?.(umkreisSel.value);
-    } else {
-      umkreisSel.value = "custom";
-      window.toggleCustomUmkreis?.("custom");
-      const custom = document.getElementById("custom-umkreis");
-      if (custom) custom.value = umkreisQS;
-    }
-  }
-
-  // Getriebe (Automatik/Schalt)
-  const getriebe = (qs.get("getriebe") || "").toLowerCase();
-  if (getriebe) {
-    document
-      .querySelectorAll('[label*="Getriebe"] input[type="checkbox"], .search-group input[type="checkbox"]')
-      .forEach(inp => {
-        const v = (inp.value || "").toLowerCase();
-        if (getriebe.includes("auto") && v.includes("auto")) inp.checked = true;
-        if (getriebe.includes("schalt") && v.includes("schalt")) inp.checked = true;
-      });
-  }
-
-  // Kraftstoff
-  const kraftstoff = (qs.get("kraftstoff") || "").toLowerCase();
-  if (kraftstoff) {
-    document.querySelectorAll('.fuel-type-grid input[type="checkbox"]').forEach(inp => {
-      const v = (inp.parentElement?.innerText || inp.value || "").toLowerCase();
-      if (kraftstoff && v.includes(kraftstoff)) inp.checked = true;
+    // Marke -> Modelle
+    brandDropdown?.addEventListener("change", () => {
+      const val = brandDropdown.value;
+      rebuildModelOptions(val);
+      // Bei Markenwechsel standardmäßig "Beliebig"
+      if (slimModell) slimModell.setSelected([ALL_MODELS_VALUE]);
+      else modelDropdown.value = ALL_MODELS_VALUE;
     });
-  }
-})();
+
+    // URL-Parameter übernehmen (von index.html)
+    const qs = new URLSearchParams(location.search);
+
+    // Marke
+    const qBrand = qs.get("marke") || "";
+    if (qBrand && brandDropdown) {
+      if (slimMarke) slimMarke.setSelected(qBrand);
+      else brandDropdown.value = qBrand;
+      rebuildModelOptions(qBrand);
+    } else if (brandDropdown?.value) {
+      rebuildModelOptions(brandDropdown.value);
+    }
+
+    // Modelle (kann Einzelmodelle ODER Gruppen enthalten)
+    const qModels = (qs.get("modell") || "")
+      .split(",")
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    if (qModels.length && slimModell) {
+      const brand = qBrand || brandDropdown?.value || "";
+      const list  = sanitizeModelList((brandToModels[brand] || []).map(String));
+      const allowedForBrand = ALLOW_GROUPS_FOR[brand] || [];
+      const expanded = new Set();
+
+      for (const item of qModels) {
+        if (allowedForBrand.includes(item) && modelGroups[item]) {
+          const rx = modelGroups[item];
+          list.forEach(m => { if (!/\(alle\)/i.test(m) && rx.test(m)) expanded.add(m); });
+        } else if (list.includes(item)) {
+          expanded.add(item);
+        }
+      }
+
+      const vals = [...expanded];
+      slimModell.setSelected(vals.length ? vals : [ALL_MODELS_VALUE]);
+    } else {
+      // Wenn keine Modelle in der URL: Beliebig aktiv
+      slimModell?.setSelected([ALL_MODELS_VALUE]);
+    }
+
+    // EZ von (index: ezFrom=YYYY-MM)
+    const ezFrom = qs.get("ezFrom");
+    const ezVonInput = document.getElementById("ez-von");
+    if (ezFrom && ezVonInput && /^\d{4}-\d{2}$/.test(ezFrom)) {
+      ezVonInput.value = ezFrom;
+    }
+
+    // EZ bis (index: ezTo=YYYY-MM)
+    const ezTo = qs.get("ezTo");
+    const ezBisInput = document.getElementById("ez-bis");
+    if (ezTo && ezBisInput && /^\d{4}-\d{2}$/.test(ezTo)) {
+      ezBisInput.value = ezTo;
+    }
+
+    // Safari-Fallback erst nach dem Setzen der URL-Werte bauen:
+    if (!supportsInputTypeMonth()) {
+      buildMonthYearFallback('ez-von', { minYear: 1980 });
+      buildMonthYearFallback('ez-bis', { minYear: 1980 });
+    }
+
+    // km_max -> km-bis
+    const kmMax = qs.get("km_max");
+    const kmBis = document.getElementById("km-bis");
+    if (kmMax && kmBis) kmBis.value = kmMax;
+
+    // price_max -> preis-bis
+    const priceMax = qs.get("price_max");
+    const preisBis = document.getElementById("preis-bis");
+    if (priceMax && preisBis) preisBis.value = priceMax;
+
+    // Ort
+    const ort = qs.get("ort");
+    const ortInput = document.getElementById("ort");
+    if (ort && ortInput) ortInput.value = ort;
+
+    // Umkreis (+ custom)
+    const umkreisSel = document.getElementById("umkreis");
+    const umkreisQS  = qs.get("umkreis");
+    if (umkreisSel && umkreisQS) {
+      const values = Array.from(umkreisSel.options).map(o => o.value);
+      if (values.includes(umkreisQS)) {
+        umkreisSel.value = umkreisQS;
+        window.toggleCustomUmkreis?.(umkreisSel.value);
+      } else {
+        umkreisSel.value = "custom";
+        window.toggleCustomUmkreis?.("custom");
+        const custom = document.getElementById("custom-umkreis");
+        if (custom) custom.value = umkreisQS;
+      }
+    }
+
+    // Getriebe (Automatik/Schalt)
+    const getriebe = (qs.get("getriebe") || "").toLowerCase();
+    if (getriebe) {
+      document
+        .querySelectorAll('[label*="Getriebe"] input[type="checkbox"], .search-group input[type="checkbox"]')
+        .forEach(inp => {
+          const v = (inp.value || "").toLowerCase();
+          if (getriebe.includes("auto") && v.includes("auto")) inp.checked = true;
+          if (getriebe.includes("schalt") && v.includes("schalt")) inp.checked = true;
+        });
+    }
+
+    // Kraftstoff
+    const kraftstoff = (qs.get("kraftstoff") || "").toLowerCase();
+    if (kraftstoff) {
+      document.querySelectorAll('.fuel-type-grid input[type="checkbox"]').forEach(inp => {
+        const v = (inp.parentElement?.innerText || inp.value || "").toLowerCase();
+        if (kraftstoff && v.includes(kraftstoff)) inp.checked = true;
+      });
+    }
+  })();
 
   /* =========================
      SlimSelects für restliche Felder (nur wenn vorhanden)
@@ -601,12 +600,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initSlim('#plakette',        { placeholder: 'Plakette wählen', allowDeselect: true, showSearch: false });
   initSlim('#schadstoffklasse',{ placeholder: 'Schadstoffklasse',allowDeselect: true, showSearch: false });
   initSlim('#tueren',          { placeholder: 'Türen wählen',    allowDeselect: true, showSearch: false });
-  initSlim('#zustand',         { placeholder: 'Zustand wählen',  allowDeselect: true, showSearch: false });
-  initSlim('#fahrzeugart',     { placeholder: 'Fahrzeugart',     allowDeselect: true, showSearch: false });
-  initSlim('#halter',          { placeholder: 'Halter',          allowDeselect: true, showSearch: false });
-  initSlim('#fahrtauglich',    { placeholder: 'Fahrtauglich?',   allowDeselect: true, showSearch: false });
-  initSlim('#beschaedigt',     { placeholder: 'Beschädigt?',     allowDeselect: true, showSearch: false });
-  initSlim('#unfall',          { placeholder: 'Unfallfahrzeug?', allowDeselect: true, showSearch: false });
+  // optionale: initSlim für weitere, falls vorhanden
 
   /* =========================
      Globale Handler für HTML-onchange
@@ -632,288 +626,277 @@ document.addEventListener("DOMContentLoaded", () => {
       input.value = '';
     }
   };
+
   /* =========================
      Button "Fahrzeuge anzeigen" → suche.html
      ========================= */
-// Hilfen
-function num(val) {
-  const s = String(val ?? "").replace(",", ".").trim();
-  if (s === "") return null;                // leer => nichts senden
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
-}
-
-function getSelectedModels() {
-  const sel = document.getElementById("modell");
-  if (!sel) return [];
-  const vals = Array.from(sel.selectedOptions || [])
-    .map(o => o.value)
-    .filter(Boolean);
-  // "Beliebig (alle Modelle)" => keine Modelle senden
-  return vals.includes(ALL_MODELS_VALUE) ? [] : vals;
-}
-
-// Labels ohne value → Text extrahieren
-function getCheckedTextsIn(container) {
-  return Array.from(container.querySelectorAll('input[type="checkbox"]'))
-    .filter(inp => inp.checked)
-    .map(inp => (inp.parentElement?.innerText || "").trim())
-    .filter(Boolean);
-}
-
-// Werte aus Checkboxen mit value
-function getCheckedValuesIn(container) {
-  return Array.from(container.querySelectorAll('input[type="checkbox"]'))
-    .filter(inp => inp.checked)
-    .map(inp => (inp.value || "").trim())
-    .filter(Boolean);
-}
-
-// gezielt einen .search-group-Block per Überschrift finden
-function findGroupByLabelText(text) {
-  return Array.from(document.querySelectorAll('.search-group')).find(g => {
-    const label = g.querySelector('label');
-    return label && label.textContent && label.textContent.toLowerCase().includes(text.toLowerCase());
-  }) || null;
-}// ganz oben eine simple num-Fallback-Funktion, falls window.num fehlt:
-function _numFallback(v){ const n=parseInt(v,10); return Number.isFinite(n)?n:null; }
-function buildAdvancedQuery() {
-  const qs = new URLSearchParams();
-
-  // kleine Helper
-  const _numFallback = (v) => {
-    if (v == null) return null;
-    const s = String(v).replace(",", ".").trim();
-    if (!s) return null;
+  function num(val) {
+    const s = String(val ?? "").replace(",", ".").trim();
+    if (s === "") return null;
     const n = Number(s);
     return Number.isFinite(n) ? n : null;
-  };
-  const num = (typeof window.num === "function") ? window.num : _numFallback;
-
-  // Marke
-  const brandEl = document.getElementById("marke") || window.brandDropdown;
-  const brand = brandEl?.value?.trim() || "";
-  if (brand) qs.set("marke", brand);
-
-  // Modelle (SlimSelect nutzt das native <select>)
-  (function collectModels() {
-    const sel = document.getElementById("modell");
-    if (!sel) return;
-    let vals = Array.from(sel.selectedOptions || [])
-      .map(o => (o.value || "").trim())
-      .filter(Boolean);
-    // „Beliebig“ & Gruppenlabels ausfiltern
-    vals = vals.filter(v => v !== "__ALL_MODELS__" && !/^beliebig/i.test(v) && !/\(alle\)$/i.test(v));
-    vals = Array.from(new Set(vals)); // dedupe
-    if (vals.length) qs.set("modell", vals.join(","));
-  })();
-
-  // Modellvariante
-  const modVar = document.getElementById("modellausfuehrung")?.value?.trim();
-  if (modVar) qs.set("modellausfuehrung", modVar);
-
-  // Türen
-  const tueren = document.getElementById("tueren")?.value?.trim();
-  if (tueren) qs.set("tueren", tueren);
-
-  // Erstzulassung (nur setzen, wenn Feld wirklich einen Wert hat)
-  const ezFrom = document.getElementById("ez-von")?.value || "";
-  const ezTo   = document.getElementById("ez-bis")?.value || "";
-  if (/^\d{4}-\d{2}$/.test(ezFrom)) qs.set("ezFrom", ezFrom);
-  if (/^\d{4}-\d{2}$/.test(ezTo))   qs.set("ezTo",   ezTo);
-
-  // Kilometer
-  const kmMin = num(document.getElementById("km-von")?.value);
-  const kmMax = num(document.getElementById("km-bis")?.value);
-  if (kmMin != null && kmMin > 0) qs.set("km_min", String(kmMin));
-  if (kmMax != null && kmMax > 0) qs.set("km_max", String(kmMax));
-
-  // Preis
-  const pMin = num(document.getElementById("preis-von")?.value);
-  const pMax = num(document.getElementById("preis-bis")?.value);
-  if (pMin != null && pMin > 0) qs.set("price_min", String(pMin));
-  if (pMax != null && pMax > 0) qs.set("price_max", String(pMax));
-
-  // Land (nur wenn nicht der erste Eintrag)
-  (function () {
-    const landEl = document.getElementById("land");
-    if (!landEl) return;
-    const val = landEl.value?.trim();
-    const hasMultiple = landEl.options && landEl.options.length > 1;
-    const firstVal = hasMultiple ? landEl.options[0].value : val;
-    if (hasMultiple && val && val !== firstVal) qs.set("land", val);
-  })();
-
-  // Ort & Umkreis (+ ggf. Koordinaten)
-  const ort = document.getElementById("ort")?.value?.trim();
-  if (ort) qs.set("ort", ort);
-
-  const latV = parseFloat(document.getElementById("ort-lat")?.value);
-  const lonV = parseFloat(document.getElementById("ort-lon")?.value);
-  if (Number.isFinite(latV) && Number.isFinite(lonV)) {
-    qs.set("ort_lat", String(latV));
-    qs.set("ort_lon", String(lonV));
   }
 
-  const umkreisSel = document.getElementById("umkreis");
-  if (umkreisSel) {
-    let radius = umkreisSel.value;
-    if (radius === "custom") {
-      const c = num(document.getElementById("custom-umkreis")?.value);
-      radius = (c != null && c > 0) ? String(c) : "";
+  // ganz oben eine simple num-Fallback-Funktion, falls window.num fehlt:
+  function _numFallback(v){ const n=parseInt(v,10); return Number.isFinite(n)?n:null; }
+
+  function buildAdvancedQuery() {
+    const qs = new URLSearchParams();
+
+    const numLocal = (typeof window.num === "function") ? window.num : _numFallback;
+
+    // Marke
+    const brandEl = document.getElementById("marke") || window.brandDropdown;
+    const brand = brandEl?.value?.trim() || "";
+    if (brand) qs.set("marke", brand);
+
+    // Modelle
+    (function collectModels() {
+      const sel = document.getElementById("modell");
+      if (!sel) return;
+      let vals = Array.from(sel.selectedOptions || [])
+        .map(o => (o.value || "").trim())
+        .filter(Boolean);
+      vals = vals.filter(v => v !== "__ALL_MODELS__" && !/^beliebig/i.test(v) && !/\(alle\)$/i.test(v));
+      vals = Array.from(new Set(vals));
+      if (vals.length) qs.set("modell", vals.join(","));
+    })();
+
+    // Modellvariante
+    const modVar = document.getElementById("modellausfuehrung")?.value?.trim();
+    if (modVar) qs.set("modellausfuehrung", modVar);
+
+    // Türen
+    const tueren = document.getElementById("tueren")?.value?.trim();
+    if (tueren) qs.set("tueren", tueren);
+
+    // Erstzulassung
+    const ezFrom = document.getElementById("ez-von")?.value || "";
+    const ezTo   = document.getElementById("ez-bis")?.value || "";
+    if (/^\d{4}-\d{2}$/.test(ezFrom)) qs.set("ezFrom", ezFrom);
+    if (/^\d{4}-\d{2}$/.test(ezTo))   qs.set("ezTo",   ezTo);
+
+    // Kilometer
+    const kmMin = numLocal(document.getElementById("km-von")?.value);
+    const kmMax = numLocal(document.getElementById("km-bis")?.value);
+    if (kmMin != null && kmMin > 0) qs.set("km_min", String(kmMin));
+    if (kmMax != null && kmMax > 0) qs.set("km_max", String(kmMax));
+
+    // Preis
+    const pMin = numLocal(document.getElementById("preis-von")?.value);
+    const pMax = numLocal(document.getElementById("preis-bis")?.value);
+    if (pMin != null && pMin > 0) qs.set("price_min", String(pMin));
+    if (pMax != null && pMax > 0) qs.set("price_max", String(pMax));
+
+    // Land (nur wenn nicht der erste Eintrag)
+    (function () {
+      const landEl = document.getElementById("land");
+      if (!landEl) return;
+      const val = landEl.value?.trim();
+      const hasMultiple = landEl.options && landEl.options.length > 1;
+      const firstVal = hasMultiple ? landEl.options[0].value : val;
+      if (hasMultiple && val && val !== firstVal) qs.set("land", val);
+    })();
+
+    // Ort & Koordinaten
+    const ort = document.getElementById("ort")?.value?.trim();
+    if (ort) qs.set("ort", ort);
+
+    const latV = parseFloat(document.getElementById("ort-lat")?.value);
+    const lonV = parseFloat(document.getElementById("ort-lon")?.value);
+    if (Number.isFinite(latV) && Number.isFinite(lonV)) {
+      qs.set("ort_lat", String(latV));
+      qs.set("ort_lon", String(lonV));
     }
-    if (radius) qs.set("umkreis", radius);
-  }
 
-  // Leistung / Hubraum / Verbrauch (Komma → Punkt)
-  const psMin = num(document.getElementById("leistung-von")?.value);
-  const psMax = num(document.getElementById("leistung-bis")?.value);
-  if (psMin != null && psMin > 0) qs.set("ps_min", String(psMin));
-  if (psMax != null && psMax > 0) qs.set("ps_max", String(psMax));
-
-  const ccMin = num(document.getElementById("hubraum-von")?.value);
-  const ccMax = num(document.getElementById("hubraum-bis")?.value);
-  if (ccMin != null && ccMin > 0) qs.set("ccm_min", String(ccMin));
-  if (ccMax != null && ccMax > 0) qs.set("ccm_max", String(ccMax));
-
-  const verb = num(document.getElementById("verbrauch")?.value);
-  if (verb != null && verb > 0) qs.set("verbrauch_max", String(verb));
-
-  // Getriebe (genau 1 aktiv → senden)
-  (function () {
-    const boxes = document.querySelectorAll(
-      'input[type="checkbox"][value="Automatik"], input[type="checkbox"][value="Schaltgetriebe"]'
-    );
-    const selected = Array.from(boxes).filter(i => i.checked).map(i => (i.value || "").toLowerCase());
-    if (selected.length === 1) qs.set("getriebe", selected[0]);
-  })();
-
-  // Antrieb (mehrere)
-  (function () {
-    const picked = Array.from(document.querySelectorAll(
-      'input[type="checkbox"][value="Frontantrieb"], input[type="checkbox"][value="Heckantrieb"], input[type="checkbox"][value="Allradantrieb"]'
-    ))
-      .filter(i => i.checked)
-      .map(i => i.value)
-      .filter(Boolean);
-    if (picked.length) qs.set("antrieb", picked.join(","));
-  })();
-
-  // Kraftstoff (genau 1)
-  (function () {
-    const grid = document.querySelector(".fuel-type-grid");
-    if (!grid) return;
-    const picked = Array.from(grid.querySelectorAll('input[type="checkbox"]'))
-      .filter(i => i.checked)
-      .map(i => (i.parentElement?.innerText || "").trim().toLowerCase());
-    if (picked.length !== 1) return;
-    const t = picked[0];
-    let token = "";
-    if (t.startsWith("benzin")) token = "benzin";
-    else if (t.startsWith("diesel")) token = "diesel";
-    else if (t.startsWith("elektro")) token = "elektro";
-    else if (t.includes("hybrid")) token = "hybrid";
-    else if (t.startsWith("wasserstoff")) token = "wasserstoff";
-    else if (t.includes("cng") || t.includes("erdgas")) token = "cng";
-    else if (t.includes("lpg") || t.includes("autogas")) token = "lpg";
-    else if (t.startsWith("ethanol")) token = "ethanol";
-    else if (t.startsWith("andere")) token = "andere";
-    if (token) qs.set("kraftstoff", token);
-  })();
-
-  // Schadstoffe / Umwelt / HU / Halter
-  const schad       = document.getElementById("schadstoffklasse")?.value;
-  const schadCustom = document.getElementById("custom-schadstoff")?.value?.trim();
-  const schadFinal  = schadCustom || schad;
-  if (schadFinal) qs.set("schadstoffklasse", schadFinal);
-
-  const plakette = document.getElementById("plakette")?.value;
-  if (plakette && plakette !== "Beliebig") qs.set("plakette", plakette);
-
-  const pf = document.getElementById("partikelfilter");
-  if (pf && pf.checked) qs.set("partikelfilter", "1");
-
-  const huSel    = document.getElementById("hu-gueltig")?.value;
-  const huCustom = document.getElementById("custom-hu")?.value?.trim();
-  const huFinal  = huCustom || huSel;
-  if (huFinal && huFinal !== "Beliebig") qs.set("hu", huFinal);
-
-  const halter = document.getElementById("fahrzeughalter")?.value;
-  if (halter) qs.set("halter_max", halter);
-
-  // Fahrzeugtyp (nimmt value oder Labeltext)
-  (function collectVehicleTypes() {
-    const vals = new Set();
-
-    // bevorzugt Inputs mit name="fahrzeugtyp"
-    document.querySelectorAll('input[type="checkbox"][name="fahrzeugtyp"]:checked')
-      .forEach(i => { const v = i.value?.trim(); if (v) vals.add(v); });
-
-    // Fallback: die Gruppe mit Label „Fahrzeugtyp“
-    if (!vals.size) {
-      const group = Array.from(document.querySelectorAll(".search-group"))
-        .find(g => /fahrzeugtyp/i.test(g.querySelector("label")?.textContent || g.textContent || ""));
-      if (group) {
-        group.querySelectorAll('input[type="checkbox"]:checked').forEach(i => {
-          const v = i.value?.trim() || i.parentElement?.textContent?.trim();
-          if (v) vals.add(v);
-        });
+    // Umkreis
+    const umkreisSel = document.getElementById("umkreis");
+    if (umkreisSel && !umkreisSel.disabled) {
+      let radius = umkreisSel.value;
+      if (radius === "custom") {
+        const c = numLocal(document.getElementById("custom-umkreis")?.value);
+        radius = (c != null && c > 0) ? String(c) : "";
       }
+      if (radius) qs.set("umkreis", radius);
     }
 
-    if (vals.size) qs.set("fahrzeugtyp", Array.from(vals).join(","));
-  })();
+    // Leistung / Hubraum
+    const psMin = numLocal(document.getElementById("leistung-von")?.value);
+    const psMax = numLocal(document.getElementById("leistung-bis")?.value);
+    if (psMin != null && psMin > 0) qs.set("ps_min", String(psMin));
+    if (psMax != null && psMax > 0) qs.set("ps_max", String(psMax));
 
-  // Farben (nimmt value oder Labeltext, dedupe)
-  (function () {
-    const colorBox = document.querySelector(".color-selection");
-    if (!colorBox) return;
-    const vals = Array.from(colorBox.querySelectorAll('input[type="checkbox"]:checked'))
-      .map(i => (i.value?.trim() || i.parentElement?.textContent?.trim()))
-      .map(s => s && s.replace(/\s+/g, " ").trim())
-      .filter(Boolean);
-    if (vals.length) qs.set("farbe", Array.from(new Set(vals)).join(","));
-  })();
+    const ccMin = numLocal(document.getElementById("hubraum-von")?.value);
+    const ccMax = numLocal(document.getElementById("hubraum-bis")?.value);
+    if (ccMin != null && ccMin > 0) qs.set("ccm_min", String(ccMin));
+    if (ccMax != null && ccMax > 0) qs.set("ccm_max", String(ccMax));
 
-  // Sonstige Merkmale (inkl. „Fahrtauglich“)
-  (function () {
-    const group = Array.from(document.querySelectorAll(".search-group"))
-      .find(g => /Sonstige Merkmale/i.test(g.querySelector("label")?.textContent || g.textContent || ""));
-    if (!group) return;
-    const vals = Array.from(group.querySelectorAll('input[type="checkbox"]:checked'))
-      .map(i => (i.value?.trim() || i.parentElement?.textContent?.trim()))
-      .map(s => s && s.replace(/\s+/g, " ").trim())
-      .filter(Boolean);
-    if (vals.length) qs.set("merkmale", Array.from(new Set(vals)).join(","));
-  })();
+    // Verbrauch (max) – entweder Select (#verbrauch-select) oder Input (#verbrauch)
+    (function () {
+      const sel = document.getElementById("verbrauch-select");
+      const inp = document.getElementById("verbrauch");
+      let value = null;
 
-  // page zurücksetzen
-  qs.delete("page");
-  return qs;
-}
+      if (sel) {
+        let raw = sel.value;
+        if (raw === "custom") {
+          const cInp = document.getElementById("verbrauch-custom");
+          raw = cInp ? cInp.value : "";
+        }
+        const n = numLocal(raw);
+        if (n != null && n > 0) value = n;
+      } else if (inp) {
+        const n = numLocal(inp.value);
+        if (n != null && n > 0) value = n;
+      }
 
-// Weiterleitung
-function goToSearch() {
-  const qs = buildAdvancedQuery();
-  window.location.href = `suche.html?${qs.toString()}`;
-}
-document.querySelector(".search-submit .submit-btn")?.addEventListener("click", e => {
-  e.preventDefault();
-  goToSearch();
+      if (value != null) qs.set("verbrauch_max", String(value));
+    })();
+
+    // Getriebe (genau 1)
+    (function () {
+      const boxes = document.querySelectorAll(
+        'input[type="checkbox"][value="Automatik"], input[type="checkbox"][value="Schaltgetriebe"]'
+      );
+      const selected = Array.from(boxes).filter(i => i.checked).map(i => (i.value || "").toLowerCase());
+      if (selected.length === 1) qs.set("getriebe", selected[0]);
+    })();
+
+    // Antrieb (mehrere)
+    (function () {
+      const picked = Array.from(document.querySelectorAll(
+        'input[type="checkbox"][value="Frontantrieb"], input[type="checkbox"][value="Heckantrieb"], input[type="checkbox"][value="Allradantrieb"]'
+      ))
+        .filter(i => i.checked)
+        .map(i => i.value)
+        .filter(Boolean);
+      if (picked.length) qs.set("antrieb", picked.join(","));
+    })();
+
+    // Kraftstoff (genau 1)
+    (function () {
+      const grid = document.querySelector(".fuel-type-grid");
+      if (!grid) return;
+      const picked = Array.from(grid.querySelectorAll('input[type="checkbox"]'))
+        .filter(i => i.checked)
+        .map(i => (i.parentElement?.innerText || "").trim().toLowerCase());
+      if (picked.length !== 1) return;
+      const t = picked[0];
+      let token = "";
+      if (t.startsWith("benzin")) token = "benzin";
+      else if (t.startsWith("diesel")) token = "diesel";
+      else if (t.startsWith("elektro")) token = "elektro";
+      else if (t.includes("hybrid")) token = "hybrid";
+      else if (t.startsWith("wasserstoff")) token = "wasserstoff";
+      else if (t.includes("cng") || t.includes("erdgas")) token = "cng";
+      else if (t.includes("lpg") || t.includes("autogas")) token = "lpg";
+      else if (t.startsWith("ethanol")) token = "ethanol";
+      else if (t.startsWith("andere")) token = "andere";
+      if (token) qs.set("kraftstoff", token);
+    })();
+
+    // Schadstoffe / Umwelt / HU / Halter
+    const schad       = document.getElementById("schadstoffklasse")?.value;
+    const schadCustom = document.getElementById("custom-schadstoff")?.value?.trim();
+    const schadFinal  = schadCustom || schad;
+    if (schadFinal) qs.set("schadstoffklasse", schadFinal);
+
+    const plakette = document.getElementById("plakette")?.value;
+    if (plakette && plakette !== "Beliebig") qs.set("plakette", plakette);
+
+    // Partikelfilter → explizit "mit" setzen (falls Backend anderes erwartet, hier anpassen)
+    const pf = document.getElementById("partikelfilter");
+    if (pf && pf.checked) {
+      qs.set("partikelfilter", "mit"); // ggf. zu "1" oder "true" ändern
+    }
+
+    // HU
+    const huSel    = document.getElementById("hu-gueltig")?.value;
+    const huCustom = document.getElementById("custom-hu")?.value?.trim();
+    const huFinal  = huCustom || huSel;
+    if (huFinal && huFinal !== "Beliebig") qs.set("hu", huFinal);
+
+    const halter = document.getElementById("fahrzeughalter")?.value;
+    if (halter) qs.set("halter_max", halter);
+
+    // Fahrzeugtyp
+    (function collectVehicleTypes() {
+      const vals = new Set();
+
+      document.querySelectorAll('input[type="checkbox"][name="fahrzeugtyp"]:checked')
+        .forEach(i => { const v = i.value?.trim(); if (v) vals.add(v); });
+
+      if (!vals.size) {
+        const group = Array.from(document.querySelectorAll(".search-group"))
+          .find(g => /fahrzeugtyp/i.test(g.querySelector("label")?.textContent || g.textContent || ""));
+        if (group) {
+          group.querySelectorAll('input[type="checkbox"]:checked').forEach(i => {
+            const v = i.value?.trim() || i.parentElement?.textContent?.trim();
+            if (v) vals.add(v);
+          });
+        }
+      }
+      if (vals.size) qs.set("fahrzeugtyp", Array.from(vals).join(","));
+    })();
+
+    // Farben + Lack-Finish (Metallic/Matt)
+    (function () {
+      const colorBox = document.querySelector(".color-selection");
+      if (!colorBox) return;
+
+      const picks = Array.from(colorBox.querySelectorAll('input[type="checkbox"]:checked'))
+        .map(i => (i.value?.trim() || i.parentElement?.textContent?.trim()))
+        .map(s => s && s.replace(/\s+/g, " ").trim())
+        .filter(Boolean);
+
+      if (picks.length) {
+        // Finish separat erkennen
+        const hasMetallic = picks.some(p => /^metallic$/i.test(p));
+        const hasMatt     = picks.some(p => /^matt$/i.test(p));
+
+        const pureColors = picks.filter(p => !/^metallic$/i.test(p) && !/^matt$/i.test(p));
+        if (pureColors.length) qs.set("farbe", Array.from(new Set(pureColors)).join(","));
+
+        // separate Finish-Flags setzen (gegen Invertierungsfehler)
+        if (hasMetallic) qs.set("lack", "metallic");
+        if (hasMatt)     qs.set("lack_matt", "1");
+      }
+    })();
+
+    // Sonstige Merkmale + Fahrtauglich-Flag
+    (function () {
+      const group = Array.from(document.querySelectorAll(".search-group"))
+        .find(g => /Sonstige Merkmale/i.test(g.querySelector("label")?.textContent || g.textContent || ""));
+      if (!group) return;
+      const vals = Array.from(group.querySelectorAll('input[type="checkbox"]:checked'))
+        .map(i => (i.value?.trim() || i.parentElement?.textContent?.trim()))
+        .map(s => s && s.replace(/\s+/g, " ").trim())
+        .filter(Boolean);
+
+      if (vals.length) qs.set("merkmale", Array.from(new Set(vals)).join(","));
+
+      // Zusätzlich explizit Fahrtauglich-Flag (gegen Backend-Invertierung)
+      const ft = vals.some(v => /^fahrtauglich$/i.test(v));
+      if (ft) qs.set("fahrtauglich", "1"); // ggf. zu "true" ändern
+    })();
+
+    // page zurücksetzen
+    qs.delete("page");
+    return qs;
+  }
+
+  // Weiterleitung
+  function goToSearch() {
+    const qs = buildAdvancedQuery();
+    window.location.href = `suche.html?${qs.toString()}`;
+  }
+  document.querySelector(".search-submit .submit-btn")?.addEventListener("click", e => {
+    e.preventDefault();
+    goToSearch();
+  });
 });
 
-});
-
-
-
-
-
-
-
-
-
-
-// Nur einmal definieren, z.B. in deiner Suchkriterien.js
+// Nur einmal definieren
 function toggleCustomUmkreis(val) {
   const custom = document.getElementById("custom-umkreis");
   if (!custom) return;
