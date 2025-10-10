@@ -2145,3 +2145,13 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 
 .media-thumb.active-thumb { border-color:#00ffcc; box-shadow:0 0 12px rgba(0,255,204,.5); }
 
+
+
+
+.car-description-content p{
+  margin: 0 0 12px;   /* kein „Doppelsprung“ */
+}
+.car-description-content p:last-child{
+  margin-bottom: 0;
+}
+.car-description-content p:empty{ display:none; } /* Sicherheit gegen leere Absätze */

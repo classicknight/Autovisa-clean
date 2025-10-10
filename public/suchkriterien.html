@@ -272,14 +272,15 @@
 <div class="search-group">
   <label for="fahrzeugtyp">Fahrzeugtyp</label>
   <div class="checkbox-grid">
-    <label><input type="checkbox"> Cabrio / Roadster</label>
-    <label><input type="checkbox"> Kleinwagen</label>
-    <label><input type="checkbox"> Limousine</label>
-    <label><input type="checkbox"> Van / Minibus</label>
-    <label><input type="checkbox"> Geländewagen / SUV</label>
-    <label><input type="checkbox"> Kombi</label>
-    <label><input type="checkbox"> Sportwagen / Coupé</label>
+    <label><input type="checkbox" name="fahrzeugtyp" value="Cabrio / Roadster"> Cabrio / Roadster</label>
+    <label><input type="checkbox" name="fahrzeugtyp" value="Kleinwagen"> Kleinwagen</label>
+    <label><input type="checkbox" name="fahrzeugtyp" value="Limousine"> Limousine</label>
+    <label><input type="checkbox" name="fahrzeugtyp" value="Van / Minibus"> Van / Minibus</label>
+    <label><input type="checkbox" name="fahrzeugtyp" value="Geländewagen / SUV"> Geländewagen / SUV</label>
+    <label><input type="checkbox" name="fahrzeugtyp" value="Kombi"> Kombi</label>
+    <label><input type="checkbox" name="fahrzeugtyp" value="Sportwagen / Coupé"> Sportwagen / Coupé</label>
   </div>
+  
 </div>
 
 
@@ -419,17 +420,17 @@
     <div class="search-group">
     <label>Kraftstoffart</label>
     <div class="checkbox-grid fuel-type-grid">
-      <label><input type="checkbox"> Benzin</label>
-      <label><input type="checkbox"> Diesel</label>
-      <label><input type="checkbox"> Elektro</label>
-      <label><input type="checkbox"> Hybrid (Diesel)</label>
-      <label><input type="checkbox"> Hybrid (Benzin)</label>
-      <label><input type="checkbox"> Wasserstoff</label>
-      <label><input type="checkbox"> Erdgas (CNG)</label>
-      <label><input type="checkbox"> Autogas (LPG)</label>
-      <label><input type="checkbox"> Ethanol</label>
-      
+      <label><input type="checkbox" value="benzin"> Benzin</label>
+      <label><input type="checkbox" value="diesel"> Diesel</label>
+      <label><input type="checkbox" value="elektro"> Elektro</label>
+      <label><input type="checkbox" value="hybrid-diesel"> Hybrid (Diesel)</label>
+      <label><input type="checkbox" value="hybrid-benzin"> Hybrid (Benzin)</label>
+      <label><input type="checkbox" value="wasserstoff"> Wasserstoff</label>
+      <label><input type="checkbox" value="cng"> Erdgas (CNG)</label>
+      <label><input type="checkbox" value="lpg"> Autogas (LPG)</label>
+      <label><input type="checkbox" value="ethanol"> Ethanol</label>
     </div>
+    
   </div>
   
   
@@ -446,9 +447,9 @@
     <option>Euro 6c</option>
     <option>Euro 6d-TEMP</option>
     <option>Euro 6d</option>
- 
+    <option value="custom">Benutzerdefiniert…</option>
   </select>
-
+  
   <input
     type="text"
     id="custom-schadstoff"
@@ -557,21 +558,22 @@
   <div class="search-group">
     <label>Karosseriefarbe</label>
     <div class="color-selection">
-      <label class="color-option" style="--color:#222;"><input type="checkbox"> Schwarz</label>
-      <label class="color-option" style="--color:#d4af78;"><input type="checkbox"> Beige</label>
-      <label class="color-option" style="--color:#aaa;"><input type="checkbox"> Grau</label>
-      <label class="color-option" style="--color:#8b4513;"><input type="checkbox"> Braun</label>
-      <label class="color-option" style="--color:#fff;"><input type="checkbox"> Weiß</label>
-      <label class="color-option" style="--color:#ff6600;"><input type="checkbox"> Orange</label>
-      <label class="color-option" style="--color:#1e5ee4;"><input type="checkbox"> Blau</label>
-      <label class="color-option" style="--color:#ffd700;"><input type="checkbox"> Gelb</label>
-      <label class="color-option" style="--color:#e60000;"><input type="checkbox"> Rot</label>
-      <label class="color-option" style="--color:#7ed957;"><input type="checkbox"> Grün</label>
-      <label class="color-option" style="--color:#ccc;"><input type="checkbox"> Silber</label>
-      <label class="color-option" style="--color:#ffda44;"><input type="checkbox"> Gold</label>
-      <label class="color-option" style="--color:#a033e6;"><input type="checkbox"> Violett</label>
-      <label class="color-option color-outline"><input type="checkbox"> Matt</label>
-      <label class="color-option color-outline"><input type="checkbox"> Metallic</label>
+      <label class="color-option" style="--color:#222;"><input type="checkbox" value="Schwarz"> Schwarz</label>
+      <label class="color-option" style="--color:#d4af78;"><input type="checkbox" value="Beige"> Beige</label>
+      <label class="color-option" style="--color:#aaa;"><input type="checkbox" value="Grau"> Grau</label>
+      <label class="color-option" style="--color:#8b4513;"><input type="checkbox" value="Braun"> Braun</label>
+      <label class="color-option" style="--color:#fff;"><input type="checkbox" value="Weiß"> Weiß</label>
+      <label class="color-option" style="--color:#ff6600;"><input type="checkbox" value="Orange"> Orange</label>
+      <label class="color-option" style="--color:#1e5ee4;"><input type="checkbox" value="Blau"> Blau</label>
+      <label class="color-option" style="--color:#ffd700;"><input type="checkbox" value="Gelb"> Gelb</label>
+      <label class="color-option" style="--color:#e60000;"><input type="checkbox" value="Rot"> Rot</label>
+      <label class="color-option" style="--color:#7ed957;"><input type="checkbox" value="Grün"> Grün</label>
+      <label class="color-option" style="--color:#ccc;"><input type="checkbox" value="Silber"> Silber</label>
+      <label class="color-option" style="--color:#ffda44;"><input type="checkbox" value="Gold"> Gold</label>
+      <label class="color-option" style="--color:#a033e6;"><input type="checkbox" value="Violett"> Violett</label>
+      <label class="color-option color-outline"><input type="checkbox" value="Matt"> Matt</label>
+      <label class="color-option color-outline"><input type="checkbox" value="Metallic"> Metallic</label>
+      
     </div>
   </div>
   
