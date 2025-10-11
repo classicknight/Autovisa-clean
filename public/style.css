@@ -1488,3 +1488,19 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
   .footer-grid{ grid-template-columns:1fr; }
   .bottom-inner{ flex-direction:column; align-items:flex-start; gap:8px; }
 }
+
+
+
+
+
+
+
+
+
+/* Force: gleiche Ausrichtung wie anzeige.html (Menü startet am linken Pill-Rand) */
+.navbar .dropdown { position: relative; }           /* falls nicht schon so */
+.navbar .dropdown-menu{
+  left: 0 !important;
+  right: auto !important;
+  transform: translateY(6px) scale(.98) !important; /* X-Übersetzung entfernen */
+}
