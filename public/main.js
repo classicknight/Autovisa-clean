@@ -1026,27 +1026,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// === 5. Buttons wie "Meine Autos", "Gespeicherte Autos", "Nachrichten" prüfen Login
-document.addEventListener("DOMContentLoaded", () => {
-  const checkAndRedirect = (e) => {
-    e.preventDefault();
-    const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
-    if (isLoggedIn) {
-      window.location.href = "übersicht.html";
-    } else {
-      localStorage.setItem("redirectAfterLogin", "übersicht.html");
-      window.location.href = "login.html";
-    }
-  };
 
-  const savedCars = document.getElementById("saved-cars-link");
-  const myCars = document.getElementById("my-cars-link");
-  const nachrichten = document.querySelector('a[href="nachrichten.html"]');
-
-  savedCars?.addEventListener("click", checkAndRedirect);
-  myCars?.addEventListener("click", checkAndRedirect);
-  nachrichten?.addEventListener("click", checkAndRedirect);
-});
 
 // === 6. Passwortschutz-Funktion (z. B. für Adminbereiche)
 function checkPassword() {
