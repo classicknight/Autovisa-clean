@@ -131,16 +131,40 @@ function checkLoginAndRedirect(targetUrl) {
       if (data.eingeloggt) {
         window.location.href = targetUrl;
       } else {
-        localStorage.setItem("redirectAfterLogin", window.location.pathname + window.location.hash);
+        // Direkt das gewünschte Ziel merken, nicht die aktuelle Seite
+        localStorage.setItem("redirectAfterLogin", targetUrl);
         window.location.href = "login.html";
       }
+    })
+    .catch(() => {
+      // Fallback: wie oben
+      localStorage.setItem("redirectAfterLogin", targetUrl);
+      window.location.href = "login.html";
     });
 }
 
+// Desktop/Dropdown-Links
 if (savedCarsLink) savedCarsLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#saved-cars"); });
 if (myCarsLink)    myCarsLink   .addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#car-list"); });
 if (soldCarsLink)  soldCarsLink .addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#sold-cars"); });
 if (messagesLink)  messagesLink .addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#messages-list"); });
+
+// Mobile-Icons (Herz & Nachrichten) – IDs in index.html: #mobile-saved, #mobile-messages
+const mobileSaved    = document.getElementById("mobile-saved");
+const mobileMessages = document.getElementById("mobile-messages");
+
+if (mobileSaved) {
+  mobileSaved.addEventListener("click", (e) => {
+    e.preventDefault();
+    checkLoginAndRedirect("übersicht.html#saved-cars");
+  });
+}
+if (mobileMessages) {
+  mobileMessages.addEventListener("click", (e) => {
+    e.preventDefault();
+    checkLoginAndRedirect("übersicht.html#messages-list");
+  });
+}
 
 // ===== Smooth Scroll =====
 const searchLink  = document.querySelector('a[href="#search-section"]');
