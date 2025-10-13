@@ -35,19 +35,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const trigger = li.querySelector('a[aria-haspopup="true"]');
     const menu    = li.querySelector('.dropdown-menu');
     if (!trigger || !menu) return;
-
+  
     const tRect = trigger.getBoundingClientRect();
     const mRect = menu.getBoundingClientRect();
     const liRect = li.getBoundingClientRect();
     const vw = window.innerWidth;
-
-    const center  = tRect.left + tRect.width / 2;
-    let leftAbs   = center - mRect.width / 2;
-    leftAbs       = clamp(leftAbs, 16, vw - mRect.width - 16);
+  
+    // LINKS am Trigger statt Center:
+    const offset = 0; // ggf. auf 8 setzen, wenn du „etwas rechts“ willst
+    let leftAbs = tRect.left + offset;
+  
+    // Clamping an die Viewport-Kanten
+    leftAbs = Math.max(16, Math.min(leftAbs, vw - mRect.width - 16));
+  
     const relLeft = leftAbs - liRect.left;
-
     menu.style.left = `${relLeft}px`;
   }
+  
 
   function openDropdown(trigger) {
     const li   = trigger.closest(".dropdown");
