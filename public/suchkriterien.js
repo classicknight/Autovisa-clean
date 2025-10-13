@@ -172,10 +172,14 @@ document.addEventListener("DOMContentLoaded", () => {
   bindGoto(mobileSaved,   "#saved");
   bindGoto(mobileMsg,     "#chats");
 
-  document.querySelector('a[href="#search-section"]')?.addEventListener("click", (e) => {
-    e.preventDefault();
-    document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
-  });
+  const hashLink = document.querySelector('a[href="#search-section"]');
+  if (hashLink) {
+    hashLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
+    });
+  }
+  
 
   // Sichtbar machen (falls animiert)
   const searchSection = document.querySelector('.search-section');
