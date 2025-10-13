@@ -1,6 +1,4 @@
 
-
-
 // suchkriterien.js
 document.documentElement.classList.remove('no-js');
 
@@ -13,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const dropdownLinks = document.querySelectorAll(".dropdown > a");
   const dropdownLis   = document.querySelectorAll(".dropdown");
   const authLinkLi    = document.getElementById("auth-link");
+  const navbar        = document.querySelector(".navbar");
 
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
@@ -57,11 +56,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     li.classList.add("open");
     trigger.setAttribute("aria-expanded", "true");
-    menu.classList.add("show");
+    menu?.classList.add("show");
 
-    [...menu.children].forEach((item, i) => {
-      item.style.transitionDelay = `${i * 25}ms`;
-    });
+    if (menu) {
+      [...menu.children].forEach((item, i) => {
+        item.style.transitionDelay = `${i * 25}ms`;
+      });
+    }
 
     const isMobile = window.matchMedia("(max-width: 900px)").matches;
     if (!isMobile) requestAnimationFrame(() => positionMenu(li));
@@ -89,16 +90,32 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // Klicks innerhalb der Navbar sollen NICHT das Schließen-Handler auslösen
+  navbar?.addEventListener("click", (e) => e.stopPropagation());
+  navLinks?.addEventListener("click", (e) => e.stopPropagation());
+
+  // Klick außerhalb schließt alles
   document.addEventListener("click", () => {
     navLinks?.classList.remove("active");
     closeAllDropdowns();
   });
 
-  const repositionOpen = () => document.querySelectorAll(".dropdown.open").forEach(positionMenu);
-  window.addEventListener("resize", repositionOpen);
-  window.addEventListener("scroll", repositionOpen);
+  // Esc schließt alles
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      navLinks?.classList.remove("active");
+      closeAllDropdowns();
+      hamburger?.setAttribute("aria-expanded", "false");
+    }
+  });
 
-  // Auth-UI (Login -> Abmelden)
+  const repositionOpen = () => document.querySelectorAll(".dropdown.open").forEach(positionMenu);
+  window.addEventListener("resize", repositionOpen, { passive: true });
+  window.addEventListener("scroll", repositionOpen, { passive: true });
+
+  /* =========================
+     Auth-UI (Login -> Abmelden)
+     ========================= */
   if (authLinkLi) {
     fetch("/getNutzerInfo", { credentials: "include" })
       .then(res => res.json())
@@ -116,17 +133,21 @@ document.addEventListener("DOMContentLoaded", () => {
       .catch(() => {});
   }
 
-  // Links -> Übersicht-Tabs (login-abhängig)
+  /* =========================
+     Login-abhängige Navigationsziele
+     ========================= */
   const savedCarsLink = document.getElementById("saved-cars-link");
   const myCarsLink    = document.getElementById("my-cars-link");
   const soldCarsLink  = document.getElementById("sold-cars-link");
   const messagesLink  = document.getElementById("messages-link");
+  const mobileSaved   = document.getElementById("mobile-saved");
+  const mobileMsg     = document.getElementById("mobile-messages");
 
   function gotoUebersicht(targetHash) {
     fetch("/getNutzerInfo", { credentials: "include" })
       .then(res => res.json())
       .then(data => {
-        if (data.eingeloggt) {
+        if (data?.eingeloggt) {
           window.location.href = `übersicht.html${targetHash}`;
         } else {
           localStorage.setItem("redirectAfterLogin", `übersicht.html${targetHash}`);
@@ -139,10 +160,13 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   }
 
-  savedCarsLink?.addEventListener("click", (e) => { e.preventDefault(); gotoUebersicht("#saved"); });
-  myCarsLink?.addEventListener("click",    (e) => { e.preventDefault(); gotoUebersicht("#my-cars"); });
-  soldCarsLink?.addEventListener("click",  (e) => { e.preventDefault(); gotoUebersicht("#sold"); });
-  messagesLink?.addEventListener("click",  (e) => { e.preventDefault(); gotoUebersicht("#chats"); });
+  const bindGoto = (el, hash) => el?.addEventListener("click", e => { e.preventDefault(); gotoUebersicht(hash); });
+  bindGoto(savedCarsLink, "#saved");
+  bindGoto(myCarsLink,    "#my-cars");
+  bindGoto(soldCarsLink,  "#sold");
+  bindGoto(messagesLink,  "#chats");
+  bindGoto(mobileSaved,   "#saved");
+  bindGoto(mobileMsg,     "#chats");
 
   document.querySelector('a[href="#search-section"]')?.addEventListener("click", (e) => {
     e.preventDefault();
@@ -295,7 +319,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Modelle aus JSON
   const FILTER_OUT_BELIEBIG = true;
-  const FILTER_OUT_ALLE_VARIANTS = false;
   const ALL_MODELS_VALUE = "__ALL_MODELS__";
 
   // Nur diese Marken bekommen Gruppen
@@ -340,7 +363,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const name = String(raw).trim();
       if (!name) continue;
       if (FILTER_OUT_BELIEBIG && /^beliebig$/i.test(name)) continue;
-      // "(Alle)" behalten
       if (/^andere$/i.test(name)) { hadAndere = true; continue; }
 
       const key = name.toLowerCase();
@@ -600,7 +622,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initSlim('#plakette',        { placeholder: 'Plakette wählen', allowDeselect: true, showSearch: false });
   initSlim('#schadstoffklasse',{ placeholder: 'Schadstoffklasse',allowDeselect: true, showSearch: false });
   initSlim('#tueren',          { placeholder: 'Türen wählen',    allowDeselect: true, showSearch: false });
-  // optionale: initSlim für weitere, falls vorhanden
+  // optional weitere initSlims …
 
   /* =========================
      Globale Handler für HTML-onchange
@@ -630,19 +652,10 @@ document.addEventListener("DOMContentLoaded", () => {
   /* =========================
      Button "Fahrzeuge anzeigen" → suche.html
      ========================= */
-  function num(val) {
-    const s = String(val ?? "").replace(",", ".").trim();
-    if (s === "") return null;
-    const n = Number(s);
-    return Number.isFinite(n) ? n : null;
-  }
-
-  // ganz oben eine simple num-Fallback-Funktion, falls window.num fehlt:
-  function _numFallback(v){ const n=parseInt(v,10); return Number.isFinite(n)?n:null; }
+  function _numFallback(v){ const n=parseInt(String(v||"").trim(),10); return Number.isFinite(n)?n:null; }
 
   function buildAdvancedQuery() {
     const qs = new URLSearchParams();
-
     const numLocal = (typeof window.num === "function") ? window.num : _numFallback;
 
     // Marke
@@ -698,10 +711,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (hasMultiple && val && val !== firstVal) qs.set("land", val);
     })();
 
-    // Ort & Koordinaten
+    // Ort
     const ort = document.getElementById("ort")?.value?.trim();
     if (ort) qs.set("ort", ort);
 
+    // Koordinaten (falls vorhanden)
     const latV = parseFloat(document.getElementById("ort-lat")?.value);
     const lonV = parseFloat(document.getElementById("ort-lon")?.value);
     if (Number.isFinite(latV) && Number.isFinite(lonV)) {
@@ -714,24 +728,24 @@ document.addEventListener("DOMContentLoaded", () => {
     if (umkreisSel && !umkreisSel.disabled) {
       let radius = umkreisSel.value;
       if (radius === "custom") {
-        const c = numLocal(document.getElementById("custom-umkreis")?.value);
+        const c = _numFallback(document.getElementById("custom-umkreis")?.value);
         radius = (c != null && c > 0) ? String(c) : "";
       }
       if (radius) qs.set("umkreis", radius);
     }
 
     // Leistung / Hubraum
-    const psMin = numLocal(document.getElementById("leistung-von")?.value);
-    const psMax = numLocal(document.getElementById("leistung-bis")?.value);
+    const psMin = _numFallback(document.getElementById("leistung-von")?.value);
+    const psMax = _numFallback(document.getElementById("leistung-bis")?.value);
     if (psMin != null && psMin > 0) qs.set("ps_min", String(psMin));
     if (psMax != null && psMax > 0) qs.set("ps_max", String(psMax));
 
-    const ccMin = numLocal(document.getElementById("hubraum-von")?.value);
-    const ccMax = numLocal(document.getElementById("hubraum-bis")?.value);
+    const ccMin = _numFallback(document.getElementById("hubraum-von")?.value);
+    const ccMax = _numFallback(document.getElementById("hubraum-bis")?.value);
     if (ccMin != null && ccMin > 0) qs.set("ccm_min", String(ccMin));
     if (ccMax != null && ccMax > 0) qs.set("ccm_max", String(ccMax));
 
-    // Verbrauch (max) – entweder Select (#verbrauch-select) oder Input (#verbrauch)
+    // Verbrauch (max)
     (function () {
       const sel = document.getElementById("verbrauch-select");
       const inp = document.getElementById("verbrauch");
@@ -743,10 +757,10 @@ document.addEventListener("DOMContentLoaded", () => {
           const cInp = document.getElementById("verbrauch-custom");
           raw = cInp ? cInp.value : "";
         }
-        const n = numLocal(raw);
+        const n = _numFallback(raw);
         if (n != null && n > 0) value = n;
       } else if (inp) {
-        const n = numLocal(inp.value);
+        const n = _numFallback(inp.value);
         if (n != null && n > 0) value = n;
       }
 
@@ -804,13 +818,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const plakette = document.getElementById("plakette")?.value;
     if (plakette && plakette !== "Beliebig") qs.set("plakette", plakette);
 
-    // Partikelfilter → explizit "mit" setzen (falls Backend anderes erwartet, hier anpassen)
     const pf = document.getElementById("partikelfilter");
-    if (pf && pf.checked) {
-      qs.set("partikelfilter", "mit"); // ggf. zu "1" oder "true" ändern
-    }
+    if (pf && pf.checked) qs.set("partikelfilter", "mit");
 
-    // HU
     const huSel    = document.getElementById("hu-gueltig")?.value;
     const huCustom = document.getElementById("custom-hu")?.value?.trim();
     const huFinal  = huCustom || huSel;
@@ -822,7 +832,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // Fahrzeugtyp
     (function collectVehicleTypes() {
       const vals = new Set();
-
       document.querySelectorAll('input[type="checkbox"][name="fahrzeugtyp"]:checked')
         .forEach(i => { const v = i.value?.trim(); if (v) vals.add(v); });
 
@@ -839,7 +848,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (vals.size) qs.set("fahrzeugtyp", Array.from(vals).join(","));
     })();
 
-    // Farben + Lack-Finish (Metallic/Matt)
+    // Farben + Lack-Finish
     (function () {
       const colorBox = document.querySelector(".color-selection");
       if (!colorBox) return;
@@ -850,34 +859,14 @@ document.addEventListener("DOMContentLoaded", () => {
         .filter(Boolean);
 
       if (picks.length) {
-        // Finish separat erkennen
         const hasMetallic = picks.some(p => /^metallic$/i.test(p));
         const hasMatt     = picks.some(p => /^matt$/i.test(p));
+        const pureColors  = picks.filter(p => !/^metallic$/i.test(p) && !/^matt$/i.test(p));
 
-        const pureColors = picks.filter(p => !/^metallic$/i.test(p) && !/^matt$/i.test(p));
         if (pureColors.length) qs.set("farbe", Array.from(new Set(pureColors)).join(","));
-
-        // separate Finish-Flags setzen (gegen Invertierungsfehler)
         if (hasMetallic) qs.set("lack", "metallic");
         if (hasMatt)     qs.set("lack_matt", "1");
       }
-    })();
-
-    // Sonstige Merkmale + Fahrtauglich-Flag
-    (function () {
-      const group = Array.from(document.querySelectorAll(".search-group"))
-        .find(g => /Sonstige Merkmale/i.test(g.querySelector("label")?.textContent || g.textContent || ""));
-      if (!group) return;
-      const vals = Array.from(group.querySelectorAll('input[type="checkbox"]:checked'))
-        .map(i => (i.value?.trim() || i.parentElement?.textContent?.trim()))
-        .map(s => s && s.replace(/\s+/g, " ").trim())
-        .filter(Boolean);
-
-      if (vals.length) qs.set("merkmale", Array.from(new Set(vals)).join(","));
-
-      // Zusätzlich explizit Fahrtauglich-Flag (gegen Backend-Invertierung)
-      const ft = vals.some(v => /^fahrtauglich$/i.test(v));
-      if (ft) qs.set("fahrtauglich", "1"); // ggf. zu "true" ändern
     })();
 
     // page zurücksetzen
@@ -885,28 +874,21 @@ document.addEventListener("DOMContentLoaded", () => {
     return qs;
   }
 
-  // Weiterleitung
   function goToSearch() {
     const qs = buildAdvancedQuery();
     window.location.href = `suche.html?${qs.toString()}`;
   }
+
   document.querySelector(".search-submit .submit-btn")?.addEventListener("click", e => {
     e.preventDefault();
     goToSearch();
   });
 });
 
-// Nur einmal definieren
-function toggleCustomUmkreis(val) {
-  const custom = document.getElementById("custom-umkreis");
-  if (!custom) return;
-  const show = val === "custom";
-  custom.style.display = show ? "block" : "none";
-  if (!show) custom.value = "";
-}
-
-// Ort steuert, ob Umkreis enabled ist
-(function () {
+/* =========================
+   Ort steuert Umkreis-Enable
+   ========================= */
+(() => {
   const ortInput   = document.getElementById("ort");
   const umkreisSel = document.getElementById("umkreis");
   if (!ortInput || !umkreisSel) return;
@@ -916,7 +898,7 @@ function toggleCustomUmkreis(val) {
     umkreisSel.disabled = !hasLoc;
     if (!hasLoc) {
       umkreisSel.value = "";            // Beliebig
-      toggleCustomUmkreis("");          // Custom verstecken & leeren
+      window.toggleCustomUmkreis?.(""); // Custom verstecken & leeren
     }
   };
   ortInput.addEventListener("input", sync);
