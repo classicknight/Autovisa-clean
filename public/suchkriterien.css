@@ -19,11 +19,10 @@ body { font-family: 'Poppins', sans-serif; background: #f5f8fc; }
   height: 120px;
   z-index: 1000;
 
-  display: flex;                 /* <— wichtig: Flex, da kein .navbar-inner im HTML */
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
-
+  padding: 0 40px;                      /* wie Startseite */
   background:
     linear-gradient(180deg, #2c5364 0%, #203a43 60%, #0f2027 100%),
     linear-gradient(270deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 100%);
@@ -31,7 +30,7 @@ body { font-family: 'Poppins', sans-serif; background: #f5f8fc; }
 }
 
 /* Logo */
-.logo-container { display: flex; align-items: flex-end; height: 100%; }
+.logo-container { display: flex; align-items: flex-end; height: 100%; margin-left: -10px; } /* wie Startseite */
 .logo { height: 120px; width: auto; }
 
 /* Rechtsbereich */
@@ -39,7 +38,7 @@ body { font-family: 'Poppins', sans-serif; background: #f5f8fc; }
 
 /* ==== Links (Layout) ==== */
 .nav-links { display: flex; align-items: center; gap: 24px; list-style: none; }
-.nav-links li { position: relative; }              /* Dropdown-Anker */
+.nav-links li { position: relative; }
 .nav-links a {
   display: inline-flex; align-items: center; gap: 6px;
   text-decoration: none; color: #fff; font-weight: 500; font-size: 18.5px;
@@ -47,14 +46,14 @@ body { font-family: 'Poppins', sans-serif; background: #f5f8fc; }
 }
 .nav-links a:hover { color: #00ffcc; }
 
-/* CTA separat */
-.cta-item > a.highlight-link {
-  color: #00ffcc; border: 2px solid #00ffcc; border-radius: 12px; padding: 6px 14px; transition: all .3s ease;
+/* CTA (grüner Button) – unverändert lassen */
+.highlight-link{
+  color:#00ffcc;border:2px solid #00ffcc;border-radius:12px;padding:6px 14px;transition:all .3s ease;
 }
-.cta-item > a.highlight-link:hover { background: #00ffcc; color: #003344; }
+.highlight-link:hover{background:#00ffcc;color:#003344}
 
-/* Pill-Stil */
-.nav-links > li:not(.cta-item) > a {
+/* Pill-Stil NUR für nicht aktive Lis (damit CTA nicht überschrieben wird) */
+.nav-links > li:not(.active) > a {
   position: relative; overflow: hidden;
   padding: 7px 14px; border-radius: 14px;
   background: rgba(0,0,0,.2);
@@ -64,31 +63,29 @@ body { font-family: 'Poppins', sans-serif; background: #f5f8fc; }
   backdrop-filter: saturate(120%) blur(2px);
   transition: background-color .25s ease, box-shadow .25s ease, transform .18s ease, color .25s ease;
 }
-.nav-links > li:not(.cta-item) > a:hover,
-.nav-links > li:not(.cta-item) > a:focus {
+.nav-links > li:not(.active) > a:hover,
+.nav-links > li:not(.active) > a:focus {
   background: rgba(0,0,0,.3);
   color: #00ffcc;
   box-shadow: 0 8px 22px rgba(0,184,169,.18), inset 0 1px 0 rgba(255,255,255,.14);
   outline: none;
 }
-.nav-links > li:not(.cta-item) > a:active { transform: translateY(1px) scale(.985); }
+.nav-links > li:not(.active) > a:active { transform: translateY(1px) scale(.985); }
 
-/* Glanz-Sweep */
-.nav-links > li:not(.cta-item) > a::before{
+/* Glanz-Sweep & Ripple */
+.nav-links > li:not(.active) > a::before{
   content:""; position:absolute; inset:0; left:-130%;
   background:linear-gradient(120deg,transparent 0%,rgba(255,255,255,.15) 50%,transparent 100%);
   transform:skewX(-20deg); opacity:0; transition:transform .55s ease,opacity .35s ease; pointer-events:none;
 }
-.nav-links > li:not(.cta-item) > a:hover::before,
-.nav-links > li:not(.cta-item) > a:focus::before { transform:translateX(230%) skewX(-20deg); opacity:.9; }
-
-/* Ripple */
-.nav-links > li:not(.cta-item) > a::after{
+.nav-links > li:not(.active) > a:hover::before,
+.nav-links > li:not(.active) > a:focus::before { transform:translateX(230%) skewX(-20deg); opacity:.9; }
+.nav-links > li:not(.active) > a::after{
   content:""; position:absolute; top:50%; left:50%; width:10px; height:10px; border-radius:999px;
   background:radial-gradient(circle at center,rgba(0,184,169,.45),transparent 70%);
   transform:translate(-50%,-50%) scale(0); transition:transform .35s ease; pointer-events:none;
 }
-.nav-links > li:not(.cta-item) > a:active::after{ transform:translate(-50%,-50%) scale(14); }
+.nav-links > li:not(.active) > a:active::after{ transform:translate(-50%,-50%) scale(14); }
 
 /* ==== Dropdown ==== */
 .nav-arrow{
@@ -103,7 +100,7 @@ body { font-family: 'Poppins', sans-serif; background: #f5f8fc; }
 .dropdown > a[aria-expanded="true"] .nav-arrow { transform:translateY(2px) rotate(90deg); }
 
 .dropdown-menu{
-  position: absolute; top: calc(100% + 12px); left: 0;               /* JS setzt 'left' dynamisch */
+  position: absolute; top: calc(100% + 12px); left: 0;
   min-width: 230px;
   background: #1b2a37; border-radius: 14px; border: 1px solid rgba(255,255,255,.08);
   box-shadow: 0 16px 40px rgba(0,0,0,.35);
@@ -139,9 +136,11 @@ body { font-family: 'Poppins', sans-serif; background: #f5f8fc; }
 .mobile-shortcuts { display:none; }
 
 @media (max-width: 900px){
-  .navbar { height: 80px; padding: 0 16px; }
-  .logo { height: 70px; }
   body { padding-top: 80px; }
+
+  .navbar { height: 80px; padding: 0 20px; }      /* wie Startseite */
+  .logo { height: 70px; }
+  .logo-container { margin-left: -10px; margin-bottom: 8px; }
 
   .navbar-right-mobile { gap: 12px; }
 
@@ -171,6 +170,7 @@ body { font-family: 'Poppins', sans-serif; background: #f5f8fc; }
   .nav-links a:active{ transform:scale(.97); background:rgba(0,184,169,.15); }
   .dropdown > a{ width:100%; }
 
+  /* Mobile: Dropdown weich ausfahren, kantig */
   .dropdown > a,
   .dropdown.open > a,
   .dropdown-menu,
@@ -192,7 +192,7 @@ body { font-family: 'Poppins', sans-serif; background: #f5f8fc; }
 
 /* ==== Seite ==== */
 @media (min-width: 901px){
-  body { padding-top: 120px; }    /* Platz für fixe Navbar */
+  body { padding-top: 120px; }             /* Platz für fixe Navbar */
 }
 .page-wrap { padding-top: 24px; padding-bottom: 48px; }
 .container h1 { margin: 8px 0 16px; color:#0f2027; }
