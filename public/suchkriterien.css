@@ -1126,19 +1126,41 @@ img, video, canvas{
 
 
 
-
-/* Sticky darf nur mit overflow:visible funktionieren */
-.search-section,
-.page-wrap,
-.homepage-main {
+/* Sticky-Fix: "overflow-x: clip" verhindert sticky */
+.search-section {
   overflow: visible !important;
 }
 
-/* Button wirklich sticky halten */
-.search-submit{
+/* Button-Definition korrigieren */
+.search-submit {
   position: sticky;
-  bottom: max(16px, env(safe-area-inset-bottom));
-  z-index: 1200;
-  margin-top: 20px;
-  pointer-events: auto;
+  bottom: 20px;
+  z-index: 50;
+  text-align: center;
+  margin-top: 40px;
+}
+
+/* Optional: für mobile Geräte fix am unteren Rand */
+@media (max-width: 768px) {
+  .search-submit {
+    position: fixed;
+    bottom: 16px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    z-index: 999;
+    background: transparent;
+  }
+
+  .search-submit .submit-btn {
+    width: calc(100% - 32px);
+    margin: 0 auto;
+    display: inline-block;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
+  }
+
+  /* Platz schaffen, damit Inhalt nicht verdeckt wird */
+  .search-section {
+    padding-bottom: 100px !important;
+  }
 }
