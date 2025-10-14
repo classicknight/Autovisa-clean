@@ -1118,3 +1118,27 @@ img, video, canvas{
   line-height: 48px;     /* visuell mittig */
   padding: 0 16px;       /* Höhe kommt von height */
 }
+
+
+
+
+
+
+
+
+
+/* Sticky darf nur mit overflow:visible funktionieren */
+.search-section,
+.page-wrap,
+.homepage-main {
+  overflow: visible !important;
+}
+
+/* Button wirklich sticky halten */
+.search-submit{
+  position: sticky;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 1200;
+  margin-top: 20px;
+  pointer-events: auto;
+}
