@@ -1164,3 +1164,53 @@ img, video, canvas{
     padding-bottom: 100px !important;
   }
 }
+
+
+
+
+
+
+
+/* === FIX für "Fahrzeuge anzeigen" Sticky-Button === */
+
+/* 1) Animation ohne transform (transform killt sticky) */
+@keyframes floatFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+/* Falls vorher per Animation ein transform gesetzt blieb: neutralisieren */
+.search-section { transform: none !important; }
+
+/* 2) Sticky sauber aktivieren (+ iOS Prefix) */
+.search-submit {
+  position: -webkit-sticky; /* iOS/WebKit */
+  position: sticky;
+  bottom: 20px;
+  z-index: 50;
+  text-align: center;
+  margin-top: 40px;
+}
+
+/* 3) Kein overflow, der sticky blockiert */
+.search-section { overflow: visible !important; }
+
+/* 4) Optional: Mobile als fix am unteren Rand + Safe-Area */
+@media (max-width: 768px) {
+  .search-submit {
+    position: fixed;
+    bottom: calc(env(safe-area-inset-bottom) + 16px);
+    left: 0;
+    right: 0;
+    z-index: 999;
+    background: transparent;
+    text-align: center;
+  }
+  .search-submit .submit-btn {
+    width: calc(100% - 32px);
+    margin: 0 auto;
+    display: inline-block;
+    box-shadow: 0 10px 28px rgba(0,0,0,.25);
+  }
+  /* Platz, damit der Button nichts überdeckt */
+  .search-section { padding-bottom: 100px !important; }
+}
