@@ -649,6 +649,29 @@ buildMonthYearSelect('ez-bis', { minYear: 1950 });
     }
   };
 
+
+// Verbrauch: Select ↔ Custom-Input umschalten (keine neue Optik)
+const vbSel   = document.getElementById('verbrauch-select');
+const vbInput = document.getElementById('verbrauch'); // <- deine bestehende ID
+
+function syncVerbrauchUI() {
+  if (!vbSel || !vbInput) return;
+  const isCustom = vbSel.value === 'custom';
+  vbInput.style.display = isCustom ? '' : 'none';
+  if (!isCustom) vbInput.value = ''; // sauber leeren, wenn zurück auf "Beliebig/8.0/..."
+}
+
+vbSel?.addEventListener('change', syncVerbrauchUI);
+syncVerbrauchUI();
+
+// Optional: auch als SlimSelect initialisieren, dann feuert afterChange sicher:
+initSlim('#verbrauch-select', {
+  allowDeselect: true,
+  showSearch: false,
+  placeholder: 'Beliebig',
+  events: { afterChange: syncVerbrauchUI }
+});
+
   /* =========================
      Button "Fahrzeuge anzeigen" → suche.html
      ========================= */
@@ -744,28 +767,28 @@ buildMonthYearSelect('ez-bis', { minYear: 1950 });
     const ccMax = _numFallback(document.getElementById("hubraum-bis")?.value);
     if (ccMin != null && ccMin > 0) qs.set("ccm_min", String(ccMin));
     if (ccMax != null && ccMax > 0) qs.set("ccm_max", String(ccMax));
+// Verbrauch (max) – dezimalfreundlich (6,5 → 6.5) + select/custom
+(function () {
+  const sel    = document.getElementById('verbrauch-select');
+  const input  = document.getElementById('verbrauch'); // dein sichtbares Feld bei "custom"
 
-    // Verbrauch (max)
-    (function () {
-      const sel = document.getElementById("verbrauch-select");
-      const inp = document.getElementById("verbrauch");
-      let value = null;
+  const parseDec = (s) => {
+    if (s == null) return null;
+    const n = parseFloat(String(s).replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
+  };
 
-      if (sel) {
-        let raw = sel.value;
-        if (raw === "custom") {
-          const cInp = document.getElementById("verbrauch-custom");
-          raw = cInp ? cInp.value : "";
-        }
-        const n = _numFallback(raw);
-        if (n != null && n > 0) value = n;
-      } else if (inp) {
-        const n = _numFallback(inp.value);
-        if (n != null && n > 0) value = n;
-      }
+  let raw = '';
+  if (sel) {
+    raw = sel.value === 'custom' ? (input?.value || '') : sel.value;
+  } else {
+    raw = input?.value || '';
+  }
 
-      if (value != null) qs.set("verbrauch_max", String(value));
-    })();
+  const n = parseDec(raw);
+  if (n != null && n > 0) qs.set('verbrauch_max', String(n)); // punkt als Dezimaltrenner für Backend
+})();
+
 
     // Getriebe (genau 1)
     (function () {
