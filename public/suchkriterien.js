@@ -421,80 +421,73 @@ document.addEventListener("DOMContentLoaded", () => {
   // Lade Daten & initialisiere
   (async () => {
     await loadBrandModelMap();
+// ---- Immer schöne Dropdowns für Erstzulassung (Monat/Jahr + Slim Select) ----
+function buildMonthYearSelect(hiddenInputId, { minYear = 1980, maxYear = new Date().getFullYear() } = {}) {
+  const hidden = document.getElementById(hiddenInputId);
+  if (!hidden) return;
 
-    // -------- Safari-Fallback für <input type="month"> --------
-    function supportsInputTypeMonth() {
-      const i = document.createElement('input');
-      i.setAttribute('type', 'month');
-      i.value = '2023-12';
-      return i.type === 'month' && i.value === '2023-12';
-    }
+  // Falls schon umgebaut: abbrechen
+  if (hidden.type === "hidden" && hidden.dataset.mmEnhanced === "1") return;
 
-    function buildMonthYearFallback(
-      hiddenInputId,
-      { minYear = 1980, maxYear = new Date().getFullYear() } = {}
-    ) {
-      const hidden = document.getElementById(hiddenInputId);
-      if (!hidden) return;
+  // Original-<input type="month"> als hidden weiterverwenden (für Query-Build)
+  hidden.type = "hidden";
+  hidden.dataset.mmEnhanced = "1";
 
-      // Original-<input type="month"> als hidden nutzen
-      hidden.type = "hidden";
+  // Wrapper
+  const wrapper = document.createElement("div");
+  wrapper.className = "month-year";
 
-      // Wrapper
-      const wrapper = document.createElement("div");
-      wrapper.className = "month-year";
+  // Monat-Select
+  const selMonth = document.createElement("select");
+  selMonth.id = `${hiddenInputId}-month`;
+  selMonth.setAttribute("aria-label", hiddenInputId + " Monat");
+  selMonth.innerHTML =
+    `<option value="">Monat</option>` +
+    Array.from({ length: 12 }, (_, i) => {
+      const val = String(i + 1).padStart(2, "0");
+      const label = new Date(2000, i, 1).toLocaleString("de-DE", { month: "long" });
+      return `<option value="${val}">${label}</option>`;
+    }).join("");
 
-      // Monat-Select mit Platzhalter (kein Default)
-      const selMonth = document.createElement("select");
-      selMonth.setAttribute("aria-label", hiddenInputId + " Monat");
-      const phMonat = document.createElement("option");
-      phMonat.value = "";
-      phMonat.textContent = "Monat";
-      selMonth.appendChild(phMonat);
-      for (let m = 1; m <= 12; m++) {
-        const opt = document.createElement("option");
-        opt.value = String(m).padStart(2, "0");
-        opt.textContent = new Date(2000, m - 1, 1).toLocaleString("de-DE", { month: "long" });
-        selMonth.appendChild(opt);
-      }
+  // Jahr-Select
+  const selYear = document.createElement("select");
+  selYear.id = `${hiddenInputId}-year`;
+  selYear.setAttribute("aria-label", hiddenInputId + " Jahr");
+  selYear.innerHTML =
+    `<option value="">Jahr</option>` +
+    Array.from({ length: maxYear - minYear + 1 }, (_, i) => {
+      const y = String(maxYear - i);
+      return `<option value="${y}">${y}</option>`;
+    }).join("");
 
-      // Jahr-Select mit Platzhalter (kein Default)
-      const selYear = document.createElement("select");
-      selYear.setAttribute("aria-label", hiddenInputId + " Jahr");
-      const phJahr = document.createElement("option");
-      phJahr.value = "";
-      phJahr.textContent = "Jahr";
-      selYear.appendChild(phJahr);
-      for (let y = maxYear; y >= minYear; y--) {
-        const opt = document.createElement("option");
-        opt.value = String(y);
-        opt.textContent = String(y);
-        selYear.appendChild(opt);
-      }
+  // Sync hidden (nur wenn beide gewählt)
+  function syncHidden() {
+    const y = selYear.value;
+    const m = selMonth.value;
+    hidden.value = (y && m) ? `${y}-${m}` : "";
+  }
+  selMonth.addEventListener("change", syncHidden);
+  selYear.addEventListener("change", syncHidden);
 
-      // Nur synchronisieren, wenn BEIDE gewählt sind
-      function sync() {
-        const y = selYear.value;
-        const m = selMonth.value;
-        hidden.value = (y && m) ? `${y}-${m}` : "";
-      }
-      selMonth.addEventListener("change", sync);
-      selYear.addEventListener("change", sync);
+  // Vorbelegung übernehmen (z. B. aus URL)
+  if (/^\d{4}-\d{2}$/.test(hidden.value)) {
+    const [y, m] = hidden.value.split("-");
+    if ([...selYear.options].some(o => o.value === y)) selYear.value = y;
+    if ([...selMonth.options].some(o => o.value === m)) selMonth.value = m;
+    syncHidden();
+  }
 
-      // Vorbelegung NUR, wenn hidden schon gültig ist (z. B. aus URL)
-      const mm = /^\d{4}-\d{2}$/.test(hidden.value) ? hidden.value : "";
-      if (mm) {
-        const [y, m] = mm.split("-");
-        if ([...selYear.options].some(o => o.value === y)) selYear.value = y;
-        if ([...selMonth.options].some(o => o.value === m)) selMonth.value = m;
-        sync();
-      }
+  // Einfügen
+  wrapper.appendChild(selMonth);
+  wrapper.appendChild(selYear);
+  const container = hidden.closest(".range-item") || hidden.parentElement;
+  container.insertBefore(wrapper, hidden);
 
-      wrapper.appendChild(selMonth);
-      wrapper.appendChild(selYear);
-      const container = hidden.closest(".range-item") || hidden.parentElement;
-      container.insertBefore(wrapper, hidden);
-    }
+  // Slim Select aktivieren
+  new SlimSelect({ select: `#${selMonth.id}`, placeholder: 'Monat', showSearch: false });
+  new SlimSelect({ select: `#${selYear.id}`,  placeholder: 'Jahr',  showSearch: true  });
+}
+
     // ----------------------------------------------------------
 
     // Marke -> Modelle
@@ -561,11 +554,10 @@ document.addEventListener("DOMContentLoaded", () => {
       ezBisInput.value = ezTo;
     }
 
-    // Safari-Fallback erst nach dem Setzen der URL-Werte bauen:
-    if (!supportsInputTypeMonth()) {
-      buildMonthYearFallback('ez-von', { minYear: 1980 });
-      buildMonthYearFallback('ez-bis', { minYear: 1980 });
-    }
+  // Erstzulassung immer als schöne Dropdowns rendern
+buildMonthYearSelect('ez-von', { minYear: 1980 });
+buildMonthYearSelect('ez-bis', { minYear: 1980 });
+
 
     // km_max -> km-bis
     const kmMax = qs.get("km_max");
