@@ -265,6 +265,16 @@ img, video, canvas{
   
 
   
+
+
+
+
+
+
+
+
+
+
   .search-group select {
     background-color: #1f2a33;
     border: 1px solid #2e3a46;
@@ -327,7 +337,8 @@ img, video, canvas{
     border-radius: 18px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
     border: 1px solid rgba(255, 255, 255, 0.06);
-   
+    animation: fadeInUp 0.6s ease forwards;
+    opacity: 0;
   }
   
   @media (max-width: 768px) {
@@ -337,7 +348,13 @@ img, video, canvas{
       padding: 32px 20px;
     }
   }
-
+  @keyframes floatFade {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .search-section {
+    animation: floatFade 0.6s ease-out forwards;
+  }
   
   .search-section h2 {
     font-size: 24px;
@@ -525,7 +542,14 @@ img, video, canvas{
   
   
   
-
+  
+  .search-submit {
+    position: sticky;
+    bottom: 20px;
+    z-index: 10;
+    text-align: center;
+    margin-top: 40px;
+  }
   
   .submit-btn {
     background: #00ffcc;
@@ -1103,97 +1127,4 @@ img, video, canvas{
   height: 48px;
   line-height: 48px;     /* visuell mittig */
   padding: 0 16px;       /* Höhe kommt von height */
-}
-
-
-
-
-
-
-
-/* Button immer sichtbar – für alle Viewports */
-.search-submit {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: calc(env(safe-area-inset-bottom) + 16px);
-  z-index: 999;
-  text-align: center;
-  pointer-events: none;              /* Container klick-durchlässig */
-}
-
-.search-submit .submit-btn {
-  pointer-events: auto;              /* nur der Button klickbar */
-  width: min(960px, calc(100% - 32px));
-  margin: 0 auto;
-  display: inline-block;
-  box-shadow: 0 10px 28px rgba(0,0,0,.25);
-}
-
-/* Platz schaffen, damit der Button nichts überdeckt */
-.search-section {
-  padding-bottom: 110px !important;
-}
-
-
-
-
-
-
-/* === Autovisa: Button wieder wie früher (sticky im Formular) === */
-
-/* 1) Fixed-Variante sicher überschreiben */
-.search-submit{
-  position: static !important;
-  left: auto !important;
-  right: auto !important;
-  bottom: auto !important;
-  z-index: auto !important;
-  text-align: center;
-  margin-top: 40px;
-  padding: 0;                 /* wir geben gleich Sticky-Padding */
-  pointer-events: auto !important;
-}
-
-/* 2) Sticky innerhalb der Suchsektion (mit iOS-Safe-Area) */
-.search-section .search-submit{
-  position: sticky !important;
-  bottom: max(16px, env(safe-area-inset-bottom));
-  z-index: 101;               /* unter SlimSelect (9999), aber über Content */
-  padding: 0 8px;             /* etwas Puffer für Mobile-Ränder */
-}
-
-/* 3) Button selbst wieder kompakt (nicht viewport-breit) */
-.search-submit .submit-btn{
-  width: auto !important;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin: 0 auto;
-  box-shadow: 0 4px 20px rgba(0,255,204,.30); /* wie früherer Glow */
-  transition: transform .12s ease, background .25s ease, box-shadow .25s ease;
-}
-.search-submit .submit-btn:hover,
-.search-submit .submit-btn:focus-visible{
-  transform: none; /* falls global etwas setzt */
-  box-shadow: 0 8px 28px rgba(0,255,204,.36);
-}
-.search-submit .submit-btn:active{
-  transform: translateY(1px) scale(.99);
-}
-
-/* 4) Mobile: auf Wunsch volle Breite, aber innerhalb der Karte */
-@media (max-width: 640px){
-  .search-submit .submit-btn{
-    width: 100% !important;
-    padding: 16px 20px;
-    font-size: 18px;
-    border-radius: 14px;
-  }
-}
-
-/* 5) Zusätzlicher Platz unten nicht mehr nötig */
-.search-section{
-  padding-bottom: 56px !important; /* statt 110px */
 }
