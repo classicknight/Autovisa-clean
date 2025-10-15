@@ -1052,3 +1052,38 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   flex: 1 1 160px !important;
   min-width: 160px;
 }
+
+
+
+
+
+/* Container wie dual-input */
+.range-inputs{
+  display:flex !important;
+  gap:12px !important;
+  align-items:center !important;
+  flex-wrap:nowrap !important;
+}
+
+/* Einheitlicher Look für Select & Input */
+.dual-input-wrapper select,
+.dual-input-wrapper input,
+.range-inputs select,
+.range-inputs input{
+  font-size:15px !important;
+  height:46px !important;
+  padding:12px 14px !important;
+  background-color:#1a2733 !important;
+  border:1px solid #00b8a9 !important;
+  border-radius:6px !important;
+  color:#f5f8fc !important;
+  box-sizing:border-box !important;
+  transition:border-color .3s, box-shadow .3s !important;
+}
+
+/* Custom-Number kompakt halten */
+.dual-input-wrapper input[type="number"],
+.range-inputs input[type="number"]{
+  max-width:160px !important;
+  flex:0 0 auto !important;
+}
