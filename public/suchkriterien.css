@@ -1,3 +1,5 @@
+
+
 /* ==== Reset & Base ==== */
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
@@ -15,7 +17,7 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
               linear-gradient(270deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 100%);
   box-shadow: 0 4px 20px rgba(0,0,0,.35);
 }
-.logo-container{display:flex;align-items:flex-end;height:100%;margin-left: 0px}
+.logo-container{display:flex;align-items:flex-end;height:100%;margin-left:-10px}
 .logo{height:120px;width:auto}
 
 /* ==== Links (Layout) ==== */
@@ -194,87 +196,14 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   .dropdown.open > a::after{display:none}
 }
   
-
-.navbar.nav--hidden { transform: translateY(-100%); transition: transform .28s ease; }
-
-
-  
-  /* sorgt dafür, dass Anker-Ziele unter einer fixen Navbar korrekt einrasten */
-#results-section,
-#search-section{
-  scroll-margin-top: 130px; /* Desktop (Navbar ~120px) */
-}
-
-@media (max-width: 900px){
-  #results-section,
-  #search-section{
-    scroll-margin-top: 90px; /* Mobile (Navbar ~80px) */
-  }
-}
-
-/* optional für weiches Scrollen, falls kein JS greifen soll */
-html { scroll-behavior: smooth; }
-
-  
-  
-
   
   
   
   
-    /* === Anti-Overscroll (Seite) === */
-html, body{
-  width:100%;
-  max-width:100%;
-  overflow-x:hidden;           /* kein horizontales Scrollen */
-  overscroll-behavior-x:none;  /* verhindert iOS/Android "Seitwärts-Ziehen" */
-  touch-action: pan-y;         /* nur vertikales Scrollen auf der Seite */
   
   
   
-}
-
-/* Clip alles, was ggf. aus dem Viewport ragen könnte */
-.navbar,
-.homepage-main,
-.hero-with-image
-{
-  overflow-x: clip;            /* moderner als hidden, clippt ohne Scrollbar */
-}
-
-/* Häufiger Verursacher: negative Offsets */
-.logo-container{ margin-left: 0; }  /* -10px entfernen */
-
-/* Bilder/Videos niemals breiter als der Viewport */
-img, video, canvas{
-  max-width:100%;
-  height:auto;
-  display:block;
-}
-
-/* Mobile Menüpanel: Breite strikt auf Viewport begrenzen */
-@media (max-width: 900px){
-  .nav-links{
-    left:0; right:0;
-    width:100vw;
-    max-width:100vw;
-    overflow-x:hidden;
-  }
-}
-
   
-
-  
-
-
-
-
-
-
-
-
-
-
   .search-group select {
     background-color: #1f2a33;
     border: 1px solid #2e3a46;
@@ -1101,36 +1030,6 @@ img, video, canvas{
 .search-group input[type="month"]::-webkit-datetime-edit-year-field {
   color: #f5f8fc;
 }
-
-
-
-
-
-
-
-
-
-
-/* 1) Flex-Breite nur auf direkte Kinder anwenden */
-.range-inputs > * {
-  flex: 1 1 160px;
-  min-width: 160px;
-}
-
-/* 2) Innerhalb der Month-Range darf das eigentliche Feld NICHT wachsen */
-.month-range .range-item > * {
-  flex: 0 0 auto;
-}
-
-/* 3) (optional) explizite Höhe für Konsistenz auf iOS/Safari */
-.search-group input[type="month"] {
-  height: 48px;
-  line-height: 48px;     /* visuell mittig */
-  padding: 0 16px;       /* Höhe kommt von height */
-}
-
-
-
 
 
 
