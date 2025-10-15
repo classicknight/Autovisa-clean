@@ -555,8 +555,8 @@ function buildMonthYearSelect(hiddenInputId, { minYear = 1980, maxYear = new Dat
     }
 
   // Erstzulassung immer als schöne Dropdowns rendern
-buildMonthYearSelect('ez-von', { minYear: 1980 });
-buildMonthYearSelect('ez-bis', { minYear: 1980 });
+buildMonthYearSelect('ez-von', { minYear: 1950 });
+buildMonthYearSelect('ez-bis', { minYear: 1950 });
 
 
     // km_max -> km-bis
