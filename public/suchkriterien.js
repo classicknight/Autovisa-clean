@@ -568,6 +568,41 @@ buildMonthYearSelect('ez-bis', { minYear: 1950 });
     const priceMax = qs.get("price_max");
     const preisBis = document.getElementById("preis-bis");
     if (priceMax && preisBis) preisBis.value = priceMax;
+// Verbrauch aus URL vorbefüllen (z. B. ?verbrauch_max=4)
+(() => {
+  const vMax = qs.get('verbrauch_max');
+  if (!vMax) return;
+
+  // Elemente lokal holen (nicht vbSel/vbInput verwenden -> Reihenfolge egal)
+  const sel = document.getElementById('verbrauch-select');
+  const inp = document.getElementById('verbrauch');
+
+  const vNum = parseFloat(String(vMax).replace(',', '.'));
+
+  if (sel) {
+    // Versuche, eine Option mit gleichem numerischen Wert zu wählen
+    let matched = false;
+    for (const opt of Array.from(sel.options)) {
+      const ov = parseFloat(String(opt.value).replace(',', '.'));
+      if (Number.isFinite(ov) && ov === vNum) {
+        sel.value = opt.value;
+        matched = true;
+        break;
+      }
+    }
+    // Falls keine Option passt -> "custom" und Input anzeigen
+    if (!matched) {
+      sel.value = 'custom';
+      if (inp) {
+        inp.style.display = '';
+        inp.value = String(vMax).replace('.', ','); // UI mit Komma
+      }
+    }
+  } else if (inp) {
+    inp.style.display = '';
+    inp.value = String(vMax).replace('.', ',');
+  }
+})();
 
     // Ort
     const ort = qs.get("ort");
@@ -649,28 +684,28 @@ buildMonthYearSelect('ez-bis', { minYear: 1950 });
     }
   };
 
-
-// Verbrauch: Select ↔ Custom-Input umschalten (keine neue Optik)
+// --- VERBRAUCH: Select <-> Custom-Input umschalten ---
 const vbSel   = document.getElementById('verbrauch-select');
-const vbInput = document.getElementById('verbrauch'); // <- deine bestehende ID
+const vbInput = document.getElementById('verbrauch'); // dein vorhandenes Input
 
 function syncVerbrauchUI() {
   if (!vbSel || !vbInput) return;
   const isCustom = vbSel.value === 'custom';
   vbInput.style.display = isCustom ? '' : 'none';
-  if (!isCustom) vbInput.value = ''; // sauber leeren, wenn zurück auf "Beliebig/8.0/..."
+  if (!isCustom) vbInput.value = '';
 }
 
 vbSel?.addEventListener('change', syncVerbrauchUI);
 syncVerbrauchUI();
 
-// Optional: auch als SlimSelect initialisieren, dann feuert afterChange sicher:
+// exakt wie bei deinen anderen Dropdowns: SlimSelect-Dark aktivieren
 initSlim('#verbrauch-select', {
   allowDeselect: true,
   showSearch: false,
   placeholder: 'Beliebig',
   events: { afterChange: syncVerbrauchUI }
 });
+
 
   /* =========================
      Button "Fahrzeuge anzeigen" → suche.html
@@ -724,6 +759,8 @@ initSlim('#verbrauch-select', {
     if (pMin != null && pMin > 0) qs.set("price_min", String(pMin));
     if (pMax != null && pMax > 0) qs.set("price_max", String(pMax));
 
+   
+
     // Land (nur wenn nicht der erste Eintrag)
     (function () {
       const landEl = document.getElementById("land");
@@ -767,26 +804,32 @@ initSlim('#verbrauch-select', {
     const ccMax = _numFallback(document.getElementById("hubraum-bis")?.value);
     if (ccMin != null && ccMin > 0) qs.set("ccm_min", String(ccMin));
     if (ccMax != null && ccMax > 0) qs.set("ccm_max", String(ccMax));
-// Verbrauch (max) – dezimalfreundlich (6,5 → 6.5) + select/custom
+// Verbrauch (max) – dezimalfreundlich (6,5 → 6.5), Select ↔ Custom
 (function () {
-  const sel    = document.getElementById('verbrauch-select');
-  const input  = document.getElementById('verbrauch'); // dein sichtbares Feld bei "custom"
+  const sel   = document.getElementById('verbrauch-select');
+  const input = document.getElementById('verbrauch'); // sichtbares Feld bei "Benutzerdefiniert…"
 
-  const parseDec = (s) => {
+  const toDec = (s) => {
     if (s == null) return null;
-    const n = parseFloat(String(s).replace(',', '.'));
+    const t = String(s).trim().replace(/\s+/g, '').replace(',', '.'); // 6,5 -> 6.5
+    if (!t) return null;
+    const n = parseFloat(t);
     return Number.isFinite(n) ? n : null;
   };
 
+  // Quelle ermitteln: feste Option oder Custom-Eingabe
   let raw = '';
   if (sel) {
-    raw = sel.value === 'custom' ? (input?.value || '') : sel.value;
+    raw = (sel.value === 'custom') ? (input?.value || '') : sel.value;
   } else {
     raw = input?.value || '';
   }
 
-  const n = parseDec(raw);
-  if (n != null && n > 0) qs.set('verbrauch_max', String(n)); // punkt als Dezimaltrenner für Backend
+  const n = toDec(raw);
+  if (n != null && n > 0) {
+    // Punkt als Dezimaltrenner fürs Backend
+    qs.set('verbrauch_max', String(n));
+  }
 })();
 
 
