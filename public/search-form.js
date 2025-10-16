@@ -25,7 +25,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const distCustom  = document.getElementById("distance-custom");
     const sortSel     = document.getElementById("sortBy") || document.getElementById("sort");
     const advancedBtn = form.querySelector(".btn-advanced");
-  
+    const consSel    = document.getElementById('verbrauch-select');
+    const consCustom = document.getElementById('verbrauch-custom');
+   
+    
     // ---- Jahre befüllen (aktuell -> 1980)
     if (yearSel) {
       const thisYear = new Date().getFullYear();
@@ -323,24 +326,25 @@ document.addEventListener("DOMContentLoaded", () => {
       markeSel?.addEventListener("change", () => rebuildModelOptions(markeSel.value));
     })();
   
-    // ============================
-    // Custom-Felder togglen (km/price/distance)
-    // ============================
-    function bindCustom(selectEl, inputEl) {
-      if (!selectEl || !inputEl) return;
-      const toggle = () => {
-        const isCustom = selectEl.value === "custom";
-        inputEl.style.display = isCustom ? "block" : "none";
-        if (!isCustom) inputEl.value = "";
-        if (isCustom) inputEl.focus();
-      };
-      selectEl.addEventListener("change", toggle);
-      toggle();
-    }
-    bindCustom(kmSel, kmCustom);
-    bindCustom(priceSel, priceCustom);
-    bindCustom(distSel, distCustom);
-  
+   // ============================
+// Custom-Felder togglen (km/price/distance/consumption)
+// ============================
+function bindCustom(selectEl, inputEl) {
+  if (!selectEl || !inputEl) return;
+  const toggle = () => {
+    const isCustom = selectEl.value === "custom";
+    inputEl.style.display = isCustom ? "block" : "none";
+    if (!isCustom) inputEl.value = "";
+    if (isCustom) inputEl.focus();
+  };
+  selectEl.addEventListener("change", toggle);
+  toggle();
+}
+bindCustom(kmSel,    kmCustom);
+bindCustom(priceSel, priceCustom);
+bindCustom(distSel,  distCustom);
+bindCustom(consSel,  consCustom);          // ⬅️ HIERHIN (nicht ganz oben)
+
     // Umkreis nur aktiv, wenn Ort/PLZ gesetzt
     function syncDistanceEnabled() {
       if (!distSel) return;
@@ -471,7 +475,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const n = parseInt(raw, 10);
         if (!Number.isNaN(n) && n > 0) qs.set("km_max", String(n));
       }
-  
+  // Verbrauch (max) – Komma/Punkt tolerant
+if (consSel || consCustom) {
+  const raw = consSel
+    ? (consSel.value === 'custom' ? (consCustom?.value || '') : consSel.value)
+    : (consCustom?.value || '');
+  const n = parseFloat(String(raw).replace(',', '.'));
+  if (Number.isFinite(n) && n > 0) {
+    qs.set('verbrauch_max', String(n));
+  }
+}
+
       if (priceSel) {
         const raw = priceSel.value === "custom" ? (priceCustom?.value || "") : priceSel.value;
         const n = parseInt(raw, 10);

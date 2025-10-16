@@ -568,41 +568,45 @@ buildMonthYearSelect('ez-bis', { minYear: 1950 });
     const priceMax = qs.get("price_max");
     const preisBis = document.getElementById("preis-bis");
     if (priceMax && preisBis) preisBis.value = priceMax;
-// Verbrauch aus URL vorbefüllen (z. B. ?verbrauch_max=4)
+// Verbrauch aus URL vorbefüllen (z. B. ?verbrauch_max=6.5)
 (() => {
   const vMax = qs.get('verbrauch_max');
   if (!vMax) return;
 
-  // Elemente lokal holen (nicht vbSel/vbInput verwenden -> Reihenfolge egal)
   const sel = document.getElementById('verbrauch-select');
-  const inp = document.getElementById('verbrauch');
+  const inp = document.getElementById('verbrauch-custom'); // << richtige ID!
+  const toNum = (s) => {
+    const n = parseFloat(String(s).replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
+  };
 
-  const vNum = parseFloat(String(vMax).replace(',', '.'));
+  const vNum = toNum(vMax);
 
   if (sel) {
-    // Versuche, eine Option mit gleichem numerischen Wert zu wählen
-    let matched = false;
-    for (const opt of Array.from(sel.options)) {
-      const ov = parseFloat(String(opt.value).replace(',', '.'));
-      if (Number.isFinite(ov) && ov === vNum) {
-        sel.value = opt.value;
-        matched = true;
-        break;
-      }
-    }
-    // Falls keine Option passt -> "custom" und Input anzeigen
-    if (!matched) {
+    // passende feste Option suchen (numerischer Vergleich)
+    const match = Array.from(sel.options).find(o => {
+      const ov = toNum(o.value);
+      return ov !== null && ov === vNum;
+    });
+
+    if (match && match.value !== 'custom') {
+      sel.value = match.value;
+      if (typeof syncVerbrauchUI === 'function') syncVerbrauchUI();
+      else if (inp) inp.style.display = 'none';
+    } else {
+      // keine feste Option → "custom" + Feld füllen
       sel.value = 'custom';
-      if (inp) {
-        inp.style.display = '';
-        inp.value = String(vMax).replace('.', ','); // UI mit Komma
-      }
+      if (inp) inp.value = String(vMax).replace('.', ','); // Komma für UI
+      if (typeof syncVerbrauchUI === 'function') syncVerbrauchUI();
+      else if (inp) inp.style.display = '';
     }
   } else if (inp) {
+    // falls es das Select nicht gibt (nur Input)
     inp.style.display = '';
     inp.value = String(vMax).replace('.', ',');
   }
 })();
+
 
     // Ort
     const ort = qs.get("ort");
@@ -684,18 +688,20 @@ buildMonthYearSelect('ez-bis', { minYear: 1950 });
     }
   };
 
-  const vbSel   = document.getElementById('verbrauch-select');
-  const vbInput = document.getElementById('verbrauch');
-  
-  function syncVerbrauchUI() {
-    if (!vbSel || !vbInput) return;
-    const isCustom = vbSel.value === 'custom';
-    vbInput.style.display = isCustom ? '' : 'none';
-    if (!isCustom) vbInput.value = '';
-  }
-  vbSel?.addEventListener('change', syncVerbrauchUI);
-  syncVerbrauchUI();
-  
+// --- VERBRAUCH: Select <-> Custom-Input umschalten ---
+const vbSel   = document.getElementById('verbrauch-select');
+const vbInput = document.getElementById('verbrauch-custom'); // << genau diese ID!
+
+function syncVerbrauchUI() {
+  if (!vbSel || !vbInput) return;
+  const isCustom = vbSel.value === 'custom';
+  vbInput.style.display = isCustom ? '' : 'none';
+  if (!isCustom) vbInput.value = '';
+}
+
+vbSel?.addEventListener('change', syncVerbrauchUI);
+syncVerbrauchUI();
+
 
 // exakt wie bei deinen anderen Dropdowns: SlimSelect-Dark aktivieren
 initSlim('#verbrauch-select', {
@@ -806,30 +812,21 @@ initSlim('#verbrauch-select', {
 // Verbrauch (max) – dezimalfreundlich (6,5 → 6.5), Select ↔ Custom
 (function () {
   const sel   = document.getElementById('verbrauch-select');
-  const input = document.getElementById('verbrauch'); // sichtbares Feld bei "Benutzerdefiniert…"
-
+  const input = document.getElementById('verbrauch-custom');
   const toDec = (s) => {
     if (s == null) return null;
-    const t = String(s).trim().replace(/\s+/g, '').replace(',', '.'); // 6,5 -> 6.5
-    if (!t) return null;
-    const n = parseFloat(t);
+    const n = parseFloat(String(s).replace(',', '.'));
     return Number.isFinite(n) ? n : null;
   };
 
-  // Quelle ermitteln: feste Option oder Custom-Eingabe
   let raw = '';
-  if (sel) {
-    raw = (sel.value === 'custom') ? (input?.value || '') : sel.value;
-  } else {
-    raw = input?.value || '';
-  }
+  if (sel) raw = sel.value === 'custom' ? (input?.value || '') : sel.value;
+  else     raw = input?.value || '';
 
   const n = toDec(raw);
-  if (n != null && n > 0) {
-    // Punkt als Dezimaltrenner fürs Backend
-    qs.set('verbrauch_max', String(n));
-  }
+  if (n != null && n > 0) qs.set('verbrauch_max', String(n));
 })();
+
 
 
     // Getriebe (genau 1)
