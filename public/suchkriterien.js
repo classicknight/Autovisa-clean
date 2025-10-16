@@ -684,19 +684,18 @@ buildMonthYearSelect('ez-bis', { minYear: 1950 });
     }
   };
 
-// --- VERBRAUCH: Select <-> Custom-Input umschalten ---
-const vbSel   = document.getElementById('verbrauch-select');
-const vbInput = document.getElementById('verbrauch'); // dein vorhandenes Input
-
-function syncVerbrauchUI() {
-  if (!vbSel || !vbInput) return;
-  const isCustom = vbSel.value === 'custom';
-  vbInput.style.display = isCustom ? '' : 'none';
-  if (!isCustom) vbInput.value = '';
-}
-
-vbSel?.addEventListener('change', syncVerbrauchUI);
-syncVerbrauchUI();
+  const vbSel   = document.getElementById('verbrauch-select');
+  const vbInput = document.getElementById('verbrauch');
+  
+  function syncVerbrauchUI() {
+    if (!vbSel || !vbInput) return;
+    const isCustom = vbSel.value === 'custom';
+    vbInput.style.display = isCustom ? '' : 'none';
+    if (!isCustom) vbInput.value = '';
+  }
+  vbSel?.addEventListener('change', syncVerbrauchUI);
+  syncVerbrauchUI();
+  
 
 // exakt wie bei deinen anderen Dropdowns: SlimSelect-Dark aktivieren
 initSlim('#verbrauch-select', {

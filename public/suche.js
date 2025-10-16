@@ -15,7 +15,8 @@ const QP = (() => {
     kraftstoff: (sp.get("kraftstoff") || "").toLowerCase(),
     ort: sp.get("ort") || "",
     umkreis: sp.get("umkreis") || "",
-    sort: sp.get("sort") || ""         // <-- NEU
+    sort: sp.get("sort") || "" ,
+    verbrauch_max: sp.get("verbrauch_max") || ""       // <-- NEU
   };
 })();
 
@@ -967,6 +968,26 @@ if (gearVal && !["beliebig","any","alle","all","-"].includes(gearVal)) {
 } else {
   params.delete("getriebe");
 }
+// Verbrauch (max) – Select/Custom -> URL
+(function () {
+  const sel   = document.getElementById('verbrauch-select');
+  const input = document.getElementById('verbrauch');
+
+  const toDec = (s) => {
+    if (s == null) return null;
+    const t = String(s).trim().replace(/\s+/g, '').replace(',', '.'); // 6,5 -> 6.5
+    if (!t) return null;
+    const n = parseFloat(t);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  let raw = '';
+  if (sel) raw = (sel.value === 'custom') ? (input?.value || '') : sel.value;
+  else     raw = input?.value || '';
+
+  const n = toDec(raw);
+  setOrDelete(params, 'verbrauch_max', (n != null && n > 0) ? String(n) : '');
+})();
 
   // Ort / Umkreis
   const locEl       = document.getElementById("location");
