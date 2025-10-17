@@ -1,24 +1,28 @@
 // suche.js — TEIL 1 (korrigiert bis inkl. initMediaSlider)
 document.documentElement.classList.remove("no-js");
 
-// === Query-Params + Utils ===
 const QP = (() => {
   const sp = new URLSearchParams(location.search);
-  const arr = (v) => (v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : []);
+  const arr = v => (v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : []);
   return {
     marke: sp.get("marke") || "",
     modell: arr(sp.get("modell")),
     ezFrom: sp.get("ezFrom") || "",
+    ezTo:   sp.get("ezTo")   || "",                 // ⬅️ NEU
     km_max: sp.get("km_max") || "",
     price_max: sp.get("price_max") || "",
     getriebe: (sp.get("getriebe") || "").toLowerCase(),
     kraftstoff: (sp.get("kraftstoff") || "").toLowerCase(),
     ort: sp.get("ort") || "",
     umkreis: sp.get("umkreis") || "",
-    sort: sp.get("sort") || "" ,
-    verbrauch_max: sp.get("verbrauch_max") || ""       // <-- NEU
+    sort: sp.get("sort") || "",
+    verbrauch_max: sp.get("verbrauch_max") || "",
+    partikelfilter: (sp.get("partikelfilter") || "").toLowerCase(), // ⬅️ NEU: "mit" | "ohne"
+    scheckheft: (sp.get("scheckheft") || "").toLowerCase(),         // ⬅️ NEU: "ja"
+    fahrtauglich: (sp.get("fahrtauglich") || "").toLowerCase()      // ⬅️ NEU: "ja"
   };
 })();
+
 
 
 const norm = (s) => String(s || "").toLowerCase();
@@ -49,49 +53,71 @@ document.addEventListener("DOMContentLoaded", () => {
   const pager         = document.getElementById("pager");
   const sortBy        = document.getElementById("sortBy");
   const applyFilters  = document.getElementById("applyFiltersBtn");
+// --- Prefill aus URL in die UI ---
+(function prefillFromQuery () {
+  const markeEl   = document.getElementById("marke");
+  const modellEl  = document.getElementById("modell");
 
-  // --- Prefill aus URL in die UI ---
-  (function prefillFromQuery(){
-    const markeEl   = document.getElementById("marke");
-    const modellEl  = document.getElementById("modell");
+  const priceToEl = document.getElementById("priceTo");
+  const kmToEl    = document.getElementById("mileageTo");
 
-    const priceToEl = document.getElementById("priceTo");
-    const kmToEl    = document.getElementById("mileageTo");
+  const fuelEl    = document.getElementById("fuelType") || document.getElementById("fuel");
+  const gearEl    = document.getElementById("transmission") || document.getElementById("gear");
 
-    const fuelEl    = document.getElementById("fuelType") || document.getElementById("fuel");
-    const gearEl    = document.getElementById("transmission") || document.getElementById("gear");
+  // Ergebnis-Seite (Variante 1)
+  const firstRegFromEl  = document.getElementById("firstRegFrom"); // <input type="month">
+  const firstRegMonthEl = document.getElementById("first-registration-month");
+  const firstRegYearEl  = document.getElementById("first-registration-year");
 
-    const firstRegMonthEl = document.getElementById("first-registration-month");
-    const firstRegYearEl  = document.getElementById("first-registration-year");
-    const firstRegFromEl  = document.getElementById("firstRegFrom"); // <input type="month">
+  // Suchformular-Seite (Variante 2)
+  const ezVonEl = document.getElementById("ez-von"); // <input type="month">
+  const ezBisEl = document.getElementById("ez-bis"); // <input type="month">
 
-    if (markeEl && QP.marke) markeEl.value = QP.marke;
+  // Feature-Checkboxen (falls vorhanden)
+  const pfEl = document.getElementById("partikelfilter");
+  const shEl = document.getElementById("scheckheft");
+  const ftEl = document.getElementById("fahrtauglich");
 
-    if (modellEl && Array.isArray(QP.modell) && QP.modell.length){
-      const set = new Set(QP.modell.map(v => v.toLowerCase()));
-      [...modellEl.options].forEach(opt => { opt.selected = set.has(String(opt.value).toLowerCase()); });
-    }
+  if (markeEl && QP.marke) markeEl.value = QP.marke;
 
-    if (priceToEl && QP.price_max) priceToEl.value = QP.price_max;
-    if (kmToEl && QP.km_max)       kmToEl.value    = QP.km_max;
+  if (modellEl && Array.isArray(QP.modell) && QP.modell.length) {
+    const set = new Set(QP.modell.map(v => v.toLowerCase()));
+    [...modellEl.options].forEach(opt => { opt.selected = set.has(String(opt.value).toLowerCase()); });
+  }
 
-    if (fuelEl && QP.kraftstoff) fuelEl.value = QP.kraftstoff;
-    if (gearEl && QP.getriebe)   gearEl.value = QP.getriebe;
+  if (priceToEl && QP.price_max) priceToEl.value = QP.price_max;
+  if (kmToEl   && QP.km_max)     kmToEl.value    = QP.km_max;
 
-    if (firstRegFromEl && QP.ezFrom) firstRegFromEl.value = QP.ezFrom;
-// Sortierung aus URL auf das Select mappen
-if (sortBy) {
-  if (QP.sort === "preis_asc")      sortBy.value = "price-asc";
-  else if (QP.sort === "preis_desc")sortBy.value = "price-desc";
-  else if (QP.sort)                 sortBy.value = "date-desc"; // Fallback bei unbekanntem Wert
-}
+  if (fuelEl && QP.kraftstoff) fuelEl.value = QP.kraftstoff;
+  if (gearEl && QP.getriebe)   gearEl.value = QP.getriebe;
 
-    if (QP.ezFrom && firstRegMonthEl && firstRegYearEl) {
-      const [y,m] = QP.ezFrom.split("-");
-      if (y) firstRegYearEl.value  = y;
-      if (m) firstRegMonthEl.value = m;
-    }
-  })();
+  // EZ: Ergebnis-Seite (ein einziges <input type="month">)
+  if (firstRegFromEl && QP.ezFrom) firstRegFromEl.value = QP.ezFrom;
+
+  // EZ: Ergebnis-Seite (Jahr/Monat-Dropdowns)
+  if (QP.ezFrom && firstRegMonthEl && firstRegYearEl) {
+    const [y, m] = QP.ezFrom.split("-");
+    if (y) firstRegYearEl.value  = y;
+    if (m) firstRegMonthEl.value = m;
+  }
+
+  // EZ: Suchformular-Seite (von/bis als <input type="month">)
+  if (ezVonEl && QP.ezFrom) ezVonEl.value = QP.ezFrom;
+  if (ezBisEl && QP.ezTo)   ezBisEl.value = QP.ezTo;
+
+  // Sortierung aus URL auf das Select mappen
+  if (sortBy) {
+    if (QP.sort === "preis_asc")       sortBy.value = "price-asc";
+    else if (QP.sort === "preis_desc") sortBy.value = "price-desc";
+    else if (QP.sort)                  sortBy.value = "date-desc"; // Fallback
+  }
+
+  // Feature-Checkboxen aus URL vorbefüllen
+  if (pfEl) pfEl.checked = (QP.partikelfilter === "mit");
+  if (shEl) shEl.checked = (QP.scheckheft === "ja");
+  if (ftEl) ftEl.checked = (QP.fahrtauglich === "ja");
+})();
+
 
 
   // Verbrauch: URL -> UI (Select/Custom) + Toggle
