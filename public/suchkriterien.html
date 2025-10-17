@@ -388,32 +388,35 @@
   </div>
   
   
-  <div class="search-group">
-    <label for="verbrauch-select">Verbrauch (komb.) bis</label>
-    <div class="range-inputs">
-      <select id="verbrauch-select" class="modern-input">
-        <option value="">Beliebig</option>
-        <option value="4.0">bis 4,0 l/100 km</option>
-        <option value="5.0">bis 5,0 l/100 km</option>
-        <option value="6.0">bis 6,0 l/100 km</option>
-        <option value="7.0">bis 7,0 l/100 km</option>
-        <option value="8.0">bis 8,0 l/100 km</option>
-        <option value="10.0">bis 10,0 l/100 km</option>
-        <option value="custom">Benutzerdefiniert…</option>
-      </select>
-  
-      <!-- WICHTIG: id wieder 'verbrauch' -->
-      <input
-        type="number"
-        id="verbrauch"
-        placeholder="z. B. 6,5"
-        step="0.1"
-        min="0"
-        class="modern-input"
-        style="display:none"
-      />
-    </div>
+  <!-- Verbrauch -->
+<div class="search-group">
+  <label for="verbrauch-select">Verbrauch (komb.) bis</label>
+
+  <!-- 1) ganz normales Select (ohne class="modern-input") -->
+  <select id="verbrauch-select">
+    <option value="">Beliebig</option>
+    <option value="4.0">bis 4,0 l/100 km</option>
+    <option value="5.0">bis 5,0 l/100 km</option>
+    <option value="6.0">bis 6,0 l/100 km</option>
+    <option value="7.0">bis 7,0 l/100 km</option>
+    <option value="8.0">bis 8,0 l/100 km</option>
+    <option value="10.0">bis 10,0 l/100 km</option>
+    <option value="custom">Benutzerdefiniert…</option>
+  </select>
+
+  <!-- 2) eigener Input darunter (nur sichtbar bei „Benutzerdefiniert…“) -->
+  <div id="verbrauch-custom-wrap" style="display:none; margin-top:10px">
+    <input
+      type="number"
+      id="verbrauch"
+      placeholder="z. B. 6,5"
+      step="0.1"
+      min="0"
+      class="modern-input"
+    />
   </div>
+</div>
+
   
 
 

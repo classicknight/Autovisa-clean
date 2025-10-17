@@ -146,6 +146,16 @@ let serverTotal = 0;      // Gesamtanzahl vom Server für den Pager
     return isNaN(n) ? "Preis n. a." : n.toLocaleString("de-DE") + " €";
   };
   const sanitizePhone = (p) => String(p || "").replace(/[^\d+]/g, "");
+// Zahl aus "6,5", "6.5 l/100 km", "6 l" etc. holen
+function parseVerbrauchNum(v) {
+  if (v == null) return NaN;
+  if (typeof v === "number") return v;
+  const s = String(v).toLowerCase().replace(/\s+/g, "");
+  const m = s.match(/(\d+(?:[.,]\d+)?)/);
+  if (!m) return NaN;
+  const n = parseFloat(m[1].replace(",", "."));
+  return Number.isFinite(n) ? n : NaN;
+}
 
   function closeAllDropdowns(except = null) {
     dropdownLis.forEach(li => {
@@ -1012,22 +1022,31 @@ if (gearVal && !["beliebig","any","alle","all","-"].includes(gearVal)) {
 (function () {
   const sel   = document.getElementById('verbrauch-select');
   const inp   = document.getElementById('verbrauch');
+
   const toDec = (s) => {
-    if (s == null) return null;
-    const t = String(s).trim().replace(/\s+/g,'').replace(',', '.'); // 6,5 -> 6.5
+    const t = String(s ?? '').trim().replace(/\s+/g, '').replace(',', '.'); // "6,5" -> "6.5"
     if (!t) return null;
     const n = parseFloat(t);
     return Number.isFinite(n) ? n : null;
   };
 
   let raw = '';
-  if (sel) raw = (sel.value === 'custom') ? (inp?.value || '') : sel.value;
-  else     raw = inp?.value || '';
+
+  if (sel) {
+    if (sel.value === '' /* Beliebig */) {
+      raw = '';
+    } else if (sel.value === 'custom') {
+      raw = inp?.value || '';
+    } else {
+      raw = sel.value; // z.B. "6.0"
+    }
+  } else {
+    raw = inp?.value || '';
+  }
 
   const n = toDec(raw);
   setOrDelete(params, 'verbrauch_max', (n != null && n > 0) ? String(n) : '');
 })();
-
 
   // Ort / Umkreis
   const locEl       = document.getElementById("location");
@@ -1072,9 +1091,6 @@ loadAndRender(initialPage);
 
 
 });
-
-
-
 
 
 
