@@ -463,12 +463,14 @@ function parseVerbrauchNum(v) {
 
   async function fetchSearch(p = 1, limit = pageSize) {
     const params = new URLSearchParams(window.location.search);
+    params.delete("verbrauch_max");            // <<<<<<<<<< hier neu
     params.set("page", String(p));
     params.set("limit", String(limit));
     const res = await fetch(`/api/search?${params.toString()}`, { credentials: "omit" });
     if (!res.ok) throw new Error("Fetch /api/search fehlgeschlagen");
-    return res.json(); // { page, limit, total, results }
+    return res.json();
   }
+  
   
  // ---- DB -> UI Normalform (einheitliche Feldnamen) ----
 function normalizeItem(raw) {
@@ -529,137 +531,167 @@ function normalizeItem(raw) {
     raw
   };
 }
+function applyClientFilters(items) {
+  // Sidebar-/Form-Felder (nur verwenden, wenn vorhanden)
+  const priceFromEl       = document.getElementById("priceFrom");
+  const priceToEl         = document.getElementById("priceTo");
+  const mileageFromEl     = document.getElementById("mileageFrom");
+  const mileageToEl       = document.getElementById("mileageTo");
+  const powerFromEl       = document.getElementById("powerFrom");
+  const powerToEl         = document.getElementById("powerTo");
 
-  function applyClientFilters(items) {
-    // Sidebar-/Form-Felder (nur verwenden, wenn vorhanden)
-    const priceFromEl      = document.getElementById("priceFrom");
-    const priceToEl        = document.getElementById("priceTo");
-    const mileageFromEl    = document.getElementById("mileageFrom");
-    const mileageToEl      = document.getElementById("mileageTo");
-    const powerFromEl      = document.getElementById("powerFrom");
-    const powerToEl        = document.getElementById("powerTo");
+  // IDs: auf Suche-Seite evtl. fuelType/transmission, auf Startseite fuel/gear
+  const fuelTypeEl        = document.getElementById("fuelType") || document.getElementById("fuel");
+  const transmissionEl    = document.getElementById("transmission") || document.getElementById("gear");
 
-    // IDs: auf Suche-Seite evtl. fuelType/transmission, auf Startseite fuel/gear
-    const fuelTypeEl       = document.getElementById("fuelType") || document.getElementById("fuel");
-    const transmissionEl   = document.getElementById("transmission") || document.getElementById("gear");
+  const accidentFreeEl    = document.getElementById("accidentFree");
+  const inspectionUntilEl = document.getElementById("inspectionUntil");
 
-    const accidentFreeEl   = document.getElementById("accidentFree");
-    const inspectionUntilEl= document.getElementById("inspectionUntil");
+  // Erstzulassung UI
+  const firstRegFromEl    = document.getElementById("firstRegFrom");
+  const firstRegMonthEl   = document.getElementById("first-registration-month");
+  const firstRegYearEl    = document.getElementById("first-registration-year");
 
-    // Erstzulassung UI
-    const firstRegFromEl   = document.getElementById("firstRegFrom");
-    const firstRegMonthEl  = document.getElementById("first-registration-month");
-    const firstRegYearEl   = document.getElementById("first-registration-year");
+  // Marke/Modell Felder (UI kann Vorrang vor URL haben)
+  const markeEl           = document.getElementById("marke");
+  const modellEl          = document.getElementById("modell");
 
-    // Marke/Modell Felder (UI kann Vorrang vor URL haben)
-    const markeEl          = document.getElementById("marke");
-    const modellEl         = document.getElementById("modell");
+  // VERBRAUCH UI-Elemente
+  const selV              = document.getElementById("verbrauch-select");
+  const inpV              = document.getElementById("verbrauch");
 
-    // --- UI lesen ---
-    const priceFrom     = toNum(priceFromEl?.value ?? "");
-    const priceTo       = toNum(priceToEl?.value   ?? "");
-    const mileageFrom   = toNum(mileageFromEl?.value ?? "");
-    const mileageTo     = toNum(mileageToEl?.value   ?? "");
-    const powerFrom     = toNum(powerFromEl?.value ?? "");
-    const powerTo       = toNum(powerToEl?.value   ?? "");
+  // --- UI lesen ---
+  const priceFrom     = toNum(priceFromEl?.value ?? "");
+  const priceTo       = toNum(priceToEl?.value   ?? "");
+  const mileageFrom   = toNum(mileageFromEl?.value ?? "");
+  const mileageTo     = toNum(mileageToEl?.value   ?? "");
+  const powerFrom     = toNum(powerFromEl?.value ?? "");
+  const powerTo       = toNum(powerToEl?.value   ?? "");
 
-    const fuelTypeUI    = (fuelTypeEl?.value ? String(fuelTypeEl.value) : "Beliebig").toLowerCase();
-    const transmissionUI= (transmissionEl?.value ? String(transmissionEl.value) : "Beliebig").toLowerCase();
+  const fuelTypeUI     = (fuelTypeEl?.value ? String(fuelTypeEl.value) : "Beliebig").toLowerCase();
+  const transmissionUI = (transmissionEl?.value ? String(transmissionEl.value) : "Beliebig").toLowerCase();
 
-    const accidentFree  = !!accidentFreeEl?.checked;
-    const inspectionUntil = inspectionUntilEl?.value || ""; // YYYY-MM
+  const accidentFree    = !!accidentFreeEl?.checked;
+  const inspectionUntil = inspectionUntilEl?.value || ""; // YYYY-MM
 
-    // Erstzulassung aus UI zusammensetzen
-    const firstRegFromUI =
-      (firstRegFromEl?.value) ||
-      (firstRegYearEl?.value && firstRegMonthEl?.value
-        ? `${firstRegYearEl.value}-${firstRegMonthEl.value}`
-        : "");
+  // Erstzulassung aus UI zusammensetzen
+  const firstRegFromUI =
+    (firstRegFromEl?.value) ||
+    (firstRegYearEl?.value && firstRegMonthEl?.value
+      ? `${firstRegYearEl.value}-${firstRegMonthEl.value}`
+      : "");
 
-    // --- Fallbacks aus URL (wenn UI leer) ---
-    const priceToEff     = (!isNaN(priceTo)   && priceTo   > 0) ? priceTo   : toNum(QP.price_max);
-    const mileageToEff   = (!isNaN(mileageTo) && mileageTo > 0) ? mileageTo : toNum(QP.km_max);
-    const firstRegEff    = firstRegFromUI || QP.ezFrom;
+  // --- Fallbacks aus URL (wenn UI leer) ---
+  const priceToEff   = (!isNaN(priceTo)   && priceTo   > 0) ? priceTo   : toNum(QP.price_max);
+  const mileageToEff = (!isNaN(mileageTo) && mileageTo > 0) ? mileageTo : toNum(QP.km_max);
+  const firstRegEff  = firstRegFromUI || QP.ezFrom;
 
-    const fuelEff        = (fuelTypeUI !== "beliebig")     ? fuelTypeUI     : (QP.kraftstoff || "beliebig");
-    const gearEff        = (transmissionUI !== "beliebig") ? transmissionUI : (QP.getriebe   || "beliebig");
+  const fuelEff = (fuelTypeUI !== "beliebig")     ? fuelTypeUI     : (QP.kraftstoff || "beliebig");
+  const gearEff = (transmissionUI !== "beliebig") ? transmissionUI : (QP.getriebe   || "beliebig");
 
-    // Marke/Modell: UI > URL
-    let brandEff  = QP.marke ? norm(QP.marke) : "";
-    let modelsEff = Array.isArray(QP.modell) ? QP.modell.map(norm) : [];
-    if (markeEl && markeEl.value) brandEff = norm(markeEl.value);
-    if (modellEl && modellEl.options) {
-      const selected = [...modellEl.options].filter(o => o.selected).map(o => norm(o.value));
-      if (selected.length) modelsEff = selected;
+  // Marke/Modell: UI > URL
+  let brandEff  = QP.marke ? norm(QP.marke) : "";
+  let modelsEff = Array.isArray(QP.modell) ? QP.modell.map(norm) : [];
+  if (markeEl && markeEl.value) brandEff = norm(markeEl.value);
+  if (modellEl && modellEl.options) {
+    const selected = [...modellEl.options].filter(o => o.selected).map(o => norm(o.value));
+    if (selected.length) modelsEff = selected;
+  }
+
+  // --- Verbrauch (max) aus UI oder URL bestimmen ---
+  const toDec = (s) => {
+    const t = String(s ?? "").trim().replace(/\s+/g, "").replace(",", ".");
+    const n = parseFloat(t);
+    return Number.isFinite(n) ? n : NaN;
+  };
+  const rawV = selV
+    ? (selV.value === "custom" ? (inpV?.value || "") : selV.value)
+    : (inpV?.value || "");
+  const uiMax = toDec(rawV);
+  const qpMax = toDec(QP.verbrauch_max);
+  const vMax  = Number.isFinite(uiMax) && uiMax > 0 ? uiMax
+              : Number.isFinite(qpMax) && qpMax > 0 ? qpMax
+              : NaN;
+
+  // --- Filtern (auf Normalform) ---
+  return items.filter(i => {
+    // Marke/Modell/Titel
+    const iBrand = norm(i.marke);
+    const iModel = norm(i.modell);
+    const iTitle = norm(i.titel || "");
+
+    if (brandEff && iBrand !== brandEff) return false;
+    if (modelsEff.length) {
+      const hit = modelsEff.some(m => iModel.includes(m) || iTitle.includes(m));
+      if (!hit) return false;
     }
 
-    // --- Filtern (auf Normalform) ---
-    return items.filter(i => {
-      // Marke/Modell/Titel
-      const iBrand = norm(i.marke);
-      const iModel = norm(i.modell);
-      const iTitle = norm(i.titel || "");
+    // Preis
+    const preis = toNum(i.preis);
+    if (!isNaN(priceFrom) && priceFrom > 0 && !(preis >= priceFrom)) return false;
+    if (!isNaN(priceToEff) && priceToEff > 0 && !(preis <= priceToEff)) return false;
 
-      if (brandEff && iBrand !== brandEff) return false;
-      if (modelsEff.length) {
-        const hit = modelsEff.some(m => iModel.includes(m) || iTitle.includes(m));
-        if (!hit) return false;
-      }
+    // Kilometer
+    const km = toNum(i.kilometer);
+    if (!isNaN(mileageFrom) && mileageFrom > 0 && !(km >= mileageFrom)) return false;
+    if (!isNaN(mileageToEff) && mileageToEff > 0 && !(km <= mileageToEff)) return false;
 
-      // Preis
-      const preis = toNum(i.preis);
-      if (!isNaN(priceFrom) && priceFrom > 0 && !(preis >= priceFrom)) return false;
-      if (!isNaN(priceToEff) && priceToEff > 0 && !(preis <= priceToEff)) return false;
+    // Leistung (PS)
+    const ps = toNum(i.leistung);
+    if (!isNaN(powerFrom) && powerFrom > 0 && !(ps >= powerFrom)) return false;
+    if (!isNaN(powerTo)   && powerTo   > 0 && !(ps <= powerTo))   return false;
 
-      // Kilometer
-      const km = toNum(i.kilometer);
-      if (!isNaN(mileageFrom) && mileageFrom > 0 && !(km >= mileageFrom)) return false;
-      if (!isNaN(mileageToEff) && mileageToEff > 0 && !(km <= mileageToEff)) return false;
+    // Kraftstoff/Getriebe
+    if (fuelEff !== "beliebig") {
+      const ft = norm(i.kraftstoff || "");
+      if (!ft.includes(fuelEff)) return false;
+    }
+    if (gearEff !== "beliebig") {
+      const tr = norm(i.getriebe || "");
+      if (!tr.includes(gearEff)) return false;
+    }
 
-      // Leistung (PS)
-      const ps = toNum(i.leistung);
-      if (!isNaN(powerFrom) && powerFrom > 0 && !(ps >= powerFrom)) return false;
-      if (!isNaN(powerTo)   && powerTo   > 0 && !(ps <= powerTo))   return false;
+    // Unfallfrei (nur UI; heuristisch)
+    if (accidentFree) {
+      const flag = i.raw?.unfallfrei === true ||
+        (Array.isArray(i.raw?.verkauf_ausstattung) &&
+         i.raw.verkauf_ausstattung.some(a => norm(a).includes("unfall")));
+      if (!flag) return false;
+    }
 
-      // Kraftstoff/Getriebe
-      if (fuelEff !== "beliebig") {
-        const ft = norm(i.kraftstoff || "");
-        if (!ft.includes(fuelEff)) return false;
-      }
-      if (gearEff !== "beliebig") {
-        const tr = norm(i.getriebe || "");
-        if (!tr.includes(gearEff)) return false;
-      }
+    // HU bis
+    if (inspectionUntil) {
+      const hu = String(i.raw?.hu || i.raw?.verkauf_hu || "");
+      if (hu && hu.length >= 7 && hu < inspectionUntil) return false;
+    }
 
-      // Unfallfrei (nur UI; heuristisch)
-      if (accidentFree) {
-        const flag = i.raw?.unfallfrei === true ||
-          (Array.isArray(i.raw?.verkauf_ausstattung) &&
-           i.raw.verkauf_ausstattung.some(a => norm(a).includes("unfall")));
-        if (!flag) return false;
-      }
+    // Erstzulassung ab
+    if (firstRegEff) {
+      const ez = String(i.erstzulassung || "");
+      if (ez && ez.length >= 7 && ez < firstRegEff) return false;
+    }
 
-      // HU bis
-      if (inspectionUntil) {
-        const hu = String(i.raw?.hu || i.raw?.verkauf_hu || "");
-        if (hu && hu.length >= 7 && hu < inspectionUntil) return false;
-      }
+    // Ort (Textmatch; echter Radius später via Geocoding)
+    if (QP.ort) {
+      const standort = norm(i.standort || "");
+      if (!standort.includes(norm(QP.ort))) return false;
+    }
 
-      // Erstzulassung ab
-      if (firstRegEff) {
-        const ez = String(i.erstzulassung || "");
-        if (ez && ez.length >= 7 && ez < firstRegEff) return false;
-      }
+    // Verbrauch (kombiniert) max – nur filtern, wenn wir eine Schwelle haben
+    if (Number.isFinite(vMax) && vMax > 0) {
+      const vNum = parseVerbrauchNum(
+        i.verbrauch_kombiniert ||
+        i.raw?.verkauf_verbrauch_kombiniert ||
+        i.raw?.verbrauch_kombiniert ||
+        i.raw?.verbrauch // Fallback
+      );
+      if (Number.isFinite(vNum) && vNum > vMax) return false;
+    }
 
-      // Ort (Textmatch; echter Radius später via Geocoding)
-      if (QP.ort) {
-        const standort = norm(i.standort || "");
-        if (!standort.includes(norm(QP.ort))) return false;
-      }
+    return true;
+  });
+}
 
-      return true;
-    });
-  }
 // ===== Sortierung (auf Normalform) =====
 // (optional – wird aktuell NICHT mehr in den Events benutzt, weil der Server sortiert.
 //  Lass es drin, falls du zusätzlich clientseitig sortieren willst.)
@@ -932,13 +964,14 @@ function renderItems() {
 async function loadAndRender(p = 1) {
   try {
     const { page: serverPage, limit: serverLimit, total, results } = await fetchSearch(p, pageSize);
-    serverTotal   = total;                               // Gesamtzahl vom Server (für Pager)
+
+    serverTotal   = total;                               // Gesamtanzahl vom Server (für Pager)
     filteredItems = Array.isArray(results) ? results.map(normalizeItem) : [];
     page          = Number(serverPage) || 1;             // aktuelle Seite setzen
 
-    // Optional: falls du zusätzliche Client-Feinfilter/Sort noch anwenden willst:
-    // filteredItems = applyClientFilters(filteredItems);
-    // filteredItems = sortItems(filteredItems);
+    // Client-Filter (inkl. Verbrauch)
+    filteredItems = applyClientFilters(filteredItems);
+    // optional: filteredItems = sortItems(filteredItems);
 
     renderItems();
   } catch (err) {
@@ -946,6 +979,7 @@ async function loadAndRender(p = 1) {
     if (container) container.innerHTML = "<p>🚫 Fehler beim Laden der Ergebnisse.</p>";
   }
 }
+
 
 // ===== Events: Filter & Sort =====
 function setOrDelete(params, key, val) {
@@ -1091,8 +1125,6 @@ loadAndRender(initialPage);
 
 
 });
-
-
 
 
 
