@@ -92,6 +92,46 @@ if (sortBy) {
       if (m) firstRegMonthEl.value = m;
     }
   })();
+
+
+  // Verbrauch: URL -> UI (Select/Custom) + Toggle
+(function () {
+  const sel = document.getElementById('verbrauch-select');
+  const inp = document.getElementById('verbrauch');
+  if (!sel && !inp) return;
+
+  function syncVerbrauchUI() {
+    if (!sel || !inp) return;
+    const isCustom = sel.value === 'custom';
+    inp.style.display = isCustom ? '' : 'none';
+    if (!isCustom) inp.value = '';
+  }
+  sel?.addEventListener('change', syncVerbrauchUI);
+
+  const raw = (new URLSearchParams(location.search)).get('verbrauch_max');
+  if (raw) {
+    const asNum = parseFloat(String(raw).replace(',', '.'));
+    if (sel) {
+      const match = Array.from(sel.options).find(o =>
+        parseFloat(String(o.value).replace(',', '.')) === asNum
+      );
+      if (match && match.value !== 'custom') {
+        sel.value = match.value;
+        syncVerbrauchUI();
+      } else {
+        sel.value = 'custom';
+        if (inp) inp.value = String(raw).replace('.', ',');
+        syncVerbrauchUI();
+      }
+    } else if (inp) {
+      inp.style.display = '';
+      inp.value = String(raw).replace('.', ',');
+    }
+  } else {
+    syncVerbrauchUI();
+  }
+})();
+
 // ===== State =====
 let filteredItems = [];   // enthält IMMER nur die aktuelle Server-Seite (nach normalize)
 let page = 1;
@@ -971,23 +1011,23 @@ if (gearVal && !["beliebig","any","alle","all","-"].includes(gearVal)) {
 // Verbrauch (max) – Select/Custom -> URL
 (function () {
   const sel   = document.getElementById('verbrauch-select');
-  const input = document.getElementById('verbrauch');
-
+  const inp   = document.getElementById('verbrauch');
   const toDec = (s) => {
     if (s == null) return null;
-    const t = String(s).trim().replace(/\s+/g, '').replace(',', '.'); // 6,5 -> 6.5
+    const t = String(s).trim().replace(/\s+/g,'').replace(',', '.'); // 6,5 -> 6.5
     if (!t) return null;
     const n = parseFloat(t);
     return Number.isFinite(n) ? n : null;
   };
 
   let raw = '';
-  if (sel) raw = (sel.value === 'custom') ? (input?.value || '') : sel.value;
-  else     raw = input?.value || '';
+  if (sel) raw = (sel.value === 'custom') ? (inp?.value || '') : sel.value;
+  else     raw = inp?.value || '';
 
   const n = toDec(raw);
   setOrDelete(params, 'verbrauch_max', (n != null && n > 0) ? String(n) : '');
 })();
+
 
   // Ort / Umkreis
   const locEl       = document.getElementById("location");
@@ -1032,8 +1072,6 @@ loadAndRender(initialPage);
 
 
 });
-
-
 
 
 

@@ -574,16 +574,14 @@ buildMonthYearSelect('ez-bis', { minYear: 1950 });
   if (!vMax) return;
 
   const sel = document.getElementById('verbrauch-select');
-  const inp = document.getElementById('verbrauch-custom'); // << richtige ID!
+  const inp = document.getElementById('verbrauch');   // ✅ richtige ID
   const toNum = (s) => {
     const n = parseFloat(String(s).replace(',', '.'));
     return Number.isFinite(n) ? n : null;
   };
-
   const vNum = toNum(vMax);
 
   if (sel) {
-    // passende feste Option suchen (numerischer Vergleich)
     const match = Array.from(sel.options).find(o => {
       const ov = toNum(o.value);
       return ov !== null && ov === vNum;
@@ -594,14 +592,12 @@ buildMonthYearSelect('ez-bis', { minYear: 1950 });
       if (typeof syncVerbrauchUI === 'function') syncVerbrauchUI();
       else if (inp) inp.style.display = 'none';
     } else {
-      // keine feste Option → "custom" + Feld füllen
       sel.value = 'custom';
       if (inp) inp.value = String(vMax).replace('.', ','); // Komma für UI
       if (typeof syncVerbrauchUI === 'function') syncVerbrauchUI();
       else if (inp) inp.style.display = '';
     }
   } else if (inp) {
-    // falls es das Select nicht gibt (nur Input)
     inp.style.display = '';
     inp.value = String(vMax).replace('.', ',');
   }
@@ -687,10 +683,9 @@ buildMonthYearSelect('ez-bis', { minYear: 1950 });
       input.value = '';
     }
   };
-
 // --- VERBRAUCH: Select <-> Custom-Input umschalten ---
 const vbSel   = document.getElementById('verbrauch-select');
-const vbInput = document.getElementById('verbrauch-custom'); // << genau diese ID!
+const vbInput = document.getElementById('verbrauch'); // ✅
 
 function syncVerbrauchUI() {
   if (!vbSel || !vbInput) return;
@@ -702,8 +697,6 @@ function syncVerbrauchUI() {
 vbSel?.addEventListener('change', syncVerbrauchUI);
 syncVerbrauchUI();
 
-
-// exakt wie bei deinen anderen Dropdowns: SlimSelect-Dark aktivieren
 initSlim('#verbrauch-select', {
   allowDeselect: true,
   showSearch: false,
@@ -812,7 +805,7 @@ initSlim('#verbrauch-select', {
 // Verbrauch (max) – dezimalfreundlich (6,5 → 6.5), Select ↔ Custom
 (function () {
   const sel   = document.getElementById('verbrauch-select');
-  const input = document.getElementById('verbrauch-custom');
+  const input = document.getElementById('verbrauch'); // ✅
   const toDec = (s) => {
     if (s == null) return null;
     const n = parseFloat(String(s).replace(',', '.'));
