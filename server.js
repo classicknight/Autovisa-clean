@@ -12,6 +12,44 @@ const nodemailer = require("nodemailer");
 const cloudinary = require("cloudinary").v2;
 const crypto = require("crypto");
 
+
+const SESSION_SECRET = process.env.SESSION_SECRET;
+if (!SESSION_SECRET) {
+  console.error("❌ SESSION_SECRET fehlt in ENV");
+  process.exit(1);
+}
+function b64url(buf){ return Buffer.from(buf).toString("base64url"); }
+function makeSessionPayload(user){ 
+  return { id: user.id, role: user.role || "privat", email: user.email || "" };
+}
+function sign(val){
+  return crypto.createHmac("sha256", SESSION_SECRET).update(val).digest("base64url");
+}
+function encodeSession(obj){
+  const body = b64url(JSON.stringify(obj));
+  const sig  = sign(body);
+  return `${body}.${sig}`;
+}
+function decodeSession(token){
+  if (!token || typeof token !== "string") return null;
+  const [body, sig] = token.split(".");
+  if (!body || !sig) return null;
+
+  try {
+    const expected = sign(body); // base64url-String
+    const a = Buffer.from(expected, "base64url");
+    const b = Buffer.from(sig, "base64url");
+    if (a.length !== b.length) return null;
+    if (!crypto.timingSafeEqual(a, b)) return null;
+
+    return JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
+
+
 // === Express Initialisierung ===
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -470,23 +508,29 @@ app.post("/entwurf/:id/publish", checkLogin, async (req, res) => {
 });
 
 
-// === 🛡️ Login-Prüfung Middleware ===
-// (zweites app.use(cookieParser()) entfernt – cookieParser ist oben bereits aktiv)
-
-function checkLogin(req, res, next) {
+// === 🛡️ Login-Prüfung Middleware (signierte Session + DB-Check) ===
+async function checkLogin(req, res, next) {
   try {
-    const cookie = req.cookies.nutzer;
-    if (!cookie) return res.status(401).json({ error: "Nicht eingeloggt." });
+    const token = req.cookies.session;               // <-- NEU: signiertes Cookie "session"
+    const sess  = decodeSession(token);
+    if (!sess?.id) return res.status(401).json({ error: "Nicht eingeloggt." });
 
-    const nutzer = JSON.parse(cookie);
-    if (!nutzer?.id) return res.status(401).json({ error: "Ungültiger Login." });
+    // immer gegen DB prüfen
+    const user = await db.collection("nutzer").findOne(
+      { id: sess.id },
+      { projection: { id: 1, role: 1, email: 1, verified: 1 } }
+    );
+    if (!user) return res.status(401).json({ error: "Ungültiger Login." });
+    if (!user.verified) return res.status(403).json({ error: "Bitte bestätige zuerst deine E-Mail." });
 
-    req.nutzer = nutzer;
-    next();
+    req.nutzer = { id: user.id, role: user.role || "privat", email: user.email || "" };
+    return next();
   } catch (err) {
+    console.error("checkLogin error:", err);
     return res.status(401).json({ error: "Ungültiger Login." });
   }
 }
+
 // === 📧 Mail (IONOS / beliebiger SMTP via .env) ===
 const MAIL_FROM = process.env.MAIL_FROM || "Autovisa <no-reply@autovisa.de>";
 const MAIL_REPLY_TO = process.env.MAIL_REPLY_TO || "support@autovisa.de";
@@ -689,9 +733,7 @@ Wenn du dich nicht registriert hast, ignoriere diese E-Mail.`;
   }
 });
 
-
-
-// === Login-Route mit MongoDB (plain + bcrypt unterstützt) ===
+// === Login-Route (bcrypt + sanfte Migration + signierte Session) ===
 app.post("/login", async (req, res) => {
   let { email, password } = req.body;
 
@@ -703,6 +745,8 @@ app.post("/login", async (req, res) => {
   try {
     const nutzerColl = db.collection("nutzer");
     const user = await nutzerColl.findOne({ email });
+
+    // Einheitliche Fehlerausgabe (keine Info, ob E-Mail existiert)
     if (!user) {
       return res.status(401).json({ error: "❌ E-Mail oder Passwort falsch." });
     }
@@ -714,7 +758,7 @@ app.post("/login", async (req, res) => {
     } else {
       passOK = user.password === password;
       if (passOK) {
-        // ✅ sofortige Migration auf Hash
+        // ✅ Sofortige Migration auf Hash
         const newHash = await bcrypt.hash(password, 12);
         await nutzerColl.updateOne({ _id: user._id }, { $set: { password: newHash } });
       }
@@ -731,20 +775,19 @@ app.post("/login", async (req, res) => {
     const { appUrl } = getUrls();
     const isSecureCookie = appUrl.startsWith("https") || process.env.NODE_ENV === "production";
 
-    // Sichere Session-Cookies setzen
-    res.cookie("nutzer", JSON.stringify({
-      id: user.id,
-      role: user.role || "privat",
-      email: user.email
-    }), {
+    // 🔒 Signierte Session setzen (einzig relevante Auth-Cookie)
+    const payload = makeSessionPayload(user);
+    const sessionToken = encodeSession(payload);
+
+    res.cookie("session", sessionToken, {
       httpOnly: true,
       sameSite: "Lax",
       secure: isSecureCookie,
-      maxAge: 1000 * 60 * 60 * 24,
+      maxAge: 1000 * 60 * 60 * 24, // 1 Tag
       path: "/"
     });
 
-    // Optional (nur falls Frontend es wirklich nutzt)
+    // (Optional) UI-Helfer für dein Frontend – kein Security-Flag.
     res.cookie("isLoggedIn", "true", {
       httpOnly: false,
       sameSite: "Lax",
@@ -752,6 +795,27 @@ app.post("/login", async (req, res) => {
       maxAge: 1000 * 60 * 60 * 24,
       path: "/"
     });
+
+    /* -----------------------------------------------
+       ⚠️ Legacy-Kompatibilität:
+       Wenn dein Frontend aktuell noch das unsignierte
+       "nutzer"-Cookie liest (z.B. /getNutzerInfo),
+       kannst du es vorübergehend weiter setzen.
+       ABER: Niemals für Auth nutzen!
+       -> Empfohlen: /getNutzerInfo auf "session" umstellen.
+    ------------------------------------------------
+    res.cookie("nutzer", JSON.stringify({
+      id: user.id,
+      role: user.role || "privat",
+      email: user.email
+    }), {
+      httpOnly: true,            // bewusst httpOnly lassen (nicht im Browser lesbar)
+      sameSite: "Lax",
+      secure: isSecureCookie,
+      maxAge: 1000 * 60 * 60 * 24,
+      path: "/"
+    });
+    ------------------------------------------------ */
 
     return res.json({
       success: true,
@@ -765,6 +829,7 @@ app.post("/login", async (req, res) => {
     return res.status(500).json({ error: "❌ Interner Serverfehler." });
   }
 });
+
 // === Helper: Seller-Fallback für Aggregationen ===
 function projectWithSeller() {
   return [
@@ -826,24 +891,14 @@ app.get("/meine-inserate", checkLogin, async (req, res) => {
 });
 
 
-// === Nutzer-Info aus Cookie ===
+// === Nutzer-Info aus Session (sicher) ===
 app.get("/getNutzerInfo", async (req, res) => {
   try {
-    const cookie = req.cookies.nutzer;
-    if (!cookie) return res.json({ eingeloggt: false });
+    const sess = decodeSession(req.cookies.session);
+    if (!sess?.id) return res.json({ eingeloggt: false });
 
-    let nutzer;
-    try {
-      nutzer = JSON.parse(cookie);
-    } catch {
-      return res.json({ eingeloggt: false });
-    }
-    if (!nutzer?.id) return res.json({ eingeloggt: false });
-
-    const nutzerColl = db.collection("nutzer");
-    const user = await nutzerColl.findOne(
-      { id: nutzer.id },
-      // ⬇️ logoUrl in die Projection aufnehmen
+    const user = await db.collection("nutzer").findOne(
+      { id: sess.id },
       { projection: { id: 1, role: 1, name: 1, firma: 1, logoUrl: 1 } }
     );
     if (!user) return res.json({ eingeloggt: false });
@@ -853,7 +908,6 @@ app.get("/getNutzerInfo", async (req, res) => {
       nutzerId: user.id,
       rolle: user.role || "privat",
       name: user.name || user.firma || "Unbekannt",
-      // ⬇️ logoUrl in die Antwort aufnehmen
       logoUrl: user.logoUrl || ""
     });
   } catch (err) {
@@ -861,7 +915,6 @@ app.get("/getNutzerInfo", async (req, res) => {
     return res.status(500).json({ error: "Interner Serverfehler." });
   }
 });
-
 
 
 
@@ -1649,15 +1702,15 @@ app.get("/fahrzeuge-online", (req, res) => {
 
 
 
-// === Logout ===
 app.post("/logout", (req, res) => {
-  const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
-  const isSecureCookie = baseUrl.startsWith("https") || process.env.NODE_ENV === "production";
-
-  res.clearCookie("nutzer", { httpOnly: true, sameSite: "Lax", secure: isSecureCookie, path: "/" });
-  res.clearCookie("isLoggedIn", { httpOnly: false, sameSite: "Lax", secure: isSecureCookie, path: "/" });
-  res.json({ success: true });
+  const { appUrl } = getUrls();
+  const isSecureCookie = appUrl.startsWith("https") || process.env.NODE_ENV === "production";
+  res.clearCookie("session",   { httpOnly: true,  sameSite: "Lax", secure: isSecureCookie, path: "/" });
+  res.clearCookie("isLoggedIn",{ httpOnly: false, sameSite: "Lax", secure: isSecureCookie, path: "/" });
+  return res.json({ success: true });
 });
+
+
 
 // === Healthcheck & Server starten ===
 app.get("/healthz", (req, res) => res.status(200).send("ok"));
