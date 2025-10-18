@@ -1058,6 +1058,9 @@ async function loadAndRender(p = 1) {
     // optional: filteredItems = sortItems(filteredItems);
 
     renderItems();
+   
+renderActiveFilters(); // << Chips-Leiste nach jedem (Neu-)Laden aktualisieren
+
   } catch (err) {
     console.error("Fehler beim Laden der Suche:", err);
     if (container) container.innerHTML = "<p>🚫 Fehler beim Laden der Ergebnisse.</p>";
@@ -1203,3 +1206,207 @@ loadAndRender(initialPage);
 
 
 
+// ---- Aktive Filter (Chips) ----
+function renderActiveFilters() {
+  const bar = document.getElementById('activeFilterBar');
+  if (!bar) return;
+
+  // Refs (UI Felder, wie in applyClientFilters)
+  const priceFromEl   = document.getElementById("priceFrom");
+  const priceToEl     = document.getElementById("priceTo");
+  const mileageFromEl = document.getElementById("mileageFrom");
+  const mileageToEl   = document.getElementById("mileageTo");
+  const powerFromEl   = document.getElementById("powerFrom");
+  const powerToEl     = document.getElementById("powerTo");
+  const fuelEl        = document.getElementById("fuelType") || document.getElementById("fuel");
+  const gearEl        = document.getElementById("transmission") || document.getElementById("gear");
+  const firstRegFromEl= document.getElementById("firstRegFrom");
+  const accidentFreeEl= document.getElementById("accidentFree");
+  const inspectionEl  = document.getElementById("inspectionUntil");
+
+  // Effektive Werte wie in applyClientFilters (UI > URL-Fallback)
+  const priceMin = toNum(priceFromEl?.value ?? "");
+  const priceMax = !isNaN(toNum(priceToEl?.value ?? "")) && toNum(priceToEl?.value ?? "") > 0
+                   ? toNum(priceToEl.value) : toNum(QP.price_max);
+  const kmMin    = toNum(mileageFromEl?.value ?? "");
+  const kmMax    = !isNaN(toNum(mileageToEl?.value ?? "")) && toNum(mileageToEl?.value ?? "") > 0
+                   ? toNum(mileageToEl.value) : toNum(QP.km_max);
+  const psMin    = toNum(powerFromEl?.value ?? "");
+  const psMax    = toNum(powerToEl?.value   ?? "");
+  const fuelVal  = (fuelEl?.value || "").toLowerCase();
+  const gearVal  = (gearEl?.value || "").toLowerCase();
+  const ezFrom   = (firstRegFromEl?.value) || QP.ezFrom || "";
+  const ezTo     = QP.ezTo || ""; // nur aus URL
+  const accFree  = !!accidentFreeEl?.checked;
+  const huBis    = inspectionEl?.value || ""; // YYYY-MM
+
+  // Weitere mögliche URL-Filter (ohne UI auf dieser Seite)
+  const brand     = QP.marke || "";
+  const models    = Array.isArray(QP.modell) ? QP.modell.slice() : [];
+  const ort       = QP.ort || "";
+  const umkreis   = QP.umkreis || "";
+  const vMax      = QP.verbrauch_max || "";
+  const pf        = QP.partikelfilter;     // boolean (wird zu Chip, falls true)
+  const sh        = QP.scheckheft;         // boolean
+  const ft        = QP.fahrtauglich;       // boolean
+
+  // Hilfsformatierer
+  const eur = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")} €`;
+  const int = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")}`;
+  const month = s => (s && s.length >= 7 ? s : "");
+
+  // Chips zusammenstellen
+  const chips = [];
+
+  if (!isNaN(priceMin) && priceMin > 0)     chips.push({key:"price_min", label:`Preis ab ${eur(priceMin)}`});
+  if (!isNaN(priceMax) && priceMax > 0)     chips.push({key:"price_max", label:`Preis bis ${eur(priceMax)}`});
+  if (!isNaN(kmMin) && kmMin > 0)           chips.push({key:"km_min",    label:`KM ab ${int(kmMin)}`});
+  if (!isNaN(kmMax) && kmMax > 0)           chips.push({key:"km_max",    label:`KM bis ${int(kmMax)}`});
+  if (!isNaN(psMin) && psMin > 0)           chips.push({key:"ps_min",    label:`PS ab ${int(psMin)}`});
+  if (!isNaN(psMax) && psMax > 0)           chips.push({key:"ps_max",    label:`PS bis ${int(psMax)}`});
+
+  if (fuelVal && !["beliebig","any","alle","all","-"].includes(fuelVal))
+    chips.push({key:"fuel", label:`Kraftstoff: ${fuelEl?.value}`});
+
+  if (gearVal && !["beliebig","any","alle","all","-"].includes(gearVal))
+    chips.push({key:"gear", label:`Getriebe: ${gearEl?.value}`});
+
+  if (month(ezFrom))                        chips.push({key:"ezFrom",    label:`EZ ab ${ezFrom}`});
+  if (month(ezTo))                          chips.push({key:"ezTo",      label:`EZ bis ${ezTo}`});
+  if (accFree)                              chips.push({key:"accidentFree", label:`Unfallfrei`});
+  if (month(huBis))                         chips.push({key:"hu",        label:`HU bis ${huBis}`});
+
+  if (brand)                                chips.push({key:"marke",     label:`Marke: ${brand}`});
+  if (models && models.length) {
+    models.forEach(m => chips.push({key:"modell", value:m, label:`Modell: ${m}`}));
+  }
+
+  if (ort)                                  chips.push({key:"ort",       label:`Ort: ${ort}`});
+  if (umkreis)                              chips.push({key:"umkreis",   label:`Umkreis: ${umkreis} km`});
+  if (vMax)                                 chips.push({key:"verbrauch_max", label:`Verbrauch ≤ ${String(vMax).replace('.',',')} l/100km`});
+
+  if (pf)                                   chips.push({key:"partikelfilter", label:`Partikelfilter`});
+  if (sh)                                   chips.push({key:"scheckheft",     label:`Scheckheftgepflegt`});
+  if (ft)                                   chips.push({key:"fahrtauglich",   label:`Fahrtauglich`});
+
+  // Render
+  if (!chips.length) { bar.innerHTML = ""; return; }
+
+  bar.innerHTML = chips.map((c, idx) => `
+    <div class="filter-chip" data-key="${c.key}" ${c.value ? `data-value="${c.value}"` : ""}>
+      <span class="chip-label">${c.label}</span>
+      <button class="chip-remove" type="button" aria-label="Filter entfernen" title="Filter entfernen">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  `).join("") + `<button class="clear-all" type="button">Alle löschen</button>`;
+
+  // Remove-Handler
+  bar.querySelectorAll(".filter-chip .chip-remove").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const chip = e.currentTarget.closest(".filter-chip");
+      if (!chip) return;
+      const key = chip.getAttribute("data-key");
+      const val = chip.getAttribute("data-value") || "";
+      removeFilterChip(key, val);
+    });
+  });
+
+  // Clear-All
+  bar.querySelector(".clear-all")?.addEventListener("click", () => clearAllFilters());
+}
+
+function removeFilterChip(key, val="") {
+  const params = new URLSearchParams(window.location.search);
+
+  // UI-Elemente, die wir ggf. leeren müssen
+  const mapEl = {
+    price_min: document.getElementById("priceFrom"),
+    price_max: document.getElementById("priceTo"),
+    km_min:    document.getElementById("mileageFrom"),
+    km_max:    document.getElementById("mileageTo"),
+    ps_min:    document.getElementById("powerFrom"),
+    ps_max:    document.getElementById("powerTo"),
+    ezFrom:    document.getElementById("firstRegFrom"),
+    hu:        document.getElementById("inspectionUntil"),
+    fuel:      document.getElementById("fuelType") || document.getElementById("fuel"),
+    gear:      document.getElementById("transmission") || document.getElementById("gear"),
+    accidentFree: document.getElementById("accidentFree")
+  };
+
+  switch (key) {
+    // UI-only Min-Werte (keine URL-Params)
+    case "price_min": if (mapEl.price_min) mapEl.price_min.value = ""; return updateUrlFromUiAndReload();
+    case "km_min":    if (mapEl.km_min)    mapEl.km_min.value    = ""; return updateUrlFromUiAndReload();
+    case "ps_min":    if (mapEl.ps_min)    mapEl.ps_min.value    = ""; return updateUrlFromUiAndReload();
+
+    // Max-Werte (auch URL-Fallback)
+    case "price_max": if (mapEl.price_max) mapEl.price_max.value = ""; params.delete("price_max"); break;
+    case "km_max":    if (mapEl.km_max)    mapEl.km_max.value    = ""; params.delete("km_max");    break;
+    case "ps_max":    if (mapEl.ps_max)    mapEl.ps_max.value    = ""; break;
+
+    // EZ/ HU
+    case "ezFrom":    if (mapEl.ezFrom)    mapEl.ezFrom.value    = ""; params.delete("ezFrom");   break;
+    case "ezTo":      params.delete("ezTo"); break;
+    case "hu":        if (mapEl.hu)        mapEl.hu.value        = ""; break;
+
+    // Kraftstoff / Getriebe
+    case "fuel":      if (mapEl.fuel)      mapEl.fuel.value      = "Beliebig"; params.delete("kraftstoff"); break;
+    case "gear":      if (mapEl.gear)      mapEl.gear.value      = "Beliebig"; params.delete("getriebe");   break;
+
+    // UI Checkboxen
+    case "accidentFree": if (mapEl.accidentFree) mapEl.accidentFree.checked = false; break;
+
+    // Reine URL-Filter
+    case "marke":     params.delete("marke"); break;
+    case "modell": {
+      // Ein einzelnes Modell aus der Komma-Liste entfernen
+      const list = (params.get("modell") || "").split(",").map(s => s.trim()).filter(Boolean);
+      const next = list.filter(m => m.toLowerCase() !== String(val || "").toLowerCase());
+      if (next.length) params.set("modell", next.join(","));
+      else params.delete("modell");
+      break;
+    }
+    case "ort":            params.delete("ort");      break;
+    case "umkreis":        params.delete("umkreis");  break;
+    case "verbrauch_max":  params.delete("verbrauch_max"); break;
+    case "partikelfilter": params.delete("partikelfilter"); break;
+    case "scheckheft":     params.delete("scheckheft");     break;
+    case "fahrtauglich":   params.delete("fahrtauglich");   break;
+
+    default: break;
+  }
+
+  // Seite zurücksetzen & neu laden
+  params.delete("page");
+  history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
+  loadAndRender(1);
+}
+
+function clearAllFilters() {
+  const params = new URLSearchParams(window.location.search);
+
+  // Alles, was wir kennen & auf die Suche wirkt
+  [
+    "marke","modell","ezFrom","ezTo",
+    "km_max","price_max","getriebe","kraftstoff",
+    "ort","umkreis","sort","verbrauch_max",
+    "partikelfilter","scheckheft","fahrtauglich"
+  ].forEach(k => params.delete(k));
+  params.delete("page");
+
+  // UI Felder zurücksetzen
+  const ids = ["priceFrom","priceTo","mileageFrom","mileageTo","powerFrom","powerTo","firstRegFrom","inspectionUntil"];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+
+  const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
+  const gearEl = document.getElementById("transmission") || document.getElementById("gear");
+  const accEl  = document.getElementById("accidentFree");
+
+  if (fuelEl) fuelEl.value = "Beliebig";
+  if (gearEl) gearEl.value = "Beliebig";
+  if (accEl)  accEl.checked = false;
+
+  history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
+  loadAndRender(1);
+}
