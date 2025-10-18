@@ -466,31 +466,30 @@ document.addEventListener("DOMContentLoaded", () => {
     if (val === "date-desc")  return "neueste";
     return "";
   }
-
   function buildQueryParams() {
     const qs = new URLSearchParams();
-
+  
     const brand = markeSel?.value || "";
     if (brand) qs.set("marke", brand);
-
+  
     if (modellSel) {
       const models = Array.from(modellSel.selectedOptions || []).map(o => o.value);
       if (models.length && !models.includes("__ALL_MODELS__")) {
         qs.set("modell", models.filter(Boolean).join(","));
       }
     }
-
+  
     // Startseite: Jahr/Monat -> ezFrom
     const y = yearSel?.value || "";
     const m = monthSel?.value || "";
     if (y && m) qs.set("ezFrom", `${y}-${String(m).padStart(2, "0")}`);
-
+  
     // Suchkriterien-Seite: von/bis (überschreibt ggf. Startseitenwert)
     const ezFromAltVal = ezVonAlt?.value || "";
     const ezToAltVal   = ezBisAlt?.value || "";
     if (ezFromAltVal) qs.set("ezFrom", ezFromAltVal);
     if (ezToAltVal)   qs.set("ezTo",   ezToAltVal);
-
+  
     // Startseite km_max (Select + Custom)
     if (kmSel) {
       const raw = kmSel.value === "custom" ? (kmCustom?.value || "") : kmSel.value;
@@ -501,7 +500,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const kmBisEl    = document.getElementById("km-bis");
     const kmBis      = parseInt(kmBisEl?.value || "", 10);
     if (!Number.isNaN(kmBis) && kmBis > 0) qs.set("km_max", String(kmBis));
-
+  
     // Verbrauch (max) – Komma/Punkt tolerant
     if (consSel || consCustom) {
       const raw = consSel
@@ -512,7 +511,7 @@ document.addEventListener("DOMContentLoaded", () => {
         qs.set('verbrauch_max', String(n));
       }
     }
-
+  
     // Startseite price_max (Select + Custom)
     if (priceSel) {
       const raw = priceSel.value === "custom" ? (priceCustom?.value || "") : priceSel.value;
@@ -523,16 +522,26 @@ document.addEventListener("DOMContentLoaded", () => {
     const preisBisEl = document.getElementById("preis-bis");
     const preisBis   = parseInt(preisBisEl?.value || "", 10);
     if (!Number.isNaN(preisBis) && preisBis > 0) qs.set("price_max", String(preisBis));
-
+  
     // Getriebe/Kraftstoff (Startseite Select)
     const gear = (gearSel?.value || "").toLowerCase().trim();
-    if (gear && !["beliebig","any","alle","all","-"].includes(gear)) qs.set("getriebe", gear);
-
+    if (gear && !["beliebig","any","alle","all","-"].includes(gear)) {
+      // vereinheitlichen auf "automatik" | "schalt"
+      const gearMap = { "schaltgetriebe": "schalt", "schalt": "schalt", "automatik": "automatik" };
+      qs.set("getriebe", gearMap[gear] || gear);
+    }
+  
     const fuel = (fuelSel?.value || "").toLowerCase().trim();
-    if (fuel && !["beliebig","any","alle","all","-"].includes(fuel)) qs.set("kraftstoff", fuel);
-
+    if (fuel && !["beliebig","any","alle","all","-"].includes(fuel)) {
+      // Hybride normalisieren
+      const f = fuel.startsWith("hybrid") ? "hybrid" : fuel;
+      qs.set("kraftstoff", f);
+    }
+  
     // Kriterien-Seite: Getriebe als Checkboxen (wenn genau eine gewählt)
-    const getriebeCbs = document.querySelectorAll('.search-group label input[type="checkbox"][value="Automatik"], .search-group label input[type="checkbox"][value="Schaltgetriebe"]');
+    const getriebeCbs = document.querySelectorAll(
+      '.search-group label input[type="checkbox"][value="Automatik"], .search-group label input[type="checkbox"][value="Schaltgetriebe"]'
+    );
     if (getriebeCbs.length) {
       const checked = [...getriebeCbs].filter(cb => cb.checked).map(cb => cb.value.toLowerCase());
       if (checked.length === 1) {
@@ -540,20 +549,22 @@ document.addEventListener("DOMContentLoaded", () => {
         qs.set("getriebe", map[checked[0]] || checked[0]);
       }
     }
-
+  
     // Kriterien-Seite: Kraftstoff als Checkboxen (wenn genau eine gewählt)
     const fuelCbs = document.querySelectorAll('.fuel-type-grid input[type="checkbox"]');
     if (fuelCbs.length) {
       const checkedFuel = [...fuelCbs].filter(cb => cb.checked).map(cb => cb.value.toLowerCase());
       if (checkedFuel.length === 1) {
-        qs.set("kraftstoff", checkedFuel[0]);
+        // "hybrid-diesel" / "hybrid-benzin" => "hybrid"
+        const only = checkedFuel[0].startsWith("hybrid") ? "hybrid" : checkedFuel[0];
+        qs.set("kraftstoff", only);
       }
     }
-
+  
     // Ort
     const loc = (locInput?.value || "").trim();
     if (loc) qs.set("ort", loc);
-
+  
     // Umkreis: Kriterien-Seite zuerst, sonst Startseite
     if (umkreisSel) {
       const raw = umkreisSel.value === 'custom' ? (umkreisCustom?.value || '') : umkreisSel.value;
@@ -566,20 +577,21 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!Number.isNaN(d) && d > 0 && d !== 999) qs.set("umkreis", String(d));
       else qs.delete("umkreis");
     }
-
+  
     if (sortSel && sortSel.value) {
       const mapped = mapSortToServer(sortSel.value);
       if (mapped) qs.set("sort", mapped);
     }
-
-    // Features
-    if (pfEl?.checked) qs.set("partikelfilter", "mit");
-    if (shEl?.checked) qs.set("scheckheft", "ja");
-    if (ftEl?.checked) qs.set("fahrtauglich", "ja");
-
+  
+    // Features (als Flags)
+    if (pfEl?.checked) qs.set("partikelfilter", "1");
+    if (shEl?.checked) qs.set("scheckheft", "1");
+    if (ftEl?.checked) qs.set("fahrtauglich", "1");
+  
     qs.delete("page");
     return qs;
   }
+  
 
   // Submit → suche.html (nur wenn ein Formular existiert, z. B. auf der Startseite)
   if (form) {

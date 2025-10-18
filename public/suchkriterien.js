@@ -713,12 +713,12 @@ document.addEventListener("DOMContentLoaded", () => {
   function buildAdvancedQuery() {
     const qs = new URLSearchParams();
     const numLocal = (typeof window.num === "function") ? window.num : _numFallback;
-
+  
     // Marke
     const brandEl = document.getElementById("marke") || window.brandDropdown;
     const brand = brandEl?.value?.trim() || "";
     if (brand) qs.set("marke", brand);
-
+  
     // Modelle
     (function collectModels() {
       const sel = document.getElementById("modell");
@@ -730,33 +730,33 @@ document.addEventListener("DOMContentLoaded", () => {
       vals = Array.from(new Set(vals));
       if (vals.length) qs.set("modell", vals.join(","));
     })();
-
+  
     // Modellvariante
     const modVar = document.getElementById("modellausfuehrung")?.value?.trim();
     if (modVar) qs.set("modellausfuehrung", modVar);
-
+  
     // Türen
     const tueren = document.getElementById("tueren")?.value?.trim();
     if (tueren) qs.set("tueren", tueren);
-
+  
     // Erstzulassung
     const ezFrom = document.getElementById("ez-von")?.value || "";
     const ezTo   = document.getElementById("ez-bis")?.value || "";
     if (/^\d{4}-\d{2}$/.test(ezFrom)) qs.set("ezFrom", ezFrom);
     if (/^\d{4}-\d{2}$/.test(ezTo))   qs.set("ezTo",   ezTo);
-
+  
     // Kilometer
     const kmMin = numLocal(document.getElementById("km-von")?.value);
     const kmMax = numLocal(document.getElementById("km-bis")?.value);
     if (kmMin != null && kmMin > 0) qs.set("km_min", String(kmMin));
     if (kmMax != null && kmMax > 0) qs.set("km_max", String(kmMax));
-
+  
     // Preis
     const pMin = numLocal(document.getElementById("preis-von")?.value);
     const pMax = numLocal(document.getElementById("preis-bis")?.value);
     if (pMin != null && pMin > 0) qs.set("price_min", String(pMin));
     if (pMax != null && pMax > 0) qs.set("price_max", String(pMax));
-
+  
     // Land
     (function () {
       const landEl = document.getElementById("land");
@@ -766,11 +766,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const firstVal = hasMultiple ? landEl.options[0].value : val;
       if (hasMultiple && val && val !== firstVal) qs.set("land", val);
     })();
-
+  
     // Ort
     const ort = document.getElementById("ort")?.value?.trim();
     if (ort) qs.set("ort", ort);
-
+  
     // Koordinaten (falls vorhanden)
     const latV = parseFloat(document.getElementById("ort-lat")?.value);
     const lonV = parseFloat(document.getElementById("ort-lon")?.value);
@@ -778,7 +778,7 @@ document.addEventListener("DOMContentLoaded", () => {
       qs.set("ort_lat", String(latV));
       qs.set("ort_lon", String(lonV));
     }
-
+  
     // Umkreis
     const umkreisSel = document.getElementById("umkreis");
     if (umkreisSel && !umkreisSel.disabled) {
@@ -789,18 +789,18 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (radius) qs.set("umkreis", radius);
     }
-
+  
     // Leistung / Hubraum
     const psMin = _numFallback(document.getElementById("leistung-von")?.value);
     const psMax = _numFallback(document.getElementById("leistung-bis")?.value);
     if (psMin != null && psMin > 0) qs.set("ps_min", String(psMin));
     if (psMax != null && psMax > 0) qs.set("ps_max", String(psMax));
-
+  
     const ccMin = _numFallback(document.getElementById("hubraum-von")?.value);
     const ccMax = _numFallback(document.getElementById("hubraum-bis")?.value);
     if (ccMin != null && ccMin > 0) qs.set("ccm_min", String(ccMin));
     if (ccMax != null && ccMax > 0) qs.set("ccm_max", String(ccMax));
-
+  
     // Verbrauch (max)
     (function () {
       const sel   = document.getElementById('verbrauch-select');
@@ -816,7 +816,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const n = toDec(raw);
       if (n != null && n > 0) qs.set('verbrauch_max', String(n));
     })();
-
+  
     // Getriebe (genau 1)
     (function () {
       const boxes = document.querySelectorAll(
@@ -825,7 +825,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const selected = Array.from(boxes).filter(i => i.checked).map(i => (i.value || "").toLowerCase());
       if (selected.length === 1) qs.set("getriebe", selected[0]);
     })();
-
+  
     // Antrieb (mehrere)
     (function () {
       const picked = Array.from(document.querySelectorAll(
@@ -836,7 +836,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .filter(Boolean);
       if (picked.length) qs.set("antrieb", picked.join(","));
     })();
-
+  
     // Kraftstoff (genau 1)
     (function () {
       const grid = document.querySelector(".fuel-type-grid");
@@ -858,33 +858,42 @@ document.addEventListener("DOMContentLoaded", () => {
       else if (t.startsWith("andere")) token = "andere";
       if (token) qs.set("kraftstoff", token);
     })();
-
+  
     // Schadstoffe / Umwelt / HU / Halter
     const schad       = document.getElementById("schadstoffklasse")?.value;
     const schadCustom = document.getElementById("custom-schadstoff")?.value?.trim();
     const schadFinal  = schadCustom || schad;
     if (schadFinal) qs.set("schadstoffklasse", schadFinal);
-
+  
     const plakette = document.getElementById("plakette")?.value;
     if (plakette && plakette !== "Beliebig") qs.set("plakette", plakette);
-
+  
+    // ✅ Partikelfilter-Flag so, wie das Backend es erwartet
     const pf = document.getElementById("partikelfilter");
-    if (pf && pf.checked) qs.set("partikelfilter", "mit");
-
+    if (pf && pf.checked) qs.set("partikelfilter", "1");
+  
+    // ✅ Sonstige Merkmale an die API übergeben
+    (function () {
+      const m = [];
+      if (document.getElementById('scheckheft')?.checked)   m.push('Scheckheftgepflegt');
+      if (document.getElementById('fahrtauglich')?.checked) m.push('Fahrtauglich');
+      if (m.length) qs.set('merkmale', m.join(','));
+    })();
+  
     const huSel    = document.getElementById("hu-gueltig")?.value;
     const huCustom = document.getElementById("custom-hu")?.value?.trim();
     const huFinal  = huCustom || huSel;
-    if (huFinal && huFinal !== "Beliebig") qs.set("hu",   hyphenate(huFinal || "").trim() || huFinal);
-
+    if (huFinal && huFinal !== "Beliebig") qs.set("hu", hyphenate(huFinal || "").trim() || huFinal);
+  
     const halter = document.getElementById("fahrzeughalter")?.value;
     if (halter) qs.set("halter_max", halter);
-
+  
     // Fahrzeugtyp
     (function collectVehicleTypes() {
       const vals = new Set();
       document.querySelectorAll('input[type="checkbox"][name="fahrzeugtyp"]:checked')
         .forEach(i => { const v = i.value?.trim(); if (v) vals.add(v); });
-
+  
       if (!vals.size) {
         const group = Array.from(document.querySelectorAll(".search-group"))
           .find(g => /fahrzeugtyp/i.test(g.querySelector("label")?.textContent || g.textContent || ""));
@@ -897,32 +906,33 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (vals.size) qs.set("fahrzeugtyp", Array.from(vals).join(","));
     })();
-
+  
     // Farben + Lack-Finish
     (function () {
       const colorBox = document.querySelector(".color-selection");
       if (!colorBox) return;
-
+  
       const picks = Array.from(colorBox.querySelectorAll('input[type="checkbox"]:checked'))
         .map(i => (i.value?.trim() || i.parentElement?.textContent?.trim()))
         .map(s => s && s.replace(/\s+/g, " ").trim())
         .filter(Boolean);
-
+  
       if (picks.length) {
         const hasMetallic = picks.some(p => /^metallic$/i.test(p));
         const hasMatt     = picks.some(p => /^matt$/i.test(p));
         const pureColors  = picks.filter(p => !/^metallic$/i.test(p) && !/^matt$/i.test(p));
-
+  
         if (pureColors.length) qs.set("farbe", Array.from(new Set(pureColors)).join(","));
         if (hasMetallic) qs.set("lack", "metallic");
         if (hasMatt)     qs.set("lack_matt", "1");
       }
     })();
-
+  
     // page zurücksetzen
     qs.delete("page");
     return qs;
   }
+  
 
   function hyphenate(s){ return String(s).replace(/\s+/g,' ').replace(/\s*-\s*/g,'-'); }
 
