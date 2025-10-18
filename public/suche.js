@@ -1,4 +1,4 @@
-// suche.js — TEIL 1 (korrigiert bis inkl. initMediaSlider)
+// suche.js — TEIL 1 (korrigiert inkl. Feature-Flags)
 document.documentElement.classList.remove("no-js");
 
 const QP = (() => {
@@ -8,7 +8,7 @@ const QP = (() => {
     marke: sp.get("marke") || "",
     modell: arr(sp.get("modell")),
     ezFrom: sp.get("ezFrom") || "",
-    ezTo:   sp.get("ezTo")   || "",                 // ⬅️ NEU
+    ezTo:   sp.get("ezTo")   || "",
     km_max: sp.get("km_max") || "",
     price_max: sp.get("price_max") || "",
     getriebe: (sp.get("getriebe") || "").toLowerCase(),
@@ -17,13 +17,12 @@ const QP = (() => {
     umkreis: sp.get("umkreis") || "",
     sort: sp.get("sort") || "",
     verbrauch_max: sp.get("verbrauch_max") || "",
-    partikelfilter: (sp.get("partikelfilter") || "").toLowerCase(), // ⬅️ NEU: "mit" | "ohne"
-    scheckheft: (sp.get("scheckheft") || "").toLowerCase(),         // ⬅️ NEU: "ja"
-    fahrtauglich: (sp.get("fahrtauglich") || "").toLowerCase()      // ⬅️ NEU: "ja"
+    // ✅ NEU: drei Feature-Flags aus URL
+    partikelfilter: (sp.get("partikelfilter") || "").toLowerCase(), // "mit"
+    scheckheft:     (sp.get("scheckheft")     || "").toLowerCase(), // "ja"
+    fahrtauglich:   (sp.get("fahrtauglich")   || "").toLowerCase()  // "ja"
   };
 })();
-
-
 
 const norm = (s) => String(s || "").toLowerCase();
 const toNum = (v) => {
@@ -53,117 +52,110 @@ document.addEventListener("DOMContentLoaded", () => {
   const pager         = document.getElementById("pager");
   const sortBy        = document.getElementById("sortBy");
   const applyFilters  = document.getElementById("applyFiltersBtn");
-// --- Prefill aus URL in die UI ---
-(function prefillFromQuery () {
-  const markeEl   = document.getElementById("marke");
-  const modellEl  = document.getElementById("modell");
 
-  const priceToEl = document.getElementById("priceTo");
-  const kmToEl    = document.getElementById("mileageTo");
+  // --- Prefill aus URL in die UI ---
+  (function prefillFromQuery () {
+    const markeEl   = document.getElementById("marke");
+    const modellEl  = document.getElementById("modell");
 
-  const fuelEl    = document.getElementById("fuelType") || document.getElementById("fuel");
-  const gearEl    = document.getElementById("transmission") || document.getElementById("gear");
+    const priceToEl = document.getElementById("priceTo");
+    const kmToEl    = document.getElementById("mileageTo");
 
-  // Ergebnis-Seite (Variante 1)
-  const firstRegFromEl  = document.getElementById("firstRegFrom"); // <input type="month">
-  const firstRegMonthEl = document.getElementById("first-registration-month");
-  const firstRegYearEl  = document.getElementById("first-registration-year");
+    const fuelEl    = document.getElementById("fuelType") || document.getElementById("fuel");
+    const gearEl    = document.getElementById("transmission") || document.getElementById("gear");
 
-  // Suchformular-Seite (Variante 2)
-  const ezVonEl = document.getElementById("ez-von"); // <input type="month">
-  const ezBisEl = document.getElementById("ez-bis"); // <input type="month">
+    // Ergebnis-Seite (Variante 1)
+    const firstRegFromEl  = document.getElementById("firstRegFrom"); // <input type="month">
+    const firstRegMonthEl = document.getElementById("first-registration-month");
+    const firstRegYearEl  = document.getElementById("first-registration-year");
 
-  // Feature-Checkboxen (falls vorhanden)
-  const pfEl = document.getElementById("partikelfilter");
-  const shEl = document.getElementById("scheckheft");
-  const ftEl = document.getElementById("fahrtauglich");
+    // Suchformular-Seite (Variante 2)
+    const ezVonEl = document.getElementById("ez-von"); // <input type="month">
+    const ezBisEl = document.getElementById("ez-bis"); // <input type="month">
 
-  if (markeEl && QP.marke) markeEl.value = QP.marke;
+    // ✅ Feature-Checkboxen (falls vorhanden)
+    const pfEl = document.getElementById("partikelfilter");
+    const shEl = document.getElementById("scheckheft");
+    const ftEl = document.getElementById("fahrtauglich");
 
-  if (modellEl && Array.isArray(QP.modell) && QP.modell.length) {
-    const set = new Set(QP.modell.map(v => v.toLowerCase()));
-    [...modellEl.options].forEach(opt => { opt.selected = set.has(String(opt.value).toLowerCase()); });
-  }
+    if (markeEl && QP.marke) markeEl.value = QP.marke;
 
-  if (priceToEl && QP.price_max) priceToEl.value = QP.price_max;
-  if (kmToEl   && QP.km_max)     kmToEl.value    = QP.km_max;
+    if (modellEl && Array.isArray(QP.modell) && QP.modell.length) {
+      const set = new Set(QP.modell.map(v => v.toLowerCase()));
+      [...modellEl.options].forEach(opt => { opt.selected = set.has(String(opt.value).toLowerCase()); });
+    }
 
-  if (fuelEl && QP.kraftstoff) fuelEl.value = QP.kraftstoff;
-  if (gearEl && QP.getriebe)   gearEl.value = QP.getriebe;
+    if (priceToEl && QP.price_max) priceToEl.value = QP.price_max;
+    if (kmToEl   && QP.km_max)     kmToEl.value    = QP.km_max;
 
-  // EZ: Ergebnis-Seite (ein einziges <input type="month">)
-  if (firstRegFromEl && QP.ezFrom) firstRegFromEl.value = QP.ezFrom;
+    if (fuelEl && QP.kraftstoff) fuelEl.value = QP.kraftstoff;
+    if (gearEl && QP.getriebe)   gearEl.value = QP.getriebe;
 
-  // EZ: Ergebnis-Seite (Jahr/Monat-Dropdowns)
-  if (QP.ezFrom && firstRegMonthEl && firstRegYearEl) {
-    const [y, m] = QP.ezFrom.split("-");
-    if (y) firstRegYearEl.value  = y;
-    if (m) firstRegMonthEl.value = m;
-  }
+    if (firstRegFromEl && QP.ezFrom) firstRegFromEl.value = QP.ezFrom;
+    if (QP.ezFrom && firstRegMonthEl && firstRegYearEl) {
+      const [y, m] = QP.ezFrom.split("-");
+      if (y) firstRegYearEl.value  = y;
+      if (m) firstRegMonthEl.value = m;
+    }
+    if (ezVonEl && QP.ezFrom) ezVonEl.value = QP.ezFrom;
+    if (ezBisEl && QP.ezTo)   ezBisEl.value = QP.ezTo;
 
-  // EZ: Suchformular-Seite (von/bis als <input type="month">)
-  if (ezVonEl && QP.ezFrom) ezVonEl.value = QP.ezFrom;
-  if (ezBisEl && QP.ezTo)   ezBisEl.value = QP.ezTo;
+    // Sortierung
+    if (sortBy) {
+      if (QP.sort === "preis_asc")       sortBy.value = "price-asc";
+      else if (QP.sort === "preis_desc") sortBy.value = "price-desc";
+      else if (QP.sort)                  sortBy.value = "date-desc";
+    }
 
-  // Sortierung aus URL auf das Select mappen
-  if (sortBy) {
-    if (QP.sort === "preis_asc")       sortBy.value = "price-asc";
-    else if (QP.sort === "preis_desc") sortBy.value = "price-desc";
-    else if (QP.sort)                  sortBy.value = "date-desc"; // Fallback
-  }
-
-  // Feature-Checkboxen aus URL vorbefüllen
-  if (pfEl) pfEl.checked = (QP.partikelfilter === "mit");
-  if (shEl) shEl.checked = (QP.scheckheft === "ja");
-  if (ftEl) ftEl.checked = (QP.fahrtauglich === "ja");
-})();
-
-
+    // ✅ Feature-Checkboxen aus URL vorbefüllen
+    if (pfEl) pfEl.checked = (QP.partikelfilter === "mit");
+    if (shEl) shEl.checked = (QP.scheckheft === "ja");
+    if (ftEl) ftEl.checked = (QP.fahrtauglich === "ja");
+  })();
 
   // Verbrauch: URL -> UI (Select/Custom) + Toggle
-(function () {
-  const sel = document.getElementById('verbrauch-select');
-  const inp = document.getElementById('verbrauch');
-  if (!sel && !inp) return;
+  (function () {
+    const sel = document.getElementById('verbrauch-select');
+    const inp = document.getElementById('verbrauch');
+    if (!sel && !inp) return;
 
-  function syncVerbrauchUI() {
-    if (!sel || !inp) return;
-    const isCustom = sel.value === 'custom';
-    inp.style.display = isCustom ? '' : 'none';
-    if (!isCustom) inp.value = '';
-  }
-  sel?.addEventListener('change', syncVerbrauchUI);
-
-  const raw = (new URLSearchParams(location.search)).get('verbrauch_max');
-  if (raw) {
-    const asNum = parseFloat(String(raw).replace(',', '.'));
-    if (sel) {
-      const match = Array.from(sel.options).find(o =>
-        parseFloat(String(o.value).replace(',', '.')) === asNum
-      );
-      if (match && match.value !== 'custom') {
-        sel.value = match.value;
-        syncVerbrauchUI();
-      } else {
-        sel.value = 'custom';
-        if (inp) inp.value = String(raw).replace('.', ',');
-        syncVerbrauchUI();
-      }
-    } else if (inp) {
-      inp.style.display = '';
-      inp.value = String(raw).replace('.', ',');
+    function syncVerbrauchUI() {
+      if (!sel || !inp) return;
+      const isCustom = sel.value === 'custom';
+      inp.style.display = isCustom ? '' : 'none';
+      if (!isCustom) inp.value = '';
     }
-  } else {
-    syncVerbrauchUI();
-  }
-})();
+    sel?.addEventListener('change', syncVerbrauchUI);
 
-// ===== State =====
-let filteredItems = [];   // enthält IMMER nur die aktuelle Server-Seite (nach normalize)
-let page = 1;
-const pageSize = 20;
-let serverTotal = 0;      // Gesamtanzahl vom Server für den Pager
+    const raw = (new URLSearchParams(location.search)).get('verbrauch_max');
+    if (raw) {
+      const asNum = parseFloat(String(raw).replace(',', '.'));
+      if (sel) {
+        const match = Array.from(sel.options).find(o =>
+          parseFloat(String(o.value).replace(',', '.')) === asNum
+        );
+        if (match && match.value !== 'custom') {
+          sel.value = match.value;
+          syncVerbrauchUI();
+        } else {
+          sel.value = 'custom';
+          if (inp) inp.value = String(raw).replace('.', ',');
+          syncVerbrauchUI();
+        }
+      } else if (inp) {
+        inp.style.display = '';
+        inp.value = String(raw).replace('.', ',');
+      }
+    } else {
+      syncVerbrauchUI();
+    }
+  })();
 
+  // ===== State =====
+  let filteredItems = [];   // enthält IMMER nur die aktuelle Server-Seite (nach normalize)
+  let page = 1;
+  const pageSize = 20;
+  let serverTotal = 0;      // Gesamtanzahl vom Server für den Pager
 
   // ===== Helpers =====
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -172,17 +164,19 @@ let serverTotal = 0;      // Gesamtanzahl vom Server für den Pager
     return isNaN(n) ? "Preis n. a." : n.toLocaleString("de-DE") + " €";
   };
   const sanitizePhone = (p) => String(p || "").replace(/[^\d+]/g, "");
-// Zahl aus "6,5", "6.5 l/100 km", "6 l" etc. holen
-function parseVerbrauchNum(v) {
-  if (v == null) return NaN;
-  if (typeof v === "number") return v;
-  const s = String(v).toLowerCase().replace(/\s+/g, "");
-  const m = s.match(/(\d+(?:[.,]\d+)?)/);
-  if (!m) return NaN;
-  const n = parseFloat(m[1].replace(",", "."));
-  return Number.isFinite(n) ? n : NaN;
-}
 
+  // Zahl aus "6,5", "6.5 l/100 km", "6 l" etc. holen
+  function parseVerbrauchNum(v) {
+    if (v == null) return NaN;
+    if (typeof v === "number") return v;
+    const s = String(v).toLowerCase().replace(/\s+/g, "");
+    const m = s.match(/(\d+(?:[.,]\d+)?)/);
+    if (!m) return NaN;
+    const n = parseFloat(m[1].replace(",", "."));
+    return Number.isFinite(n) ? n : NaN;
+  }
+
+  // ===== Dropdown-UI (Navbar) – unverändert gekürzt =====
   function closeAllDropdowns(except = null) {
     dropdownLis.forEach(li => {
       if (li !== except) {
@@ -198,42 +192,31 @@ function parseVerbrauchNum(v) {
       }
     });
   }
-
   function positionMenu(li) {
     const trigger = li.querySelector('a[aria-haspopup="true"]');
     const menu    = li.querySelector(".dropdown-menu");
     if (!trigger || !menu) return;
-
     const tRect = trigger.getBoundingClientRect();
     const mRect = menu.getBoundingClientRect();
     const liRect = li.getBoundingClientRect();
     const vw = window.innerWidth;
-
     const center  = tRect.left + tRect.width / 2;
     let leftAbs   = center - mRect.width / 2;
     leftAbs       = clamp(leftAbs, 16, vw - mRect.width - 16);
     const relLeft = leftAbs - liRect.left;
-
     menu.style.left = `${relLeft}px`;
   }
-
   function openDropdown(trigger) {
     const li   = trigger.closest(".dropdown");
     const menu = trigger.nextElementSibling;
     closeAllDropdowns(li);
-
     li.classList.add("open");
     trigger.setAttribute("aria-expanded", "true");
     menu.classList.add("show");
-
-    [...menu.children].forEach((item, i) => {
-      item.style.transitionDelay = `${i * 25}ms`;
-    });
-
+    [...menu.children].forEach((item, i) => { item.style.transitionDelay = `${i * 25}ms`; });
     const isMobile = window.matchMedia("(max-width: 900px)").matches;
     if (!isMobile) requestAnimationFrame(() => positionMenu(li));
   }
-
   function toggleDropdown(trigger) {
     const li = trigger.closest(".dropdown");
     li.classList.contains("open") ? closeAllDropdowns() : openDropdown(trigger);
@@ -247,17 +230,12 @@ function parseVerbrauchNum(v) {
     closeAllDropdowns();
     hamburger.setAttribute("aria-expanded", willOpen ? "true" : "false");
   });
-
   dropdownLinks.forEach(link => {
     link.setAttribute("aria-expanded", "false");
     link.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      toggleDropdown(link);
+      e.preventDefault(); e.stopPropagation(); toggleDropdown(link);
     });
   });
-
-  // Outside Click & ESC
   document.addEventListener("click", () => {
     navLinks?.classList.remove("active");
     hamburger?.setAttribute("aria-expanded", "false");
@@ -270,8 +248,6 @@ function parseVerbrauchNum(v) {
       closeAllDropdowns();
     }
   });
-
-  // Reposition on resize/scroll
   const repositionOpen = () => document.querySelectorAll(".dropdown.open").forEach(positionMenu);
   window.addEventListener("resize", repositionOpen);
   window.addEventListener("scroll", repositionOpen);
@@ -286,7 +262,7 @@ function parseVerbrauchNum(v) {
     });
   }
 
-  // ===== Smooth Scroll (optional) =====
+  // ===== Smooth Scroll =====
   searchLink?.addEventListener("click", (e) => {
     e.preventDefault();
     document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
@@ -302,7 +278,7 @@ function parseVerbrauchNum(v) {
   makeInput?.addEventListener("input", updateTitle);
   modelInput?.addEventListener("input", updateTitle);
 
-  // ===== Navbar Login/Logout =====
+  // ===== Navbar Login/Logout (gekürzt) =====
   (async () => {
     const authLi = document.getElementById("auth-link");
     if (!authLi) return;
@@ -310,850 +286,700 @@ function parseVerbrauchNum(v) {
       const res = await fetch("/getNutzerInfo", { credentials: "include" });
       const data = await res.json();
       if (data?.eingeloggt) {
-        authLi.innerHTML = `
-          <a href="#" id="logout-link">
-            <i class="fas fa-sign-out-alt"></i> Abmelden
-          </a>`;
+        authLi.innerHTML = `<a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>`;
         document.getElementById("logout-link")?.addEventListener("click", async (e) => {
           e.preventDefault();
           try {
             await fetch("/logout", { method: "POST", credentials: "include" });
-            localStorage.clear();
-            location.reload();
-          } catch {
-            alert("Abmelden fehlgeschlagen.");
-          }
+            localStorage.clear(); location.reload();
+          } catch { alert("Abmelden fehlgeschlagen."); }
         });
       }
-    } catch { /* ignore */ }
+    } catch {}
   })();
 
-  // ===== Login-Redirects =====
+  // ===== Login-Redirects (gekürzt) =====
   function checkLoginAndGo(targetUrl) {
     fetch("/getNutzerInfo", { credentials: "include" })
       .then(res => res.json())
       .then(data => {
-        if (data.eingeloggt) {
-          window.location.href = targetUrl;
-        } else {
-          try { localStorage.setItem("redirectAfterLogin", targetUrl); } catch {}
-          window.location.href = "login.html";
-        }
+        if (data.eingeloggt) window.location.href = targetUrl;
+        else { try { localStorage.setItem("redirectAfterLogin", targetUrl); } catch {} window.location.href = "login.html"; }
       })
-      .catch(() => {
-        try { localStorage.setItem("redirectAfterLogin", targetUrl); } catch {}
-        window.location.href = "login.html";
-      });
+      .catch(() => { try { localStorage.setItem("redirectAfterLogin", targetUrl); } catch {} window.location.href = "login.html"; });
   }
   document.getElementById("saved-cars-link")?.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndGo("gespeicherte-autos.html"); });
   document.getElementById("my-cars-link")?.addEventListener("click",    (e) => { e.preventDefault(); checkLoginAndGo("meine-autos.html"); });
 
-  // ===== Medien-Slider (Pointer Events, sauberer Drag) =====
+  // ===== Medien-Slider (gekürzt) =====
   function initMediaSlider(mediaContainer) {
     if (!mediaContainer) return;
     const slidesWrapper = mediaContainer.querySelector(".slides");
     if (!slidesWrapper) return;
-
     const slides = Array.from(slidesWrapper.children);
     const btnLeft  = mediaContainer.querySelector(".media-arrow.left");
     const btnRight = mediaContainer.querySelector(".media-arrow.right");
-
-    // Keine Slider-Controls nötig bei 0/1 Slide
     const hasMultiple = slides.length > 1;
-    if (!hasMultiple) {
-      btnLeft?.setAttribute("disabled", "true");
-      btnRight?.setAttribute("disabled", "true");
-    }
-
-    // Grundlayout
+    if (!hasMultiple) { btnLeft?.setAttribute("disabled", "true"); btnRight?.setAttribute("disabled", "true"); }
     slidesWrapper.style.display = "flex";
     slidesWrapper.style.willChange = "transform";
     slidesWrapper.style.transition = "transform 0.3s ease";
-    slidesWrapper.style.touchAction = "pan-y"; // Scrollen vertikal erlauben
-    slides.forEach(slide => {
-      slide.style.flex = "0 0 100%";
-      slide.style.minWidth = "100%";
-      slide.addEventListener("dragstart", e => e.preventDefault());
-    });
+    slidesWrapper.style.touchAction = "pan-y";
+    slides.forEach(slide => { slide.style.flex = "0 0 100%"; slide.style.minWidth = "100%"; slide.addEventListener("dragstart", e => e.preventDefault()); });
 
-    const state = {
-      idx: 0,
-      isDragging: false,
-      pointerId: null,
-      startX: 0,
-      prevX: 0,
-      startTranslate: 0,
-      currentTranslate: 0,
-      hasMoved: false
-    };
-
+    const state = { idx: 0, isDragging: false, pointerId: null, startX: 0, prevX: 0, startTranslate: 0, currentTranslate: 0, hasMoved: false };
     const width = () => mediaContainer.clientWidth;
-    const snap = () => {
-      state.currentTranslate = -state.idx * width();
-      slidesWrapper.style.transition = "transform 0.3s ease";
-      setTransform(state.currentTranslate);
-    };
     const clampIndex = (i) => clamp(i, 0, Math.max(0, slides.length - 1));
     const setTransform = (x) => { slidesWrapper.style.transform = `translateX(${x}px)`; };
-
-    function goTo(i) {
-      state.idx = clampIndex(i);
-      snap();
-      updateArrows();
-    }
-
-    function updateArrows() {
-      if (!hasMultiple) return;
-      if (btnLeft)  btnLeft.disabled  = state.idx <= 0;
-      if (btnRight) btnRight.disabled = state.idx >= slides.length - 1;
-    }
+    const snap = () => { state.currentTranslate = -state.idx * width(); slidesWrapper.style.transition = "transform 0.3s ease"; setTransform(state.currentTranslate); };
+    function goTo(i) { state.idx = clampIndex(i); snap(); updateArrows(); }
+    function updateArrows() { if (!hasMultiple) return; if (btnLeft)  btnLeft.disabled  = state.idx <= 0; if (btnRight) btnRight.disabled = state.idx >= slides.length - 1; }
     updateArrows();
 
-    // === Pointer Events ===
-    function onPointerDown(e) {
-      if (!hasMultiple) return;
-      state.isDragging = true;
-      state.pointerId = e.pointerId ?? null;
-      slidesWrapper.setPointerCapture?.(state.pointerId);
-      state.startX = e.clientX;
-      state.prevX = e.clientX;
-      state.startTranslate = state.currentTranslate;
-      state.hasMoved = false;
-      slidesWrapper.style.transition = "none";
-      document.body.style.userSelect = "none";
-    }
+    function onPointerDown(e){ if(!hasMultiple) return; state.isDragging=true; state.pointerId=e.pointerId??null; slidesWrapper.setPointerCapture?.(state.pointerId); state.startX=e.clientX; state.prevX=e.clientX; state.startTranslate=state.currentTranslate; state.hasMoved=false; slidesWrapper.style.transition="none"; document.body.style.userSelect="none"; }
+    function onPointerMove(e){ if(!state.isDragging) return; const dx=e.clientX-state.prevX; state.prevX=e.clientX; if(Math.abs(e.clientX-state.startX)>2) state.hasMoved=true; const maxT=0; const minT=-(slides.length-1)*width(); let next=state.currentTranslate+dx; if(next>maxT) next=maxT+(next-maxT)*0.35; if(next<minT) next=minT+(next-minT)*0.35; state.currentTranslate=next; setTransform(state.currentTranslate); }
+    function onPointerUpOrCancel(){ if(!state.isDragging) return; state.isDragging=false; document.body.style.userSelect=""; const moved=state.currentTranslate-state.startTranslate; const threshold=Math.max(40,width()*0.18); if(moved<=-threshold) state.idx=clampIndex(state.idx+1); else if(moved>=threshold) state.idx=clampIndex(state.idx-1); snap(); }
 
-    function onPointerMove(e) {
-      if (!state.isDragging) return;
-      const dx = e.clientX - state.prevX;
-      state.prevX = e.clientX;
-      if (Math.abs(e.clientX - state.startX) > 2) state.hasMoved = true;
-      // leichte Gummi-Zone am Rand
-      const maxTranslate = 0;
-      const minTranslate = -(slides.length - 1) * width();
-      let next = state.currentTranslate + dx;
-      if (next > maxTranslate) next = maxTranslate + (next - maxTranslate) * 0.35;
-      if (next < minTranslate) next = minTranslate + (next - minTranslate) * 0.35;
-      state.currentTranslate = next;
-      setTransform(state.currentTranslate);
-    }
+    slidesWrapper.addEventListener("pointerdown", onPointerDown, { passive:true });
+    slidesWrapper.addEventListener("pointermove", onPointerMove, { passive:true });
+    slidesWrapper.addEventListener("pointerup", onPointerUpOrCancel, { passive:true });
+    slidesWrapper.addEventListener("pointercancel", onPointerUpOrCancel, { passive:true });
+    slidesWrapper.addEventListener("pointerleave", onPointerUpOrCancel, { passive:true });
+    slidesWrapper.addEventListener("click", (e) => { if (state.hasMoved) e.stopPropagation(); }, true);
+    btnRight?.addEventListener("click", (e) => { e.stopPropagation(); goTo(state.idx + 1); });
+    btnLeft?.addEventListener("click",  (e) => { e.stopPropagation(); goTo(state.idx - 1); });
 
-    function onPointerUpOrCancel() {
-      if (!state.isDragging) return;
-      state.isDragging = false;
-      document.body.style.userSelect = "";
-
-      // snap nach Threshold
-      const moved = state.currentTranslate - state.startTranslate;
-      const threshold = Math.max(40, width() * 0.18);
-      if (moved <= -threshold) state.idx = clampIndex(state.idx + 1);
-      else if (moved >= threshold) state.idx = clampIndex(state.idx - 1);
-
-      snap();
-    }
-
-    slidesWrapper.addEventListener("pointerdown", onPointerDown, { passive: true });
-    slidesWrapper.addEventListener("pointermove", onPointerMove, { passive: true });
-    slidesWrapper.addEventListener("pointerup", onPointerUpOrCancel, { passive: true });
-    slidesWrapper.addEventListener("pointercancel", onPointerUpOrCancel, { passive: true });
-    slidesWrapper.addEventListener("pointerleave", onPointerUpOrCancel, { passive: true });
-
-    // Klicks nach Drag nicht durchlassen (z. B. Card-Click)
-    slidesWrapper.addEventListener("click", (e) => {
-      if (state.hasMoved) e.stopPropagation();
-    }, true);
-
-    // Pfeile
-    btnRight?.addEventListener("click", (e) => {
-      e.stopPropagation();
-      goTo(state.idx + 1);
-    });
-    btnLeft?.addEventListener("click", (e) => {
-      e.stopPropagation();
-      goTo(state.idx - 1);
-    });
-
-    // Resize
-    let ro;
-    if ("ResizeObserver" in window) {
-      ro = new ResizeObserver(() => snap());
-      ro.observe(mediaContainer);
-    } else {
-      window.addEventListener("resize", snap);
-    }
-
-    // Initial
+    if ("ResizeObserver" in window) { new ResizeObserver(() => snap()).observe(mediaContainer); } else { window.addEventListener("resize", snap); }
     snap();
   }
   // --- Ende initMediaSlider ---
 
   async function fetchSearch(p = 1, limit = pageSize) {
     const params = new URLSearchParams(window.location.search);
-    params.delete("verbrauch_max");            // <<<<<<<<<< hier neu
+    params.delete("verbrauch_max"); // Server-seitig ggf. ignorieren
     params.set("page", String(p));
     params.set("limit", String(limit));
     const res = await fetch(`/api/search?${params.toString()}`, { credentials: "omit" });
     if (!res.ok) throw new Error("Fetch /api/search fehlgeschlagen");
     return res.json();
   }
-  
-  
- // ---- DB -> UI Normalform (einheitliche Feldnamen) ----
-function normalizeItem(raw) {
-  // EZ ...
-  const ez =
-    raw.erstzulassung ||
-    (raw.verkauf_ez_jahr && raw.verkauf_ez_monat
-      ? `${String(raw.verkauf_ez_jahr)}-${String(raw.verkauf_ez_monat).padStart(2, "0")}`
-      : "");
 
-  // ✅ Preis: nimm den ersten *echten Zahlenwert* (leer/NaN werden übersprungen)
-  const pickPrice = (...vals) => {
-    for (const v of vals) {
-      if (v === null || v === undefined) continue;
-      const s = String(v).trim();
-      if (!s) continue;
-      const n = Number(s.replace(/\./g, "").replace(",", "."));
-      if (Number.isFinite(n)) return n; // Zahl gefunden
-    }
-    return ""; // nichts gefunden → leer
-  };
+  // ---- DB -> UI Normalform (einheitliche Feldnamen) ----
+  function normalizeItem(raw) {
+    const ez =
+      raw.erstzulassung ||
+      (raw.verkauf_ez_jahr && raw.verkauf_ez_monat
+        ? `${String(raw.verkauf_ez_jahr)}-${String(raw.verkauf_ez_monat).padStart(2, "0")}`
+        : "");
 
-  const preis = pickPrice(
-    raw["brutto-preis"],
-    raw.brutto_preis,
-    raw.verkauf_brutto,
-    raw.preis,
-    raw.verkauf_preis,   // wichtig für „Keine MwSt.“
-    raw.verkauf_netto    // falls Netto separat gepflegt ist
-  );
+    const pickPrice = (...vals) => {
+      for (const v of vals) {
+        if (v === null || v === undefined) continue;
+        const s = String(v).trim();
+        if (!s) continue;
+        const n = Number(s.replace(/\./g, "").replace(",", "."));
+        if (Number.isFinite(n)) return n;
+      }
+      return "";
+    };
+    const preis = pickPrice(
+      raw["brutto-preis"],
+      raw.brutto_preis,
+      raw.verkauf_brutto,
+      raw.preis,
+      raw.verkauf_preis,
+      raw.verkauf_netto
+    );
 
-  return {
-    _id: raw._id,
-    titel: raw.titel || [raw.marke, raw.modell].filter(Boolean).join(" ").trim(),
-    marke: raw.marke || "",
-    modell: raw.modell || "",
-
-    preis, // <- jetzt robust
-
-    kilometer: raw.verkauf_kilometer ?? raw.kilometer ?? raw.km ?? "",
-    erstzulassung: ez,
-    kraftstoff: raw.verkauf_kraftstoff ?? raw.kraftstoff ?? "",
-    getriebe: raw.verkauf_getriebe ?? raw.getriebe ?? "",
-    leistung: raw.verkauf_leistung ?? raw.leistung ?? raw.ps ?? "",
-    verbrauch_kombiniert: raw.verbrauch_kombiniert ?? raw.verkauf_verbrauch_kombiniert ?? "",
-
-    verkaeufer: raw.verkauf_verkaeufer ?? raw.verkaeufer ?? "",
-    name: raw.verkauf_name ?? raw.name ?? "",
-    standort: raw.standort ?? "",
-    telefon: raw.telefon ?? raw.phone ?? "",
-
-    images: Array.isArray(raw.images) ? raw.images
-          : Array.isArray(raw.fotos)  ? raw.fotos
-          : Array.isArray(raw.media)  ? raw.media.map(m => m.url || m)
-          : [],
-    video: raw.video || "",
-
-    raw
-  };
-}
-function applyClientFilters(items) {
-  // Sidebar-/Form-Felder (nur verwenden, wenn vorhanden)
-  const priceFromEl       = document.getElementById("priceFrom");
-  const priceToEl         = document.getElementById("priceTo");
-  const mileageFromEl     = document.getElementById("mileageFrom");
-  const mileageToEl       = document.getElementById("mileageTo");
-  const powerFromEl       = document.getElementById("powerFrom");
-  const powerToEl         = document.getElementById("powerTo");
-
-  // IDs: auf Suche-Seite evtl. fuelType/transmission, auf Startseite fuel/gear
-  const fuelTypeEl        = document.getElementById("fuelType") || document.getElementById("fuel");
-  const transmissionEl    = document.getElementById("transmission") || document.getElementById("gear");
-
-  const accidentFreeEl    = document.getElementById("accidentFree");
-  const inspectionUntilEl = document.getElementById("inspectionUntil");
-
-  // Erstzulassung UI
-  const firstRegFromEl    = document.getElementById("firstRegFrom");
-  const firstRegMonthEl   = document.getElementById("first-registration-month");
-  const firstRegYearEl    = document.getElementById("first-registration-year");
-
-  // Marke/Modell Felder (UI kann Vorrang vor URL haben)
-  const markeEl           = document.getElementById("marke");
-  const modellEl          = document.getElementById("modell");
-
-  // VERBRAUCH UI-Elemente
-  const selV              = document.getElementById("verbrauch-select");
-  const inpV              = document.getElementById("verbrauch");
-
-  // --- UI lesen ---
-  const priceFrom     = toNum(priceFromEl?.value ?? "");
-  const priceTo       = toNum(priceToEl?.value   ?? "");
-  const mileageFrom   = toNum(mileageFromEl?.value ?? "");
-  const mileageTo     = toNum(mileageToEl?.value   ?? "");
-  const powerFrom     = toNum(powerFromEl?.value ?? "");
-  const powerTo       = toNum(powerToEl?.value   ?? "");
-
-  const fuelTypeUI     = (fuelTypeEl?.value ? String(fuelTypeEl.value) : "Beliebig").toLowerCase();
-  const transmissionUI = (transmissionEl?.value ? String(transmissionEl.value) : "Beliebig").toLowerCase();
-
-  const accidentFree    = !!accidentFreeEl?.checked;
-  const inspectionUntil = inspectionUntilEl?.value || ""; // YYYY-MM
-
-  // Erstzulassung aus UI zusammensetzen
-  const firstRegFromUI =
-    (firstRegFromEl?.value) ||
-    (firstRegYearEl?.value && firstRegMonthEl?.value
-      ? `${firstRegYearEl.value}-${firstRegMonthEl.value}`
-      : "");
-
-  // --- Fallbacks aus URL (wenn UI leer) ---
-  const priceToEff   = (!isNaN(priceTo)   && priceTo   > 0) ? priceTo   : toNum(QP.price_max);
-  const mileageToEff = (!isNaN(mileageTo) && mileageTo > 0) ? mileageTo : toNum(QP.km_max);
-  const firstRegEff  = firstRegFromUI || QP.ezFrom;
-
-  const fuelEff = (fuelTypeUI !== "beliebig")     ? fuelTypeUI     : (QP.kraftstoff || "beliebig");
-  const gearEff = (transmissionUI !== "beliebig") ? transmissionUI : (QP.getriebe   || "beliebig");
-
-  // Marke/Modell: UI > URL
-  let brandEff  = QP.marke ? norm(QP.marke) : "";
-  let modelsEff = Array.isArray(QP.modell) ? QP.modell.map(norm) : [];
-  if (markeEl && markeEl.value) brandEff = norm(markeEl.value);
-  if (modellEl && modellEl.options) {
-    const selected = [...modellEl.options].filter(o => o.selected).map(o => norm(o.value));
-    if (selected.length) modelsEff = selected;
+    return {
+      _id: raw._id,
+      titel: raw.titel || [raw.marke, raw.modell].filter(Boolean).join(" ").trim(),
+      marke: raw.marke || "",
+      modell: raw.modell || "",
+      preis,
+      kilometer: raw.verkauf_kilometer ?? raw.kilometer ?? raw.km ?? "",
+      erstzulassung: ez,
+      kraftstoff: raw.verkauf_kraftstoff ?? raw.kraftstoff ?? "",
+      getriebe:   raw.verkauf_getriebe   ?? raw.getriebe   ?? "",
+      leistung:   raw.verkauf_leistung   ?? raw.leistung   ?? raw.ps ?? "",
+      verbrauch_kombiniert: raw.verbrauch_kombiniert ?? raw.verkauf_verbrauch_kombiniert ?? "",
+      verkaeufer: raw.verkauf_verkaeufer ?? raw.verkaeufer ?? "",
+      name:       raw.verkauf_name       ?? raw.name       ?? "",
+      standort: raw.standort ?? "",
+      telefon: raw.telefon ?? raw.phone ?? "",
+      images: Array.isArray(raw.images) ? raw.images
+            : Array.isArray(raw.fotos)  ? raw.fotos
+            : Array.isArray(raw.media)  ? raw.media.map(m => m.url || m)
+            : [],
+      video: raw.video || "",
+      raw
+    };
   }
 
-  // --- Verbrauch (max) aus UI oder URL bestimmen ---
-  const toDec = (s) => {
-    const t = String(s ?? "").trim().replace(/\s+/g, "").replace(",", ".");
-    const n = parseFloat(t);
-    return Number.isFinite(n) ? n : NaN;
+  // ========= ✅ Feature-Helper (robust auf Bool/Strings/Felder) =========
+  const isYes = (v) => {
+    if (v === true) return true;
+    const s = norm(v);
+    if (!s) return false;
+    if (["ja","yes","true","mit","vorhanden","fahrbereit","fahrtauglich","scheckheftgepflegt"].some(x => s.includes(x))) return true;
+    if (["nein","no","false","ohne","nicht"].some(x => s.includes(x))) return false;
+    return false;
   };
-  const rawV = selV
-    ? (selV.value === "custom" ? (inpV?.value || "") : selV.value)
-    : (inpV?.value || "");
-  const uiMax = toDec(rawV);
-  const qpMax = toDec(QP.verbrauch_max);
-  const vMax  = Number.isFinite(uiMax) && uiMax > 0 ? uiMax
-              : Number.isFinite(qpMax) && qpMax > 0 ? qpMax
-              : NaN;
 
-  // --- Filtern (auf Normalform) ---
-  return items.filter(i => {
-    // Marke/Modell/Titel
-    const iBrand = norm(i.marke);
-    const iModel = norm(i.modell);
-    const iTitle = norm(i.titel || "");
+  function hasPartikelfilterRaw(raw = {}) {
+    // typische Felder
+    if ("partikelfilter" in raw && isYes(raw.partikelfilter)) return true;
+    if ("verkauf_partikelfilter" in raw && isYes(raw.verkauf_partikelfilter)) return true;
 
-    if (brandEff && iBrand !== brandEff) return false;
-    if (modelsEff.length) {
-      const hit = modelsEff.some(m => iModel.includes(m) || iTitle.includes(m));
-      if (!hit) return false;
-    }
+    // Ausstattung-Textsuche
+    const pools = []
+      .concat(Array.isArray(raw.ausstattung) ? raw.ausstattung : [])
+      .concat(Array.isArray(raw.verkauf_ausstattung) ? raw.verkauf_ausstattung : []);
+    if (pools.some(x => /partikel|dpf|dieselpartikelfilter/i.test(String(x)))) return true;
 
-    // Preis
-    const preis = toNum(i.preis);
-    if (!isNaN(priceFrom) && priceFrom > 0 && !(preis >= priceFrom)) return false;
-    if (!isNaN(priceToEff) && priceToEff > 0 && !(preis <= priceToEff)) return false;
+    return false;
+  }
+  function hasScheckheftRaw(raw = {}) {
+    if ("scheckheft" in raw && isYes(raw.scheckheft)) return true;
+    const pools = []
+      .concat(Array.isArray(raw.ausstattung) ? raw.ausstattung : [])
+      .concat(Array.isArray(raw.verkauf_ausstattung) ? raw.verkauf_ausstattung : []);
+    if (pools.some(x => /scheckheft|serviceheft/i.test(String(x)))) return true;
+    return false;
+  }
+  function isFahrtauglichRaw(raw = {}) {
+    if ("fahrtauglich" in raw) return isYes(raw.fahrtauglich); // explizites Flag
+    // Heuristik: Zustand darf NICHT „nicht fahrbereit“ signalisieren
+    const z = norm(raw.zustand || "");
+    if (z.includes("fahrbereit")) return true;
+    if (z.includes("unfall") || z.includes("defekt") || z.includes("nicht fahrbereit")) return false;
+    // Keine klare Info → neutral (nicht rausfiltern)
+    return true;
+  }
 
-    // Kilometer
-    const km = toNum(i.kilometer);
-    if (!isNaN(mileageFrom) && mileageFrom > 0 && !(km >= mileageFrom)) return false;
-    if (!isNaN(mileageToEff) && mileageToEff > 0 && !(km <= mileageToEff)) return false;
+  // ========= Client-Filter (inkl. Feature-Flags) =========
+  function applyClientFilters(items) {
+    // Sidebar-/Form-Felder
+    const priceFromEl       = document.getElementById("priceFrom");
+    const priceToEl         = document.getElementById("priceTo");
+    const mileageFromEl     = document.getElementById("mileageFrom");
+    const mileageToEl       = document.getElementById("mileageTo");
+    const powerFromEl       = document.getElementById("powerFrom");
+    const powerToEl         = document.getElementById("powerTo");
 
-    // Leistung (PS)
-    const ps = toNum(i.leistung);
-    if (!isNaN(powerFrom) && powerFrom > 0 && !(ps >= powerFrom)) return false;
-    if (!isNaN(powerTo)   && powerTo   > 0 && !(ps <= powerTo))   return false;
+    const fuelTypeEl        = document.getElementById("fuelType") || document.getElementById("fuel");
+    const transmissionEl    = document.getElementById("transmission") || document.getElementById("gear");
 
-    // Kraftstoff/Getriebe
-    if (fuelEff !== "beliebig") {
-      const ft = norm(i.kraftstoff || "");
-      if (!ft.includes(fuelEff)) return false;
-    }
-    if (gearEff !== "beliebig") {
-      const tr = norm(i.getriebe || "");
-      if (!tr.includes(gearEff)) return false;
-    }
+    const accidentFreeEl    = document.getElementById("accidentFree");
+    const inspectionUntilEl = document.getElementById("inspectionUntil");
 
-    // Unfallfrei (nur UI; heuristisch)
-    if (accidentFree) {
-      const flag = i.raw?.unfallfrei === true ||
-        (Array.isArray(i.raw?.verkauf_ausstattung) &&
-         i.raw.verkauf_ausstattung.some(a => norm(a).includes("unfall")));
-      if (!flag) return false;
-    }
+    // Erstzulassung UI
+    const firstRegFromEl    = document.getElementById("firstRegFrom");
+    const firstRegMonthEl   = document.getElementById("first-registration-month");
+    const firstRegYearEl    = document.getElementById("first-registration-year");
 
-    // HU bis
-    if (inspectionUntil) {
-      const hu = String(i.raw?.hu || i.raw?.verkauf_hu || "");
-      if (hu && hu.length >= 7 && hu < inspectionUntil) return false;
-    }
+    // Marke/Modell
+    const markeEl           = document.getElementById("marke");
+    const modellEl          = document.getElementById("modell");
+
+    // Verbrauch UI
+    const selV              = document.getElementById("verbrauch-select");
+    const inpV              = document.getElementById("verbrauch");
+
+    // ✅ Feature-Checkboxen (UI)
+    const pfEl              = document.getElementById("partikelfilter");
+    const shEl              = document.getElementById("scheckheft");
+    const ftEl              = document.getElementById("fahrtauglich");
+
+    // --- UI lesen ---
+    const priceFrom     = toNum(priceFromEl?.value ?? "");
+    const priceTo       = toNum(priceToEl?.value   ?? "");
+    const mileageFrom   = toNum(mileageFromEl?.value ?? "");
+    const mileageTo     = toNum(mileageToEl?.value   ?? "");
+    const powerFrom     = toNum(powerFromEl?.value ?? "");
+    const powerTo       = toNum(powerToEl?.value   ?? "");
+
+    const fuelTypeUI     = (fuelTypeEl?.value ? String(fuelTypeEl.value) : "Beliebig").toLowerCase();
+    const transmissionUI = (transmissionEl?.value ? String(transmissionEl.value) : "Beliebig").toLowerCase();
+
+    const accidentFree    = !!accidentFreeEl?.checked;
+    const inspectionUntil = inspectionUntilEl?.value || "";
 
     // Erstzulassung ab
-    if (firstRegEff) {
-      const ez = String(i.erstzulassung || "");
-      if (ez && ez.length >= 7 && ez < firstRegEff) return false;
+    const firstRegFromUI =
+      (firstRegFromEl?.value) ||
+      (firstRegYearEl?.value && firstRegMonthEl?.value
+        ? `${firstRegYearEl.value}-${firstRegMonthEl.value}`
+        : "");
+
+    // --- Fallbacks aus URL (wenn UI leer) ---
+    const priceToEff   = (!isNaN(priceTo)   && priceTo   > 0) ? priceTo   : toNum(QP.price_max);
+    const mileageToEff = (!isNaN(mileageTo) && mileageTo > 0) ? mileageTo : toNum(QP.km_max);
+    const firstRegEff  = firstRegFromUI || QP.ezFrom;
+
+    const fuelEff = (fuelTypeUI !== "beliebig")     ? fuelTypeUI     : (QP.kraftstoff || "beliebig");
+    const gearEff = (transmissionUI !== "beliebig") ? transmissionUI : (QP.getriebe   || "beliebig");
+
+    // Marke/Modell: UI > URL
+    let brandEff  = QP.marke ? norm(QP.marke) : "";
+    let modelsEff = Array.isArray(QP.modell) ? QP.modell.map(norm) : [];
+    if (markeEl && markeEl.value) brandEff = norm(markeEl.value);
+    if (modellEl && modellEl.options) {
+      const selected = [...modellEl.options].filter(o => o.selected).map(o => norm(o.value));
+      if (selected.length) modelsEff = selected;
     }
 
-    // Ort (Textmatch; echter Radius später via Geocoding)
-    if (QP.ort) {
-      const standort = norm(i.standort || "");
-      if (!standort.includes(norm(QP.ort))) return false;
-    }
+    // --- Verbrauch (max) UI/URL
+    const toDec = (s) => {
+      const t = String(s ?? "").trim().replace(/\s+/g, "").replace(",", ".");
+      const n = parseFloat(t);
+      return Number.isFinite(n) ? n : NaN;
+    };
+    const rawV = selV ? (selV.value === "custom" ? (inpV?.value || "") : selV.value) : (inpV?.value || "");
+    const uiMax = toDec(rawV);
+    const qpMax = toDec(QP.verbrauch_max);
+    const vMax  = Number.isFinite(uiMax) && uiMax > 0 ? uiMax
+                : Number.isFinite(qpMax) && qpMax > 0 ? qpMax
+                : NaN;
 
-    // Verbrauch (kombiniert) max – nur filtern, wenn wir eine Schwelle haben
-    if (Number.isFinite(vMax) && vMax > 0) {
-      const vNum = parseVerbrauchNum(
-        i.verbrauch_kombiniert ||
-        i.raw?.verkauf_verbrauch_kombiniert ||
-        i.raw?.verbrauch_kombiniert ||
-        i.raw?.verbrauch // Fallback
-      );
-      if (Number.isFinite(vNum) && vNum > vMax) return false;
-    }
+    // ✅ Feature-Flags: UI > URL
+    const wantPF = !!pfEl?.checked || QP.partikelfilter === "mit";
+    const wantSH = !!shEl?.checked || QP.scheckheft     === "ja";
+    const wantFT = !!ftEl?.checked || QP.fahrtauglich   === "ja";
 
-    return true;
-  });
-}
+    // --- Filtern ---
+    return items.filter(i => {
+      const iBrand = norm(i.marke);
+      const iModel = norm(i.modell);
+      const iTitle = norm(i.titel || "");
 
-// ===== Sortierung (auf Normalform) =====
-// (optional – wird aktuell NICHT mehr in den Events benutzt, weil der Server sortiert.
-//  Lass es drin, falls du zusätzlich clientseitig sortieren willst.)
-function sortItems(items) {
-  const v = sortBy?.value || "relevance";
-  const copy = items.slice();
-
-  switch (v) {
-    case "price-asc":
-      copy.sort((a,b) => (toNum(a.preis) || Infinity) - (toNum(b.preis) || Infinity));
-      break;
-    case "price-desc":
-      copy.sort((a,b) => (toNum(b.preis) || -Infinity) - (toNum(a.preis) || -Infinity));
-      break;
-    case "date-desc": {
-      const getDate = (x) => (x?.raw?.veroeffentlichtAm ? new Date(x.raw.veroeffentlichtAm)
-                           : x?._id?.$date ? new Date(x._id.$date)
-                           : new Date(0));
-      copy.sort((a,b) => getDate(b) - getDate(a));
-      break;
-    }
-    case "mileage-asc":
-      copy.sort((a,b) => (toNum(a.kilometer) || Infinity) - (toNum(b.kilometer) || Infinity));
-      break;
-    default: // relevance
-      // no-op (Platz für Scoring)
-      break;
-  }
-  return copy;
-}
-
-function renderPager(totalCount) {
-  if (!pager) return;
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const current    = clamp(page, 1, totalPages);
-
-  if (totalPages <= 1) {
-    pager.innerHTML = "";
-    return;
-  }
-
-  let html = `<button class="pager-btn" data-page="${current - 1}" ${current === 1 ? "disabled" : ""}>« Zurück</button>`;
-  const windowSize = 5;
-  const start = Math.max(1, current - Math.floor(windowSize / 2));
-  const end   = Math.min(totalPages, start + windowSize - 1);
-  for (let p = start; p <= end; p++) {
-    html += `<button class="pager-btn ${p === current ? "active" : ""}" data-page="${p}">${p}</button>`;
-  }
-  html += `<button class="pager-btn" data-page="${current + 1}" ${current === totalPages ? "disabled" : ""}>Weiter »</button>`;
-  pager.innerHTML = html;
-
-  // Serverseitig blättern + Page in der URL mitführen
-  pager.querySelectorAll(".pager-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      const target = Number(e.currentTarget.getAttribute("data-page"));
-      if (!isNaN(target)) {
-        page = clamp(target, 1, totalPages);
-
-        const params = new URLSearchParams(window.location.search);
-        params.set("page", String(page));
-        history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
-
-        loadAndRender(page);
+      if (brandEff && iBrand !== brandEff) return false;
+      if (modelsEff.length) {
+        const hit = modelsEff.some(m => iModel.includes(m) || iTitle.includes(m));
+        if (!hit) return false;
       }
+
+      const preis = toNum(i.preis);
+      if (!isNaN(priceFrom) && priceFrom > 0 && !(preis >= priceFrom)) return false;
+      if (!isNaN(priceToEff) && priceToEff > 0 && !(preis <= priceToEff)) return false;
+
+      const km = toNum(i.kilometer);
+      if (!isNaN(mileageFrom) && mileageFrom > 0 && !(km >= mileageFrom)) return false;
+      if (!isNaN(mileageToEff) && mileageToEff > 0 && !(km <= mileageToEff)) return false;
+
+      const ps = toNum(i.leistung);
+      if (!isNaN(powerFrom) && powerFrom > 0 && !(ps >= powerFrom)) return false;
+      if (!isNaN(powerTo)   && powerTo   > 0 && !(ps <= powerTo))   return false;
+
+      if (fuelEff !== "beliebig") {
+        const ft = norm(i.kraftstoff || "");
+        if (!ft.includes(fuelEff)) return false;
+      }
+      if (gearEff !== "beliebig") {
+        const tr = norm(i.getriebe || "");
+        if (!tr.includes(gearEff)) return false;
+      }
+
+      if (accidentFree) {
+        const flag = i.raw?.unfallfrei === true ||
+          (Array.isArray(i.raw?.verkauf_ausstattung) &&
+           i.raw.verkauf_ausstattung.some(a => norm(a).includes("unfall")));
+        if (!flag) return false;
+      }
+
+      if (inspectionUntil) {
+        const hu = String(i.raw?.hu || i.raw?.verkauf_hu || "");
+        if (hu && hu.length >= 7 && hu < inspectionUntil) return false;
+      }
+
+      if (firstRegEff) {
+        const ez = String(i.erstzulassung || "");
+        if (ez && ez.length >= 7 && ez < firstRegEff) return false;
+      }
+
+      if (QP.ort) {
+        const standort = norm(i.standort || "");
+        if (!standort.includes(norm(QP.ort))) return false;
+      }
+
+      if (Number.isFinite(vMax) && vMax > 0) {
+        const vNum = parseVerbrauchNum(
+          i.verbrauch_kombiniert ||
+          i.raw?.verkauf_verbrauch_kombiniert ||
+          i.raw?.verbrauch_kombiniert ||
+          i.raw?.verbrauch
+        );
+        if (Number.isFinite(vNum) && vNum > vMax) return false;
+      }
+
+      // ✅ NEU: Feature-Filter
+      if (wantPF && !hasPartikelfilterRaw(i.raw)) return false;
+      if (wantSH && !hasScheckheftRaw(i.raw))     return false;
+      if (wantFT && !isFahrtauglichRaw(i.raw))    return false;
+
+      return true;
     });
-  });
-}
-
-// Helper: echte Mongo-ID herausziehen (string, {_id: "..."} oder {$oid: "..."})
-function getMongoId(doc) {
-  if (!doc) return null;
-  if (doc._id && typeof doc._id === "object" && typeof doc._id.$oid === "string") return doc._id.$oid;
-  if (typeof doc._id === "string") return doc._id;
-  if (typeof doc.id === "string") return doc.id;
-  return null;
-}
-function sellerInitials(name = "") {
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map(p => (p[0] || "").toUpperCase()).join("") || "AV";
-}
-function renderItems() {
-  if (!container) return;
-  container.innerHTML = "";
-
-  // Server liefert *nur die aktuelle Seite*:
-  const view = filteredItems;
-
-  if (!view.length) {
-    container.innerHTML = "<p>❌ Keine Fahrzeuge gefunden.</p>";
-    renderPager(serverTotal); // Gesamttreffer aus Server
-    return;
   }
 
-  // Helper: Datensatz für anzeige.html zusammenbauen (verkauf_* Fallbacks)
-  function toAnzeigePayload(item) {
-    const raw = item?.raw && typeof item.raw === "object" ? item.raw : {};
-    const merged = { ...raw, ...item }; // normalisierte Felder überschreiben raw
-
-    if (merged.verkauf_kilometer == null && item.kilometer != null) merged.verkauf_kilometer = item.kilometer;
-    if (!merged.verkauf_erstzulassung && item.erstzulassung) merged.verkauf_erstzulassung = item.erstzulassung;
-    if (!merged.verkauf_kraftstoff && item.kraftstoff) merged.verkauf_kraftstoff = item.kraftstoff;
-    if (!merged.verkauf_getriebe && item.getriebe) merged.verkauf_getriebe = item.getriebe;
-    if (!merged.verkauf_leistung && item.leistung) merged.verkauf_leistung = item.leistung;
-    if (!merged.verkauf_verbrauch_kombiniert && item.verbrauch_kombiniert) merged.verkauf_verbrauch_kombiniert = item.verbrauch_kombiniert;
-    if (!merged.verkauf_verkaeufer && item.verkaeufer) merged.verkauf_verkaeufer = item.verkaeufer;
-    if (!merged.verkauf_name && item.name) merged.verkauf_name = item.name;
-
-    // Preise robuster abbilden
-    if (merged.verkauf_brutto == null && (merged.brutto_preis != null)) merged.verkauf_brutto = merged.brutto_preis;
-    if (merged.verkauf_brutto == null && (merged["brutto-preis"] != null)) merged.verkauf_brutto = merged["brutto-preis"];
-    if (merged.verkauf_preis == null && (item.preis != null)) merged.verkauf_preis = item.preis;
-
-    // Telefon übernehmen, falls nur normalisiert vorhanden
-    if (!merged.telefon && item.telefon) merged.telefon = item.telefon;
-
-    return merged;
+  // ===== Sortierung (optional) =====
+  function sortItems(items) {
+    const v = sortBy?.value || "relevance";
+    const copy = items.slice();
+    switch (v) {
+      case "price-asc":  copy.sort((a,b) => (toNum(a.preis) || Infinity)   - (toNum(b.preis) || Infinity));   break;
+      case "price-desc": copy.sort((a,b) => (toNum(b.preis) || -Infinity)  - (toNum(a.preis) || -Infinity));  break;
+      case "date-desc": {
+        const getDate = (x) => (x?.raw?.veroeffentlichtAm ? new Date(x.raw.veroeffentlichtAm)
+                             : x?._id?.$date ? new Date(x._id.$date)
+                             : new Date(0));
+        copy.sort((a,b) => getDate(b) - getDate(a));
+        break;
+      }
+      case "mileage-asc": copy.sort((a,b) => (toNum(a.kilometer) || Infinity) - (toNum(b.kilometer) || Infinity)); break;
+      default: break;
+    }
+    return copy;
   }
 
-  view.forEach(inserat => {
-    const imgs = Array.isArray(inserat.images) ? inserat.images : [];
-    const tel  = sanitizePhone(inserat.telefon);
+  function renderPager(totalCount) {
+    if (!pager) return;
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+    const current    = clamp(page, 1, totalPages);
+    if (totalPages <= 1) { pager.innerHTML = ""; return; }
 
-    const priceNum = toNum(inserat.preis);
-    const kmNum    = toNum(inserat.kilometer);
+    let html = `<button class="pager-btn" data-page="${current - 1}" ${current === 1 ? "disabled" : ""}>« Zurück</button>`;
+    const windowSize = 5;
+    const start = Math.max(1, current - Math.floor(windowSize / 2));
+    const end   = Math.min(totalPages, start + windowSize - 1);
+    for (let p = start; p <= end; p++) {
+      html += `<button class="pager-btn ${p === current ? "active" : ""}" data-page="${p}">${p}</button>`;
+    }
+    html += `<button class="pager-btn" data-page="${current + 1}" ${current === totalPages ? "disabled" : ""}>Weiter »</button>`;
+    pager.innerHTML = html;
 
-    // --- Verkäuferdaten robust bestimmen ---
-    const rawType = String(
-      inserat.seller?.type ||
-      inserat.verkaeufer ||
-      inserat.raw?.verkauf_verkaeufer ||
-      ""
-    ).toLowerCase();
+    pager.querySelectorAll(".pager-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const target = Number(e.currentTarget.getAttribute("data-page"));
+        if (!isNaN(target)) {
+          page = clamp(target, 1, totalPages);
+          const params = new URLSearchParams(window.location.search);
+          params.set("page", String(page));
+          history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
+          loadAndRender(page);
+        }
+      });
+    });
+  }
 
-    const isHaendler =
-      rawType === "haendler" ||
-      rawType === "händler" ||
-      rawType.includes("händ") ||
-      rawType.includes("haend");
+  // Helper: echte Mongo-ID
+  function getMongoId(doc) {
+    if (!doc) return null;
+    if (doc._id && typeof doc._id === "object" && typeof doc._id.$oid === "string") return doc._id.$oid;
+    if (typeof doc._id === "string") return doc._id;
+    if (typeof doc.id === "string") return doc.id;
+    return null;
+  }
+  function sellerInitials(name = "") {
+    const parts = name.trim().split(/\s+/).slice(0, 2);
+    return parts.map(p => (p[0] || "").toUpperCase()).join("") || "AV";
+  }
 
-    const sellerName =
-      inserat.seller?.name ||
-      inserat.name ||
-      inserat.raw?.verkauf_name ||
-      (isHaendler ? "Händler" : "Privatanbieter");
+  // (renderItems unverändert; gekürzt für Fokus) — deine Version bleibt bestehen
 
-    const sellerLogo =
-      inserat.seller?.logoUrl ||
-      inserat.raw?.seller?.logoUrl ||
-      inserat.logoUrl ||
-      "";
+  function renderItems() {
+    if (!container) return;
+    container.innerHTML = "";
 
-    const sellerLocation =
-      inserat.standort ||
-      inserat.raw?.standort ||
-      [inserat.plz, inserat.ort].filter(Boolean).join(" ") ||
-      "Standort nicht angegeben";
+    const view = filteredItems;
+    if (!view.length) {
+      container.innerHTML = "<p>❌ Keine Fahrzeuge gefunden.</p>";
+      renderPager(serverTotal);
+      return;
+    }
 
-    // --- Karte rendern ---
-    const card = document.createElement("div");
-    card.className = "car-card horizontal";
-    card.innerHTML = `
-      <div class="car-card-media">
-        <div class="card-actions mobile-only">
-          <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
-          <a href="${tel ? `tel:${tel}` : '#'}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${tel ? "" : "aria-disabled='true'"} >
-            <i class="fas fa-phone"></i>
-          </a>
-        </div>
-        <div class="media-container">
-          <div class="slides">
-            ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
-            ${inserat.video ? `<video class="slide" controls muted playsinline preload="metadata"><source src="${inserat.video}" type="video/mp4"></video>` : ""}
-          </div>
-          <button class="media-arrow left"  type="button"><i class="fas fa-chevron-left"></i></button>
-          <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
-        </div>
-      </div>
+    function toAnzeigePayload(item) {
+      const raw = item?.raw && typeof item.raw === "object" ? item.raw : {};
+      const merged = { ...raw, ...item };
+      if (merged.verkauf_kilometer == null && item.kilometer != null) merged.verkauf_kilometer = item.kilometer;
+      if (!merged.verkauf_erstzulassung && item.erstzulassung) merged.verkauf_erstzulassung = item.erstzulassung;
+      if (!merged.verkauf_kraftstoff && item.kraftstoff) merged.verkauf_kraftstoff = item.kraftstoff;
+      if (!merged.verkauf_getriebe && item.getriebe) merged.verkauf_getriebe = item.getriebe;
+      if (!merged.verkauf_leistung && item.leistung) merged.verkauf_leistung = item.leistung;
+      if (!merged.verkauf_verbrauch_kombiniert && item.verbrauch_kombiniert) merged.verkauf_verbrauch_kombiniert = item.verbrauch_kombiniert;
+      if (!merged.verkauf_verkaeufer && item.verkaeufer) merged.verkauf_verkaeufer = item.verkaeufer;
+      if (!merged.verkauf_name && item.name) merged.verkauf_name = item.name;
+      if (merged.verkauf_brutto == null && (merged.brutto_preis != null)) merged.verkauf_brutto = merged.brutto_preis;
+      if (merged.verkauf_brutto == null && (merged["brutto-preis"] != null)) merged.verkauf_brutto = merged["brutto-preis"];
+      if (merged.verkauf_preis == null && (item.preis != null)) merged.verkauf_preis = item.preis;
+      if (!merged.telefon && item.telefon) merged.telefon = item.telefon;
+      return merged;
+    }
 
-      <div class="car-details">
-        <div class="car-top-row">
-          <h2 class="car-title">${inserat.titel || "Unbekanntes Fahrzeug"}</h2>
-          <p class="car-price">${isNaN(priceNum) ? "Preis n. a." : priceNum.toLocaleString("de-DE") + " €"}</p>
-        </div>
+    view.forEach(inserat => {
+      const imgs = Array.isArray(inserat.images) ? inserat.images : [];
+      const tel  = sanitizePhone(inserat.telefon);
+      const priceNum = toNum(inserat.preis);
+      const kmNum    = toNum(inserat.kilometer);
 
-        <p class="car-subtitle">${inserat.raw?.verkauf_kurzbeschreibung || ""}</p>
+      const rawType = String(
+        inserat.seller?.type ||
+        inserat.verkaeufer ||
+        inserat.raw?.verkauf_verkaeufer ||
+        ""
+      ).toLowerCase();
+      const isHaendler = rawType === "haendler" || rawType === "händler" || rawType.includes("händ") || rawType.includes("haend");
 
-        <div class="car-info-grid">
-          <p><i class="fas fa-road"></i> ${isNaN(kmNum) ? "?" : kmNum.toLocaleString("de-DE")} km</p>
-          <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.erstzulassung || "?"}</p>
-          <p><i class="fas fa-gas-pump"></i> ${inserat.kraftstoff || "?"}</p>
-          <p><i class="fas fa-gauge-high"></i> ${inserat.leistung || "?"} PS</p>
-          <p><i class="fas fa-gears"></i> ${inserat.getriebe || "?"}</p>
-          <p><i class="fas fa-tint"></i> ${inserat.verbrauch_kombiniert || "?"} l/100 km</p>
-        </div>
+      const sellerName =
+        inserat.seller?.name ||
+        inserat.name ||
+        inserat.raw?.verkauf_name ||
+        (isHaendler ? "Händler" : "Privatanbieter");
 
-        <!-- Verkäuferzeile: Avatar + Name/Ort + Desktop-Aktionen -->
-        <div class="dealer-info-row">
-          <div class="dealer-row">
-            <div class="dealer-avatar">
-              <img alt="${sellerName} Logo">
-              <span class="dealer-initials">${sellerInitials(sellerName)}</span>
-            </div>
-            <div class="dealer-meta">
-              <div class="dealer-name">${sellerName}</div>
-              <div class="dealer-location">${sellerLocation}</div>
-            </div>
-          </div>
-          <div class="card-actions desktop-only">
+      const sellerLogo =
+        inserat.seller?.logoUrl ||
+        inserat.raw?.seller?.logoUrl ||
+        inserat.logoUrl ||
+        "";
+
+      const sellerLocation =
+        inserat.standort ||
+        inserat.raw?.standort ||
+        [inserat.plz, inserat.ort].filter(Boolean).join(" ") ||
+        "Standort nicht angegeben";
+
+      const card = document.createElement("div");
+      card.className = "car-card horizontal";
+      card.innerHTML = `
+        <div class="car-card-media">
+          <div class="card-actions mobile-only">
             <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
             <a href="${tel ? `tel:${tel}` : '#'}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${tel ? "" : "aria-disabled='true'"} >
               <i class="fas fa-phone"></i>
             </a>
           </div>
+          <div class="media-container">
+            <div class="slides">
+              ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
+              ${inserat.video ? `<video class="slide" controls muted playsinline preload="metadata"><source src="${inserat.video}" type="video/mp4"></video>` : ""}
+            </div>
+            <button class="media-arrow left"  type="button"><i class="fas fa-chevron-left"></i></button>
+            <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
+          </div>
         </div>
-      </div>
-    `;
 
-    container.appendChild(card);
-    initMediaSlider(card.querySelector(".media-container"));
+        <div class="car-details">
+          <div class="car-top-row">
+            <h2 class="car-title">${inserat.titel || "Unbekanntes Fahrzeug"}</h2>
+            <p class="car-price">${isNaN(priceNum) ? "Preis n. a." : priceNum.toLocaleString("de-DE") + " €"}</p>
+          </div>
 
-    // Safari-sicheres Logo-Laden (nie display:none am <img>)
-    const avatar = card.querySelector(".dealer-avatar");
-    const img    = avatar.querySelector("img");
-    avatar.classList.remove("has-logo");
-    img.removeAttribute("src");
+          <p class="car-subtitle">${inserat.raw?.verkauf_kurzbeschreibung || ""}</p>
 
-    if (sellerLogo) {
-      img.addEventListener("load",  () => { avatar.classList.add("has-logo"); }, { once: true });
-      img.addEventListener("error", () => {
-        avatar.classList.remove("has-logo");
-        img.removeAttribute("src");
-      }, { once: true });
-      img.src = sellerLogo;
+          <div class="car-info-grid">
+            <p><i class="fas fa-road"></i> ${isNaN(kmNum) ? "?" : kmNum.toLocaleString("de-DE")} km</p>
+            <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.erstzulassung || "?"}</p>
+            <p><i class="fas fa-gas-pump"></i> ${inserat.kraftstoff || "?"}</p>
+            <p><i class="fas fa-gauge-high"></i> ${inserat.leistung || "?"} PS</p>
+            <p><i class="fas fa-gears"></i> ${inserat.getriebe || "?"}</p>
+            <p><i class="fas fa-tint"></i> ${inserat.verbrauch_kombiniert || "?"} l/100 km</p>
+          </div>
 
-      if (img.complete && img.naturalWidth > 0) {
-        avatar.classList.add("has-logo");
+          <div class="dealer-info-row">
+            <div class="dealer-row">
+              <div class="dealer-avatar">
+                <img alt="${sellerName} Logo">
+                <span class="dealer-initials">${sellerInitials(sellerName)}</span>
+              </div>
+              <div class="dealer-meta">
+                <div class="dealer-name">${sellerName}</div>
+                <div class="dealer-location">${sellerLocation}</div>
+              </div>
+            </div>
+            <div class="card-actions desktop-only">
+              <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
+              <a href="${tel ? `tel:${tel}` : '#'}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${tel ? "" : "aria-disabled='true'"} >
+                <i class="fas fa-phone"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+      `;
+
+      container.appendChild(card);
+      initMediaSlider(card.querySelector(".media-container"));
+
+      const avatar = card.querySelector(".dealer-avatar");
+      const img    = avatar.querySelector("img");
+      avatar.classList.remove("has-logo"); img.removeAttribute("src");
+
+      if (sellerLogo) {
+        img.addEventListener("load",  () => { avatar.classList.add("has-logo"); }, { once: true });
+        img.addEventListener("error", () => { avatar.classList.remove("has-logo"); img.removeAttribute("src"); }, { once: true });
+        img.src = sellerLogo;
+        if (img.complete && img.naturalWidth > 0) avatar.classList.add("has-logo");
       }
+
+      card.querySelectorAll(".slide").forEach(m => {
+        if (m.tagName === "VIDEO") {
+          m.addEventListener("loadedmetadata", () => { if (m.videoHeight > m.videoWidth) m.classList.add("portrait-zoom"); });
+        } else if (m.tagName === "IMG") {
+          m.addEventListener("load", () => { if (m.naturalHeight > m.naturalWidth) m.classList.add("portrait-zoom"); });
+        }
+      });
+
+      const realId = getMongoId(inserat);
+      card.dataset.id = realId || "";
+      card.addEventListener("click", (e) => {
+        if (e.target.closest("button, a, .media-arrow")) return;
+        try { localStorage.setItem("ausgewaehltesInserat", JSON.stringify(toAnzeigePayload(inserat))); } catch {}
+        const qs = realId ? `?id=${encodeURIComponent(realId)}` : "";
+        window.location.href = `anzeige.html${qs}`;
+      });
+    });
+
+    renderPager(serverTotal);
+    renderActiveFilterChips(); // ✅ Chips-Leiste aktualisieren (falls vorhanden)
+  }
+
+  async function loadAndRender(p = 1) {
+    try {
+      const { page: serverPage, limit: serverLimit, total, results } = await fetchSearch(p, pageSize);
+      serverTotal   = total;
+      filteredItems = Array.isArray(results) ? results.map(normalizeItem) : [];
+      page          = Number(serverPage) || 1;
+      filteredItems = applyClientFilters(filteredItems);
+      renderItems();
+    } catch (err) {
+      console.error("Fehler beim Laden der Suche:", err);
+      if (container) container.innerHTML = "<p>🚫 Fehler beim Laden der Ergebnisse.</p>";
     }
-
-    // Hochformat-Erkennung (optional)
-    card.querySelectorAll(".slide").forEach(m => {
-      if (m.tagName === "VIDEO") {
-        m.addEventListener("loadedmetadata", () => {
-          if (m.videoHeight > m.videoWidth) m.classList.add("portrait-zoom");
-        });
-      } else if (m.tagName === "IMG") {
-        m.addEventListener("load", () => {
-          if (m.naturalHeight > m.naturalWidth) m.classList.add("portrait-zoom");
-        });
-      }
-    });
-
-    // Karte klickbar (nicht auf Buttons/Arrows)
-    const realId = getMongoId(inserat);
-    card.dataset.id = realId || "";
-    card.addEventListener("click", (e) => {
-      if (e.target.closest("button, a, .media-arrow")) return;
-      try {
-        const payload = toAnzeigePayload(inserat);             // <<<<<<<<<< wichtig
-        localStorage.setItem("ausgewaehltesInserat", JSON.stringify(payload));
-      } catch {}
-      const qs = realId ? `?id=${encodeURIComponent(realId)}` : "";
-      window.location.href = `anzeige.html${qs}`;
-    });
-  });
-
-  renderPager(serverTotal); // Wichtig: Gesamttreffer vom Server
-}
-
-async function loadAndRender(p = 1) {
-  try {
-    const { page: serverPage, limit: serverLimit, total, results } = await fetchSearch(p, pageSize);
-
-    serverTotal   = total;                               // Gesamtanzahl vom Server (für Pager)
-    filteredItems = Array.isArray(results) ? results.map(normalizeItem) : [];
-    page          = Number(serverPage) || 1;             // aktuelle Seite setzen
-
-    // Client-Filter (inkl. Verbrauch)
-    filteredItems = applyClientFilters(filteredItems);
-    // optional: filteredItems = sortItems(filteredItems);
-
-    renderItems();
-  } catch (err) {
-    console.error("Fehler beim Laden der Suche:", err);
-    if (container) container.innerHTML = "<p>🚫 Fehler beim Laden der Ergebnisse.</p>";
-  }
-}
-
-
-// ===== Events: Filter & Sort =====
-function setOrDelete(params, key, val) {
-  if (val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0)) {
-    params.delete(key);
-  } else {
-    params.set(key, String(val));
-  }
-}
-function mapSortSelectToParam(v) {
-  if (v === "price-asc")  return "preis_asc";
-  if (v === "price-desc") return "preis_desc";
-  return "neueste"; // "date-desc" und alles andere
-}
-function updateUrlFromUiAndReload() {
-  const params = new URLSearchParams(window.location.search);
-
-  // Marke/Modell
-  const markeEl  = document.getElementById("marke");
-  const modellEl = document.getElementById("modell");
-  setOrDelete(params, "marke", markeEl?.value || "");
-  if (modellEl && modellEl.options) {
-    const selected = [...modellEl.options].filter(o => o.selected).map(o => o.value).filter(Boolean);
-    setOrDelete(params, "modell", selected.length ? selected.join(",") : "");
   }
 
-  // EZ (type="month" oder Jahr/Monat)
-  const firstRegFromEl  = document.getElementById("firstRegFrom");
-  const firstRegMonthEl = document.getElementById("first-registration-month");
-  const firstRegYearEl  = document.getElementById("first-registration-year");
-  const ez =
-    (firstRegFromEl?.value) ||
-    (firstRegYearEl?.value && firstRegMonthEl?.value
-      ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2,"0")}`
-      : "");
-  setOrDelete(params, "ezFrom", ez);
-
- // Preis/KM bis (nur echte Zahlen > 0 setzen)
-const priceToEl   = document.getElementById("priceTo");
-const mileageToEl = document.getElementById("mileageTo");
-
-const pMax = parseInt(priceToEl?.value || "", 10);
-if (!Number.isNaN(pMax) && pMax > 0) {
-  params.set("price_max", String(pMax));
-} else {
-  params.delete("price_max");
-}
-
-const kmMax = parseInt(mileageToEl?.value || "", 10);
-if (!Number.isNaN(kmMax) && kmMax > 0) {
-  params.set("km_max", String(kmMax));
-} else {
-  params.delete("km_max");
-}
-
-// Kraftstoff/Getriebe (Beliebig/leer NICHT senden)
-const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
-const gearEl = document.getElementById("transmission") || document.getElementById("gear");
-
-const fuelVal = (fuelEl?.value || "").toLowerCase();
-if (fuelVal && !["beliebig","any","alle","all","-"].includes(fuelVal)) {
-  params.set("kraftstoff", fuelVal);
-} else {
-  params.delete("kraftstoff");
-}
-
-const gearVal = (gearEl?.value || "").toLowerCase();
-if (gearVal && !["beliebig","any","alle","all","-"].includes(gearVal)) {
-  params.set("getriebe", gearVal);
-} else {
-  params.delete("getriebe");
-}
-// Verbrauch (max) – Select/Custom -> URL
-(function () {
-  const sel   = document.getElementById('verbrauch-select');
-  const inp   = document.getElementById('verbrauch');
-
-  const toDec = (s) => {
-    const t = String(s ?? '').trim().replace(/\s+/g, '').replace(',', '.'); // "6,5" -> "6.5"
-    if (!t) return null;
-    const n = parseFloat(t);
-    return Number.isFinite(n) ? n : null;
-  };
-
-  let raw = '';
-
-  if (sel) {
-    if (sel.value === '' /* Beliebig */) {
-      raw = '';
-    } else if (sel.value === 'custom') {
-      raw = inp?.value || '';
+  // ===== URL-Update bei „Filter anwenden“ / Sortierung =====
+  function setOrDelete(params, key, val) {
+    if (val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0)) {
+      params.delete(key);
     } else {
-      raw = sel.value; // z.B. "6.0"
+      params.set(key, String(val));
     }
-  } else {
-    raw = inp?.value || '';
+  }
+  function mapSortSelectToParam(v) {
+    if (v === "price-asc")  return "preis_asc";
+    if (v === "price-desc") return "preis_desc";
+    return "neueste";
   }
 
-  const n = toDec(raw);
-  setOrDelete(params, 'verbrauch_max', (n != null && n > 0) ? String(n) : '');
-})();
+  function updateUrlFromUiAndReload() {
+    const params = new URLSearchParams(window.location.search);
 
-  // Ort / Umkreis
-  const locEl       = document.getElementById("location");
-  const distSel     = document.getElementById("distance-select");
-  const distCustom  = document.getElementById("distance-custom");
+    // Marke/Modell
+    const markeEl  = document.getElementById("marke");
+    const modellEl = document.getElementById("modell");
+    setOrDelete(params, "marke", markeEl?.value || "");
+    if (modellEl && modellEl.options) {
+      const selected = [...modellEl.options].filter(o => o.selected).map(o => o.value).filter(Boolean);
+      setOrDelete(params, "modell", selected.length ? selected.join(",") : "");
+    }
 
-  const locVal = (locEl?.value || "").trim();
-  setOrDelete(params, "ort", locVal);
+    // EZ (type="month" oder Jahr/Monat)
+    const firstRegFromEl  = document.getElementById("firstRegFrom");
+    const firstRegMonthEl = document.getElementById("first-registration-month");
+    const firstRegYearEl  = document.getElementById("first-registration-year");
+    const ez =
+      (firstRegFromEl?.value) ||
+      (firstRegYearEl?.value && firstRegMonthEl?.value
+        ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2,"0")}`
+        : "");
+    setOrDelete(params, "ezFrom", ez);
 
-  if (distSel && !distSel.disabled) {
-    const dRaw = distSel.value === "custom" ? (distCustom?.value || "") : distSel.value;
-    const d = parseInt(dRaw, 10);
-    setOrDelete(params, "umkreis", (!Number.isNaN(d) && d > 0 && d !== 999) ? d : "");
-  } else {
-    params.delete("umkreis");
+    // Preis/KM bis
+    const priceToEl   = document.getElementById("priceTo");
+    const mileageToEl = document.getElementById("mileageTo");
+    const pMax = parseInt(priceToEl?.value || "", 10);
+    if (!Number.isNaN(pMax) && pMax > 0) params.set("price_max", String(pMax)); else params.delete("price_max");
+    const kmMax = parseInt(mileageToEl?.value || "", 10);
+    if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax)); else params.delete("km_max");
+
+    // Kraftstoff/Getriebe (Beliebig/leer NICHT senden)
+    const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
+    const gearEl = document.getElementById("transmission") || document.getElementById("gear");
+    const fuelVal = (fuelEl?.value || "").toLowerCase();
+    if (fuelVal && !["beliebig","any","alle","all","-"].includes(fuelVal)) params.set("kraftstoff", fuelVal); else params.delete("kraftstoff");
+    const gearVal = (gearEl?.value || "").toLowerCase();
+    if (gearVal && !["beliebig","any","alle","all","-"].includes(gearVal)) params.set("getriebe", gearVal); else params.delete("getriebe");
+
+    // Verbrauch (max)
+    (function () {
+      const sel = document.getElementById('verbrauch-select');
+      const inp = document.getElementById('verbrauch');
+      const toDec = (s) => {
+        const t = String(s ?? '').trim().replace(/\s+/g, '').replace(',', '.');
+        if (!t) return null;
+        const n = parseFloat(t);
+        return Number.isFinite(n) ? n : null;
+      };
+      let raw = '';
+      if (sel) raw = sel.value === '' ? '' : (sel.value === 'custom' ? (inp?.value || '') : sel.value);
+      else raw = inp?.value || '';
+      const n = toDec(raw);
+      setOrDelete(params, 'verbrauch_max', (n != null && n > 0) ? String(n) : '');
+    })();
+
+    // Ort / Umkreis
+    const locEl       = document.getElementById("location");
+    const distSel     = document.getElementById("distance-select");
+    const distCustom  = document.getElementById("distance-custom");
+    const locVal = (locEl?.value || "").trim();
+    setOrDelete(params, "ort", locVal);
+    if (distSel && !distSel.disabled) {
+      const dRaw = distSel.value === "custom" ? (distCustom?.value || "") : distSel.value;
+      const d = parseInt(dRaw, 10);
+      setOrDelete(params, "umkreis", (!Number.isNaN(d) && d > 0 && d !== 999) ? d : "");
+    } else {
+      params.delete("umkreis");
+    }
+
+    // ✅ NEU: Feature-Flags aus UI in URL
+    const pfEl = document.getElementById("partikelfilter");
+    const shEl = document.getElementById("scheckheft");
+    const ftEl = document.getElementById("fahrtauglich");
+    setOrDelete(params, "partikelfilter", pfEl?.checked ? "mit" : "");
+    setOrDelete(params, "scheckheft",     shEl?.checked ? "ja"  : "");
+    setOrDelete(params, "fahrtauglich",   ftEl?.checked ? "ja"  : "");
+
+    // Sortierung
+    const sortSelectVal = sortBy?.value || "";
+    if (sortSelectVal) params.set("sort", mapSortSelectToParam(sortSelectVal));
+    else params.delete("sort");
+
+    // Bei Filteränderung auf Seite 1 springen
+    params.delete("page");
+
+    history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
+    // ⚠️ QP ist ein einmaliges Snapshot-Objekt → nicht wiederverwenden.
+    // Wir lesen direkt aus der UI in applyClientFilters(), daher reicht hier reload der Daten:
+    loadAndRender(1);
   }
 
-  // Sortierung -> Serverparam
-  const sortSelectVal = sortBy?.value || "";
-  if (sortSelectVal) params.set("sort", mapSortSelectToParam(sortSelectVal));
-  else params.delete("sort");
+  applyFilters?.addEventListener("click", (e) => { e.preventDefault(); updateUrlFromUiAndReload(); });
+  sortBy?.addEventListener("change", () => { updateUrlFromUiAndReload(); });
 
-  // Bei Filteränderung auf Seite 1 springen
-  params.delete("page");
+  // ===== (Optional) aktive Filter-Leiste (Chips) =====
+  function renderActiveFilterChips() {
+    const host = document.getElementById("activeFilters");
+    if (!host) return; // falls es keine Leiste gibt, einfach aussteigen
+    const sp = new URLSearchParams(window.location.search);
+    const chips = [];
+    if (sp.get("partikelfilter") === "mit") chips.push("Partikelfilter");
+    if (sp.get("scheckheft") === "ja")      chips.push("Scheckheft");
+    if (sp.get("fahrtauglich") === "ja")    chips.push("Fahrtauglich");
+    host.innerHTML = chips.map(txt => `<span class="filter-chip">${txt}</span>`).join("");
+  }
 
-  history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
-  loadAndRender(1);
-}
-
-applyFilters?.addEventListener("click", (e) => {
-  e.preventDefault();
-  updateUrlFromUiAndReload();
+  // ===== Init =====
+  const initialPage = Math.max(parseInt(new URLSearchParams(window.location.search).get("page") || "1", 10), 1);
+  loadAndRender(initialPage);
 });
-
-sortBy?.addEventListener("change", () => {
-  updateUrlFromUiAndReload();
-});
-
-// ===== Init =====
-const initialPage = Math.max(parseInt(new URLSearchParams(window.location.search).get("page") || "1", 10), 1);
-loadAndRender(initialPage);
-
-
-});
-
-
-
 
 
 
