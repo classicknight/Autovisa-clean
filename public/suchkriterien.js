@@ -1,4 +1,3 @@
-
 // suchkriterien.js
 document.documentElement.classList.remove('no-js');
 
@@ -35,23 +34,22 @@ document.addEventListener("DOMContentLoaded", () => {
     const trigger = li.querySelector('a[aria-haspopup="true"]');
     const menu    = li.querySelector('.dropdown-menu');
     if (!trigger || !menu) return;
-  
+
     const tRect = trigger.getBoundingClientRect();
     const mRect = menu.getBoundingClientRect();
     const liRect = li.getBoundingClientRect();
     const vw = window.innerWidth;
-  
+
     // LINKS am Trigger statt Center:
-    const offset = 0; // ggf. auf 8 setzen, wenn du „etwas rechts“ willst
+    const offset = 0;
     let leftAbs = tRect.left + offset;
-  
+
     // Clamping an die Viewport-Kanten
     leftAbs = Math.max(16, Math.min(leftAbs, vw - mRect.width - 16));
-  
+
     const relLeft = leftAbs - liRect.left;
     menu.style.left = `${relLeft}px`;
   }
-  
 
   function openDropdown(trigger) {
     const li   = trigger.closest(".dropdown");
@@ -94,17 +92,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Klicks innerhalb der Navbar sollen NICHT das Schließen-Handler auslösen
   navbar?.addEventListener("click", (e) => e.stopPropagation());
   navLinks?.addEventListener("click", (e) => e.stopPropagation());
 
-  // Klick außerhalb schließt alles
   document.addEventListener("click", () => {
     navLinks?.classList.remove("active");
     closeAllDropdowns();
   });
 
-  // Esc schließt alles
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       navLinks?.classList.remove("active");
@@ -179,7 +174,6 @@ document.addEventListener("DOMContentLoaded", () => {
       document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
     });
   }
-  
 
   // Sichtbar machen (falls animiert)
   const searchSection = document.querySelector('.search-section');
@@ -191,465 +185,471 @@ document.addEventListener("DOMContentLoaded", () => {
   const brandDropdown = document.getElementById("marke");
   const modelDropdown = document.getElementById("modell");
 
-  // Gruppen-Definitionen
-  const modelGroups = {
-    "1er Reihe (Alle)": /^1(1[0-9]|2[0-9]|3[0-9]|4[0-9]|14[0-9]|1er M Coupé)/i,
-    "2er Reihe (Alle)": /^2(1[0-9]|2[0-9]|3[0-9])/i,
-    "3er Reihe (Alle)": /^3[0-9]{2}|^ActiveHybrid 3/i,
-    "4er Reihe (Alle)": /^4[0-9]{2}/i,
-    "5er Reihe (Alle)": /^5[0-9]{2}|^ActiveHybrid 5/i,
-    "6er Reihe (Alle)": /^6[0-9]{2}/i,
-    "7er Reihe (Alle)": /^7[0-9]{2}|^ActiveHybrid 7/i,
-    "M-Modelle (Alle)": /^M[0-9]|^M1[0-9]/i,
-    "X-Reihe (Alle)": /^X[0-9]|^ActiveHybrid X6/i,
-    "Z-Reihe (Alle)": /^Z[0-9]/i,
+  // ⬇️⬇️ NEU: GUARD – nur initialisieren, wenn SlimSelect hier noch NICHT aktiv ist
+  const _isSlim = el => !!(el && el.nextElementSibling && el.nextElementSibling.classList.contains('ss-main'));
+  if (!_isSlim(brandDropdown) && !_isSlim(modelDropdown)) {
 
-    "Fengon (Alle)": /^Fengon(\s\d+)?$/i,
-    "Tourneo (Alle)": /^Tourneo(?!\s*\(Alle\))/i,
-    "Transit (Alle)": /^Transit(?!\s*\(Alle\))/i,
-    "Continental (Alle)": /^Continental\b/i,
+    // Gruppen-Definitionen
+    const modelGroups = {
+      "1er Reihe (Alle)": /^1(1[0-9]|2[0-9]|3[0-9]|4[0-9]|14[0-9]|1er M Coupé)/i,
+      "2er Reihe (Alle)": /^2(1[0-9]|2[0-9]|3[0-9])/i,
+      "3er Reihe (Alle)": /^3[0-9]{2}|^ActiveHybrid 3/i,
+      "4er Reihe (Alle)": /^4[0-9]{2}/i,
+      "5er Reihe (Alle)": /^5[0-9]{2}|^ActiveHybrid 5/i,
+      "6er Reihe (Alle)": /^6[0-9]{2}/i,
+      "7er Reihe (Alle)": /^7[0-9]{2}|^ActiveHybrid 7/i,
+      "M-Modelle (Alle)": /^M[0-9]|^M1[0-9]/i,
+      "X-Reihe (Alle)": /^X[0-9]|^ActiveHybrid X6/i,
+      "Z-Reihe (Alle)": /^Z[0-9]/i,
 
-    "A-Klasse (Alle)": /^A\s/i,
-    "B-Klasse (Alle)": /^B\s/i,
-    "C-Klasse (Alle)": /^C\s/i,
-    "CE-Klasse (Alle)": /^CE\s/i,
-    "CLA-Klasse (Alle)": /^CLA\s/i,
-    "CLC-Klasse (Alle)": /^CLC\s/i,
-    "CLE-Klasse (Alle)": /^CLE\s/i,
-    "CLK-Klasse (Alle)": /^CLK\s/i,
-    "CL-Klasse (Alle)": /^CL\s/i,
-    "CLS-Klasse (Alle)": /^CLS\s/i,
-    "E-Klasse (Alle)": /^E\s/i,
-    "G-Klasse (Alle)": /^G\s/i,
-    "GLA-Klasse (Alle)": /^GLA\s/i,
-    "GLB-Klasse (Alle)": /^GLB\s/i,
-    "GLC-Klasse (Alle)": /^GLC\s/i,
-    "GLE-Klasse (Alle)": /^GLE\s/i,
-    "GLK-Klasse (Alle)": /^GLK\s/i,
-    "GL-Klasse (Alle)": /^GL\s/i,
-    "GLS-Klasse (Alle)": /^GLS\s/i,
-    "GT-Klasse (Alle)": /^AMG GT/i,
-    "ML-Klasse (Alle)": /^ML\s/i,
-    "R-Klasse (Alle)": /^R\s/i,
-    "S-Klasse (Alle)": /^S\s/i,
-    "SLC-Klasse (Alle)": /^SLC\s/i,
-    "SLK-Klasse (Alle)": /^SLK\s/i,
-    "SL-Klasse (Alle)": /^SL\s/i,
-    "V-Klasse (Alle)": /^V\s/i,
-    "X-Klasse (Alle)": /^X\s/i,
+      "Fengon (Alle)": /^Fengon(\s\d+)?$/i,
+      "Tourneo (Alle)": /^Tourneo(?!\s*\(Alle\))/i,
+      "Transit (Alle)": /^Transit(?!\s*\(Alle\))/i,
+      "Continental (Alle)": /^Continental\b/i,
 
-    "ES-Serie (Alle)": /^ES\s/i,
-    "GS-Serie (Alle)": /^GS\s/i,
-    "GX Series (Alle)": /^GX\s/i,
-    "IS-Serie (Alle)": /^IS\s/i,
-    "LS-Serie (Alle)": /^LS\s/i,
-    "LX-Serie (Alle)": /^LX\s/i,
-    "NX-Serie (Alle)": /^NX\s/i,
-    "RC-Serie (Alle)": /^RC\s/i,
-    "RX-Serie (Alle)": /^RX\s/i,
+      "A-Klasse (Alle)": /^A\s/i,
+      "B-Klasse (Alle)": /^B\s/i,
+      "C-Klasse (Alle)": /^C\s/i,
+      "CE-Klasse (Alle)": /^CE\s/i,
+      "CLA-Klasse (Alle)": /^CLA\s/i,
+      "CLC-Klasse (Alle)": /^CLC\s/i,
+      "CLE-Klasse (Alle)": /^CLE\s/i,
+      "CLK-Klasse (Alle)": /^CLK\s/i,
+      "CL-Klasse (Alle)": /^CL\s/i,
+      "CLS-Klasse (Alle)": /^CLS\s/i,
+      "E-Klasse (Alle)": /^E\s/i,
+      "G-Klasse (Alle)": /^G\s/i,
+      "GLA-Klasse (Alle)": /^GLA\s/i,
+      "GLB-Klasse (Alle)": /^GLB\s/i,
+      "GLC-Klasse (Alle)": /^GLC\s/i,
+      "GLE-Klasse (Alle)": /^GLE\s/i,
+      "GLK-Klasse (Alle)": /^GLK\s/i,
+      "GL-Klasse (Alle)": /^GL\s/i,
+      "GLS-Klasse (Alle)": /^GLS\s/i,
+      "GT-Klasse (Alle)": /^AMG GT/i,
+      "ML-Klasse (Alle)": /^ML\s/i,
+      "R-Klasse (Alle)": /^R\s/i,
+      "S-Klasse (Alle)": /^S\s/i,
+      "SLC-Klasse (Alle)": /^SLC\s/i,
+      "SLK-Klasse (Alle)": /^SLK\s/i,
+      "SL-Klasse (Alle)": /^SL\s/i,
+      "V-Klasse (Alle)": /^V\s/i,
+      "X-Klasse (Alle)": /^X\s/i,
 
-    "Cabrio Serie (Alle)": /\bCabrio$/,
-    "Clubman Serie (Alle)": /\bClubman$/,
-    "Countryman Serie (Alle)": /\bCountryman$/,
-    "Coupe Serie (Alle)": /\bCoupé$/,
-    "MINI (Alle)": /^(1000|1300|Cooper|ONE|One)\b|John Cooper Works$/,
-    "Paceman Serie (Alle)": /\bPaceman$/,
-    "Roadster Serie (Alle)": /\bRoadster$/,
+      "ES-Serie (Alle)": /^ES\s/i,
+      "GS-Serie (Alle)": /^GS\s/i,
+      "GX Series (Alle)": /^GX\s/i,
+      "IS-Serie (Alle)": /^IS\s/i,
+      "LS-Serie (Alle)": /^LS\s/i,
+      "LX-Serie (Alle)": /^LX\s/i,
+      "NX-Serie (Alle)": /^NX\s/i,
+      "RC-Serie (Alle)": /^RC\s/i,
+      "RX-Serie (Alle)": /^RX\s/i,
 
-    "911er Reihe (Alle)": /^(911|930|964|991|992|993|996|997|912|914|918)\b/,
+      "Cabrio Serie (Alle)": /\bCabrio$/,
+      "Clubman Serie (Alle)": /\bClubman$/,
+      "Countryman Serie (Alle)": /\bCountryman$/,
+      "Coupe Serie (Alle)": /\bCoupé$/,
+      "MINI (Alle)": /^(1000|1300|Cooper|ONE|One)\b|John Cooper Works$/,
+      "Paceman Serie (Alle)": /\bPaceman$/,
+      "Roadster Serie (Alle)": /\bRoadster$/,
 
-    "Golf (Alle)":   /^Golf(?!\s*\(Alle\))(\s|$|-)/i,
-    "Passat (Alle)": /^Passat(?!\s*\(Alle\))(\s|$|-)/i,
-    "T3 (Alle)":     /^T3(?!\s*\(Alle\))(\s|$)/i,
-    "T4 (Alle)":     /^T4(?!\s*\(Alle\))(\s|$)/i,
-    "T5 (Alle)":     /^T5(?!\s*\(Alle\))(\s|$)/i,
-    "T6 (Alle)":     /^T6(?!\s*\(Alle\))(\s|$)/i
-  };
+      "911er Reihe (Alle)": /^(911|930|964|991|992|993|996|997|912|914|918)\b/,
 
-  // SlimSelect-Helfer
+      "Golf (Alle)":   /^Golf(?!\s*\(Alle\))(\s|$|-)/i,
+      "Passat (Alle)": /^Passat(?!\s*\(Alle\))(\s|$|-)/i,
+      "T3 (Alle)":     /^T3(?!\s*\(Alle\))(\s|$)/i,
+      "T4 (Alle)":     /^T4(?!\s*\(Alle\))(\s|$)/i,
+      "T5 (Alle)":     /^T5(?!\s*\(Alle\))(\s|$)/i,
+      "T6 (Alle)":     /^T6(?!\s*\(Alle\))(\s|$)/i
+    };
+
+    // SlimSelect-Helfer
+    const initSlim = (selector, opts) => {
+      const el = document.querySelector(selector);
+      if (!el) return null;
+      return new SlimSelect({ select: selector, ...opts });
+    };
+
+    // SlimSelect für Dropdowns
+    const slimMarke = initSlim('#marke', {
+      closeOnSelect: true,
+      placeholder: 'Marke wählen',
+      allowDeselect: true,
+      showSearch: true
+    });
+    let slimModell = initSlim('#modell', {
+      closeOnSelect: false,
+      placeholder: 'Modell wählen',
+      allowDeselect: true,
+      hideSelected: false,
+      showSearch: true,
+      data: [
+        { text: "Bitte zuerst Marke wählen", value: "", disabled: true, selected: true }
+      ],
+      events: {
+        afterChange: (newSelected) => {
+          const brand       = brandDropdown?.value || "";
+          const allowGroups = ALLOW_GROUPS_FOR[brand] || [];
+          const currentVals = (newSelected || []).map(s => s.value);
+
+          // "Beliebig" exklusiv
+          let vals = (currentVals.includes(ALL_MODELS_VALUE) && currentVals.length > 1)
+            ? currentVals.filter(v => v !== ALL_MODELS_VALUE)
+            : currentVals;
+          if (vals.length === 1 && vals[0] === ALL_MODELS_VALUE) return;
+
+          const fullList = sanitizeModelList((brandToModels[brand] || []).map(String));
+          const nextSet  = new Set();
+
+          vals.forEach(v => {
+            const rx = modelGroups[v];
+            const isAllowedGroup = rx && allowGroups.includes(v);
+            if (isAllowedGroup) {
+              fullList.forEach(m => {
+                if (/\(alle\)/i.test(m)) return;
+                if (rx.test(m)) nextSet.add(m);
+              });
+            } else if (v && v !== ALL_MODELS_VALUE) {
+              nextSet.add(v);
+            }
+          });
+
+          const next = nextSet.size ? [...nextSet] : [ALL_MODELS_VALUE];
+          const nowKey  = currentVals.slice().sort().join("|");
+          const nextKey = next.slice().sort().join("|");
+          if (nowKey !== nextKey) slimModell.setSelected(next);
+        }
+      }
+    });
+
+    // Modelle aus JSON
+    const FILTER_OUT_BELIEBIG = true;
+    const ALL_MODELS_VALUE = "__ALL_MODELS__";
+
+    // Nur diese Marken bekommen Gruppen
+    const ALLOW_GROUPS_FOR = {
+      "Bentley": ["Continental (Alle)"],
+      "BMW": [
+        "1er Reihe (Alle)","2er Reihe (Alle)","3er Reihe (Alle)","4er Reihe (Alle)",
+        "5er Reihe (Alle)","6er Reihe (Alle)","7er Reihe (Alle)",
+        "M-Modelle (Alle)","X-Reihe (Alle)","Z-Reihe (Alle)"
+      ],
+      "DFSK": ["Fengon (Alle)"],
+      "Ford": ["Tourneo (Alle)","Transit (Alle)"],
+      "Lexus": [
+        "ES-Serie (Alle)","GS-Serie (Alle)","GX Series (Alle)","IS-Serie (Alle)",
+        "LS-Serie (Alle)","LX-Serie (Alle)","NX-Serie (Alle)","RC-Serie (Alle)","RX-Serie (Alle)"
+      ],
+      "Mercedes-Benz": [
+        "A-Klasse (Alle)","B-Klasse (Alle)","C-Klasse (Alle)","CE-Klasse (Alle)",
+        "CLA-Klasse (Alle)","CLC-Klasse (Alle)","CLE-Klasse (Alle)","CLK-Klasse (Alle)",
+        "CL-Klasse (Alle)","CLS-Klasse (Alle)","E-Klasse (Alle)","G-Klasse (Alle)",
+        "GLA-Klasse (Alle)","GLB-Klasse (Alle)","GLC-Klasse (Alle)","GLE-Klasse (Alle)",
+        "GLK-Klasse (Alle)","GL-Klasse (Alle)","GLS-Klasse (Alle)","GT-Klasse (Alle)",
+        "ML-Klasse (Alle)","R-Klasse (Alle)","S-Klasse (Alle)","SLC-Klasse (Alle)",
+        "SLK-Klasse (Alle)","SL-Klasse (Alle)","V-Klasse (Alle)","X-Klasse (Alle)"
+      ],
+      "MINI": [
+        "Cabrio Serie (Alle)","Clubman Serie (Alle)","Countryman Serie (Alle)",
+        "Coupe Serie (Alle)","MINI (Alle)","Paceman Serie (Alle)","Roadster Serie (Alle)"
+      ],
+      "Porsche": ["911er Reihe (Alle)"],
+      "Volkswagen": ["Golf (Alle)","Passat (Alle)","T3 (Alle)","T4 (Alle)","T5 (Alle)","T6 (Alle)"]
+    };
+
+    let brandToModels = {};
+    function sanitizeModelList(listRaw = []) {
+      const seen = new Set();
+      const clean = [];
+      let hadAndere = false;
+
+      for (const raw of listRaw) {
+        if (raw == null) continue;
+        const name = String(raw).trim();
+        if (!name) continue;
+        if (FILTER_OUT_BELIEBIG && /^beliebig$/i.test(name)) continue;
+        if (/^andere$/i.test(name)) { hadAndere = true; continue; }
+
+        const key = name.toLowerCase();
+        if (!seen.has(key)) { seen.add(key); clean.push(name); }
+      }
+      if (hadAndere) clean.push("Andere");
+      return clean;
+    }
+
+    async function loadBrandModelMap() {
+      try {
+        const r = await fetch('/data/marken-modelle.json', { credentials: 'omit' });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const data = await r.json();
+        brandToModels = (data && typeof data === "object") ? data : {};
+      } catch (e) {
+        console.warn("marken-modelle.json konnte nicht geladen werden.", e);
+        brandToModels = {};
+      }
+    }
+
+    function rebuildModelOptions(brand) {
+      if (!modelDropdown) return;
+
+      const rawList = (brandToModels && brandToModels[brand]) || [];
+      const models  = sanitizeModelList(rawList);
+
+      const data = [
+        { text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE },
+        ...models.map(m => ({ text: m, value: m }))
+      ];
+
+      if (slimModell) {
+        slimModell.setData(data.length ? data : [{ text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE }]);
+        slimModell.setSelected([ALL_MODELS_VALUE]);
+      } else {
+        modelDropdown.innerHTML = "";
+        data.forEach(({ text, value }) => {
+          const opt = document.createElement("option");
+          opt.value = value;
+          opt.textContent = text;
+          modelDropdown.appendChild(opt);
+        });
+        modelDropdown.value = ALL_MODELS_VALUE;
+      }
+    }
+
+    // Lade Daten & initialisiere
+    (async () => {
+      await loadBrandModelMap();
+
+      // ---- „Erstzulassung“ auf hübsche Dropdowns umbauen ----
+      function buildMonthYearSelect(hiddenInputId, { minYear = 1980, maxYear = new Date().getFullYear() } = {}) {
+        const hidden = document.getElementById(hiddenInputId);
+        if (!hidden) return;
+
+        if (hidden.type === "hidden" && hidden.dataset.mmEnhanced === "1") return;
+
+        hidden.type = "hidden";
+        hidden.dataset.mmEnhanced = "1";
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "month-year";
+
+        const selMonth = document.createElement("select");
+        selMonth.id = `${hiddenInputId}-month`;
+        selMonth.setAttribute("aria-label", hiddenInputId + " Monat");
+        selMonth.innerHTML =
+          `<option value="">Monat</option>` +
+          Array.from({ length: 12 }, (_, i) => {
+            const val = String(i + 1).padStart(2, "0");
+            const label = new Date(2000, i, 1).toLocaleString("de-DE", { month: "long" });
+            return `<option value="${val}">${label}</option>`;
+          }).join("");
+
+        const selYear = document.createElement("select");
+        selYear.id = `${hiddenInputId}-year`;
+        selYear.setAttribute("aria-label", hiddenInputId + " Jahr");
+        selYear.innerHTML =
+          `<option value="">Jahr</option>` +
+          Array.from({ length: maxYear - minYear + 1 }, (_, i) => {
+            const y = String(maxYear - i);
+            return `<option value="${y}">${y}</option>`;
+          }).join("");
+
+        function syncHidden() {
+          const y = selYear.value;
+          const m = selMonth.value;
+          hidden.value = (y && m) ? `${y}-${m}` : "";
+        }
+        selMonth.addEventListener("change", syncHidden);
+        selYear.addEventListener("change", syncHidden);
+
+        if (/^\d{4}-\d{2}$/.test(hidden.value)) {
+          const [y, m] = hidden.value.split("-");
+          if ([...selYear.options].some(o => o.value === y)) selYear.value = y;
+          if ([...selMonth.options].some(o => o.value === m)) selMonth.value = m;
+          syncHidden();
+        }
+
+        wrapper.appendChild(selMonth);
+        wrapper.appendChild(selYear);
+        const container = hidden.closest(".range-item") || hidden.parentElement;
+        container.insertBefore(wrapper, hidden);
+
+        new SlimSelect({ select: `#${selMonth.id}`, placeholder: 'Monat', showSearch: false });
+        new SlimSelect({ select: `#${selYear.id}`,  placeholder: 'Jahr',  showSearch: true  });
+      }
+
+      // Marke -> Modelle
+      brandDropdown?.addEventListener("change", () => {
+        const val = brandDropdown.value;
+        rebuildModelOptions(val);
+        if (slimModell) slimModell.setSelected([ALL_MODELS_VALUE]);
+        else modelDropdown.value = ALL_MODELS_VALUE;
+      });
+
+      // URL-Parameter übernehmen
+      const qs = new URLSearchParams(location.search);
+
+      const qBrand = qs.get("marke") || "";
+      if (qBrand && brandDropdown) {
+        // Wenn es ein SlimSelect für Marke geben sollte (hier im Guard meist ja):
+        const maybeSlim = brandDropdown.nextElementSibling?.classList.contains('ss-main');
+        if (maybeSlim) {
+          // setSelected geht nur auf der Instanz – hier notfalls direkt Wert setzen:
+          brandDropdown.value = qBrand;
+          brandDropdown.dispatchEvent(new Event('change'));
+        } else {
+          brandDropdown.value = qBrand;
+          rebuildModelOptions(qBrand);
+        }
+      } else if (brandDropdown?.value) {
+        rebuildModelOptions(brandDropdown.value);
+      }
+
+      const qModels = (qs.get("modell") || "")
+        .split(",")
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      if (qModels.length) {
+        const brand = qBrand || brandDropdown?.value || "";
+        const list  = sanitizeModelList((brandToModels[brand] || []).map(String));
+        const allowedForBrand = ALLOW_GROUPS_FOR[brand] || [];
+        const expanded = new Set();
+
+        for (const item of qModels) {
+          if (allowedForBrand.includes(item) && modelGroups[item]) {
+            const rx = modelGroups[item];
+            list.forEach(m => { if (!/\(alle\)/i.test(m) && rx.test(m)) expanded.add(m); });
+          } else if (list.includes(item)) {
+            expanded.add(item);
+          }
+        }
+
+        const vals = [...expanded];
+        if (vals.length && modelDropdown) {
+          // direkt setzen (falls SlimSelect-Instanz vorhanden wurde sie oben erzeugt)
+          for (const opt of modelDropdown.options) {
+            opt.selected = vals.includes(opt.value);
+          }
+          modelDropdown.dispatchEvent(new Event('change'));
+        }
+      } else {
+        // Beliebig, wenn nichts in URL
+        if (modelDropdown) {
+          for (const opt of modelDropdown.options) opt.selected = (opt.value === "__ALL_MODELS__");
+          modelDropdown.dispatchEvent(new Event('change'));
+        }
+      }
+
+      // EZ aus URL
+      const ezFrom = qs.get("ezFrom");
+      const ezVonInput = document.getElementById("ez-von");
+      if (ezFrom && ezVonInput && /^\d{4}-\d{2}$/.test(ezFrom)) {
+        ezVonInput.value = ezFrom;
+      }
+
+      const ezTo = qs.get("ezTo");
+      const ezBisInput = document.getElementById("ez-bis");
+      if (ezTo && ezBisInput && /^\d{4}-\d{2}$/.test(ezTo)) {
+        ezBisInput.value = ezTo;
+      }
+
+      // Erstzulassung-Helfer rendern
+      buildMonthYearSelect('ez-von', { minYear: 1950 });
+      buildMonthYearSelect('ez-bis', { minYear: 1950 });
+
+      // km_max -> km-bis
+      const kmMax = qs.get("km_max");
+      const kmBis = document.getElementById("km-bis");
+      if (kmMax && kmBis) kmBis.value = kmMax;
+
+      // price_max -> preis-bis
+      const priceMax = qs.get("price_max");
+      const preisBis = document.getElementById("preis-bis");
+      if (priceMax && preisBis) preisBis.value = priceMax;
+
+      // ⬇️⬇️ NEU: Verbrauch aus URL robust vorbelegen (Wrapper wird via syncVerbrauchUI getoggelt)
+      (() => {
+        const vMax = qs.get('verbrauch_max');
+        if (!vMax) return;
+
+        const sel = document.getElementById('verbrauch-select');
+        const inp = document.getElementById('verbrauch');
+        const toNum = (s) => {
+          const n = parseFloat(String(s).replace(',', '.'));
+          return Number.isFinite(n) ? n : null;
+        };
+        const vNum = toNum(vMax);
+        if (!sel) return;
+
+        const match = Array.from(sel.options).find(o => {
+          const ov = toNum(o.value);
+          return ov !== null && ov === vNum;
+        });
+
+        if (match && match.value !== 'custom') {
+          sel.value = match.value;
+          if (inp) inp.value = '';
+        } else {
+          sel.value = 'custom';
+          if (inp) inp.value = String(vMax).replace('.', ',');
+        }
+        if (typeof syncVerbrauchUI === 'function') syncVerbrauchUI();
+      })();
+
+      // Ort
+      const ort = qs.get("ort");
+      const ortInput = document.getElementById("ort");
+      if (ort && ortInput) ortInput.value = ort;
+
+      // Umkreis (+ custom)
+      const umkreisSel = document.getElementById("umkreis");
+      const umkreisQS  = qs.get("umkreis");
+      if (umkreisSel && umkreisQS) {
+        const values = Array.from(umkreisSel.options).map(o => o.value);
+        if (values.includes(umkreisQS)) {
+          umkreisSel.value = umkreisQS;
+          window.toggleCustomUmkreis?.(umkreisSel.value);
+        } else {
+          umkreisSel.value = "custom";
+          window.toggleCustomUmkreis?.("custom");
+          const custom = document.getElementById("custom-umkreis");
+          if (custom) custom.value = umkreisQS;
+        }
+      }
+
+      // Getriebe (Automatik/Schalt)
+      const getriebe = (qs.get("getriebe") || "").toLowerCase();
+      if (getriebe) {
+        document
+          .querySelectorAll('[label*="Getriebe"] input[type="checkbox"], .search-group input[type="checkbox"]')
+          .forEach(inp => {
+            const v = (inp.value || "").toLowerCase();
+            if (getriebe.includes("auto") && v.includes("auto")) inp.checked = true;
+            if (getriebe.includes("schalt") && v.includes("schalt")) inp.checked = true;
+          });
+      }
+
+      // Kraftstoff
+      const kraftstoff = (qs.get("kraftstoff") || "").toLowerCase();
+      if (kraftstoff) {
+        document.querySelectorAll('.fuel-type-grid input[type="checkbox"]').forEach(inp => {
+          const v = (inp.parentElement?.innerText || inp.value || "").toLowerCase();
+          if (kraftstoff && v.includes(kraftstoff)) inp.checked = true;
+        });
+      }
+    })();
+  } // ⬅️⬅️ ENDE: GUARD
+
+  /* =========================
+     SlimSelects für restliche Felder (nur wenn vorhanden)
+     ========================= */
   const initSlim = (selector, opts) => {
     const el = document.querySelector(selector);
     if (!el) return null;
     return new SlimSelect({ select: selector, ...opts });
   };
 
-  // SlimSelect für Dropdowns
-  const slimMarke = initSlim('#marke', {
-    closeOnSelect: true,
-    placeholder: 'Marke wählen',
-    allowDeselect: true,
-    showSearch: true
-  });
-  let slimModell = initSlim('#modell', {
-    closeOnSelect: false,
-    placeholder: 'Modell wählen',
-    allowDeselect: true,
-    hideSelected: false,
-    showSearch: true,
-    data: [
-      { text: "Bitte zuerst Marke wählen", value: "", disabled: true, selected: true }
-    ],
-    events: {
-      afterChange: (newSelected) => {
-        const brand       = brandDropdown?.value || "";
-        const allowGroups = ALLOW_GROUPS_FOR[brand] || [];
-        const currentVals = (newSelected || []).map(s => s.value);
-
-        // "Beliebig" exklusiv
-        let vals = (currentVals.includes(ALL_MODELS_VALUE) && currentVals.length > 1)
-          ? currentVals.filter(v => v !== ALL_MODELS_VALUE)
-          : currentVals;
-        if (vals.length === 1 && vals[0] === ALL_MODELS_VALUE) return;
-
-        const fullList = sanitizeModelList((brandToModels[brand] || []).map(String));
-        const nextSet  = new Set();
-
-        vals.forEach(v => {
-          const rx = modelGroups[v];
-          const isAllowedGroup = rx && allowGroups.includes(v);
-          if (isAllowedGroup) {
-            fullList.forEach(m => {
-              if (/\(alle\)/i.test(m)) return; // Gruppen-Label NICHT selektieren
-              if (rx.test(m)) nextSet.add(m);
-            });
-          } else if (v && v !== ALL_MODELS_VALUE) {
-            nextSet.add(v);
-          }
-        });
-
-        const next = nextSet.size ? [...nextSet] : [ALL_MODELS_VALUE];
-        const nowKey  = currentVals.slice().sort().join("|");
-        const nextKey = next.slice().sort().join("|");
-        if (nowKey !== nextKey) slimModell.setSelected(next);
-      }
-    }
-  });
-
-  // Modelle aus JSON
-  const FILTER_OUT_BELIEBIG = true;
-  const ALL_MODELS_VALUE = "__ALL_MODELS__";
-
-  // Nur diese Marken bekommen Gruppen
-  const ALLOW_GROUPS_FOR = {
-    "Bentley": ["Continental (Alle)"],
-    "BMW": [
-      "1er Reihe (Alle)","2er Reihe (Alle)","3er Reihe (Alle)","4er Reihe (Alle)",
-      "5er Reihe (Alle)","6er Reihe (Alle)","7er Reihe (Alle)",
-      "M-Modelle (Alle)","X-Reihe (Alle)","Z-Reihe (Alle)"
-    ],
-    "DFSK": ["Fengon (Alle)"],
-    "Ford": ["Tourneo (Alle)","Transit (Alle)"],
-    "Lexus": [
-      "ES-Serie (Alle)","GS-Serie (Alle)","GX Series (Alle)","IS-Serie (Alle)",
-      "LS-Serie (Alle)","LX-Serie (Alle)","NX-Serie (Alle)","RC-Serie (Alle)","RX-Serie (Alle)"
-    ],
-    "Mercedes-Benz": [
-      "A-Klasse (Alle)","B-Klasse (Alle)","C-Klasse (Alle)","CE-Klasse (Alle)",
-      "CLA-Klasse (Alle)","CLC-Klasse (Alle)","CLE-Klasse (Alle)","CLK-Klasse (Alle)",
-      "CL-Klasse (Alle)","CLS-Klasse (Alle)","E-Klasse (Alle)","G-Klasse (Alle)",
-      "GLA-Klasse (Alle)","GLB-Klasse (Alle)","GLC-Klasse (Alle)","GLE-Klasse (Alle)",
-      "GLK-Klasse (Alle)","GL-Klasse (Alle)","GLS-Klasse (Alle)","GT-Klasse (Alle)",
-      "ML-Klasse (Alle)","R-Klasse (Alle)","S-Klasse (Alle)","SLC-Klasse (Alle)",
-      "SLK-Klasse (Alle)","SL-Klasse (Alle)","V-Klasse (Alle)","X-Klasse (Alle)"
-    ],
-    "MINI": [
-      "Cabrio Serie (Alle)","Clubman Serie (Alle)","Countryman Serie (Alle)",
-      "Coupe Serie (Alle)","MINI (Alle)","Paceman Serie (Alle)","Roadster Serie (Alle)"
-    ],
-    "Porsche": ["911er Reihe (Alle)"],
-    "Volkswagen": ["Golf (Alle)","Passat (Alle)","T3 (Alle)","T4 (Alle)","T5 (Alle)","T6 (Alle)"]
-  };
-
-  let brandToModels = {};
-  function sanitizeModelList(listRaw = []) {
-    const seen = new Set();
-    const clean = [];
-    let hadAndere = false;
-
-    for (const raw of listRaw) {
-      if (raw == null) continue;
-      const name = String(raw).trim();
-      if (!name) continue;
-      if (FILTER_OUT_BELIEBIG && /^beliebig$/i.test(name)) continue;
-      if (/^andere$/i.test(name)) { hadAndere = true; continue; }
-
-      const key = name.toLowerCase();
-      if (!seen.has(key)) { seen.add(key); clean.push(name); }
-    }
-    if (hadAndere) clean.push("Andere");
-    return clean;
-  }
-
-  async function loadBrandModelMap() {
-    try {
-      const r = await fetch('/data/marken-modelle.json', { credentials: 'omit' });
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      const data = await r.json();
-      brandToModels = (data && typeof data === "object") ? data : {};
-    } catch (e) {
-      console.warn("marken-modelle.json konnte nicht geladen werden.", e);
-      brandToModels = {};
-    }
-  }
-
-  function rebuildModelOptions(brand) {
-    if (!modelDropdown) return;
-
-    const rawList = (brandToModels && brandToModels[brand]) || [];
-    const models  = sanitizeModelList(rawList);
-
-    const data = [
-      { text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE },
-      ...models.map(m => ({ text: m, value: m }))
-    ];
-
-    if (slimModell) {
-      slimModell.setData(data.length ? data : [{ text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE }]);
-      slimModell.setSelected([ALL_MODELS_VALUE]);
-    } else {
-      modelDropdown.innerHTML = "";
-      data.forEach(({ text, value }) => {
-        const opt = document.createElement("option");
-        opt.value = value;
-        opt.textContent = text;
-        modelDropdown.appendChild(opt);
-      });
-      modelDropdown.value = ALL_MODELS_VALUE;
-    }
-  }
-
-  // Lade Daten & initialisiere
-  (async () => {
-    await loadBrandModelMap();
-// ---- Immer schöne Dropdowns für Erstzulassung (Monat/Jahr + Slim Select) ----
-function buildMonthYearSelect(hiddenInputId, { minYear = 1980, maxYear = new Date().getFullYear() } = {}) {
-  const hidden = document.getElementById(hiddenInputId);
-  if (!hidden) return;
-
-  // Falls schon umgebaut: abbrechen
-  if (hidden.type === "hidden" && hidden.dataset.mmEnhanced === "1") return;
-
-  // Original-<input type="month"> als hidden weiterverwenden (für Query-Build)
-  hidden.type = "hidden";
-  hidden.dataset.mmEnhanced = "1";
-
-  // Wrapper
-  const wrapper = document.createElement("div");
-  wrapper.className = "month-year";
-
-  // Monat-Select
-  const selMonth = document.createElement("select");
-  selMonth.id = `${hiddenInputId}-month`;
-  selMonth.setAttribute("aria-label", hiddenInputId + " Monat");
-  selMonth.innerHTML =
-    `<option value="">Monat</option>` +
-    Array.from({ length: 12 }, (_, i) => {
-      const val = String(i + 1).padStart(2, "0");
-      const label = new Date(2000, i, 1).toLocaleString("de-DE", { month: "long" });
-      return `<option value="${val}">${label}</option>`;
-    }).join("");
-
-  // Jahr-Select
-  const selYear = document.createElement("select");
-  selYear.id = `${hiddenInputId}-year`;
-  selYear.setAttribute("aria-label", hiddenInputId + " Jahr");
-  selYear.innerHTML =
-    `<option value="">Jahr</option>` +
-    Array.from({ length: maxYear - minYear + 1 }, (_, i) => {
-      const y = String(maxYear - i);
-      return `<option value="${y}">${y}</option>`;
-    }).join("");
-
-  // Sync hidden (nur wenn beide gewählt)
-  function syncHidden() {
-    const y = selYear.value;
-    const m = selMonth.value;
-    hidden.value = (y && m) ? `${y}-${m}` : "";
-  }
-  selMonth.addEventListener("change", syncHidden);
-  selYear.addEventListener("change", syncHidden);
-
-  // Vorbelegung übernehmen (z. B. aus URL)
-  if (/^\d{4}-\d{2}$/.test(hidden.value)) {
-    const [y, m] = hidden.value.split("-");
-    if ([...selYear.options].some(o => o.value === y)) selYear.value = y;
-    if ([...selMonth.options].some(o => o.value === m)) selMonth.value = m;
-    syncHidden();
-  }
-
-  // Einfügen
-  wrapper.appendChild(selMonth);
-  wrapper.appendChild(selYear);
-  const container = hidden.closest(".range-item") || hidden.parentElement;
-  container.insertBefore(wrapper, hidden);
-
-  // Slim Select aktivieren
-  new SlimSelect({ select: `#${selMonth.id}`, placeholder: 'Monat', showSearch: false });
-  new SlimSelect({ select: `#${selYear.id}`,  placeholder: 'Jahr',  showSearch: true  });
-}
-
-    // ----------------------------------------------------------
-
-    // Marke -> Modelle
-    brandDropdown?.addEventListener("change", () => {
-      const val = brandDropdown.value;
-      rebuildModelOptions(val);
-      // Bei Markenwechsel standardmäßig "Beliebig"
-      if (slimModell) slimModell.setSelected([ALL_MODELS_VALUE]);
-      else modelDropdown.value = ALL_MODELS_VALUE;
-    });
-
-    // URL-Parameter übernehmen (von index.html)
-    const qs = new URLSearchParams(location.search);
-
-    // Marke
-    const qBrand = qs.get("marke") || "";
-    if (qBrand && brandDropdown) {
-      if (slimMarke) slimMarke.setSelected(qBrand);
-      else brandDropdown.value = qBrand;
-      rebuildModelOptions(qBrand);
-    } else if (brandDropdown?.value) {
-      rebuildModelOptions(brandDropdown.value);
-    }
-
-    // Modelle (kann Einzelmodelle ODER Gruppen enthalten)
-    const qModels = (qs.get("modell") || "")
-      .split(",")
-      .map(s => s.trim())
-      .filter(Boolean);
-
-    if (qModels.length && slimModell) {
-      const brand = qBrand || brandDropdown?.value || "";
-      const list  = sanitizeModelList((brandToModels[brand] || []).map(String));
-      const allowedForBrand = ALLOW_GROUPS_FOR[brand] || [];
-      const expanded = new Set();
-
-      for (const item of qModels) {
-        if (allowedForBrand.includes(item) && modelGroups[item]) {
-          const rx = modelGroups[item];
-          list.forEach(m => { if (!/\(alle\)/i.test(m) && rx.test(m)) expanded.add(m); });
-        } else if (list.includes(item)) {
-          expanded.add(item);
-        }
-      }
-
-      const vals = [...expanded];
-      slimModell.setSelected(vals.length ? vals : [ALL_MODELS_VALUE]);
-    } else {
-      // Wenn keine Modelle in der URL: Beliebig aktiv
-      slimModell?.setSelected([ALL_MODELS_VALUE]);
-    }
-
-    // EZ von (index: ezFrom=YYYY-MM)
-    const ezFrom = qs.get("ezFrom");
-    const ezVonInput = document.getElementById("ez-von");
-    if (ezFrom && ezVonInput && /^\d{4}-\d{2}$/.test(ezFrom)) {
-      ezVonInput.value = ezFrom;
-    }
-
-    // EZ bis (index: ezTo=YYYY-MM)
-    const ezTo = qs.get("ezTo");
-    const ezBisInput = document.getElementById("ez-bis");
-    if (ezTo && ezBisInput && /^\d{4}-\d{2}$/.test(ezTo)) {
-      ezBisInput.value = ezTo;
-    }
-
-  // Erstzulassung immer als schöne Dropdowns rendern
-buildMonthYearSelect('ez-von', { minYear: 1950 });
-buildMonthYearSelect('ez-bis', { minYear: 1950 });
-
-
-    // km_max -> km-bis
-    const kmMax = qs.get("km_max");
-    const kmBis = document.getElementById("km-bis");
-    if (kmMax && kmBis) kmBis.value = kmMax;
-
-    // price_max -> preis-bis
-    const priceMax = qs.get("price_max");
-    const preisBis = document.getElementById("preis-bis");
-    if (priceMax && preisBis) preisBis.value = priceMax;
-// Verbrauch aus URL vorbefüllen (z. B. ?verbrauch_max=6.5)
-(() => {
-  const vMax = qs.get('verbrauch_max');
-  if (!vMax) return;
-
-  const sel = document.getElementById('verbrauch-select');
-  const inp = document.getElementById('verbrauch');   // ✅ richtige ID
-  const toNum = (s) => {
-    const n = parseFloat(String(s).replace(',', '.'));
-    return Number.isFinite(n) ? n : null;
-  };
-  const vNum = toNum(vMax);
-
-  if (sel) {
-    const match = Array.from(sel.options).find(o => {
-      const ov = toNum(o.value);
-      return ov !== null && ov === vNum;
-    });
-
-    if (match && match.value !== 'custom') {
-      sel.value = match.value;
-      if (typeof syncVerbrauchUI === 'function') syncVerbrauchUI();
-      else if (inp) inp.style.display = 'none';
-    } else {
-      sel.value = 'custom';
-      if (inp) inp.value = String(vMax).replace('.', ','); // Komma für UI
-      if (typeof syncVerbrauchUI === 'function') syncVerbrauchUI();
-      else if (inp) inp.style.display = '';
-    }
-  } else if (inp) {
-    inp.style.display = '';
-    inp.value = String(vMax).replace('.', ',');
-  }
-})();
-
-
-    // Ort
-    const ort = qs.get("ort");
-    const ortInput = document.getElementById("ort");
-    if (ort && ortInput) ortInput.value = ort;
-
-    // Umkreis (+ custom)
-    const umkreisSel = document.getElementById("umkreis");
-    const umkreisQS  = qs.get("umkreis");
-    if (umkreisSel && umkreisQS) {
-      const values = Array.from(umkreisSel.options).map(o => o.value);
-      if (values.includes(umkreisQS)) {
-        umkreisSel.value = umkreisQS;
-        window.toggleCustomUmkreis?.(umkreisSel.value);
-      } else {
-        umkreisSel.value = "custom";
-        window.toggleCustomUmkreis?.("custom");
-        const custom = document.getElementById("custom-umkreis");
-        if (custom) custom.value = umkreisQS;
-      }
-    }
-
-    // Getriebe (Automatik/Schalt)
-    const getriebe = (qs.get("getriebe") || "").toLowerCase();
-    if (getriebe) {
-      document
-        .querySelectorAll('[label*="Getriebe"] input[type="checkbox"], .search-group input[type="checkbox"]')
-        .forEach(inp => {
-          const v = (inp.value || "").toLowerCase();
-          if (getriebe.includes("auto") && v.includes("auto")) inp.checked = true;
-          if (getriebe.includes("schalt") && v.includes("schalt")) inp.checked = true;
-        });
-    }
-
-    // Kraftstoff
-    const kraftstoff = (qs.get("kraftstoff") || "").toLowerCase();
-    if (kraftstoff) {
-      document.querySelectorAll('.fuel-type-grid input[type="checkbox"]').forEach(inp => {
-        const v = (inp.parentElement?.innerText || inp.value || "").toLowerCase();
-        if (kraftstoff && v.includes(kraftstoff)) inp.checked = true;
-      });
-    }
-  })();
-
-  /* =========================
-     SlimSelects für restliche Felder (nur wenn vorhanden)
-     ========================= */
   initSlim('#hu-gueltig',      { placeholder: 'HU mind. gültig', allowDeselect: true, showSearch: false });
   initSlim('#fahrzeughalter',  { placeholder: 'Fahrzeughalter',  allowDeselect: true, showSearch: false });
   initSlim('#land',            { placeholder: 'Land',            allowDeselect: true, showSearch: false });
@@ -657,7 +657,6 @@ buildMonthYearSelect('ez-bis', { minYear: 1950 });
   initSlim('#plakette',        { placeholder: 'Plakette wählen', allowDeselect: true, showSearch: false });
   initSlim('#schadstoffklasse',{ placeholder: 'Schadstoffklasse',allowDeselect: true, showSearch: false });
   initSlim('#tueren',          { placeholder: 'Türen wählen',    allowDeselect: true, showSearch: false });
-  // optional weitere initSlims …
 
   /* =========================
      Globale Handler für HTML-onchange
@@ -683,27 +682,28 @@ buildMonthYearSelect('ez-bis', { minYear: 1950 });
       input.value = '';
     }
   };
-// --- VERBRAUCH: Select <-> Custom-Input umschalten ---
-const vbSel   = document.getElementById('verbrauch-select');
-const vbInput = document.getElementById('verbrauch'); // ✅
 
-function syncVerbrauchUI() {
-  if (!vbSel || !vbInput) return;
-  const isCustom = vbSel.value === 'custom';
-  vbInput.style.display = isCustom ? '' : 'none';
-  if (!isCustom) vbInput.value = '';
-}
+  // ⬇️⬇️ NEU: Verbrauch-UI richtig (Wrapper toggeln)
+  const vbSel   = document.getElementById('verbrauch-select');
+  const vbWrap  = document.getElementById('verbrauch-custom-wrap');
+  const vbInput = document.getElementById('verbrauch');
 
-vbSel?.addEventListener('change', syncVerbrauchUI);
-syncVerbrauchUI();
+  function syncVerbrauchUI() {
+    if (!vbSel || !vbWrap) return;
+    const isCustom = vbSel.value === 'custom';
+    vbWrap.style.display = isCustom ? '' : 'none';
+    if (!isCustom && vbInput) vbInput.value = '';
+  }
 
-initSlim('#verbrauch-select', {
-  allowDeselect: true,
-  showSearch: false,
-  placeholder: 'Beliebig',
-  events: { afterChange: syncVerbrauchUI }
-});
+  vbSel?.addEventListener('change', syncVerbrauchUI);
+  syncVerbrauchUI();
 
+  initSlim('#verbrauch-select', {
+    allowDeselect: true,
+    showSearch: false,
+    placeholder: 'Beliebig',
+    events: { afterChange: () => syncVerbrauchUI() }
+  });
 
   /* =========================
      Button "Fahrzeuge anzeigen" → suche.html
@@ -757,9 +757,7 @@ initSlim('#verbrauch-select', {
     if (pMin != null && pMin > 0) qs.set("price_min", String(pMin));
     if (pMax != null && pMax > 0) qs.set("price_max", String(pMax));
 
-   
-
-    // Land (nur wenn nicht der erste Eintrag)
+    // Land
     (function () {
       const landEl = document.getElementById("land");
       if (!landEl) return;
@@ -802,25 +800,22 @@ initSlim('#verbrauch-select', {
     const ccMax = _numFallback(document.getElementById("hubraum-bis")?.value);
     if (ccMin != null && ccMin > 0) qs.set("ccm_min", String(ccMin));
     if (ccMax != null && ccMax > 0) qs.set("ccm_max", String(ccMax));
-// Verbrauch (max) – dezimalfreundlich (6,5 → 6.5), Select ↔ Custom
-(function () {
-  const sel   = document.getElementById('verbrauch-select');
-  const input = document.getElementById('verbrauch'); // ✅
-  const toDec = (s) => {
-    if (s == null) return null;
-    const n = parseFloat(String(s).replace(',', '.'));
-    return Number.isFinite(n) ? n : null;
-  };
 
-  let raw = '';
-  if (sel) raw = sel.value === 'custom' ? (input?.value || '') : sel.value;
-  else     raw = input?.value || '';
-
-  const n = toDec(raw);
-  if (n != null && n > 0) qs.set('verbrauch_max', String(n));
-})();
-
-
+    // Verbrauch (max)
+    (function () {
+      const sel   = document.getElementById('verbrauch-select');
+      const input = document.getElementById('verbrauch');
+      const toDec = (s) => {
+        if (s == null) return null;
+        const n = parseFloat(String(s).replace(',', '.'));
+        return Number.isFinite(n) ? n : null;
+      };
+      let raw = '';
+      if (sel) raw = sel.value === 'custom' ? (input?.value || '') : sel.value;
+      else     raw = input?.value || '';
+      const n = toDec(raw);
+      if (n != null && n > 0) qs.set('verbrauch_max', String(n));
+    })();
 
     // Getriebe (genau 1)
     (function () {
@@ -879,7 +874,7 @@ initSlim('#verbrauch-select', {
     const huSel    = document.getElementById("hu-gueltig")?.value;
     const huCustom = document.getElementById("custom-hu")?.value?.trim();
     const huFinal  = huCustom || huSel;
-    if (huFinal && huFinal !== "Beliebig") qs.set("hu", huFinal);
+    if (huFinal && huFinal !== "Beliebig") qs.set("hu",   hyphenate(huFinal || "").trim() || huFinal);
 
     const halter = document.getElementById("fahrzeughalter")?.value;
     if (halter) qs.set("halter_max", halter);
@@ -929,6 +924,8 @@ initSlim('#verbrauch-select', {
     return qs;
   }
 
+  function hyphenate(s){ return String(s).replace(/\s+/g,' ').replace(/\s*-\s*/g,'-'); }
+
   function goToSearch() {
     const qs = buildAdvancedQuery();
     window.location.href = `suche.html?${qs.toString()}`;
@@ -958,5 +955,5 @@ initSlim('#verbrauch-select', {
   };
   ortInput.addEventListener("input", sync);
   ortInput.addEventListener("change", sync);
-  sync(); // Initial
+  sync();
 })();

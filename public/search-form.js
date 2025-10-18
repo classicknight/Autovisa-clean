@@ -2,6 +2,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // Auf Startseite gibt es ein Formular im #search-section; auf der Suchkriterien-Seite NICHT.
   const form = document.querySelector("#search-section .search-form");
 
+  // Helper: wurde bereits von SlimSelect umgebaut?
+  const isSlimmed = el => !!(el && el.nextElementSibling && el.nextElementSibling.classList.contains('ss-main'));
+
   // HTML5-Validierung nur deaktivieren, wenn es das Formular gibt
   if (form) {
     form.noValidate = true;
@@ -58,24 +61,6 @@ document.addEventListener("DOMContentLoaded", () => {
       opt.value = String(y);
       opt.textContent = String(y);
       yearSel.appendChild(opt);
-    }
-  }
-
-  // ============================
-  // Slim Select
-  // ============================
-  let ssMarke = null, ssModell = null;
-  if (window.SlimSelect) {
-    if (markeSel) {
-      ssMarke = new SlimSelect({ select: "#marke", placeholder: "Marke wählen" });
-    }
-    if (modellSel) {
-      ssModell = new SlimSelect({
-        select: "#modell",
-        placeholder: "Modell(e) wählen",
-        closeOnSelect: false,
-        showSearch: true,
-      });
     }
   }
 
@@ -200,7 +185,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ============================
-  // Marken/Modelle laden
+  // Marken/Modelle laden (nur für Startseite nötig)
   // ============================
   const ALL_MODELS_VALUE = "__ALL_MODELS__";
   const FILTER_OUT_BELIEBIG_IN_JSON = true;
@@ -243,87 +228,108 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function rebuildModelOptions(brand) {
-    if (!modellSel) return;
-    const rawList = (brandToModels && brandToModels[brand]) || [];
-    const models  = sanitizeModelList(rawList);
-    const data = [
-      { text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE },
-      ...models.map(m => ({ text: m, value: m }))
-    ];
-    if (ssModell) {
-      ssModell.setData(data.length ? data : [{ text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE }]);
-      ssModell.setSelected([ALL_MODELS_VALUE]);
-    } else {
-      modellSel.innerHTML = "";
-      data.forEach(({ text, value }) => {
-        const opt = document.createElement("option");
-        opt.value = value;
-        opt.textContent = text;
-        modellSel.appendChild(opt);
+  // ============================
+  // Slim Select (nur Startseite!)
+  // ============================
+  let ssMarke = null, ssModell = null;
+  if (form && window.SlimSelect) {
+    if (markeSel && !isSlimmed(markeSel)) {
+      ssMarke = new SlimSelect({ select: "#marke", placeholder: "Marke wählen" });
+    }
+    if (modellSel && !isSlimmed(modellSel)) {
+      ssModell = new SlimSelect({
+        select: "#modell",
+        placeholder: "Modell(e) wählen",
+        closeOnSelect: false,
+        showSearch: true,
       });
-      modellSel.value = ALL_MODELS_VALUE;
     }
   }
 
-  function enforceAllModelsExclusivity() {
-    if (!modellSel) return;
-    const selected = Array.from(modellSel.selectedOptions || []).map(o => o.value);
-    if (selected.includes(ALL_MODELS_VALUE)) {
-      Array.from(modellSel.options).forEach(o => o.selected = (o.value === ALL_MODELS_VALUE));
-      ssModell?.setSelected([ALL_MODELS_VALUE]);
-    }
-  }
-  modellSel?.addEventListener("change", enforceAllModelsExclusivity);
-
-  if (ssModell) {
-    ssModell.settings.events = ssModell.settings.events || {};
-    const prevAfterChange = ssModell.settings.events.afterChange;
-    ssModell.settings.events.afterChange = (newSelected) => {
-      const selectedBrand  = markeSel?.value;
-      const selectedValues = (newSelected || []).map(s => s.value);
-      if (!selectedBrand || !brandToModels[selectedBrand]) return;
-
-      if (selectedValues.includes(ALL_MODELS_VALUE)) {
-        ssModell.setSelected([ALL_MODELS_VALUE]);
-        return;
-      }
-
-      const allValuesToSelect = new Set();
-      const allow = ALLOW_GROUPS_FOR[selectedBrand];
-
-      selectedValues.forEach(val => {
-        const isGroup = !!modelGroups[val];
-        if (isGroup && allow && allow.includes(val)) {
-          const rx = modelGroups[val];
-          brandToModels[selectedBrand].forEach(model => {
-            const cleaned = sanitizeModelList([model])[0];
-            if (!cleaned) return;
-            if (/\(alle\)/i.test(cleaned)) return;
-            if (rx.test(cleaned)) allValuesToSelect.add(cleaned);
-          });
-        } else {
-          allValuesToSelect.add(val);
-        }
-      });
-
-      if (!allValuesToSelect.size) {
+  // Nur Startseite: Modelle befüllen, "Beliebig" exklusiv, Gruppen expandieren
+  if (form) {
+    function rebuildModelOptions(brand) {
+      if (!modellSel) return;
+      const rawList = (brandToModels && brandToModels[brand]) || [];
+      const models  = sanitizeModelList(rawList);
+      const data = [
+        { text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE },
+        ...models.map(m => ({ text: m, value: m }))
+      ];
+      if (ssModell) {
+        ssModell.setData(data.length ? data : [{ text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE }]);
         ssModell.setSelected([ALL_MODELS_VALUE]);
       } else {
-        ssModell.setSelected([...allValuesToSelect]);
+        modellSel.innerHTML = "";
+        data.forEach(({ text, value }) => {
+          const opt = document.createElement("option");
+          opt.value = value;
+          opt.textContent = text;
+          modellSel.appendChild(opt);
+        });
+        modellSel.value = ALL_MODELS_VALUE;
       }
-
-      if (typeof prevAfterChange === "function") prevAfterChange(newSelected);
-    };
-  }
-
-  (async () => {
-    await loadBrandModelMap();
-    if (markeSel && markeSel.value) {
-      rebuildModelOptions(markeSel.value);
     }
-    markeSel?.addEventListener("change", () => rebuildModelOptions(markeSel.value));
-  })();
+
+    function enforceAllModelsExclusivity() {
+      if (!modellSel) return;
+      const selected = Array.from(modellSel.selectedOptions || []).map(o => o.value);
+      if (selected.includes(ALL_MODELS_VALUE)) {
+        Array.from(modellSel.options).forEach(o => o.selected = (o.value === ALL_MODELS_VALUE));
+        ssModell?.setSelected([ALL_MODELS_VALUE]);
+      }
+    }
+    modellSel?.addEventListener("change", enforceAllModelsExclusivity);
+
+    if (ssModell) {
+      ssModell.settings.events = ssModell.settings.events || {};
+      const prevAfterChange = ssModell.settings.events.afterChange;
+      ssModell.settings.events.afterChange = (newSelected) => {
+        const selectedBrand  = markeSel?.value;
+        const selectedValues = (newSelected || []).map(s => s.value);
+        if (!selectedBrand || !brandToModels[selectedBrand]) return;
+
+        if (selectedValues.includes(ALL_MODELS_VALUE)) {
+          ssModell.setSelected([ALL_MODELS_VALUE]);
+          return;
+        }
+
+        const allValuesToSelect = new Set();
+        const allow = ALLOW_GROUPS_FOR[selectedBrand];
+
+        selectedValues.forEach(val => {
+          const isGroup = !!modelGroups[val];
+          if (isGroup && allow && allow.includes(val)) {
+            const rx = modelGroups[val];
+            brandToModels[selectedBrand].forEach(model => {
+              const cleaned = sanitizeModelList([model])[0];
+              if (!cleaned) return;
+              if (/\(alle\)/i.test(cleaned)) return;
+              if (rx.test(cleaned)) allValuesToSelect.add(cleaned);
+            });
+          } else {
+            allValuesToSelect.add(val);
+          }
+        });
+
+        if (!allValuesToSelect.size) {
+          ssModell.setSelected([ALL_MODELS_VALUE]);
+        } else {
+          ssModell.setSelected([...allValuesToSelect]);
+        }
+
+        if (typeof prevAfterChange === "function") prevAfterChange(newSelected);
+      };
+    }
+
+    (async () => {
+      await loadBrandModelMap();
+      if (markeSel && markeSel.value) {
+        rebuildModelOptions(markeSel.value);
+      }
+      markeSel?.addEventListener("change", () => rebuildModelOptions(markeSel.value));
+    })();
+  }
 
   // ============================
   // Custom-Felder togglen (km/price/distance)
@@ -590,14 +596,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-// Button „Fahrzeuge anzeigen“ nur auf Seiten ohne erweitertes Formular binden
-// (die Kriterien-Seite hat #modellausfuehrung)
-const btnSearch = document.getElementById("btn-search");
-if (btnSearch && !document.getElementById("modellausfuehrung")) {
-  btnSearch.addEventListener("click", () => {
-    const qs = buildQueryParams();
-    window.location.href = `suche.html?${qs.toString()}`;
-  });
-}
-
+  // Button „Fahrzeuge anzeigen“ nur auf Seiten ohne erweitertes Formular binden
+  // (die Kriterien-Seite hat #modellausfuehrung)
+  const btnSearch = document.getElementById("btn-search");
+  if (btnSearch && !document.getElementById("modellausfuehrung")) {
+    btnSearch.addEventListener("click", () => {
+      const qs = buildQueryParams();
+      window.location.href = `suche.html?${qs.toString()}`;
+    });
+  }
 });
