@@ -1,16 +1,16 @@
-
 // suche.js — TEIL 1 (korrigiert bis inkl. initMediaSlider)
 document.documentElement.classList.remove("no-js");
 
+// ---------- Query-Params ----------
 const QP = (() => {
   const sp = new URLSearchParams(location.search);
   const arr = v => (v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : []);
-
   const truthy = v => /^(1|true|ja|mit|yes)$/i.test(String(v || "").trim());
 
   return {
     marke: sp.get("marke") || "",
     modell: arr(sp.get("modell")),
+    modellausfuehrung: sp.get("modellausfuehrung") || "", // ← NEU
     ezFrom: sp.get("ezFrom") || "",
     ezTo:   sp.get("ezTo")   || "",
     km_max: sp.get("km_max") || "",
@@ -21,18 +21,17 @@ const QP = (() => {
     umkreis: sp.get("umkreis") || "",
     sort: sp.get("sort") || "",
     verbrauch_max: sp.get("verbrauch_max") || "",
-
-    // ← NEU: als Booleans interpretieren (abwärtskompatibel mit "ja"/"mit"/"true")
     partikelfilter: truthy(sp.get("partikelfilter")),
     scheckheft:     truthy(sp.get("scheckheft")),
     fahrtauglich:   truthy(sp.get("fahrtauglich")),
   };
 })();
 
+// ---------- Utils ----------
+const norm = (s) => String(s || "")
+  .toLowerCase()
+  .normalize("NFD").replace(/\p{Diacritic}/gu, ""); // Umlaute entfernen
 
-
-
-const norm = (s) => String(s || "").toLowerCase();
 const toNum = (v) => {
   if (v === null || v === undefined || v === "") return NaN;
   return Number(String(v).replace(/\./g, "").replace(",", "."));
@@ -44,6 +43,17 @@ const isTruthyRaw = (v) => {
   return ["1","true","ja","mit","yes","vorhanden"].includes(s);
 };
 
+const replaceUrlParams = (params) => {
+  const qs = params.toString();
+  history.replaceState(null, "", qs ? `${location.pathname}?${qs}` : location.pathname);
+};
+
+// leichte Synonym-Kanonisierung
+const FUEL_MAP = { benz: "benzin", super: "benzin", benzin: "benzin", diesel: "diesel", ev: "elektrisch", elektro: "elektrisch", elektrisch: "elektrisch", hybrid: "hybrid" };
+const GEAR_MAP = { automatik: "automatik", automatic: "automatik", auto: "automatik", schalt: "schaltgetriebe", schaltung: "schaltgetriebe", manuell: "schaltgetriebe" };
+const canon = (val, map) => map[val] || val;
+
+// ---------- App ----------
 document.addEventListener("DOMContentLoaded", () => {
   // ===== DOM Refs =====
   const navLinks      = document.getElementById("nav-links");
@@ -59,124 +69,123 @@ document.addEventListener("DOMContentLoaded", () => {
   const modelInput    = document.getElementById("modell");
   const titleInput    = document.getElementById("title");
 
-  const savedCarsLink = document.getElementById("saved-cars-link");
-  const myCarsLink    = document.getElementById("my-cars-link");
-
   const container     = document.getElementById("carResults");
   const pager         = document.getElementById("pager");
   const sortBy        = document.getElementById("sortBy");
   const applyFilters  = document.getElementById("applyFiltersBtn");
-// --- Prefill aus URL in die UI ---
-(function prefillFromQuery () {
-  const markeEl   = document.getElementById("marke");
-  const modellEl  = document.getElementById("modell");
 
-  const priceToEl = document.getElementById("priceTo");
-  const kmToEl    = document.getElementById("mileageTo");
+  // --- Prefill aus URL in die UI ---
+  (function prefillFromQuery () {
+    const markeEl   = document.getElementById("marke");
+    const modellEl  = document.getElementById("modell");
+    const modVarEl  = document.getElementById("modellausfuehrung"); // ← NEU
 
-  const fuelEl    = document.getElementById("fuelType") || document.getElementById("fuel");
-  const gearEl    = document.getElementById("transmission") || document.getElementById("gear");
+    const priceToEl = document.getElementById("priceTo");
+    const kmToEl    = document.getElementById("mileageTo");
 
-  // Ergebnis-Seite (Variante 1)
-  const firstRegFromEl  = document.getElementById("firstRegFrom"); // <input type="month">
-  const firstRegMonthEl = document.getElementById("first-registration-month");
-  const firstRegYearEl  = document.getElementById("first-registration-year");
+    const fuelEl    = document.getElementById("fuelType") || document.getElementById("fuel");
+    const gearEl    = document.getElementById("transmission") || document.getElementById("gear");
 
-  // Suchformular-Seite (Variante 2)
-  const ezVonEl = document.getElementById("ez-von"); // <input type="month">
-  const ezBisEl = document.getElementById("ez-bis"); // <input type="month">
+    // Ergebnis-Seite (Variante 1)
+    const firstRegFromEl  = document.getElementById("firstRegFrom"); // <input type="month">
+    const firstRegMonthEl = document.getElementById("first-registration-month");
+    const firstRegYearEl  = document.getElementById("first-registration-year");
 
-  // Feature-Checkboxen (falls vorhanden)
-  const pfEl = document.getElementById("partikelfilter");
-  const shEl = document.getElementById("scheckheft");
-  const ftEl = document.getElementById("fahrtauglich");
+    // Suchformular-Seite (Variante 2)
+    const ezVonEl = document.getElementById("ez-von"); // <input type="month">
+    const ezBisEl = document.getElementById("ez-bis"); // <input type="month">
 
-  if (markeEl && QP.marke) markeEl.value = QP.marke;
+    // Feature-Checkboxen (falls vorhanden)
+    const pfEl = document.getElementById("partikelfilter");
+    const shEl = document.getElementById("scheckheft");
+    const ftEl = document.getElementById("fahrtauglich");
 
-  if (modellEl && Array.isArray(QP.modell) && QP.modell.length) {
-    const set = new Set(QP.modell.map(v => v.toLowerCase()));
-    [...modellEl.options].forEach(opt => { opt.selected = set.has(String(opt.value).toLowerCase()); });
-  }
+    if (markeEl && QP.marke) markeEl.value = QP.marke;
 
-  if (priceToEl && QP.price_max) priceToEl.value = QP.price_max;
-  if (kmToEl   && QP.km_max)     kmToEl.value    = QP.km_max;
+    if (modellEl && Array.isArray(QP.modell) && QP.modell.length) {
+      const set = new Set(QP.modell.map(v => v.toLowerCase()));
+      [...modellEl.options].forEach(opt => { opt.selected = set.has(String(opt.value).toLowerCase()); });
+    }
 
-  if (fuelEl && QP.kraftstoff) fuelEl.value = QP.kraftstoff;
-  if (gearEl && QP.getriebe)   gearEl.value = QP.getriebe;
+    if (modVarEl && QP.modellausfuehrung) modVarEl.value = QP.modellausfuehrung;
 
-  // EZ: Ergebnis-Seite (ein einziges <input type="month">)
-  if (firstRegFromEl && QP.ezFrom) firstRegFromEl.value = QP.ezFrom;
+    if (priceToEl && QP.price_max) priceToEl.value = QP.price_max;
+    if (kmToEl   && QP.km_max)     kmToEl.value    = QP.km_max;
 
-  // EZ: Ergebnis-Seite (Jahr/Monat-Dropdowns)
-  if (QP.ezFrom && firstRegMonthEl && firstRegYearEl) {
-    const [y, m] = QP.ezFrom.split("-");
-    if (y) firstRegYearEl.value  = y;
-    if (m) firstRegMonthEl.value = m;
-  }
+    if (fuelEl && QP.kraftstoff) fuelEl.value = QP.kraftstoff;
+    if (gearEl && QP.getriebe)   gearEl.value = QP.getriebe;
 
-  // EZ: Suchformular-Seite (von/bis als <input type="month">)
-  if (ezVonEl && QP.ezFrom) ezVonEl.value = QP.ezFrom;
-  if (ezBisEl && QP.ezTo)   ezBisEl.value = QP.ezTo;
+    // EZ: Ergebnis-Seite (ein einziges <input type="month">)
+    if (firstRegFromEl && QP.ezFrom) firstRegFromEl.value = QP.ezFrom;
 
-  // Sortierung aus URL auf das Select mappen
-  if (sortBy) {
-    if (QP.sort === "preis_asc")       sortBy.value = "price-asc";
-    else if (QP.sort === "preis_desc") sortBy.value = "price-desc";
-    else if (QP.sort)                  sortBy.value = "date-desc"; // Fallback
-  }
+    // EZ: Ergebnis-Seite (Jahr/Monat-Dropdowns)
+    if (QP.ezFrom && firstRegMonthEl && firstRegYearEl) {
+      const [y, m] = QP.ezFrom.split("-");
+      if (y) firstRegYearEl.value  = y;
+      if (m) firstRegMonthEl.value = m;
+    }
 
-  if (pfEl) pfEl.checked = !!QP.partikelfilter;
-  if (shEl) shEl.checked = !!QP.scheckheft;
-  if (ftEl) ftEl.checked = !!QP.fahrtauglich;
-  
-})();
+    // EZ: Suchformular-Seite (von/bis als <input type="month">)
+    if (ezVonEl && QP.ezFrom) ezVonEl.value = QP.ezFrom;
+    if (ezBisEl && QP.ezTo)   ezBisEl.value = QP.ezTo;
 
+    // Sortierung aus URL auf das Select mappen
+    if (sortBy) {
+      if (QP.sort === "preis_asc")       sortBy.value = "price-asc";
+      else if (QP.sort === "preis_desc") sortBy.value = "price-desc";
+      else if (QP.sort === "neueste")    sortBy.value = "date-desc";
+      else if (QP.sort)                  sortBy.value = "date-desc"; // Fallback
+    }
 
+    if (pfEl) pfEl.checked = !!QP.partikelfilter;
+    if (shEl) shEl.checked = !!QP.scheckheft;
+    if (ftEl) ftEl.checked = !!QP.fahrtauglich;
+  })();
 
   // Verbrauch: URL -> UI (Select/Custom) + Toggle
-(function () {
-  const sel = document.getElementById('verbrauch-select');
-  const inp = document.getElementById('verbrauch');
-  if (!sel && !inp) return;
+  (function () {
+    const sel = document.getElementById('verbrauch-select');
+    const inp = document.getElementById('verbrauch');
+    if (!sel && !inp) return;
 
-  function syncVerbrauchUI() {
-    if (!sel || !inp) return;
-    const isCustom = sel.value === 'custom';
-    inp.style.display = isCustom ? '' : 'none';
-    if (!isCustom) inp.value = '';
-  }
-  sel?.addEventListener('change', syncVerbrauchUI);
-
-  const raw = (new URLSearchParams(location.search)).get('verbrauch_max');
-  if (raw) {
-    const asNum = parseFloat(String(raw).replace(',', '.'));
-    if (sel) {
-      const match = Array.from(sel.options).find(o =>
-        parseFloat(String(o.value).replace(',', '.')) === asNum
-      );
-      if (match && match.value !== 'custom') {
-        sel.value = match.value;
-        syncVerbrauchUI();
-      } else {
-        sel.value = 'custom';
-        if (inp) inp.value = String(raw).replace('.', ',');
-        syncVerbrauchUI();
-      }
-    } else if (inp) {
-      inp.style.display = '';
-      inp.value = String(raw).replace('.', ',');
+    function syncVerbrauchUI() {
+      if (!sel || !inp) return;
+      const isCustom = sel.value === 'custom';
+      inp.style.display = isCustom ? '' : 'none';
+      if (!isCustom) inp.value = '';
     }
-  } else {
-    syncVerbrauchUI();
-  }
-})();
+    sel?.addEventListener('change', syncVerbrauchUI);
 
-// ===== State =====
-let filteredItems = [];   // enthält IMMER nur die aktuelle Server-Seite (nach normalize)
-let page = 1;
-const pageSize = 20;
-let serverTotal = 0;      // Gesamtanzahl vom Server für den Pager
+    const raw = (new URLSearchParams(location.search)).get('verbrauch_max');
+    if (raw) {
+      const asNum = parseFloat(String(raw).replace(',', '.'));
+      if (sel) {
+        const match = Array.from(sel.options).find(o =>
+          parseFloat(String(o.value).replace(',', '.')) === asNum
+        );
+        if (match && match.value !== 'custom') {
+          sel.value = match.value;
+          syncVerbrauchUI();
+        } else {
+          sel.value = 'custom';
+          if (inp) inp.value = String(raw).replace('.', ',');
+          syncVerbrauchUI();
+        }
+      } else if (inp) {
+        inp.style.display = '';
+        inp.value = String(raw).replace('.', ',');
+      }
+    } else {
+      syncVerbrauchUI();
+    }
+  })();
 
+  // ===== State =====
+  let filteredItems = [];   // enthält IMMER nur die aktuelle Server-Seite (nach normalize)
+  let page = 1;
+  const pageSize = 20;
+  let serverTotal = 0;      // Gesamtanzahl vom Server für den Pager
+  let lastReqId = 0;        // Fetch-Race Schutz
 
   // ===== Helpers =====
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -185,16 +194,17 @@ let serverTotal = 0;      // Gesamtanzahl vom Server für den Pager
     return isNaN(n) ? "Preis n. a." : n.toLocaleString("de-DE") + " €";
   };
   const sanitizePhone = (p) => String(p || "").replace(/[^\d+]/g, "");
-// Zahl aus "6,5", "6.5 l/100 km", "6 l" etc. holen
-function parseVerbrauchNum(v) {
-  if (v == null) return NaN;
-  if (typeof v === "number") return v;
-  const s = String(v).toLowerCase().replace(/\s+/g, "");
-  const m = s.match(/(\d+(?:[.,]\d+)?)/);
-  if (!m) return NaN;
-  const n = parseFloat(m[1].replace(",", "."));
-  return Number.isFinite(n) ? n : NaN;
-}
+
+  // Zahl aus "6,5", "6.5 l/100 km", "6 l" etc. holen
+  function parseVerbrauchNum(v) {
+    if (v == null) return NaN;
+    if (typeof v === "number") return v;
+    const s = String(v).toLowerCase().replace(/\s+/g, "");
+    const m = s.match(/(\d+(?:[.,]\d+)?)/);
+    if (!m) return NaN;
+    const n = parseFloat(m[1].replace(",", "."));
+    return Number.isFinite(n) ? n : NaN;
+  }
 
   function closeAllDropdowns(except = null) {
     dropdownLis.forEach(li => {
@@ -253,6 +263,12 @@ function parseVerbrauchNum(v) {
   }
 
   // ===== Navbar: Hamburger & Dropdowns =====
+  const navCloseAll = () => {
+    navLinks?.classList.remove("active");
+    hamburger?.setAttribute("aria-expanded", "false");
+    closeAllDropdowns();
+  };
+
   hamburger?.addEventListener("click", (e) => {
     e.stopPropagation();
     const willOpen = !navLinks?.classList.contains("active");
@@ -270,19 +286,8 @@ function parseVerbrauchNum(v) {
     });
   });
 
-  // Outside Click & ESC
-  document.addEventListener("click", () => {
-    navLinks?.classList.remove("active");
-    hamburger?.setAttribute("aria-expanded", "false");
-    closeAllDropdowns();
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      navLinks?.classList.remove("active");
-      hamburger?.setAttribute("aria-expanded", "false");
-      closeAllDropdowns();
-    }
-  });
+  document.addEventListener("click", navCloseAll);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") navCloseAll(); });
 
   // Reposition on resize/scroll
   const repositionOpen = () => document.querySelectorAll(".dropdown.open").forEach(positionMenu);
@@ -370,6 +375,10 @@ function parseVerbrauchNum(v) {
     const slides = Array.from(slidesWrapper.children);
     const btnLeft  = mediaContainer.querySelector(".media-arrow.left");
     const btnRight = mediaContainer.querySelector(".media-arrow.right");
+
+    // A11y
+    btnLeft?.setAttribute("aria-label", "Vorheriges Bild");
+    btnRight?.setAttribute("aria-label", "Nächstes Bild");
 
     // Keine Slider-Controls nötig bei 0/1 Slide
     const hasMultiple = slides.length > 1;
@@ -471,20 +480,21 @@ function parseVerbrauchNum(v) {
     slidesWrapper.addEventListener("pointercancel", onPointerUpOrCancel, { passive: true });
     slidesWrapper.addEventListener("pointerleave", onPointerUpOrCancel, { passive: true });
 
+    // Tastatur-Navigation
+    slidesWrapper.tabIndex = 0;
+    slidesWrapper.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight") goTo(state.idx + 1);
+      if (e.key === "ArrowLeft")  goTo(state.idx - 1);
+    });
+
     // Klicks nach Drag nicht durchlassen (z. B. Card-Click)
     slidesWrapper.addEventListener("click", (e) => {
       if (state.hasMoved) e.stopPropagation();
     }, true);
 
     // Pfeile
-    btnRight?.addEventListener("click", (e) => {
-      e.stopPropagation();
-      goTo(state.idx + 1);
-    });
-    btnLeft?.addEventListener("click", (e) => {
-      e.stopPropagation();
-      goTo(state.idx - 1);
-    });
+    btnRight?.addEventListener("click", (e) => { e.stopPropagation(); goTo(state.idx + 1); });
+    btnLeft?.addEventListener("click",  (e) => { e.stopPropagation(); goTo(state.idx - 1); });
 
     // Resize
     let ro;
@@ -500,708 +510,729 @@ function parseVerbrauchNum(v) {
   }
   // --- Ende initMediaSlider ---
 
+  // ===== API =====
   async function fetchSearch(p = 1, limit = pageSize) {
+    const reqId = ++lastReqId;
     const params = new URLSearchParams(window.location.search);
-    params.delete("verbrauch_max");            // <<<<<<<<<< hier neu
     params.set("page", String(p));
     params.set("limit", String(limit));
     const res = await fetch(`/api/search?${params.toString()}`, { credentials: "omit" });
     if (!res.ok) throw new Error("Fetch /api/search fehlgeschlagen");
-    return res.json();
-  }
-  
-  
- // ---- DB -> UI Normalform (einheitliche Feldnamen) ----
-function normalizeItem(raw) {
-  // EZ ...
-  const ez =
-    raw.erstzulassung ||
-    (raw.verkauf_ez_jahr && raw.verkauf_ez_monat
-      ? `${String(raw.verkauf_ez_jahr)}-${String(raw.verkauf_ez_monat).padStart(2, "0")}`
-      : "");
-
-  // ✅ Preis: nimm den ersten *echten Zahlenwert* (leer/NaN werden übersprungen)
-  const pickPrice = (...vals) => {
-    for (const v of vals) {
-      if (v === null || v === undefined) continue;
-      const s = String(v).trim();
-      if (!s) continue;
-      const n = Number(s.replace(/\./g, "").replace(",", "."));
-      if (Number.isFinite(n)) return n; // Zahl gefunden
-    }
-    return ""; // nichts gefunden → leer
-  };
-
-  const preis = pickPrice(
-    raw["brutto-preis"],
-    raw.brutto_preis,
-    raw.verkauf_brutto,
-    raw.preis,
-    raw.verkauf_preis,   // wichtig für „Keine MwSt.“
-    raw.verkauf_netto    // falls Netto separat gepflegt ist
-  );
-
-  return {
-    _id: raw._id,
-    titel: raw.titel || [raw.marke, raw.modell].filter(Boolean).join(" ").trim(),
-    marke: raw.marke || "",
-    modell: raw.modell || "",
-
-    preis, // <- jetzt robust
-
-    kilometer: raw.verkauf_kilometer ?? raw.kilometer ?? raw.km ?? "",
-    erstzulassung: ez,
-    kraftstoff: raw.verkauf_kraftstoff ?? raw.kraftstoff ?? "",
-    getriebe: raw.verkauf_getriebe ?? raw.getriebe ?? "",
-    leistung: raw.verkauf_leistung ?? raw.leistung ?? raw.ps ?? "",
-    verbrauch_kombiniert: raw.verbrauch_kombiniert ?? raw.verkauf_verbrauch_kombiniert ?? "",
-
-    verkaeufer: raw.verkauf_verkaeufer ?? raw.verkaeufer ?? "",
-    name: raw.verkauf_name ?? raw.name ?? "",
-    standort: raw.standort ?? "",
-    telefon: raw.telefon ?? raw.phone ?? "",
-
-    images: Array.isArray(raw.images) ? raw.images
-          : Array.isArray(raw.fotos)  ? raw.fotos
-          : Array.isArray(raw.media)  ? raw.media.map(m => m.url || m)
-          : [],
-    video: raw.video || "",
-
-    raw
-  };
-}
-function applyClientFilters(items) {
-  // Sidebar-/Form-Felder (nur verwenden, wenn vorhanden)
-  const priceFromEl       = document.getElementById("priceFrom");
-  const priceToEl         = document.getElementById("priceTo");
-  const mileageFromEl     = document.getElementById("mileageFrom");
-  const mileageToEl       = document.getElementById("mileageTo");
-  const powerFromEl       = document.getElementById("powerFrom");
-  const powerToEl         = document.getElementById("powerTo");
-
-  // IDs: auf Suche-Seite evtl. fuelType/transmission, auf Startseite fuel/gear
-  const fuelTypeEl        = document.getElementById("fuelType") || document.getElementById("fuel");
-  const transmissionEl    = document.getElementById("transmission") || document.getElementById("gear");
-
-  const accidentFreeEl    = document.getElementById("accidentFree");
-  const inspectionUntilEl = document.getElementById("inspectionUntil");
-
-  // Erstzulassung UI
-  const firstRegFromEl    = document.getElementById("firstRegFrom");
-  const firstRegMonthEl   = document.getElementById("first-registration-month");
-  const firstRegYearEl    = document.getElementById("first-registration-year");
-
-  // Marke/Modell Felder (UI kann Vorrang vor URL haben)
-  const markeEl           = document.getElementById("marke");
-  const modellEl          = document.getElementById("modell");
-
-  // VERBRAUCH UI-Elemente
-  const selV              = document.getElementById("verbrauch-select");
-  const inpV              = document.getElementById("verbrauch");
-
-  // --- UI lesen ---
-  const priceFrom     = toNum(priceFromEl?.value ?? "");
-  const priceTo       = toNum(priceToEl?.value   ?? "");
-  const mileageFrom   = toNum(mileageFromEl?.value ?? "");
-  const mileageTo     = toNum(mileageToEl?.value   ?? "");
-  const powerFrom     = toNum(powerFromEl?.value ?? "");
-  const powerTo       = toNum(powerToEl?.value   ?? "");
-
-  const fuelTypeUI     = (fuelTypeEl?.value ? String(fuelTypeEl.value) : "Beliebig").toLowerCase();
-  const transmissionUI = (transmissionEl?.value ? String(transmissionEl.value) : "Beliebig").toLowerCase();
-
-  const accidentFree    = !!accidentFreeEl?.checked;
-  const inspectionUntil = inspectionUntilEl?.value || ""; // YYYY-MM
-
-  // Erstzulassung aus UI zusammensetzen
-  const firstRegFromUI =
-    (firstRegFromEl?.value) ||
-    (firstRegYearEl?.value && firstRegMonthEl?.value
-      ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2, "0")}`
-      : "");
-
-  // --- Fallbacks aus URL (wenn UI leer) ---
-  const priceToEff   = (!isNaN(priceTo)   && priceTo   > 0) ? priceTo   : toNum(QP.price_max);
-  const mileageToEff = (!isNaN(mileageTo) && mileageTo > 0) ? mileageTo : toNum(QP.km_max);
-  const firstRegEff  = firstRegFromUI || QP.ezFrom;
-
-  const fuelEff = (fuelTypeUI !== "beliebig")     ? fuelTypeUI     : (QP.kraftstoff || "beliebig");
-  const gearEff = (transmissionUI !== "beliebig") ? transmissionUI : (QP.getriebe   || "beliebig");
-
-  // Marke/Modell: UI > URL
-  let brandEff  = QP.marke ? norm(QP.marke) : "";
-  let modelsEff = Array.isArray(QP.modell) ? QP.modell.map(norm) : [];
-  if (markeEl && markeEl.value) brandEff = norm(markeEl.value);
-  if (modellEl && modellEl.options) {
-    const selected = [...modellEl.options].filter(o => o.selected).map(o => norm(o.value));
-    if (selected.length) modelsEff = selected;
+    const data = await res.json();
+    if (reqId !== lastReqId) throw new Error("stale"); // alte Antwort verwerfen
+    return data;
   }
 
-  // --- Verbrauch (max) aus UI oder URL bestimmen ---
-  const toDec = (s) => {
-    const t = String(s ?? "").trim().replace(/\s+/g, "").replace(",", ".");
-    const n = parseFloat(t);
-    return Number.isFinite(n) ? n : NaN;
-  };
-  const rawV = selV
-    ? (selV.value === "custom" ? (inpV?.value || "") : selV.value)
-    : (inpV?.value || "");
-  const uiMax = toDec(rawV);
-  const qpMax = toDec(QP.verbrauch_max);
-  const vMax  = Number.isFinite(uiMax) && uiMax > 0 ? uiMax
-              : Number.isFinite(qpMax) && qpMax > 0 ? qpMax
-              : NaN;
+  // ---- DB -> UI Normalform (einheitliche Feldnamen) ----
+  function normalizeItem(raw) {
+    // EZ ...
+    const ez =
+      raw.erstzulassung ||
+      (raw.verkauf_ez_jahr && raw.verkauf_ez_monat
+        ? `${String(raw.verkauf_ez_jahr)}-${String(raw.verkauf_ez_monat).padStart(2, "0")}`
+        : "");
 
-  // --- Filtern (auf Normalform) ---
-  return items.filter(i => {
-    // Marke/Modell/Titel
-    const iBrand = norm(i.marke);
-    const iModel = norm(i.modell);
-    const iTitle = norm(i.titel || "");
+    // Preis robust picken
+    const pickPrice = (...vals) => {
+      for (const v of vals) {
+        if (v === null || v === undefined) continue;
+        const s = String(v).trim();
+        if (!s) continue;
+        const n = Number(s.replace(/\./g, "").replace(",", "."));
+        if (Number.isFinite(n)) return n;
+      }
+      return "";
+    };
 
-    if (brandEff && iBrand !== brandEff) return false;
-    if (modelsEff.length) {
-      const hit = modelsEff.some(m => iModel.includes(m) || iTitle.includes(m));
-      if (!hit) return false;
+    const preis = pickPrice(
+      raw["brutto-preis"],
+      raw.brutto_preis,
+      raw.verkauf_brutto,
+      raw.preis,
+      raw.verkauf_preis,
+      raw.verkauf_netto
+    );
+
+    return {
+      _id: raw._id,
+      titel: raw.titel || [raw.marke, raw.modell].filter(Boolean).join(" ").trim(),
+      marke: raw.marke || "",
+      modell: raw.modell || "",
+
+      preis,
+
+      kilometer: raw.verkauf_kilometer ?? raw.kilometer ?? raw.km ?? "",
+      erstzulassung: ez,
+      kraftstoff: raw.verkauf_kraftstoff ?? raw.kraftstoff ?? "",
+      getriebe: raw.verkauf_getriebe ?? raw.getriebe ?? "",
+      leistung: raw.verkauf_leistung ?? raw.leistung ?? raw.ps ?? "",
+      verbrauch_kombiniert: raw.verbrauch_kombiniert ?? raw.verkauf_verbrauch_kombiniert ?? "",
+
+      verkaeufer: raw.verkauf_verkaeufer ?? raw.verkaeufer ?? "",
+      name: raw.verkauf_name ?? raw.name ?? "",
+      standort: raw.standort ?? "",
+      telefon: raw.telefon ?? raw.phone ?? "",
+
+      images: Array.isArray(raw.images) ? raw.images
+            : Array.isArray(raw.fotos)  ? raw.fotos
+            : Array.isArray(raw.media)  ? raw.media.map(m => m.url || m)
+            : [],
+      video: raw.video || "",
+
+      raw
+    };
+  }
+
+  function applyClientFilters(items) {
+    // Sidebar-/Form-Felder (nur verwenden, wenn vorhanden)
+    const priceFromEl       = document.getElementById("priceFrom");
+    const priceToEl         = document.getElementById("priceTo");
+    const mileageFromEl     = document.getElementById("mileageFrom");
+    const mileageToEl       = document.getElementById("mileageTo");
+    const powerFromEl       = document.getElementById("powerFrom");
+    const powerToEl         = document.getElementById("powerTo");
+
+    const fuelTypeEl        = document.getElementById("fuelType") || document.getElementById("fuel");
+    const transmissionEl    = document.getElementById("transmission") || document.getElementById("gear");
+
+    const accidentFreeEl    = document.getElementById("accidentFree");
+    const inspectionUntilEl = document.getElementById("inspectionUntil");
+
+    // Erstzulassung UI
+    const firstRegFromEl    = document.getElementById("firstRegFrom");
+    const firstRegMonthEl   = document.getElementById("first-registration-month");
+    const firstRegYearEl    = document.getElementById("first-registration-year");
+
+    // Marke/Modell
+    const markeEl           = document.getElementById("marke");
+    const modellEl          = document.getElementById("modell");
+    const modVarEl          = document.getElementById("modellausfuehrung"); // ← NEU
+
+    // VERBRAUCH UI-Elemente
+    const selV              = document.getElementById("verbrauch-select");
+    const inpV              = document.getElementById("verbrauch");
+
+    // --- UI lesen ---
+    const priceFrom     = toNum(priceFromEl?.value ?? "");
+    const priceTo       = toNum(priceToEl?.value   ?? "");
+    const mileageFrom   = toNum(mileageFromEl?.value ?? "");
+    const mileageTo     = toNum(mileageToEl?.value   ?? "");
+    const powerFrom     = toNum(powerFromEl?.value ?? "");
+    const powerTo       = toNum(powerToEl?.value   ?? "");
+
+    const fuelTypeUI     = (fuelTypeEl?.value ? String(fuelTypeEl.value) : "Beliebig").toLowerCase();
+    const transmissionUI = (transmissionEl?.value ? String(transmissionEl.value) : "Beliebig").toLowerCase();
+
+    const accidentFree    = !!accidentFreeEl?.checked;
+    const inspectionUntil = inspectionUntilEl?.value || ""; // YYYY-MM
+
+    // Erstzulassung aus UI zusammensetzen
+    const firstRegFromUI =
+      (firstRegFromEl?.value) ||
+      (firstRegYearEl?.value && firstRegMonthEl?.value
+        ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2, "0")}`
+        : "");
+
+    // --- Fallbacks aus URL (wenn UI leer) ---
+    const priceToEff   = (!isNaN(priceTo)   && priceTo   > 0) ? priceTo   : toNum(QP.price_max);
+    const mileageToEff = (!isNaN(mileageTo) && mileageTo > 0) ? mileageTo : toNum(QP.km_max);
+    const firstRegEff  = firstRegFromUI || QP.ezFrom;
+
+    const fuelEffRaw = (fuelTypeUI !== "beliebig")     ? fuelTypeUI     : (QP.kraftstoff || "beliebig");
+    const gearEffRaw = (transmissionUI !== "beliebig") ? transmissionUI : (QP.getriebe   || "beliebig");
+
+    const fuelEff = canon(norm(fuelEffRaw), FUEL_MAP);
+    const gearEff = canon(norm(gearEffRaw), GEAR_MAP);
+
+    // Marke/Modell: UI > URL
+    let brandEff  = QP.marke ? norm(QP.marke) : "";
+    let modelsEff = Array.isArray(QP.modell) ? QP.modell.map(norm) : [];
+    if (markeEl && markeEl.value) brandEff = norm(markeEl.value);
+    if (modellEl && modellEl.options) {
+      const selected = [...modellEl.options].filter(o => o.selected).map(o => norm(o.value));
+      if (selected.length) modelsEff = selected;
     }
 
-    // Preis
-    const preis = toNum(i.preis);
-    if (!isNaN(priceFrom) && priceFrom > 0 && !(preis >= priceFrom)) return false;
-    if (!isNaN(priceToEff) && priceToEff > 0 && !(preis <= priceToEff)) return false;
+    // ModellVARIANTE (UI > URL)
+    const modVarUI = (modVarEl?.value || "").trim().toLowerCase();
+    const modVarEff = modVarUI || (QP.modellausfuehrung || "").toLowerCase();
 
-    // Kilometer
-    const km = toNum(i.kilometer);
-    if (!isNaN(mileageFrom) && mileageFrom > 0 && !(km >= mileageFrom)) return false;
-    if (!isNaN(mileageToEff) && mileageToEff > 0 && !(km <= mileageToEff)) return false;
+    // --- Verbrauch (max) aus UI oder URL bestimmen ---
+    const toDec = (s) => {
+      const t = String(s ?? "").trim().replace(/\s+/g, "").replace(",", ".");
+      const n = parseFloat(t);
+      return Number.isFinite(n) ? n : NaN;
+    };
+    const rawV = selV
+      ? (selV.value === "custom" ? (inpV?.value || "") : selV.value)
+      : (inpV?.value || "");
+    const uiMax = toDec(rawV);
+    const qpMax = toDec(QP.verbrauch_max);
+    const vMax  = Number.isFinite(uiMax) && uiMax > 0 ? uiMax
+                : Number.isFinite(qpMax) && qpMax > 0 ? qpMax
+                : NaN;
 
-    // Leistung (PS)
-    const ps = toNum(i.leistung);
-    if (!isNaN(powerFrom) && powerFrom > 0 && !(ps >= powerFrom)) return false;
-    if (!isNaN(powerTo)   && powerTo   > 0 && !(ps <= powerTo))   return false;
+    // --- Filtern (auf Normalform) ---
+    return items.filter(i => {
+      // Marke/Modell/Titel
+      const iBrand = norm(i.marke);
+      const iModel = norm(i.modell);
+      const iTitle = norm(i.titel || "");
 
-    // Kraftstoff/Getriebe
-    if (fuelEff !== "beliebig") {
-      const ft = norm(i.kraftstoff || "");
-      if (!ft.includes(fuelEff)) return false;
-    }
-    if (gearEff !== "beliebig") {
-      const tr = norm(i.getriebe || "");
-      if (!tr.includes(gearEff)) return false;
-    }
+      if (brandEff && iBrand !== brandEff) return false;
+      if (modelsEff.length) {
+        const hit = modelsEff.some(m => iModel.includes(m) || iTitle.includes(m));
+        if (!hit) return false;
+      }
 
-    // Unfallfrei (nur UI; heuristisch)
-    if (accidentFree) {
-      const flag = i.raw?.unfallfrei === true ||
-        (Array.isArray(i.raw?.verkauf_ausstattung) &&
-         i.raw.verkauf_ausstattung.some(a => norm(a).includes("unfall")));
-      if (!flag) return false;
-    }
+      // Modellvariante (Titel oder raw.modellausfuehrung)
+      if (modVarEff) {
+        const hay = (String(i.raw?.modellausfuehrung || "") + " " + (i.titel || "")).toLowerCase();
+        if (!hay.includes(modVarEff)) return false;
+      }
 
-    // HU bis
-    if (inspectionUntil) {
-      const hu = String(i.raw?.hu || i.raw?.verkauf_hu || "");
-      if (hu && hu.length >= 7 && hu < inspectionUntil) return false;
-    }
+      // Preis
+      const preis = toNum(i.preis);
+      if (!isNaN(priceFrom) && priceFrom > 0 && !(preis >= priceFrom)) return false;
+      if (!isNaN(priceToEff) && priceToEff > 0 && !(preis <= priceToEff)) return false;
 
-    // Erstzulassung ab
-    if (firstRegEff) {
-      const ez = String(i.erstzulassung || "");
-      if (ez && ez.length >= 7 && ez < firstRegEff) return false;
-    }
+      // Kilometer
+      const km = toNum(i.kilometer);
+      if (!isNaN(mileageFrom) && mileageFrom > 0 && !(km >= mileageFrom)) return false;
+      if (!isNaN(mileageToEff) && mileageToEff > 0 && !(km <= mileageToEff)) return false;
 
-    // Ort (Textmatch; echter Radius später via Geocoding)
-    if (QP.ort) {
-      const standort = norm(i.standort || "");
-      if (!standort.includes(norm(QP.ort))) return false;
-    }
+      // Leistung (PS)
+      const ps = toNum(i.leistung);
+      if (!isNaN(powerFrom) && powerFrom > 0 && !(ps >= powerFrom)) return false;
+      if (!isNaN(powerTo)   && powerTo   > 0 && !(ps <= powerTo))   return false;
 
-    // Verbrauch (kombiniert) max – nur filtern, wenn wir eine Schwelle haben
-    if (Number.isFinite(vMax) && vMax > 0) {
-      const vNum = parseVerbrauchNum(
-        i.verbrauch_kombiniert ||
-        i.raw?.verkauf_verbrauch_kombiniert ||
-        i.raw?.verbrauch_kombiniert ||
-        i.raw?.verbrauch // Fallback
-      );
-      if (Number.isFinite(vNum) && vNum > vMax) return false;
-    }
+      // Kraftstoff/Getriebe (kanonisiert)
+      if (fuelEff !== "beliebig") {
+        const ft = canon(norm(i.kraftstoff || ""), FUEL_MAP);
+        if (ft !== fuelEff) return false;
+      }
+      if (gearEff !== "beliebig") {
+        const tr = canon(norm(i.getriebe || ""), GEAR_MAP);
+        if (tr !== gearEff) return false;
+      }
 
-    // === NEU: Zusatz-Flags aus URL (oder via Apply-Button aktualisiert) ===
-    // Partikelfilter
-    if (QP.partikelfilter) {
-      const pfRaw = i.raw?.verkauf_partikelfilter ?? i.raw?.partikelfilter ?? "";
-      let hasPF = isTruthyRaw(pfRaw);
-      if (!hasPF) {
-        const lists = [i.raw?.verkauf_ausstattung, i.raw?.ausstattung];
-        for (const list of lists) {
-          if (Array.isArray(list) && list.some(a => /partikel|ruß|russ|dpf/i.test(String(a)))) {
-            hasPF = true; break;
+      // Unfallfrei (nur UI; heuristisch)
+      if (accidentFree) {
+        const flag = i.raw?.unfallfrei === true ||
+          (Array.isArray(i.raw?.verkauf_ausstattung) &&
+           i.raw.verkauf_ausstattung.some(a => norm(a).includes("unfall")));
+        if (!flag) return false;
+      }
+
+      // HU bis
+      if (inspectionUntil) {
+        const hu = String(i.raw?.hu || i.raw?.verkauf_hu || "");
+        if (hu && hu.length >= 7 && hu < inspectionUntil) return false;
+      }
+
+      // Erstzulassung ab
+      if (firstRegEff) {
+        const ez = String(i.erstzulassung || "");
+        if (ez && ez.length >= 7 && ez < firstRegEff) return false;
+      }
+
+      // Ort (Textmatch; echter Radius später via Geocoding)
+      if (QP.ort) {
+        const standort = norm(i.standort || "");
+        if (!standort.includes(norm(QP.ort))) return false;
+      }
+
+      // Verbrauch (kombiniert) max – nur filtern, wenn wir eine Schwelle haben
+      if (Number.isFinite(vMax) && vMax > 0) {
+        const vNum = parseVerbrauchNum(
+          i.verbrauch_kombiniert ||
+          i.raw?.verkauf_verbrauch_kombiniert ||
+          i.raw?.verbrauch_kombiniert ||
+          i.raw?.verbrauch
+        );
+        if (Number.isFinite(vNum) && vNum > vMax) return false;
+      }
+
+      // Zusatz-Flags
+      if (QP.partikelfilter) {
+        const pfRaw = i.raw?.verkauf_partikelfilter ?? i.raw?.partikelfilter ?? "";
+        let hasPF = isTruthyRaw(pfRaw);
+        if (!hasPF) {
+          const lists = [i.raw?.verkauf_ausstattung, i.raw?.ausstattung];
+          for (const list of lists) {
+            if (Array.isArray(list) && list.some(a => /partikel|ruß|russ|dpf/i.test(String(a)))) { hasPF = true; break; }
           }
         }
+        if (!hasPF) return false;
       }
-      if (!hasPF) return false;
-    }
 
-    // Scheckheftgepflegt
-    if (QP.scheckheft) {
-      let hasSH = isTruthyRaw(i.raw?.scheckheft);
-      if (!hasSH) {
-        const lists = [i.raw?.verkauf_ausstattung, i.raw?.ausstattung];
-        for (const list of lists) {
-          if (Array.isArray(list) && list.some(a => /scheckheft/i.test(String(a)))) {
-            hasSH = true; break;
+      if (QP.scheckheft) {
+        let hasSH = isTruthyRaw(i.raw?.scheckheft);
+        if (!hasSH) {
+          const lists = [i.raw?.verkauf_ausstattung, i.raw?.ausstattung];
+          for (const list of lists) {
+            if (Array.isArray(list) && list.some(a => /scheckheft/i.test(String(a)))) { hasSH = true; break; }
           }
         }
+        if (!hasSH) return false;
       }
-      if (!hasSH) return false;
-    }
 
-    // Fahrtauglich / Fahrbereit
-    if (QP.fahrtauglich) {
-      let ok = isTruthyRaw(i.raw?.fahrtauglich ?? i.raw?.fahrbereit);
-      if (!ok) {
-        const lists = [i.raw?.verkauf_ausstattung, i.raw?.ausstattung];
-        for (const list of lists) {
-          if (Array.isArray(list) && list.some(a => /fahrbereit|fahrtauglich/i.test(String(a)))) {
-            ok = true; break;
+      if (QP.fahrtauglich) {
+        let ok = isTruthyRaw(i.raw?.fahrtauglich ?? i.raw?.fahrbereit);
+        if (!ok) {
+          const lists = [i.raw?.verkauf_ausstattung, i.raw?.ausstattung];
+          for (const list of lists) {
+            if (Array.isArray(list) && list.some(a => /fahrbereit|fahrtauglich/i.test(String(a)))) { ok = true; break; }
           }
         }
+        if (!ok) return false;
       }
-      if (!ok) return false;
-    }
 
-    return true;
-  });
-}
-
-
-// ===== Sortierung (auf Normalform) =====
-// (optional – wird aktuell NICHT mehr in den Events benutzt, weil der Server sortiert.
-//  Lass es drin, falls du zusätzlich clientseitig sortieren willst.)
-function sortItems(items) {
-  const v = sortBy?.value || "relevance";
-  const copy = items.slice();
-
-  switch (v) {
-    case "price-asc":
-      copy.sort((a,b) => (toNum(a.preis) || Infinity) - (toNum(b.preis) || Infinity));
-      break;
-    case "price-desc":
-      copy.sort((a,b) => (toNum(b.preis) || -Infinity) - (toNum(a.preis) || -Infinity));
-      break;
-    case "date-desc": {
-      const getDate = (x) => (x?.raw?.veroeffentlichtAm ? new Date(x.raw.veroeffentlichtAm)
-                           : x?._id?.$date ? new Date(x._id.$date)
-                           : new Date(0));
-      copy.sort((a,b) => getDate(b) - getDate(a));
-      break;
-    }
-    case "mileage-asc":
-      copy.sort((a,b) => (toNum(a.kilometer) || Infinity) - (toNum(b.kilometer) || Infinity));
-      break;
-    default: // relevance
-      // no-op (Platz für Scoring)
-      break;
-  }
-  return copy;
-}
-
-function renderPager(totalCount) {
-  if (!pager) return;
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const current    = clamp(page, 1, totalPages);
-
-  if (totalPages <= 1) {
-    pager.innerHTML = "";
-    return;
-  }
-
-  let html = `<button class="pager-btn" data-page="${current - 1}" ${current === 1 ? "disabled" : ""}>« Zurück</button>`;
-  const windowSize = 5;
-  const start = Math.max(1, current - Math.floor(windowSize / 2));
-  const end   = Math.min(totalPages, start + windowSize - 1);
-  for (let p = start; p <= end; p++) {
-    html += `<button class="pager-btn ${p === current ? "active" : ""}" data-page="${p}">${p}</button>`;
-  }
-  html += `<button class="pager-btn" data-page="${current + 1}" ${current === totalPages ? "disabled" : ""}>Weiter »</button>`;
-  pager.innerHTML = html;
-
-  // Serverseitig blättern + Page in der URL mitführen
-  pager.querySelectorAll(".pager-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      const target = Number(e.currentTarget.getAttribute("data-page"));
-      if (!isNaN(target)) {
-        page = clamp(target, 1, totalPages);
-
-        const params = new URLSearchParams(window.location.search);
-        params.set("page", String(page));
-        history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
-
-        loadAndRender(page);
-      }
+      return true;
     });
-  });
-}
-
-// Helper: echte Mongo-ID herausziehen (string, {_id: "..."} oder {$oid: "..."})
-function getMongoId(doc) {
-  if (!doc) return null;
-  if (doc._id && typeof doc._id === "object" && typeof doc._id.$oid === "string") return doc._id.$oid;
-  if (typeof doc._id === "string") return doc._id;
-  if (typeof doc.id === "string") return doc.id;
-  return null;
-}
-function sellerInitials(name = "") {
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map(p => (p[0] || "").toUpperCase()).join("") || "AV";
-}
-function renderItems() {
-  if (!container) return;
-  container.innerHTML = "";
-
-  // Server liefert *nur die aktuelle Seite*:
-  const view = filteredItems;
-
-  if (!view.length) {
-    container.innerHTML = "<p>❌ Keine Fahrzeuge gefunden.</p>";
-    renderPager(serverTotal); // Gesamttreffer aus Server
-    return;
   }
 
-  // Helper: Datensatz für anzeige.html zusammenbauen (verkauf_* Fallbacks)
-  function toAnzeigePayload(item) {
-    const raw = item?.raw && typeof item.raw === "object" ? item.raw : {};
-    const merged = { ...raw, ...item }; // normalisierte Felder überschreiben raw
+  // ===== Sortierung (optional, clientseitig) =====
+  function sortItems(items) {
+    const v = sortBy?.value || "relevance";
+    const copy = items.slice();
 
-    if (merged.verkauf_kilometer == null && item.kilometer != null) merged.verkauf_kilometer = item.kilometer;
-    if (!merged.verkauf_erstzulassung && item.erstzulassung) merged.verkauf_erstzulassung = item.erstzulassung;
-    if (!merged.verkauf_kraftstoff && item.kraftstoff) merged.verkauf_kraftstoff = item.kraftstoff;
-    if (!merged.verkauf_getriebe && item.getriebe) merged.verkauf_getriebe = item.getriebe;
-    if (!merged.verkauf_leistung && item.leistung) merged.verkauf_leistung = item.leistung;
-    if (!merged.verkauf_verbrauch_kombiniert && item.verbrauch_kombiniert) merged.verkauf_verbrauch_kombiniert = item.verbrauch_kombiniert;
-    if (!merged.verkauf_verkaeufer && item.verkaeufer) merged.verkauf_verkaeufer = item.verkaeufer;
-    if (!merged.verkauf_name && item.name) merged.verkauf_name = item.name;
-
-    // Preise robuster abbilden
-    if (merged.verkauf_brutto == null && (merged.brutto_preis != null)) merged.verkauf_brutto = merged.brutto_preis;
-    if (merged.verkauf_brutto == null && (merged["brutto-preis"] != null)) merged.verkauf_brutto = merged["brutto-preis"];
-    if (merged.verkauf_preis == null && (item.preis != null)) merged.verkauf_preis = item.preis;
-
-    // Telefon übernehmen, falls nur normalisiert vorhanden
-    if (!merged.telefon && item.telefon) merged.telefon = item.telefon;
-
-    return merged;
+    switch (v) {
+      case "price-asc":
+        copy.sort((a,b) => (toNum(a.preis) || Infinity) - (toNum(b.preis) || Infinity));
+        break;
+      case "price-desc":
+        copy.sort((a,b) => (toNum(b.preis) || -Infinity) - (toNum(a.preis) || -Infinity));
+        break;
+      case "date-desc": {
+        const getDate = (x) => (x?.raw?.veroeffentlichtAm ? new Date(x.raw.veroeffentlichtAm)
+                             : x?._id?.$date ? new Date(x._id.$date)
+                             : new Date(0));
+        copy.sort((a,b) => getDate(b) - getDate(a));
+        break;
+      }
+      case "mileage-asc":
+        copy.sort((a,b) => (toNum(a.kilometer) || Infinity) - (toNum(b.kilometer) || Infinity));
+        break;
+      default: // relevance
+        break;
+    }
+    return copy;
   }
 
-  view.forEach(inserat => {
-    const imgs = Array.isArray(inserat.images) ? inserat.images : [];
-    const tel  = sanitizePhone(inserat.telefon);
+  function renderPager(totalCount) {
+    if (!pager) return;
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+    const current    = clamp(page, 1, totalPages);
 
-    const priceNum = toNum(inserat.preis);
-    const kmNum    = toNum(inserat.kilometer);
+    if (totalPages <= 1) {
+      pager.innerHTML = "";
+      return;
+    }
 
-    // --- Verkäuferdaten robust bestimmen ---
-    const rawType = String(
-      inserat.seller?.type ||
-      inserat.verkaeufer ||
-      inserat.raw?.verkauf_verkaeufer ||
-      ""
-    ).toLowerCase();
+    let html = `<button class="pager-btn" data-page="${current - 1}" ${current === 1 ? "disabled" : ""}>« Zurück</button>`;
+    const windowSize = 5;
+    const start = Math.max(1, current - Math.floor(windowSize / 2));
+    const end   = Math.min(totalPages, start + windowSize - 1);
+    for (let p = start; p <= end; p++) {
+      html += `<button class="pager-btn ${p === current ? "active" : ""}" data-page="${p}">${p}</button>`;
+    }
+    html += `<button class="pager-btn" data-page="${current + 1}" ${current === totalPages ? "disabled" : ""}>Weiter »</button>`;
+    pager.innerHTML = html;
 
-    const isHaendler =
-      rawType === "haendler" ||
-      rawType === "händler" ||
-      rawType.includes("händ") ||
-      rawType.includes("haend");
+    // Serverseitig blättern + Page in der URL mitführen
+    pager.querySelectorAll(".pager-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const target = Number(e.currentTarget.getAttribute("data-page"));
+        if (!isNaN(target)) {
+          page = clamp(target, 1, totalPages);
 
-    const sellerName =
-      inserat.seller?.name ||
-      inserat.name ||
-      inserat.raw?.verkauf_name ||
-      (isHaendler ? "Händler" : "Privatanbieter");
+          const params = new URLSearchParams(window.location.search);
+          params.set("page", String(page));
+          replaceUrlParams(params);
 
-    const sellerLogo =
-      inserat.seller?.logoUrl ||
-      inserat.raw?.seller?.logoUrl ||
-      inserat.logoUrl ||
-      "";
+          loadAndRender(page);
+        }
+      });
+    });
+  }
 
-    const sellerLocation =
-      inserat.standort ||
-      inserat.raw?.standort ||
-      [inserat.plz, inserat.ort].filter(Boolean).join(" ") ||
-      "Standort nicht angegeben";
+  // Helper: echte Mongo-ID herausziehen
+  function getMongoId(doc) {
+    if (!doc) return null;
+    if (doc._id && typeof doc._id === "object" && typeof doc._id.$oid === "string") return doc._id.$oid;
+    if (typeof doc._id === "string") return doc._id;
+    if (typeof doc.id === "string") return doc.id;
+    return null;
+  }
+  function sellerInitials(name = "") {
+    const parts = name.trim().split(/\s+/).slice(0, 2);
+    return parts.map(p => (p[0] || "").toUpperCase()).join("") || "AV";
+  }
 
-    // --- Karte rendern ---
-    const card = document.createElement("div");
-    card.className = "car-card horizontal";
-    card.innerHTML = `
-      <div class="car-card-media">
-        <div class="card-actions mobile-only">
-          <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
-          <a href="${tel ? `tel:${tel}` : '#'}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${tel ? "" : "aria-disabled='true'"} >
-            <i class="fas fa-phone"></i>
-          </a>
-        </div>
-        <div class="media-container">
-          <div class="slides">
-            ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
-            ${inserat.video ? `<video class="slide" controls muted playsinline preload="metadata"><source src="${inserat.video}" type="video/mp4"></video>` : ""}
-          </div>
-          <button class="media-arrow left"  type="button"><i class="fas fa-chevron-left"></i></button>
-          <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
-        </div>
-      </div>
+  function renderItems() {
+    if (!container) return;
+    container.innerHTML = "";
 
-      <div class="car-details">
-        <div class="car-top-row">
-          <h2 class="car-title">${inserat.titel || "Unbekanntes Fahrzeug"}</h2>
-          <p class="car-price">${isNaN(priceNum) ? "Preis n. a." : priceNum.toLocaleString("de-DE") + " €"}</p>
-        </div>
+    // Server liefert *nur die aktuelle Seite*:
+    const view = filteredItems;
 
-        <p class="car-subtitle">${inserat.raw?.verkauf_kurzbeschreibung || ""}</p>
+    if (!view.length) {
+      container.innerHTML = "<p>❌ Keine Fahrzeuge gefunden.</p>";
+      renderPager(serverTotal);
+      return;
+    }
 
-        <div class="car-info-grid">
-          <p><i class="fas fa-road"></i> ${isNaN(kmNum) ? "?" : kmNum.toLocaleString("de-DE")} km</p>
-          <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.erstzulassung || "?"}</p>
-          <p><i class="fas fa-gas-pump"></i> ${inserat.kraftstoff || "?"}</p>
-          <p><i class="fas fa-gauge-high"></i> ${inserat.leistung || "?"} PS</p>
-          <p><i class="fas fa-gears"></i> ${inserat.getriebe || "?"}</p>
-          <p><i class="fas fa-tint"></i> ${inserat.verbrauch_kombiniert || "?"} l/100 km</p>
-        </div>
+    // Helper: Datensatz für anzeige.html zusammenbauen
+    function toAnzeigePayload(item) {
+      const raw = item?.raw && typeof item.raw === "object" ? item.raw : {};
+      const merged = { ...raw, ...item }; // normalisierte Felder überschreiben raw
 
-        <!-- Verkäuferzeile: Avatar + Name/Ort + Desktop-Aktionen -->
-        <div class="dealer-info-row">
-          <div class="dealer-row">
-            <div class="dealer-avatar">
-              <img alt="${sellerName} Logo">
-              <span class="dealer-initials">${sellerInitials(sellerName)}</span>
-            </div>
-            <div class="dealer-meta">
-              <div class="dealer-name">${sellerName}</div>
-              <div class="dealer-location">${sellerLocation}</div>
-            </div>
-          </div>
-          <div class="card-actions desktop-only">
+      if (merged.verkauf_kilometer == null && item.kilometer != null) merged.verkauf_kilometer = item.kilometer;
+      if (!merged.verkauf_erstzulassung && item.erstzulassung) merged.verkauf_erstzulassung = item.erstzulassung;
+      if (!merged.verkauf_kraftstoff && item.kraftstoff) merged.verkauf_kraftstoff = item.kraftstoff;
+      if (!merged.verkauf_getriebe && item.getriebe) merged.verkauf_getriebe = item.getriebe;
+      if (!merged.verkauf_leistung && item.leistung) merged.verkauf_leistung = item.leistung;
+      if (!merged.verkauf_verbrauch_kombiniert && item.verbrauch_kombiniert) merged.verkauf_verbrauch_kombiniert = item.verbrauch_kombiniert;
+      if (!merged.verkauf_verkaeufer && item.verkaeufer) merged.verkauf_verkaeufer = item.verkaeufer;
+      if (!merged.verkauf_name && item.name) merged.verkauf_name = item.name;
+
+      // Preise robuster abbilden
+      if (merged.verkauf_brutto == null && (merged.brutto_preis != null)) merged.verkauf_brutto = merged.brutto_preis;
+      if (merged.verkauf_brutto == null && (merged["brutto-preis"] != null)) merged.verkauf_brutto = merged["brutto-preis"];
+      if (merged.verkauf_preis == null && (item.preis != null)) merged.verkauf_preis = item.preis;
+
+      if (!merged.telefon && item.telefon) merged.telefon = item.telefon;
+
+      return merged;
+    }
+
+    view.forEach(inserat => {
+      // Medien säubern
+      const imgs = (Array.isArray(inserat.images) ? inserat.images : [])
+        .map(String)
+        .filter(u => /^https?:\/\//i.test(u));
+      const videoUrl = String(inserat.video || "");
+      const tel  = sanitizePhone(inserat.telefon);
+      const phoneHref = (tel && tel.length >= 3) ? `tel:${tel}` : "#";
+
+      const priceNum = toNum(inserat.preis);
+      const kmNum    = toNum(inserat.kilometer);
+
+      // Verkäuferdaten robust bestimmen
+      const rawType = String(
+        inserat.seller?.type ||
+        inserat.verkaeufer ||
+        inserat.raw?.verkauf_verkaeufer ||
+        ""
+      ).toLowerCase();
+
+      const isHaendler =
+        rawType === "haendler" ||
+        rawType === "händler" ||
+        rawType.includes("händ") ||
+        rawType.includes("haend");
+
+      const sellerName =
+        inserat.seller?.name ||
+        inserat.name ||
+        inserat.raw?.verkauf_name ||
+        (isHaendler ? "Händler" : "Privatanbieter");
+
+      const sellerLogo =
+        inserat.seller?.logoUrl ||
+        inserat.raw?.seller?.logoUrl ||
+        inserat.logoUrl ||
+        "";
+
+      const sellerLocation =
+        inserat.standort ||
+        inserat.raw?.standort ||
+        [inserat.plz, inserat.ort].filter(Boolean).join(" ") ||
+        "Standort nicht angegeben";
+
+      // Karte rendern (ohne gefährliche Text-Injektionen)
+      const card = document.createElement("div");
+      card.className = "car-card horizontal";
+      card.innerHTML = `
+        <div class="car-card-media">
+          <div class="card-actions mobile-only">
             <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
-            <a href="${tel ? `tel:${tel}` : '#'}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${tel ? "" : "aria-disabled='true'"} >
+            <a href="${phoneHref}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${phoneHref === "#" ? "aria-disabled='true'" : ""}>
               <i class="fas fa-phone"></i>
             </a>
           </div>
+          <div class="media-container">
+            <div class="slides">
+              ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
+              ${videoUrl ? `<video class="slide" controls muted playsinline preload="metadata"><source src="${videoUrl}" type="video/mp4"></video>` : ""}
+            </div>
+            <button class="media-arrow left"  type="button"><i class="fas fa-chevron-left"></i></button>
+            <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
+          </div>
         </div>
-      </div>
-    `;
 
-    container.appendChild(card);
-    initMediaSlider(card.querySelector(".media-container"));
+        <div class="car-details">
+          <div class="car-top-row">
+            <h2 class="car-title"></h2>
+            <p class="car-price">${isNaN(priceNum) ? "Preis n. a." : priceNum.toLocaleString("de-DE") + " €"}</p>
+          </div>
 
-    // Safari-sicheres Logo-Laden (nie display:none am <img>)
-    const avatar = card.querySelector(".dealer-avatar");
-    const img    = avatar.querySelector("img");
-    avatar.classList.remove("has-logo");
-    img.removeAttribute("src");
+          <p class="car-subtitle"></p>
 
-    if (sellerLogo) {
-      img.addEventListener("load",  () => { avatar.classList.add("has-logo"); }, { once: true });
-      img.addEventListener("error", () => {
-        avatar.classList.remove("has-logo");
-        img.removeAttribute("src");
-      }, { once: true });
-      img.src = sellerLogo;
+          <div class="car-info-grid">
+            <p><i class="fas fa-road"></i> ${isNaN(kmNum) ? "?" : kmNum.toLocaleString("de-DE")} km</p>
+            <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.erstzulassung || "?"}</p>
+            <p><i class="fas fa-gas-pump"></i> ${inserat.kraftstoff || "?"}</p>
+            <p><i class="fas fa-gauge-high"></i> ${inserat.leistung || "?"} PS</p>
+            <p><i class="fas fa-gears"></i> ${inserat.getriebe || "?"}</p>
+            <p><i class="fas fa-tint"></i> ${inserat.verbrauch_kombiniert || "?"} l/100 km</p>
+          </div>
 
-      if (img.complete && img.naturalWidth > 0) {
-        avatar.classList.add("has-logo");
+          <div class="dealer-info-row">
+            <div class="dealer-row">
+              <div class="dealer-avatar">
+                <img alt="">
+                <span class="dealer-initials">${sellerInitials(sellerName)}</span>
+              </div>
+              <div class="dealer-meta">
+                <div class="dealer-name"></div>
+                <div class="dealer-location"></div>
+              </div>
+            </div>
+            <div class="card-actions desktop-only">
+              <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
+              <a href="${phoneHref}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${phoneHref === "#" ? "aria-disabled='true'" : ""}>
+                <i class="fas fa-phone"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // sichere Texte setzen
+      card.querySelector(".car-title").textContent = inserat.titel || "Unbekanntes Fahrzeug";
+      card.querySelector(".car-subtitle").textContent = inserat.raw?.verkauf_kurzbeschreibung || "";
+      card.querySelector(".dealer-name").textContent = sellerName;
+      card.querySelector(".dealer-location").textContent = sellerLocation;
+
+      container.appendChild(card);
+      initMediaSlider(card.querySelector(".media-container"));
+
+      // Safari-sicheres Logo-Laden (nie display:none am <img>)
+      const avatar = card.querySelector(".dealer-avatar");
+      const img    = avatar.querySelector("img");
+      avatar.classList.remove("has-logo");
+      img.removeAttribute("src");
+      img.setAttribute("alt", `${sellerName} Logo`);
+
+      if (sellerLogo) {
+        img.addEventListener("load",  () => { avatar.classList.add("has-logo"); }, { once: true });
+        img.addEventListener("error", () => {
+          avatar.classList.remove("has-logo");
+          img.removeAttribute("src");
+        }, { once: true });
+        img.src = sellerLogo;
+
+        if (img.complete && img.naturalWidth > 0) {
+          avatar.classList.add("has-logo");
+        }
       }
+
+      // Hochformat-Erkennung + Alt-Texte für Bilder
+      const titleForAlt = card.querySelector(".car-title").textContent || "Fahrzeugbild";
+      card.querySelectorAll(".slide").forEach((m, idx) => {
+        if (m.tagName === "VIDEO") {
+          m.addEventListener("loadedmetadata", () => {
+            if (m.videoHeight > m.videoWidth) m.classList.add("portrait-zoom");
+          });
+        } else if (m.tagName === "IMG") {
+          m.setAttribute("alt", `${titleForAlt} – Bild ${idx + 1}`);
+          m.addEventListener("load", () => {
+            if (m.naturalHeight > m.naturalWidth) m.classList.add("portrait-zoom");
+          });
+        }
+      });
+
+      // Karte klickbar (nicht auf Buttons/Arrows)
+      const realId = getMongoId(inserat);
+      card.dataset.id = realId || "";
+      card.addEventListener("click", (e) => {
+        if (e.target.closest("button, a, .media-arrow")) return;
+        try {
+          const payload = toAnzeigePayload(inserat);
+          localStorage.setItem("ausgewaehltesInserat", JSON.stringify(payload));
+        } catch {}
+        const qs = realId ? `?id=${encodeURIComponent(realId)}` : "";
+        window.location.href = `anzeige.html${qs}`;
+      });
+    });
+
+    renderPager(serverTotal); // Wichtig: Gesamttreffer vom Server
+  }
+
+  async function loadAndRender(p = 1) {
+    try {
+      const { page: serverPage, limit: serverLimit, total, results } = await fetchSearch(p, pageSize);
+
+      serverTotal   = total;
+      filteredItems = Array.isArray(results) ? results.map(normalizeItem) : [];
+      page          = Number(serverPage) || 1;
+
+      // Client-Filter (inkl. Verbrauch & modellausfuehrung)
+      filteredItems = applyClientFilters(filteredItems);
+      // optional: filteredItems = sortItems(filteredItems);
+
+      renderItems();
+
+      // Chips-Leiste nach jedem (Neu-)Laden aktualisieren, falls vorhanden
+      if (typeof renderActiveFilters === "function") {
+        renderActiveFilters();
+      }
+
+    } catch (err) {
+      if (String(err?.message || "").toLowerCase() === "stale") return; // alte Antwort ignorieren
+      console.error("Fehler beim Laden der Suche:", err);
+      if (container) container.innerHTML = "<p>🚫 Fehler beim Laden der Ergebnisse.</p>";
+    }
+  }
+
+  // ===== Events: Filter & Sort =====
+  function setOrDelete(params, key, val) {
+    if (val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0)) {
+      params.delete(key);
+    } else {
+      params.set(key, String(val));
+    }
+  }
+  function mapSortSelectToParam(v) {
+    if (v === "price-asc")  return "preis_asc";
+    if (v === "price-desc") return "preis_desc";
+    return "neueste"; // "date-desc" und alles andere
+  }
+
+  function updateUrlFromUiAndReload() {
+    const params = new URLSearchParams(window.location.search);
+
+    // Marke/Modell
+    const markeEl  = document.getElementById("marke");
+    const modellEl = document.getElementById("modell");
+    const modVarEl = document.getElementById("modellausfuehrung"); // ← NEU
+
+    setOrDelete(params, "marke", markeEl?.value || "");
+    if (modellEl && modellEl.options) {
+      const selected = [...modellEl.options].filter(o => o.selected).map(o => o.value).filter(Boolean);
+      setOrDelete(params, "modell", selected.length ? selected.join(",") : "");
+    }
+    setOrDelete(params, "modellausfuehrung", modVarEl?.value || "");
+
+    // EZ (type="month" oder Jahr/Monat)
+    const firstRegFromEl  = document.getElementById("firstRegFrom");
+    const firstRegMonthEl = document.getElementById("first-registration-month");
+    const firstRegYearEl  = document.getElementById("first-registration-year");
+    const ez =
+      (firstRegFromEl?.value) ||
+      (firstRegYearEl?.value && firstRegMonthEl?.value
+        ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2,"0")}`
+        : "");
+    setOrDelete(params, "ezFrom", ez);
+
+    // Preis/KM bis (nur echte Zahlen > 0 setzen)
+    const priceToEl   = document.getElementById("priceTo");
+    const mileageToEl = document.getElementById("mileageTo");
+
+    const pMax = parseInt(priceToEl?.value || "", 10);
+    if (!Number.isNaN(pMax) && pMax > 0) params.set("price_max", String(pMax));
+    else params.delete("price_max");
+
+    const kmMax = parseInt(mileageToEl?.value || "", 10);
+    if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));
+    else params.delete("km_max");
+
+    // Kraftstoff/Getriebe (Beliebig/leer NICHT senden)
+    const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
+    const gearEl = document.getElementById("transmission") || document.getElementById("gear");
+
+    const fuelVal = (fuelEl?.value || "").toLowerCase();
+    if (fuelVal && !["beliebig","any","alle","all","-"].includes(fuelVal)) params.set("kraftstoff", fuelVal);
+    else params.delete("kraftstoff");
+
+    const gearVal = (gearEl?.value || "").toLowerCase();
+    if (gearVal && !["beliebig","any","alle","all","-"].includes(gearVal)) params.set("getriebe", gearVal);
+    else params.delete("getriebe");
+
+    // Verbrauch (max) – Select/Custom -> URL
+    (function () {
+      const sel = document.getElementById('verbrauch-select');
+      const inp = document.getElementById('verbrauch');
+      const toDec = (s) => {
+        const t = String(s ?? '').trim().replace(/\s+/g, '').replace(',', '.');
+        if (!t) return null;
+        const n = parseFloat(t);
+        return Number.isFinite(n) ? n : null;
+      };
+      let raw = '';
+      if (sel) {
+        if (sel.value === '') raw = '';               // Beliebig
+        else if (sel.value === 'custom') raw = inp?.value || '';
+        else raw = sel.value;                         // z. B. "6.0"
+      } else {
+        raw = inp?.value || '';
+      }
+      const n = toDec(raw);
+      setOrDelete(params, 'verbrauch_max', (n != null && n > 0) ? String(n) : '');
+    })();
+
+    // Ort / Umkreis (Startseiten-Variante: distance-select)
+    const locEl       = document.getElementById("location");
+    const distSel     = document.getElementById("distance-select");
+    const distCustom  = document.getElementById("distance-custom");
+
+    const locVal = (locEl?.value || "").trim();
+    setOrDelete(params, "ort", locVal);
+
+    if (distSel && !distSel.disabled) {
+      const dRaw = distSel.value === "custom" ? (distCustom?.value || "") : distSel.value;
+      const d = parseInt(dRaw, 10);
+      setOrDelete(params, "umkreis", (!Number.isNaN(d) && d > 0 && d !== 999) ? d : "");
+    } else {
+      params.delete("umkreis");
     }
 
-    // Hochformat-Erkennung (optional)
-    card.querySelectorAll(".slide").forEach(m => {
-      if (m.tagName === "VIDEO") {
-        m.addEventListener("loadedmetadata", () => {
-          if (m.videoHeight > m.videoWidth) m.classList.add("portrait-zoom");
-        });
-      } else if (m.tagName === "IMG") {
-        m.addEventListener("load", () => {
-          if (m.naturalHeight > m.naturalWidth) m.classList.add("portrait-zoom");
-        });
-      }
-    });
+    // Zusatz-Flags aus UI (Checkboxen)
+    const pfEl = document.getElementById("partikelfilter");
+    const shEl = document.getElementById("scheckheft");
+    const ftEl = document.getElementById("fahrtauglich");
 
-    // Karte klickbar (nicht auf Buttons/Arrows)
-    const realId = getMongoId(inserat);
-    card.dataset.id = realId || "";
-    card.addEventListener("click", (e) => {
-      if (e.target.closest("button, a, .media-arrow")) return;
-      try {
-        const payload = toAnzeigePayload(inserat);             // <<<<<<<<<< wichtig
-        localStorage.setItem("ausgewaehltesInserat", JSON.stringify(payload));
-      } catch {}
-      const qs = realId ? `?id=${encodeURIComponent(realId)}` : "";
-      window.location.href = `anzeige.html${qs}`;
-    });
+    setOrDelete(params, "partikelfilter", pfEl?.checked ? "mit" : "");
+    setOrDelete(params, "scheckheft",     shEl?.checked ? "ja"  : "");
+    setOrDelete(params, "fahrtauglich",   ftEl?.checked ? "ja"  : "");
+
+    // Sortierung -> Serverparam
+    const sortSelectVal = sortBy?.value || "";
+    if (sortSelectVal) params.set("sort", mapSortSelectToParam(sortSelectVal));
+    else params.delete("sort");
+
+    // Bei Filteränderung auf Seite 1 springen
+    params.delete("page");
+
+    replaceUrlParams(params);
+    loadAndRender(1);
+  }
+
+  applyFilters?.addEventListener("click", (e) => {
+    e.preventDefault();
+    updateUrlFromUiAndReload();
   });
 
-  renderPager(serverTotal); // Wichtig: Gesamttreffer vom Server
-}
+  sortBy?.addEventListener("change", () => {
+    updateUrlFromUiAndReload();
+  });
 
-async function loadAndRender(p = 1) {
-  try {
-    const { page: serverPage, limit: serverLimit, total, results } = await fetchSearch(p, pageSize);
-
-    serverTotal   = total;                               // Gesamtanzahl vom Server (für Pager)
-    filteredItems = Array.isArray(results) ? results.map(normalizeItem) : [];
-    page          = Number(serverPage) || 1;             // aktuelle Seite setzen
-
-    // Client-Filter (inkl. Verbrauch)
-    filteredItems = applyClientFilters(filteredItems);
-    // optional: filteredItems = sortItems(filteredItems);
-
-    renderItems();
-   
-renderActiveFilters(); // << Chips-Leiste nach jedem (Neu-)Laden aktualisieren
-
-  } catch (err) {
-    console.error("Fehler beim Laden der Suche:", err);
-    if (container) container.innerHTML = "<p>🚫 Fehler beim Laden der Ergebnisse.</p>";
-  }
-}
-
-
-// ===== Events: Filter & Sort =====
-function setOrDelete(params, key, val) {
-  if (val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0)) {
-    params.delete(key);
-  } else {
-    params.set(key, String(val));
-  }
-}
-function mapSortSelectToParam(v) {
-  if (v === "price-asc")  return "preis_asc";
-  if (v === "price-desc") return "preis_desc";
-  return "neueste"; // "date-desc" und alles andere
-}function updateUrlFromUiAndReload() {
-  const params = new URLSearchParams(window.location.search);
-
-  // Marke/Modell
-  const markeEl  = document.getElementById("marke");
-  const modellEl = document.getElementById("modell");
-  setOrDelete(params, "marke", markeEl?.value || "");
-  if (modellEl && modellEl.options) {
-    const selected = [...modellEl.options].filter(o => o.selected).map(o => o.value).filter(Boolean);
-    setOrDelete(params, "modell", selected.length ? selected.join(",") : "");
-  }
-
-  // EZ (type="month" oder Jahr/Monat)
-  const firstRegFromEl  = document.getElementById("firstRegFrom");
-  const firstRegMonthEl = document.getElementById("first-registration-month");
-  const firstRegYearEl  = document.getElementById("first-registration-year");
-  const ez =
-    (firstRegFromEl?.value) ||
-    (firstRegYearEl?.value && firstRegMonthEl?.value
-      ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2,"0")}`
-      : "");
-  setOrDelete(params, "ezFrom", ez);
-
-  // Preis/KM bis (nur echte Zahlen > 0 setzen)
-  const priceToEl   = document.getElementById("priceTo");
-  const mileageToEl = document.getElementById("mileageTo");
-
-  const pMax = parseInt(priceToEl?.value || "", 10);
-  if (!Number.isNaN(pMax) && pMax > 0) params.set("price_max", String(pMax));
-  else params.delete("price_max");
-
-  const kmMax = parseInt(mileageToEl?.value || "", 10);
-  if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));
-  else params.delete("km_max");
-
-  // Kraftstoff/Getriebe (Beliebig/leer NICHT senden)
-  const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
-  const gearEl = document.getElementById("transmission") || document.getElementById("gear");
-
-  const fuelVal = (fuelEl?.value || "").toLowerCase();
-  if (fuelVal && !["beliebig","any","alle","all","-"].includes(fuelVal)) params.set("kraftstoff", fuelVal);
-  else params.delete("kraftstoff");
-
-  const gearVal = (gearEl?.value || "").toLowerCase();
-  if (gearVal && !["beliebig","any","alle","all","-"].includes(gearVal)) params.set("getriebe", gearVal);
-  else params.delete("getriebe");
-
-  // Verbrauch (max) – Select/Custom -> URL
-  (function () {
-    const sel = document.getElementById('verbrauch-select');
-    const inp = document.getElementById('verbrauch');
-    const toDec = (s) => {
-      const t = String(s ?? '').trim().replace(/\s+/g, '').replace(',', '.'); // "6,5" -> "6.5"
-      if (!t) return null;
-      const n = parseFloat(t);
-      return Number.isFinite(n) ? n : null;
-    };
-    let raw = '';
-    if (sel) {
-      if (sel.value === '') raw = '';               // Beliebig
-      else if (sel.value === 'custom') raw = inp?.value || '';
-      else raw = sel.value;                         // z. B. "6.0"
-    } else {
-      raw = inp?.value || '';
-    }
-    const n = toDec(raw);
-    setOrDelete(params, 'verbrauch_max', (n != null && n > 0) ? String(n) : '');
-  })();
-
-  // Ort / Umkreis (Startseiten-Variante: distance-select)
-  const locEl       = document.getElementById("location");
-  const distSel     = document.getElementById("distance-select");
-  const distCustom  = document.getElementById("distance-custom");
-
-  const locVal = (locEl?.value || "").trim();
-  setOrDelete(params, "ort", locVal);
-
-  if (distSel && !distSel.disabled) {
-    const dRaw = distSel.value === "custom" ? (distCustom?.value || "") : distSel.value;
-    const d = parseInt(dRaw, 10);
-    setOrDelete(params, "umkreis", (!Number.isNaN(d) && d > 0 && d !== 999) ? d : "");
-  } else {
-    params.delete("umkreis");
-  }
-
-  // Zusatz-Flags aus UI (Checkboxen)
-  const pfEl = document.getElementById("partikelfilter");
-  const shEl = document.getElementById("scheckheft");
-  const ftEl = document.getElementById("fahrtauglich");
-
-  setOrDelete(params, "partikelfilter", pfEl?.checked ? "mit" : "");
-  setOrDelete(params, "scheckheft",     shEl?.checked ? "ja"  : "");
-  setOrDelete(params, "fahrtauglich",   ftEl?.checked ? "ja"  : "");
-
-  // Sortierung -> Serverparam
-  const sortSelectVal = sortBy?.value || "";
-  if (sortSelectVal) params.set("sort", mapSortSelectToParam(sortSelectVal));
-  else params.delete("sort");
-
-  // Bei Filteränderung auf Seite 1 springen
-  params.delete("page");
-
-  history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
-  loadAndRender(1);
-}
-
-applyFilters?.addEventListener("click", (e) => {
-  e.preventDefault();
-  updateUrlFromUiAndReload();
+  // ===== Init =====
+  const initialPage = Math.max(parseInt(new URLSearchParams(window.location.search).get("page") || "1", 10), 1);
+  loadAndRender(initialPage);
 });
-
-sortBy?.addEventListener("change", () => {
-  updateUrlFromUiAndReload();
-});
-
-// ===== Init =====
-const initialPage = Math.max(parseInt(new URLSearchParams(window.location.search).get("page") || "1", 10), 1);
-loadAndRender(initialPage);
-
-
-});
-
 
 
 
@@ -1212,47 +1243,69 @@ function renderActiveFilters() {
   if (!bar) return;
 
   // Refs (UI Felder, wie in applyClientFilters)
-  const priceFromEl   = document.getElementById("priceFrom");
-  const priceToEl     = document.getElementById("priceTo");
-  const mileageFromEl = document.getElementById("mileageFrom");
-  const mileageToEl   = document.getElementById("mileageTo");
-  const powerFromEl   = document.getElementById("powerFrom");
-  const powerToEl     = document.getElementById("powerTo");
-  const fuelEl        = document.getElementById("fuelType") || document.getElementById("fuel");
-  const gearEl        = document.getElementById("transmission") || document.getElementById("gear");
-  const firstRegFromEl= document.getElementById("firstRegFrom");
-  const accidentFreeEl= document.getElementById("accidentFree");
-  const inspectionEl  = document.getElementById("inspectionUntil");
+  const priceFromEl    = document.getElementById("priceFrom");
+  const priceToEl      = document.getElementById("priceTo");
+  const mileageFromEl  = document.getElementById("mileageFrom");
+  const mileageToEl    = document.getElementById("mileageTo");
+  const powerFromEl    = document.getElementById("powerFrom");
+  const powerToEl      = document.getElementById("powerTo");
+  const fuelEl         = document.getElementById("fuelType") || document.getElementById("fuel");
+  const gearEl         = document.getElementById("transmission") || document.getElementById("gear");
+  const firstRegFromEl = document.getElementById("firstRegFrom");
+  const accidentFreeEl = document.getElementById("accidentFree");
+  const inspectionEl   = document.getElementById("inspectionUntil");
+
+  // 🔄 Immer FRISCHE URL-Parameter lesen (nicht das initiale QP verwenden!)
+  const sp = new URLSearchParams(location.search);
+  const arr     = v => (v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : []);
+  const truthy  = v => /^(1|true|ja|mit|yes)$/i.test(String(v || "").trim());
+  const qp = {
+    marke: sp.get("marke") || "",
+    modell: arr(sp.get("modell")),
+    modellausfuehrung: sp.get("modellausfuehrung") || "",   // 👈 NEU
+    ezFrom: sp.get("ezFrom") || "",
+    ezTo:   sp.get("ezTo")   || "",
+    km_max: sp.get("km_max") || "",
+    price_max: sp.get("price_max") || "",
+    getriebe: (sp.get("getriebe") || "").toLowerCase(),
+    kraftstoff: (sp.get("kraftstoff") || "").toLowerCase(),
+    ort: sp.get("ort") || "",
+    umkreis: sp.get("umkreis") || "",
+    verbrauch_max: sp.get("verbrauch_max") || "",
+    partikelfilter: truthy(sp.get("partikelfilter")),
+    scheckheft:     truthy(sp.get("scheckheft")),
+    fahrtauglich:   truthy(sp.get("fahrtauglich")),
+  };
 
   // Effektive Werte wie in applyClientFilters (UI > URL-Fallback)
   const priceMin = toNum(priceFromEl?.value ?? "");
   const priceMax = !isNaN(toNum(priceToEl?.value ?? "")) && toNum(priceToEl?.value ?? "") > 0
-                   ? toNum(priceToEl.value) : toNum(QP.price_max);
+                   ? toNum(priceToEl.value) : toNum(qp.price_max);
   const kmMin    = toNum(mileageFromEl?.value ?? "");
   const kmMax    = !isNaN(toNum(mileageToEl?.value ?? "")) && toNum(mileageToEl?.value ?? "") > 0
-                   ? toNum(mileageToEl.value) : toNum(QP.km_max);
+                   ? toNum(mileageToEl.value) : toNum(qp.km_max);
   const psMin    = toNum(powerFromEl?.value ?? "");
   const psMax    = toNum(powerToEl?.value   ?? "");
   const fuelVal  = (fuelEl?.value || "").toLowerCase();
   const gearVal  = (gearEl?.value || "").toLowerCase();
-  const ezFrom   = (firstRegFromEl?.value) || QP.ezFrom || "";
-  const ezTo     = QP.ezTo || ""; // nur aus URL
+  const ezFrom   = (firstRegFromEl?.value) || qp.ezFrom || "";
+  const ezTo     = qp.ezTo || ""; // nur aus URL
   const accFree  = !!accidentFreeEl?.checked;
   const huBis    = inspectionEl?.value || ""; // YYYY-MM
 
   // Weitere mögliche URL-Filter (ohne UI auf dieser Seite)
-  const brand     = QP.marke || "";
-  const models    = Array.isArray(QP.modell) ? QP.modell.slice() : [];
-  const ort       = QP.ort || "";
-  const umkreis   = QP.umkreis || "";
-  const vMax      = QP.verbrauch_max || "";
-  const pf        = QP.partikelfilter;     // boolean (wird zu Chip, falls true)
-  const sh        = QP.scheckheft;         // boolean
-  const ft        = QP.fahrtauglich;       // boolean
+  const brand   = qp.marke || "";
+  const models  = Array.isArray(qp.modell) ? qp.modell.slice() : [];
+  const ort     = qp.ort || "";
+  const umkreis = qp.umkreis || "";
+  const vMax    = qp.verbrauch_max || "";
+  const pf      = qp.partikelfilter; // boolean
+  const sh      = qp.scheckheft;     // boolean
+  const ft      = qp.fahrtauglich;   // boolean
 
   // Hilfsformatierer
-  const eur = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")} €`;
-  const int = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")}`;
+  const eur   = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")} €`;
+  const int   = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")}`;
   const month = s => (s && s.length >= 7 ? s : "");
 
   // Chips zusammenstellen
@@ -1281,6 +1334,9 @@ function renderActiveFilters() {
     models.forEach(m => chips.push({key:"modell", value:m, label:`Modell: ${m}`}));
   }
 
+  // 👇 NEU: Modellvariante-Chip
+  if (qp.modellausfuehrung)                 chips.push({key:"modellausfuehrung", label:`Modellvariante: ${qp.modellausfuehrung}`});
+
   if (ort)                                  chips.push({key:"ort",       label:`Ort: ${ort}`});
   if (umkreis)                              chips.push({key:"umkreis",   label:`Umkreis: ${umkreis} km`});
   if (vMax)                                 chips.push({key:"verbrauch_max", label:`Verbrauch ≤ ${String(vMax).replace('.',',')} l/100km`});
@@ -1292,7 +1348,7 @@ function renderActiveFilters() {
   // Render
   if (!chips.length) { bar.innerHTML = ""; return; }
 
-  bar.innerHTML = chips.map((c, idx) => `
+  bar.innerHTML = chips.map((c) => `
     <div class="filter-chip" data-key="${c.key}" ${c.value ? `data-value="${c.value}"` : ""}>
       <span class="chip-label">${c.label}</span>
       <button class="chip-remove" type="button" aria-label="Filter entfernen" title="Filter entfernen">
@@ -1316,22 +1372,23 @@ function renderActiveFilters() {
   bar.querySelector(".clear-all")?.addEventListener("click", () => clearAllFilters());
 }
 
-function removeFilterChip(key, val="") {
+function removeFilterChip(key, val = "") {
   const params = new URLSearchParams(window.location.search);
 
   // UI-Elemente, die wir ggf. leeren müssen
   const mapEl = {
-    price_min: document.getElementById("priceFrom"),
-    price_max: document.getElementById("priceTo"),
-    km_min:    document.getElementById("mileageFrom"),
-    km_max:    document.getElementById("mileageTo"),
-    ps_min:    document.getElementById("powerFrom"),
-    ps_max:    document.getElementById("powerTo"),
-    ezFrom:    document.getElementById("firstRegFrom"),
-    hu:        document.getElementById("inspectionUntil"),
-    fuel:      document.getElementById("fuelType") || document.getElementById("fuel"),
-    gear:      document.getElementById("transmission") || document.getElementById("gear"),
-    accidentFree: document.getElementById("accidentFree")
+    price_min:       document.getElementById("priceFrom"),
+    price_max:       document.getElementById("priceTo"),
+    km_min:          document.getElementById("mileageFrom"),
+    km_max:          document.getElementById("mileageTo"),
+    ps_min:          document.getElementById("powerFrom"),
+    ps_max:          document.getElementById("powerTo"),
+    ezFrom:          document.getElementById("firstRegFrom"),
+    hu:              document.getElementById("inspectionUntil"),
+    fuel:            document.getElementById("fuelType") || document.getElementById("fuel"),
+    gear:            document.getElementById("transmission") || document.getElementById("gear"),
+    accidentFree:    document.getElementById("accidentFree"),
+    modellausfuehrung: document.getElementById("modellausfuehrung") // 👈 falls auf der Seite vorhanden
   };
 
   switch (key) {
@@ -1345,14 +1402,14 @@ function removeFilterChip(key, val="") {
     case "km_max":    if (mapEl.km_max)    mapEl.km_max.value    = ""; params.delete("km_max");    break;
     case "ps_max":    if (mapEl.ps_max)    mapEl.ps_max.value    = ""; break;
 
-    // EZ/ HU
+    // EZ / HU
     case "ezFrom":    if (mapEl.ezFrom)    mapEl.ezFrom.value    = ""; params.delete("ezFrom");   break;
     case "ezTo":      params.delete("ezTo"); break;
     case "hu":        if (mapEl.hu)        mapEl.hu.value        = ""; break;
 
     // Kraftstoff / Getriebe
-    case "fuel":      if (mapEl.fuel)      mapEl.fuel.value      = "Beliebig"; params.delete("kraftstoff"); break;
-    case "gear":      if (mapEl.gear)      mapEl.gear.value      = "Beliebig"; params.delete("getriebe");   break;
+    case "fuel":      if (mapEl.fuel) mapEl.fuel.value = "Beliebig"; params.delete("kraftstoff"); break;
+    case "gear":      if (mapEl.gear) mapEl.gear.value = "Beliebig"; params.delete("getriebe");   break;
 
     // UI Checkboxen
     case "accidentFree": if (mapEl.accidentFree) mapEl.accidentFree.checked = false; break;
@@ -1367,6 +1424,13 @@ function removeFilterChip(key, val="") {
       else params.delete("modell");
       break;
     }
+
+    // 👇 NEU: Modellvariante löschen
+    case "modellausfuehrung":
+      if (mapEl.modellausfuehrung) mapEl.modellausfuehrung.value = "";
+      params.delete("modellausfuehrung");
+      break;
+
     case "ort":            params.delete("ort");      break;
     case "umkreis":        params.delete("umkreis");  break;
     case "verbrauch_max":  params.delete("verbrauch_max"); break;
@@ -1388,7 +1452,8 @@ function clearAllFilters() {
 
   // Alles, was wir kennen & auf die Suche wirkt
   [
-    "marke","modell","ezFrom","ezTo",
+    "marke","modell","modellausfuehrung", // 👈 NEU
+    "ezFrom","ezTo",
     "km_max","price_max","getriebe","kraftstoff",
     "ort","umkreis","sort","verbrauch_max",
     "partikelfilter","scheckheft","fahrtauglich"
@@ -1396,7 +1461,7 @@ function clearAllFilters() {
   params.delete("page");
 
   // UI Felder zurücksetzen
-  const ids = ["priceFrom","priceTo","mileageFrom","mileageTo","powerFrom","powerTo","firstRegFrom","inspectionUntil"];
+  const ids = ["priceFrom","priceTo","mileageFrom","mileageTo","powerFrom","powerTo","firstRegFrom","inspectionUntil","modellausfuehrung"];
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
 
   const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
