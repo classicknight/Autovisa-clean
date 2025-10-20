@@ -583,7 +583,6 @@ document.addEventListener("DOMContentLoaded", () => {
       raw
     };
   }
-
   function applyClientFilters(items) {
     // Sidebar-/Form-Felder (nur verwenden, wenn vorhanden)
     const priceFromEl       = document.getElementById("priceFrom");
@@ -592,27 +591,46 @@ document.addEventListener("DOMContentLoaded", () => {
     const mileageToEl       = document.getElementById("mileageTo");
     const powerFromEl       = document.getElementById("powerFrom");
     const powerToEl         = document.getElementById("powerTo");
-
+  
     const fuelTypeEl        = document.getElementById("fuelType") || document.getElementById("fuel");
     const transmissionEl    = document.getElementById("transmission") || document.getElementById("gear");
-
+  
     const accidentFreeEl    = document.getElementById("accidentFree");
     const inspectionUntilEl = document.getElementById("inspectionUntil");
-
-    // Erstzulassung UI
+  
+    // Erstzulassung UI (variante: ein <input type="month"> oder zwei Selects)
     const firstRegFromEl    = document.getElementById("firstRegFrom");
     const firstRegMonthEl   = document.getElementById("first-registration-month");
     const firstRegYearEl    = document.getElementById("first-registration-year");
-
+  
     // Marke/Modell
     const markeEl           = document.getElementById("marke");
     const modellEl          = document.getElementById("modell");
-    const modVarEl          = document.getElementById("modellausfuehrung"); // ← NEU
-
+    const modVarEl          = document.getElementById("modellausfuehrung");
+  
     // VERBRAUCH UI-Elemente
     const selV              = document.getElementById("verbrauch-select");
     const inpV              = document.getElementById("verbrauch");
-
+  
+    // --- Helper: YYYY-MM normalisieren (akzeptiert "YYYY", "YYYY-M", "M/YYYY", "YYYY/MM" etc.) ---
+    const pad2 = (m) => String(m).padStart(2, "0");
+    function parseYM(val, fallbackMonthIfYearOnly = null) {
+      if (!val) return "";
+      const s = String(val).trim();
+      // 1) Genau YYYY-MM / YYYY-M
+      let m = s.match(/^(\d{4})[-/.](\d{1,2})$/);
+      if (m) return `${m[1]}-${pad2(m[2])}`;
+      // 2) MM/YYYY oder M/YYYY
+      m = s.match(/^(\d{1,2})[-/.](\d{4})$/);
+      if (m) return `${m[2]}-${pad2(m[1])}`;
+      // 3) Nur YYYY
+      m = s.match(/^(\d{4})$/);
+      if (m) return fallbackMonthIfYearOnly ? `${m[1]}-${pad2(fallbackMonthIfYearOnly)}` : "";
+      // 4) Bereits korrekt?
+      if (/^\d{4}-\d{2}$/.test(s)) return s;
+      return "";
+    }
+  
     // --- UI lesen ---
     const priceFrom     = toNum(priceFromEl?.value ?? "");
     const priceTo       = toNum(priceToEl?.value   ?? "");
@@ -620,31 +638,35 @@ document.addEventListener("DOMContentLoaded", () => {
     const mileageTo     = toNum(mileageToEl?.value   ?? "");
     const powerFrom     = toNum(powerFromEl?.value ?? "");
     const powerTo       = toNum(powerToEl?.value   ?? "");
-
+  
     const fuelTypeUI     = (fuelTypeEl?.value ? String(fuelTypeEl.value) : "Beliebig").toLowerCase();
     const transmissionUI = (transmissionEl?.value ? String(transmissionEl.value) : "Beliebig").toLowerCase();
-
+  
     const accidentFree    = !!accidentFreeEl?.checked;
-    const inspectionUntil = inspectionUntilEl?.value || ""; // YYYY-MM
-
+    const inspectionUntil = inspectionUntilEl?.value || ""; // YYYY-MM (UI) – wird unten ebenfalls normalisiert
+  
     // Erstzulassung aus UI zusammensetzen
     const firstRegFromUI =
       (firstRegFromEl?.value) ||
       (firstRegYearEl?.value && firstRegMonthEl?.value
         ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2, "0")}`
         : "");
-
+  
     // --- Fallbacks aus URL (wenn UI leer) ---
     const priceToEff   = (!isNaN(priceTo)   && priceTo   > 0) ? priceTo   : toNum(QP.price_max);
     const mileageToEff = (!isNaN(mileageTo) && mileageTo > 0) ? mileageTo : toNum(QP.km_max);
-    const firstRegEff  = firstRegFromUI || QP.ezFrom;
-
+  
+    // EZ: FROM = UI > URL, TO = nur URL; beide robust normalisieren
+    const ezFromEff = parseYM(firstRegFromUI || QP.ezFrom || "", "01"); // nur Jahr → Januar
+    const ezToEff   = parseYM(QP.ezTo || "", "12");                     // nur Jahr → Dezember
+  
+    // Kraftstoff/Getriebe (Beliebig-Handling + Kanonisierung)
     const fuelEffRaw = (fuelTypeUI !== "beliebig")     ? fuelTypeUI     : (QP.kraftstoff || "beliebig");
     const gearEffRaw = (transmissionUI !== "beliebig") ? transmissionUI : (QP.getriebe   || "beliebig");
-
+  
     const fuelEff = canon(norm(fuelEffRaw), FUEL_MAP);
     const gearEff = canon(norm(gearEffRaw), GEAR_MAP);
-
+  
     // Marke/Modell: UI > URL
     let brandEff  = QP.marke ? norm(QP.marke) : "";
     let modelsEff = Array.isArray(QP.modell) ? QP.modell.map(norm) : [];
@@ -653,11 +675,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const selected = [...modellEl.options].filter(o => o.selected).map(o => norm(o.value));
       if (selected.length) modelsEff = selected;
     }
-
+  
     // ModellVARIANTE (UI > URL)
-    const modVarUI = (modVarEl?.value || "").trim().toLowerCase();
+    const modVarUI  = (modVarEl?.value || "").trim().toLowerCase();
     const modVarEff = modVarUI || (QP.modellausfuehrung || "").toLowerCase();
-
+  
     // --- Verbrauch (max) aus UI oder URL bestimmen ---
     const toDec = (s) => {
       const t = String(s ?? "").trim().replace(/\s+/g, "").replace(",", ".");
@@ -672,41 +694,41 @@ document.addEventListener("DOMContentLoaded", () => {
     const vMax  = Number.isFinite(uiMax) && uiMax > 0 ? uiMax
                 : Number.isFinite(qpMax) && qpMax > 0 ? qpMax
                 : NaN;
-
+  
     // --- Filtern (auf Normalform) ---
     return items.filter(i => {
       // Marke/Modell/Titel
       const iBrand = norm(i.marke);
       const iModel = norm(i.modell);
       const iTitle = norm(i.titel || "");
-
+  
       if (brandEff && iBrand !== brandEff) return false;
       if (modelsEff.length) {
         const hit = modelsEff.some(m => iModel.includes(m) || iTitle.includes(m));
         if (!hit) return false;
       }
-
+  
       // Modellvariante (Titel oder raw.modellausfuehrung)
       if (modVarEff) {
         const hay = (String(i.raw?.modellausfuehrung || "") + " " + (i.titel || "")).toLowerCase();
         if (!hay.includes(modVarEff)) return false;
       }
-
+  
       // Preis
       const preis = toNum(i.preis);
       if (!isNaN(priceFrom) && priceFrom > 0 && !(preis >= priceFrom)) return false;
       if (!isNaN(priceToEff) && priceToEff > 0 && !(preis <= priceToEff)) return false;
-
+  
       // Kilometer
       const km = toNum(i.kilometer);
       if (!isNaN(mileageFrom) && mileageFrom > 0 && !(km >= mileageFrom)) return false;
       if (!isNaN(mileageToEff) && mileageToEff > 0 && !(km <= mileageToEff)) return false;
-
+  
       // Leistung (PS)
       const ps = toNum(i.leistung);
       if (!isNaN(powerFrom) && powerFrom > 0 && !(ps >= powerFrom)) return false;
       if (!isNaN(powerTo)   && powerTo   > 0 && !(ps <= powerTo))   return false;
-
+  
       // Kraftstoff/Getriebe (kanonisiert)
       if (fuelEff !== "beliebig") {
         const ft = canon(norm(i.kraftstoff || ""), FUEL_MAP);
@@ -716,7 +738,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const tr = canon(norm(i.getriebe || ""), GEAR_MAP);
         if (tr !== gearEff) return false;
       }
-
+  
       // Unfallfrei (nur UI; heuristisch)
       if (accidentFree) {
         const flag = i.raw?.unfallfrei === true ||
@@ -724,25 +746,31 @@ document.addEventListener("DOMContentLoaded", () => {
            i.raw.verkauf_ausstattung.some(a => norm(a).includes("unfall")));
         if (!flag) return false;
       }
-
-      // HU bis
+  
+      // HU bis (als Mindestdatum) – robust vergleichen
       if (inspectionUntil) {
-        const hu = String(i.raw?.hu || i.raw?.verkauf_hu || "");
-        if (hu && hu.length >= 7 && hu < inspectionUntil) return false;
+        const huReq  = parseYM(inspectionUntil, "12"); // falls nur Jahr
+        if (huReq) {
+          const huItem = parseYM(i.raw?.hu || i.raw?.verkauf_hu || "", "01");
+          if (huItem && huItem < huReq) return false;
+        }
       }
-
-      // Erstzulassung ab
-      if (firstRegEff) {
-        const ez = String(i.erstzulassung || "");
-        if (ez && ez.length >= 7 && ez < firstRegEff) return false;
+  
+      // Erstzulassung: FROM & TO – robust vergleichen
+      if (ezFromEff || ezToEff) {
+        const ezItem = parseYM(i.erstzulassung || i.raw?.erstzulassung || "", "01");
+        if (ezItem) {
+          if (ezFromEff && ezItem < ezFromEff) return false;
+          if (ezToEff   && ezItem > ezToEff)   return false;
+        }
       }
-
+  
       // Ort (Textmatch; echter Radius später via Geocoding)
       if (QP.ort) {
         const standort = norm(i.standort || "");
         if (!standort.includes(norm(QP.ort))) return false;
       }
-
+  
       // Verbrauch (kombiniert) max – nur filtern, wenn wir eine Schwelle haben
       if (Number.isFinite(vMax) && vMax > 0) {
         const vNum = parseVerbrauchNum(
@@ -753,7 +781,7 @@ document.addEventListener("DOMContentLoaded", () => {
         );
         if (Number.isFinite(vNum) && vNum > vMax) return false;
       }
-
+  
       // Zusatz-Flags
       if (QP.partikelfilter) {
         const pfRaw = i.raw?.verkauf_partikelfilter ?? i.raw?.partikelfilter ?? "";
@@ -766,7 +794,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         if (!hasPF) return false;
       }
-
+  
       if (QP.scheckheft) {
         let hasSH = isTruthyRaw(i.raw?.scheckheft);
         if (!hasSH) {
@@ -777,7 +805,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         if (!hasSH) return false;
       }
-
+  
       if (QP.fahrtauglich) {
         let ok = isTruthyRaw(i.raw?.fahrtauglich ?? i.raw?.fahrbereit);
         if (!ok) {
@@ -788,10 +816,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         if (!ok) return false;
       }
-
+  
       return true;
     });
   }
+  
 
   // ===== Sortierung (optional, clientseitig) =====
   function sortItems(items) {
@@ -1236,7 +1265,6 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
-
 // ---- Aktive Filter (Chips) ----
 function renderActiveFilters() {
   const bar = document.getElementById('activeFilterBar');
@@ -1252,10 +1280,28 @@ function renderActiveFilters() {
   const fuelEl         = document.getElementById("fuelType") || document.getElementById("fuel");
   const gearEl         = document.getElementById("transmission") || document.getElementById("gear");
   const firstRegFromEl = document.getElementById("firstRegFrom");
+  const firstRegMonthEl= document.getElementById("first-registration-month");
+  const firstRegYearEl = document.getElementById("first-registration-year");
   const accidentFreeEl = document.getElementById("accidentFree");
   const inspectionEl   = document.getElementById("inspectionUntil");
 
-  // 🔄 Immer FRISCHE URL-Parameter lesen (nicht das initiale QP verwenden!)
+  // 🔧 Datums-Helper (wie in applyClientFilters)
+  const pad2 = (m) => String(m).padStart(2, "0");
+  function parseYM(val, fallbackMonthIfYearOnly = null) {
+    if (!val) return "";
+    const s = String(val).trim();
+    let m = s.match(/^(\d{4})[-/.](\d{1,2})$/);           // YYYY-M(M)
+    if (m) return `${m[1]}-${pad2(m[2])}`;
+    m = s.match(/^(\d{1,2})[-/.](\d{4})$/);               // M(M)/YYYY
+    if (m) return `${m[2]}-${pad2(m[1])}`;
+    m = s.match(/^(\d{4})$/);                             // YYYY
+    if (m) return fallbackMonthIfYearOnly ? `${m[1]}-${pad2(fallbackMonthIfYearOnly)}` : "";
+    if (/^\d{4}-\d{2}$/.test(s)) return s;               // already YYYY-MM
+    return "";
+  }
+  const fmtYM = (s) => /^\d{4}-\d{2}$/.test(s) ? `${s.slice(5,7)}/${s.slice(0,4)}` : s;
+
+  // 🔄 Immer FRISCHE URL-Parameter lesen
   const sp = new URLSearchParams(location.search);
   const arr     = v => (v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : []);
   const truthy  = v => /^(1|true|ja|mit|yes)$/i.test(String(v || "").trim());
@@ -1264,7 +1310,7 @@ function renderActiveFilters() {
     modell: arr(sp.get("modell")),
     modellausfuehrung: sp.get("modellausfuehrung") || "",
     fahrzeugtyp: arr(sp.get("fahrzeugtyp")),
-    tueren: arr(sp.get("tueren")),             // ← NEU
+    tueren: arr(sp.get("tueren")),                    // ← NEU
     ezFrom: sp.get("ezFrom") || "",
     ezTo:   sp.get("ezTo")   || "",
     km_max: sp.get("km_max") || "",
@@ -1290,10 +1336,20 @@ function renderActiveFilters() {
   const psMax    = toNum(powerToEl?.value   ?? "");
   const fuelVal  = (fuelEl?.value || "").toLowerCase();
   const gearVal  = (gearEl?.value || "").toLowerCase();
-  const ezFrom   = (firstRegFromEl?.value) || qp.ezFrom || "";
-  const ezTo     = qp.ezTo || ""; // nur aus URL
+
+  // EZ: FROM = UI > URL, TO = nur URL (beide normalisieren)
+  const ezFromUIraw =
+    (firstRegFromEl?.value) ||
+    (firstRegYearEl?.value && firstRegMonthEl?.value
+      ? `${firstRegYearEl.value}-${pad2(firstRegMonthEl.value)}`
+      : "");
+  const ezFromEff = parseYM(ezFromUIraw || qp.ezFrom, "01"); // nur Jahr → Januar
+  const ezToEff   = parseYM(qp.ezTo, "12");                  // nur Jahr → Dezember
+
+  // HU bis (normalisieren)
+  const huEff = parseYM(inspectionEl?.value || "", "12");
+
   const accFree  = !!accidentFreeEl?.checked;
-  const huBis    = inspectionEl?.value || ""; // YYYY-MM
 
   // Weitere mögliche URL-Filter (ohne UI auf dieser Seite)
   const brand   = qp.marke || "";
@@ -1301,14 +1357,13 @@ function renderActiveFilters() {
   const ort     = qp.ort || "";
   const umkreis = qp.umkreis || "";
   const vMax    = qp.verbrauch_max || "";
-  const pf      = qp.partikelfilter; // boolean
-  const sh      = qp.scheckheft;     // boolean
-  const ft      = qp.fahrtauglich;   // boolean
+  const pf      = qp.partikelfilter;
+  const sh      = qp.scheckheft;
+  const ft      = qp.fahrtauglich;
 
   // Hilfsformatierer
   const eur   = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")} €`;
   const int   = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")}`;
-  const month = s => (s && s.length >= 7 ? s : "");
 
   // Chips zusammenstellen
   const chips = [];
@@ -1326,10 +1381,10 @@ function renderActiveFilters() {
   if (gearVal && !["beliebig","any","alle","all","-"].includes(gearVal))
     chips.push({key:"gear", label:`Getriebe: ${gearEl?.value}`});
 
-  if (month(ezFrom))                        chips.push({key:"ezFrom",    label:`EZ ab ${ezFrom}`});
-  if (month(ezTo))                          chips.push({key:"ezTo",      label:`EZ bis ${ezTo}`});
+  if (ezFromEff)                            chips.push({key:"ezFrom",    label:`EZ ab ${fmtYM(ezFromEff)}`});
+  if (ezToEff)                              chips.push({key:"ezTo",      label:`EZ bis ${fmtYM(ezToEff)}`});
   if (accFree)                              chips.push({key:"accidentFree", label:`Unfallfrei`});
-  if (month(huBis))                         chips.push({key:"hu",        label:`HU bis ${huBis}`});
+  if (huEff)                                chips.push({key:"hu",        label:`HU bis ${fmtYM(huEff)}`});
 
   if (brand)                                chips.push({key:"marke",     label:`Marke: ${brand}`});
   if (models && models.length) {
@@ -1347,7 +1402,7 @@ function renderActiveFilters() {
     );
   }
 
-  // ← NEU: Türen (mehrfach)
+  // Türen (mehrfach)
   if (qp.tueren && qp.tueren.length) {
     qp.tueren.forEach(n =>
       chips.push({ key:"tueren", value:n, label:`Türen: ${n}` })
@@ -1388,6 +1443,7 @@ function renderActiveFilters() {
   // Clear-All
   bar.querySelector(".clear-all")?.addEventListener("click", () => clearAllFilters());
 }
+
 
 function removeFilterChip(key, val = "") {
   const params = new URLSearchParams(window.location.search);

@@ -709,7 +709,6 @@ document.addEventListener("DOMContentLoaded", () => {
      Button "Fahrzeuge anzeigen" → suche.html
      ========================= */
   function _numFallback(v){ const n=parseInt(String(v||"").trim(),10); return Number.isFinite(n)?n:null; }
-
   function buildAdvancedQuery() {
     const qs = new URLSearchParams();
     const numLocal = (typeof window.num === "function") ? window.num : _numFallback;
@@ -739,11 +738,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const tueren = document.getElementById("tueren")?.value?.trim();
     if (tueren) qs.set("tueren", tueren);
   
-    // Erstzulassung
-    const ezFrom = document.getElementById("ez-von")?.value || "";
-    const ezTo   = document.getElementById("ez-bis")?.value || "";
-    if (/^\d{4}-\d{2}$/.test(ezFrom)) qs.set("ezFrom", ezFrom);
-    if (/^\d{4}-\d{2}$/.test(ezTo))   qs.set("ezTo",   ezTo);
+    // Erstzulassung (robust: Hidden ODER Year/Month-Selects; fehlenden Monat auffüllen)
+    function readEz(id, fallbackMonth) {
+      const hiddenVal = document.getElementById(id)?.value || "";
+      if (/^\d{4}-\d{2}$/.test(hiddenVal)) return hiddenVal;
+  
+      const y = document.getElementById(`${id}-year`)?.value || "";
+      const m = document.getElementById(`${id}-month`)?.value || fallbackMonth || "";
+      if (y && m) return `${y}-${String(m).padStart(2, "0")}`;
+      return "";
+    }
+    const ezFrom = readEz("ez-von", "01"); // nur Jahr gewählt -> Januar
+    const ezTo   = readEz("ez-bis", "12"); // nur Jahr gewählt -> Dezember
+    if (ezFrom) qs.set("ezFrom", ezFrom);
+    if (ezTo)   qs.set("ezTo",   ezTo);
   
     // Kilometer
     const kmMin = numLocal(document.getElementById("km-von")?.value);
@@ -868,11 +876,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const plakette = document.getElementById("plakette")?.value;
     if (plakette && plakette !== "Beliebig") qs.set("plakette", plakette);
   
-    // ✅ Partikelfilter-Flag so, wie das Backend es erwartet
+    // Partikelfilter
     const pf = document.getElementById("partikelfilter");
     if (pf && pf.checked) qs.set("partikelfilter", "1");
   
-    // ✅ Sonstige Merkmale an die API übergeben
+    // Sonstige Merkmale
     (function () {
       const m = [];
       if (document.getElementById('scheckheft')?.checked)   m.push('Scheckheftgepflegt');
