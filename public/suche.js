@@ -1,5 +1,6 @@
-// suche.js — TEIL 1 (korrigiert bis inkl. initMediaSlider)
+// suche.js — TEIL 1
 document.documentElement.classList.remove("no-js");
+
 const QP = (() => {
   const sp = new URLSearchParams(location.search);
   const arr = v => (v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : []);
@@ -10,11 +11,13 @@ const QP = (() => {
     modell: arr(sp.get("modell")),
     modellausfuehrung: sp.get("modellausfuehrung") || "",
     fahrzeugtyp: arr(sp.get("fahrzeugtyp")),
-    tueren: arr(sp.get("tueren")),           // ← HINZUGEFÜGT
+    tueren: arr(sp.get("tueren")),                 // bleibt
     ezFrom: sp.get("ezFrom") || "",
     ezTo:   sp.get("ezTo")   || "",
     km_max: sp.get("km_max") || "",
     price_max: sp.get("price_max") || "",
+    ps_min: sp.get("ps_min") || "",                // 👈 NEU
+    ps_max: sp.get("ps_max") || "",                // 👈 NEU
     getriebe: (sp.get("getriebe") || "").toLowerCase(),
     kraftstoff: (sp.get("kraftstoff") || "").toLowerCase(),
     ort: sp.get("ort") || "",
@@ -1285,23 +1288,24 @@ function renderActiveFilters() {
   const accidentFreeEl = document.getElementById("accidentFree");
   const inspectionEl   = document.getElementById("inspectionUntil");
 
-  // 🔧 Datums-Helper (wie in applyClientFilters)
+  // Helpers
   const pad2 = (m) => String(m).padStart(2, "0");
+  const toInt = (v) => {
+    const n = parseInt(String(v ?? "").replace(/\./g,"").replace(",", "."), 10);
+    return Number.isFinite(n) ? n : NaN;
+  };
   function parseYM(val, fallbackMonthIfYearOnly = null) {
     if (!val) return "";
     const s = String(val).trim();
-    let m = s.match(/^(\d{4})[-/.](\d{1,2})$/);           // YYYY-M(M)
-    if (m) return `${m[1]}-${pad2(m[2])}`;
-    m = s.match(/^(\d{1,2})[-/.](\d{4})$/);               // M(M)/YYYY
-    if (m) return `${m[2]}-${pad2(m[1])}`;
-    m = s.match(/^(\d{4})$/);                             // YYYY
-    if (m) return fallbackMonthIfYearOnly ? `${m[1]}-${pad2(fallbackMonthIfYearOnly)}` : "";
-    if (/^\d{4}-\d{2}$/.test(s)) return s;               // already YYYY-MM
+    let m = s.match(/^(\d{4})[-/.](\d{1,2})$/); if (m) return `${m[1]}-${pad2(m[2])}`;
+    m = s.match(/^(\d{1,2})[-/.](\d{4})$/);     if (m) return `${m[2]}-${pad2(m[1])}`;
+    m = s.match(/^(\d{4})$/);                   if (m) return fallbackMonthIfYearOnly ? `${m[1]}-${pad2(fallbackMonthIfYearOnly)}` : "";
+    if (/^\d{4}-\d{2}$/.test(s)) return s;
     return "";
   }
   const fmtYM = (s) => /^\d{4}-\d{2}$/.test(s) ? `${s.slice(5,7)}/${s.slice(0,4)}` : s;
 
-  // 🔄 Immer FRISCHE URL-Parameter lesen
+  // 🔄 immer FRISCHE URL-Parameter
   const sp = new URLSearchParams(location.search);
   const arr     = v => (v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : []);
   const truthy  = v => /^(1|true|ja|mit|yes)$/i.test(String(v || "").trim());
@@ -1310,11 +1314,13 @@ function renderActiveFilters() {
     modell: arr(sp.get("modell")),
     modellausfuehrung: sp.get("modellausfuehrung") || "",
     fahrzeugtyp: arr(sp.get("fahrzeugtyp")),
-    tueren: arr(sp.get("tueren")),                    // ← NEU
+    tueren: arr(sp.get("tueren")),
     ezFrom: sp.get("ezFrom") || "",
     ezTo:   sp.get("ezTo")   || "",
     km_max: sp.get("km_max") || "",
     price_max: sp.get("price_max") || "",
+    ps_min: sp.get("ps_min") || "",                // 👈 NEU
+    ps_max: sp.get("ps_max") || "",                // 👈 NEU
     getriebe: (sp.get("getriebe") || "").toLowerCase(),
     kraftstoff: (sp.get("kraftstoff") || "").toLowerCase(),
     ort: sp.get("ort") || "",
@@ -1325,33 +1331,31 @@ function renderActiveFilters() {
     fahrtauglich:   truthy(sp.get("fahrtauglich")),
   };
 
-  // Effektive Werte wie in applyClientFilters (UI > URL-Fallback)
-  const priceMin = toNum(priceFromEl?.value ?? "");
-  const priceMax = !isNaN(toNum(priceToEl?.value ?? "")) && toNum(priceToEl?.value ?? "") > 0
-                   ? toNum(priceToEl.value) : toNum(qp.price_max);
-  const kmMin    = toNum(mileageFromEl?.value ?? "");
-  const kmMax    = !isNaN(toNum(mileageToEl?.value ?? "")) && toNum(mileageToEl?.value ?? "") > 0
-                   ? toNum(mileageToEl.value) : toNum(qp.km_max);
-  const psMin    = toNum(powerFromEl?.value ?? "");
-  const psMax    = toNum(powerToEl?.value   ?? "");
+  // Effektive Werte (UI > URL-Fallback)
+  const priceMin = toInt(priceFromEl?.value ?? "");
+  const priceMax = !isNaN(toInt(priceToEl?.value ?? "")) && toInt(priceToEl?.value ?? "") > 0
+                   ? toInt(priceToEl.value) : toInt(qp.price_max);
+  const kmMin    = toInt(mileageFromEl?.value ?? "");
+  const kmMax    = !isNaN(toInt(mileageToEl?.value ?? "")) && toInt(mileageToEl?.value ?? "") > 0
+                   ? toInt(mileageToEl.value) : toInt(qp.km_max);
+  const psMinEff = !isNaN(toInt(powerFromEl?.value ?? "")) && toInt(powerFromEl?.value ?? "") > 0
+                   ? toInt(powerFromEl.value) : toInt(qp.ps_min);       // 👈 NEU
+  const psMaxEff = !isNaN(toInt(powerToEl?.value   ?? "")) && toInt(powerToEl?.value   ?? "") > 0
+                   ? toInt(powerToEl.value)   : toInt(qp.ps_max);       // 👈 NEU
+
   const fuelVal  = (fuelEl?.value || "").toLowerCase();
   const gearVal  = (gearEl?.value || "").toLowerCase();
 
-  // EZ: FROM = UI > URL, TO = nur URL (beide normalisieren)
   const ezFromUIraw =
     (firstRegFromEl?.value) ||
-    (firstRegYearEl?.value && firstRegMonthEl?.value
-      ? `${firstRegYearEl.value}-${pad2(firstRegMonthEl.value)}`
-      : "");
-  const ezFromEff = parseYM(ezFromUIraw || qp.ezFrom, "01"); // nur Jahr → Januar
-  const ezToEff   = parseYM(qp.ezTo, "12");                  // nur Jahr → Dezember
-
-  // HU bis (normalisieren)
-  const huEff = parseYM(inspectionEl?.value || "", "12");
+    (firstRegYearEl?.value && firstRegMonthEl?.value ? `${firstRegYearEl.value}-${pad2(firstRegMonthEl.value)}` : "");
+  const ezFromEff = parseYM(ezFromUIraw || qp.ezFrom, "01");
+  const ezToEff   = parseYM(qp.ezTo, "12");
+  const huEff     = parseYM(inspectionEl?.value || "", "12");
 
   const accFree  = !!accidentFreeEl?.checked;
 
-  // Weitere mögliche URL-Filter (ohne UI auf dieser Seite)
+  // weitere URL-Filter
   const brand   = qp.marke || "";
   const models  = Array.isArray(qp.modell) ? qp.modell.slice() : [];
   const ort     = qp.ort || "";
@@ -1361,66 +1365,50 @@ function renderActiveFilters() {
   const sh      = qp.scheckheft;
   const ft      = qp.fahrtauglich;
 
-  // Hilfsformatierer
-  const eur   = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")} €`;
-  const int   = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")}`;
+  // Formatierer
+  const eur = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")} €`;
+  const int = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")}`;
 
-  // Chips zusammenstellen
+  // Chips
   const chips = [];
+  if (!isNaN(priceMin) && priceMin > 0) chips.push({key:"price_min", label:`Preis ab ${eur(priceMin)}`});
+  if (!isNaN(priceMax) && priceMax > 0) chips.push({key:"price_max", label:`Preis bis ${eur(priceMax)}`});
+  if (!isNaN(kmMin)    && kmMin  > 0)   chips.push({key:"km_min",    label:`KM ab ${int(kmMin)}`});
+  if (!isNaN(kmMax)    && kmMax  > 0)   chips.push({key:"km_max",    label:`KM bis ${int(kmMax)}`});
 
-  if (!isNaN(priceMin) && priceMin > 0)     chips.push({key:"price_min", label:`Preis ab ${eur(priceMin)}`});
-  if (!isNaN(priceMax) && priceMax > 0)     chips.push({key:"price_max", label:`Preis bis ${eur(priceMax)}`});
-  if (!isNaN(kmMin) && kmMin > 0)           chips.push({key:"km_min",    label:`KM ab ${int(kmMin)}`});
-  if (!isNaN(kmMax) && kmMax > 0)           chips.push({key:"km_max",    label:`KM bis ${int(kmMax)}`});
-  if (!isNaN(psMin) && psMin > 0)           chips.push({key:"ps_min",    label:`PS ab ${int(psMin)}`});
-  if (!isNaN(psMax) && psMax > 0)           chips.push({key:"ps_max",    label:`PS bis ${int(psMax)}`});
+  // 👇 NEU: Leistung (mit URL-Fallback)
+  if (!isNaN(psMinEff) && psMinEff > 0) chips.push({key:"ps_min", label:`PS ab ${int(psMinEff)}`});
+  if (!isNaN(psMaxEff) && psMaxEff > 0) chips.push({key:"ps_max", label:`PS bis ${int(psMaxEff)}`});
 
   if (fuelVal && !["beliebig","any","alle","all","-"].includes(fuelVal))
     chips.push({key:"fuel", label:`Kraftstoff: ${fuelEl?.value}`});
-
   if (gearVal && !["beliebig","any","alle","all","-"].includes(gearVal))
     chips.push({key:"gear", label:`Getriebe: ${gearEl?.value}`});
 
-  if (ezFromEff)                            chips.push({key:"ezFrom",    label:`EZ ab ${fmtYM(ezFromEff)}`});
-  if (ezToEff)                              chips.push({key:"ezTo",      label:`EZ bis ${fmtYM(ezToEff)}`});
-  if (accFree)                              chips.push({key:"accidentFree", label:`Unfallfrei`});
-  if (huEff)                                chips.push({key:"hu",        label:`HU bis ${fmtYM(huEff)}`});
+  if (ezFromEff) chips.push({key:"ezFrom", label:`EZ ab ${fmtYM(ezFromEff)}`});
+  if (ezToEff)   chips.push({key:"ezTo",   label:`EZ bis ${fmtYM(ezToEff)}`});
+  if (accFree)   chips.push({key:"accidentFree", label:`Unfallfrei`});
+  if (huEff)     chips.push({key:"hu", label:`HU bis ${fmtYM(huEff)}`});
 
-  if (brand)                                chips.push({key:"marke",     label:`Marke: ${brand}`});
-  if (models && models.length) {
-    models.forEach(m => chips.push({key:"modell", value:m, label:`Modell: ${m}`}));
-  }
+  if (brand) chips.push({key:"marke", label:`Marke: ${brand}`});
+  if (models && models.length) models.forEach(m => chips.push({key:"modell", value:m, label:`Modell: ${m}`}));
 
-  // Modellvariante
-  if (qp.modellausfuehrung)
-    chips.push({key:"modellausfuehrung", label:`Modellvariante: ${qp.modellausfuehrung}`});
+  if (qp.modellausfuehrung) chips.push({key:"modellausfuehrung", label:`Modellvariante: ${qp.modellausfuehrung}`});
 
-  // Fahrzeugtyp (mehrfach)
-  if (qp.fahrzeugtyp && qp.fahrzeugtyp.length) {
-    qp.fahrzeugtyp.forEach(t =>
-      chips.push({ key:"fahrzeugtyp", value:t, label:`Fahrzeugtyp: ${t}` })
-    );
-  }
+  if (qp.fahrzeugtyp?.length) qp.fahrzeugtyp.forEach(t => chips.push({key:"fahrzeugtyp", value:t, label:`Fahrzeugtyp: ${t}`}));
+  if (qp.tueren?.length)      qp.tueren.forEach(n => chips.push({key:"tueren", value:n, label:`Türen: ${n}`}));
 
-  // Türen (mehrfach)
-  if (qp.tueren && qp.tueren.length) {
-    qp.tueren.forEach(n =>
-      chips.push({ key:"tueren", value:n, label:`Türen: ${n}` })
-    );
-  }
+  if (ort)     chips.push({key:"ort",     label:`Ort: ${ort}`});
+  if (umkreis) chips.push({key:"umkreis", label:`Umkreis: ${umkreis} km`});
+  if (vMax)    chips.push({key:"verbrauch_max", label:`Verbrauch ≤ ${String(vMax).replace('.',',')} l/100km`});
 
-  if (ort)                                  chips.push({key:"ort",       label:`Ort: ${ort}`});
-  if (umkreis)                              chips.push({key:"umkreis",   label:`Umkreis: ${umkreis} km`});
-  if (vMax)                                 chips.push({key:"verbrauch_max", label:`Verbrauch ≤ ${String(vMax).replace('.',',')} l/100km`});
-
-  if (pf)                                   chips.push({key:"partikelfilter", label:`Partikelfilter`});
-  if (sh)                                   chips.push({key:"scheckheft",     label:`Scheckheftgepflegt`});
-  if (ft)                                   chips.push({key:"fahrtauglich",   label:`Fahrtauglich`});
+  if (pf) chips.push({key:"partikelfilter", label:`Partikelfilter`});
+  if (sh) chips.push({key:"scheckheft", label:`Scheckheftgepflegt`});
+  if (ft) chips.push({key:"fahrtauglich", label:`Fahrtauglich`});
 
   // Render
   if (!chips.length) { bar.innerHTML = ""; return; }
-
-  bar.innerHTML = chips.map((c) => `
+  bar.innerHTML = chips.map(c => `
     <div class="filter-chip" data-key="${c.key}" ${c.value ? `data-value="${c.value}"` : ""}>
       <span class="chip-label">${c.label}</span>
       <button class="chip-remove" type="button" aria-label="Filter entfernen" title="Filter entfernen">
@@ -1429,7 +1417,7 @@ function renderActiveFilters() {
     </div>
   `).join("") + `<button class="clear-all" type="button">Alle löschen</button>`;
 
-  // Remove-Handler
+  // Remove & Clear
   bar.querySelectorAll(".filter-chip .chip-remove").forEach(btn => {
     btn.addEventListener("click", (e) => {
       const chip = e.currentTarget.closest(".filter-chip");
@@ -1439,10 +1427,9 @@ function renderActiveFilters() {
       removeFilterChip(key, val);
     });
   });
-
-  // Clear-All
   bar.querySelector(".clear-all")?.addEventListener("click", () => clearAllFilters());
 }
+
 
 
 function removeFilterChip(key, val = "") {
