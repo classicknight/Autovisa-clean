@@ -585,8 +585,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       raw
     };
-  }
-  function applyClientFilters(items) {
+  }function applyClientFilters(items) {
     // Sidebar-/Form-Felder (nur verwenden, wenn vorhanden)
     const priceFromEl       = document.getElementById("priceFrom");
     const priceToEl         = document.getElementById("priceTo");
@@ -615,21 +614,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const selV              = document.getElementById("verbrauch-select");
     const inpV              = document.getElementById("verbrauch");
   
-    // --- Helper: YYYY-MM normalisieren (akzeptiert "YYYY", "YYYY-M", "M/YYYY", "YYYY/MM" etc.) ---
+    // --- Helper: YYYY-MM normalisieren ---
     const pad2 = (m) => String(m).padStart(2, "0");
     function parseYM(val, fallbackMonthIfYearOnly = null) {
       if (!val) return "";
       const s = String(val).trim();
-      // 1) Genau YYYY-MM / YYYY-M
       let m = s.match(/^(\d{4})[-/.](\d{1,2})$/);
       if (m) return `${m[1]}-${pad2(m[2])}`;
-      // 2) MM/YYYY oder M/YYYY
       m = s.match(/^(\d{1,2})[-/.](\d{4})$/);
       if (m) return `${m[2]}-${pad2(m[1])}`;
-      // 3) Nur YYYY
       m = s.match(/^(\d{4})$/);
       if (m) return fallbackMonthIfYearOnly ? `${m[1]}-${pad2(fallbackMonthIfYearOnly)}` : "";
-      // 4) Bereits korrekt?
       if (/^\d{4}-\d{2}$/.test(s)) return s;
       return "";
     }
@@ -646,7 +641,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const transmissionUI = (transmissionEl?.value ? String(transmissionEl.value) : "Beliebig").toLowerCase();
   
     const accidentFree    = !!accidentFreeEl?.checked;
-    const inspectionUntil = inspectionUntilEl?.value || ""; // YYYY-MM (UI) – wird unten ebenfalls normalisiert
+    const inspectionUntil = inspectionUntilEl?.value || ""; // YYYY-MM (UI)
   
     // Erstzulassung aus UI zusammensetzen
     const firstRegFromUI =
@@ -774,15 +769,36 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!standort.includes(norm(QP.ort))) return false;
       }
   
-      // Verbrauch (kombiniert) max – nur filtern, wenn wir eine Schwelle haben
+      // Verbrauch (kombiniert) max – STRIKT:
+      // - ohne erkennbaren l/100km-Wert -> raus
+      // - Elektro (kWh/100 km) -> raus (andere Einheit)
       if (Number.isFinite(vMax) && vMax > 0) {
-        const vNum = parseVerbrauchNum(
-          i.verbrauch_kombiniert ||
-          i.raw?.verkauf_verbrauch_kombiniert ||
-          i.raw?.verbrauch_kombiniert ||
-          i.raw?.verbrauch
-        );
-        if (Number.isFinite(vNum) && vNum > vMax) return false;
+        const fuelRaw =
+          i.kraftstoff ||
+          i.raw?.verkauf_kraftstoff ||
+          i.raw?.kraftstoff ||
+          "";
+        const isElectric = /elektro|electric|ev/i.test(String(fuelRaw));
+  
+        const candidates = [
+          i.verbrauch_kombiniert,
+          i.raw?.verkauf_verbrauch_kombiniert,
+          i.raw?.verbrauch_kombiniert,
+          i.raw?.verbrauch,
+          i.raw?.wltp_kombiniert,
+          i.raw?.wltp?.kombiniert,
+          i.raw?.nefz_kombiniert,
+          i.raw?.nefz?.kombiniert
+        ].filter(Boolean);
+  
+        let vNum = NaN;
+        for (const c of candidates) {
+          const n = parseVerbrauchNum(c);
+          if (Number.isFinite(n)) { vNum = n; break; }
+        }
+  
+        if (!Number.isFinite(vNum) || isElectric) return false;
+        if (vNum > vMax) return false;
       }
   
       // Zusatz-Flags
@@ -823,6 +839,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return true;
     });
   }
+  
   
 
   // ===== Sortierung (optional, clientseitig) =====
@@ -1143,87 +1160,94 @@ document.addEventListener("DOMContentLoaded", () => {
     if (v === "price-desc") return "preis_desc";
     return "neueste"; // "date-desc" und alles andere
   }
-
   function updateUrlFromUiAndReload() {
     const params = new URLSearchParams(window.location.search);
-
-    // Marke/Modell
+  
+    // Marke/Modell/Modellvariante
     const markeEl  = document.getElementById("marke");
     const modellEl = document.getElementById("modell");
-    const modVarEl = document.getElementById("modellausfuehrung"); // ← NEU
-
+    const modVarEl = document.getElementById("modellausfuehrung");
+  
     setOrDelete(params, "marke", markeEl?.value || "");
     if (modellEl && modellEl.options) {
-      const selected = [...modellEl.options].filter(o => o.selected).map(o => o.value).filter(Boolean);
+      const selected = [...modellEl.options]
+        .filter(o => o.selected)
+        .map(o => o.value)
+        .filter(Boolean);
       setOrDelete(params, "modell", selected.length ? selected.join(",") : "");
     }
     setOrDelete(params, "modellausfuehrung", modVarEl?.value || "");
-
-    // EZ (type="month" oder Jahr/Monat)
+  
+    // EZ (type="month" ODER Jahr/Monat) – FROM
     const firstRegFromEl  = document.getElementById("firstRegFrom");
     const firstRegMonthEl = document.getElementById("first-registration-month");
     const firstRegYearEl  = document.getElementById("first-registration-year");
-    const ez =
+    const ezFrom =
       (firstRegFromEl?.value) ||
       (firstRegYearEl?.value && firstRegMonthEl?.value
-        ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2,"0")}`
+        ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2, "0")}`
         : "");
-    setOrDelete(params, "ezFrom", ez);
-
-    // Preis/KM bis (nur echte Zahlen > 0 setzen)
+    setOrDelete(params, "ezFrom", ezFrom);
+  
+    // EZ – TO (nur setzen, wenn UI existiert)
+    const firstRegToEl      = document.getElementById("firstRegTo");
+    const firstRegMonthToEl = document.getElementById("first-registration-month-to");
+    const firstRegYearToEl  = document.getElementById("first-registration-year-to");
+    const ezTo =
+      (firstRegToEl?.value) ||
+      (firstRegYearToEl?.value && firstRegMonthToEl?.value
+        ? `${firstRegYearToEl.value}-${String(firstRegMonthToEl.value).padStart(2, "0")}`
+        : "");
+    setOrDelete(params, "ezTo", ezTo);
+  
+    // Preis/KM (max) – nur echte Zahlen > 0
     const priceToEl   = document.getElementById("priceTo");
     const mileageToEl = document.getElementById("mileageTo");
-
     const pMax = parseInt(priceToEl?.value || "", 10);
     if (!Number.isNaN(pMax) && pMax > 0) params.set("price_max", String(pMax));
     else params.delete("price_max");
-
     const kmMax = parseInt(mileageToEl?.value || "", 10);
     if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));
     else params.delete("km_max");
-
+  
     // Kraftstoff/Getriebe (Beliebig/leer NICHT senden)
     const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
     const gearEl = document.getElementById("transmission") || document.getElementById("gear");
-
     const fuelVal = (fuelEl?.value || "").toLowerCase();
     if (fuelVal && !["beliebig","any","alle","all","-"].includes(fuelVal)) params.set("kraftstoff", fuelVal);
     else params.delete("kraftstoff");
-
     const gearVal = (gearEl?.value || "").toLowerCase();
     if (gearVal && !["beliebig","any","alle","all","-"].includes(gearVal)) params.set("getriebe", gearVal);
     else params.delete("getriebe");
-
+  
     // Verbrauch (max) – Select/Custom -> URL
     (function () {
-      const sel = document.getElementById('verbrauch-select');
-      const inp = document.getElementById('verbrauch');
+      const sel = document.getElementById("verbrauch-select");
+      const inp = document.getElementById("verbrauch");
       const toDec = (s) => {
-        const t = String(s ?? '').trim().replace(/\s+/g, '').replace(',', '.');
+        const t = String(s ?? "").trim().replace(/\s+/g, "").replace(",", ".");
         if (!t) return null;
         const n = parseFloat(t);
         return Number.isFinite(n) ? n : null;
       };
-      let raw = '';
+      let raw = "";
       if (sel) {
-        if (sel.value === '') raw = '';               // Beliebig
-        else if (sel.value === 'custom') raw = inp?.value || '';
-        else raw = sel.value;                         // z. B. "6.0"
+        if (sel.value === "") raw = "";                // Beliebig
+        else if (sel.value === "custom") raw = inp?.value || "";
+        else raw = sel.value;                          // z. B. "6.0"
       } else {
-        raw = inp?.value || '';
+        raw = inp?.value || "";
       }
       const n = toDec(raw);
-      setOrDelete(params, 'verbrauch_max', (n != null && n > 0) ? String(n) : '');
+      setOrDelete(params, "verbrauch_max", (n != null && n > 0) ? String(n) : "");
     })();
-
-    // Ort / Umkreis (Startseiten-Variante: distance-select)
-    const locEl       = document.getElementById("location");
-    const distSel     = document.getElementById("distance-select");
-    const distCustom  = document.getElementById("distance-custom");
-
+  
+    // ORT / UMKREIS
+    const locEl      = document.getElementById("location");
+    const distSel    = document.getElementById("distance-select");
+    const distCustom = document.getElementById("distance-custom");
     const locVal = (locEl?.value || "").trim();
     setOrDelete(params, "ort", locVal);
-
     if (distSel && !distSel.disabled) {
       const dRaw = distSel.value === "custom" ? (distCustom?.value || "") : distSel.value;
       const d = parseInt(dRaw, 10);
@@ -1231,27 +1255,61 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       params.delete("umkreis");
     }
-
-    // Zusatz-Flags aus UI (Checkboxen)
+  
+    // Zusatz-Flags (Checkboxen)
     const pfEl = document.getElementById("partikelfilter");
     const shEl = document.getElementById("scheckheft");
     const ftEl = document.getElementById("fahrtauglich");
-
     setOrDelete(params, "partikelfilter", pfEl?.checked ? "mit" : "");
     setOrDelete(params, "scheckheft",     shEl?.checked ? "ja"  : "");
     setOrDelete(params, "fahrtauglich",   ftEl?.checked ? "ja"  : "");
-
+  
+    // Fahrzeugtyp (Mehrfach: SELECT multiple ODER Checkboxen)
+    (function () {
+      const typeSel = document.getElementById("fahrzeugtyp");
+      const picked = new Set();
+  
+      if (typeSel && typeSel.tagName === "SELECT") {
+        [...typeSel.options].forEach(o => { if (o.selected && o.value) picked.add(o.value.trim()); });
+      } else if (typeSel && typeSel.value) {
+        picked.add(typeSel.value.trim());
+      }
+  
+      document.querySelectorAll('input[name="fahrzeugtyp"]:checked')
+        .forEach(cb => { const v = (cb.value || "").trim(); if (v) picked.add(v); });
+  
+      setOrDelete(params, "fahrzeugtyp", picked.size ? [...picked].join(",") : "");
+    })();
+  
+    // Türen (Mehrfach: SELECT ODER Checkboxen)
+    (function () {
+      const doorSel = document.getElementById("tueren");
+      const picked = new Set();
+  
+      if (doorSel && doorSel.tagName === "SELECT") {
+        [...doorSel.options].forEach(o => { if (o.selected && o.value) picked.add(o.value.trim()); });
+      } else if (doorSel && doorSel.value) {
+        picked.add(doorSel.value.trim());
+      }
+  
+      document.querySelectorAll('input[name="tueren"]:checked')
+        .forEach(cb => { const v = (cb.value || "").trim(); if (v) picked.add(v); });
+  
+      setOrDelete(params, "tueren", picked.size ? [...picked].join(",") : "");
+    })();
+  
     // Sortierung -> Serverparam
     const sortSelectVal = sortBy?.value || "";
     if (sortSelectVal) params.set("sort", mapSortSelectToParam(sortSelectVal));
     else params.delete("sort");
-
+  
     // Bei Filteränderung auf Seite 1 springen
     params.delete("page");
-
+  
     replaceUrlParams(params);
     loadAndRender(1);
   }
+  
 
   applyFilters?.addEventListener("click", (e) => {
     e.preventDefault();
