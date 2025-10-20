@@ -585,262 +585,304 @@ document.addEventListener("DOMContentLoaded", () => {
 
       raw
     };
-  }function applyClientFilters(items) {
-    // Sidebar-/Form-Felder (nur verwenden, wenn vorhanden)
-    const priceFromEl       = document.getElementById("priceFrom");
-    const priceToEl         = document.getElementById("priceTo");
-    const mileageFromEl     = document.getElementById("mileageFrom");
-    const mileageToEl       = document.getElementById("mileageTo");
-    const powerFromEl       = document.getElementById("powerFrom");
-    const powerToEl         = document.getElementById("powerTo");
-  
-    const fuelTypeEl        = document.getElementById("fuelType") || document.getElementById("fuel");
-    const transmissionEl    = document.getElementById("transmission") || document.getElementById("gear");
-  
-    const accidentFreeEl    = document.getElementById("accidentFree");
-    const inspectionUntilEl = document.getElementById("inspectionUntil");
-  
-    // Erstzulassung UI (variante: ein <input type="month"> oder zwei Selects)
-    const firstRegFromEl    = document.getElementById("firstRegFrom");
-    const firstRegMonthEl   = document.getElementById("first-registration-month");
-    const firstRegYearEl    = document.getElementById("first-registration-year");
-  
-    // Marke/Modell
-    const markeEl           = document.getElementById("marke");
-    const modellEl          = document.getElementById("modell");
-    const modVarEl          = document.getElementById("modellausfuehrung");
-  
-    // VERBRAUCH UI-Elemente
-    const selV              = document.getElementById("verbrauch-select");
-    const inpV              = document.getElementById("verbrauch");
-  
-    // --- Helper: YYYY-MM normalisieren ---
-    const pad2 = (m) => String(m).padStart(2, "0");
-    function parseYM(val, fallbackMonthIfYearOnly = null) {
-      if (!val) return "";
-      const s = String(val).trim();
-      let m = s.match(/^(\d{4})[-/.](\d{1,2})$/);
-      if (m) return `${m[1]}-${pad2(m[2])}`;
-      m = s.match(/^(\d{1,2})[-/.](\d{4})$/);
-      if (m) return `${m[2]}-${pad2(m[1])}`;
-      m = s.match(/^(\d{4})$/);
-      if (m) return fallbackMonthIfYearOnly ? `${m[1]}-${pad2(fallbackMonthIfYearOnly)}` : "";
-      if (/^\d{4}-\d{2}$/.test(s)) return s;
-      return "";
-    }
-  
-    // --- UI lesen ---
-    const priceFrom     = toNum(priceFromEl?.value ?? "");
-    const priceTo       = toNum(priceToEl?.value   ?? "");
-    const mileageFrom   = toNum(mileageFromEl?.value ?? "");
-    const mileageTo     = toNum(mileageToEl?.value   ?? "");
-    const powerFrom     = toNum(powerFromEl?.value ?? "");
-    const powerTo       = toNum(powerToEl?.value   ?? "");
-  
-    const fuelTypeUI     = (fuelTypeEl?.value ? String(fuelTypeEl.value) : "Beliebig").toLowerCase();
-    const transmissionUI = (transmissionEl?.value ? String(transmissionEl.value) : "Beliebig").toLowerCase();
-  
-    const accidentFree    = !!accidentFreeEl?.checked;
-    const inspectionUntil = inspectionUntilEl?.value || ""; // YYYY-MM (UI)
-  
-    // Erstzulassung aus UI zusammensetzen
-    const firstRegFromUI =
-      (firstRegFromEl?.value) ||
-      (firstRegYearEl?.value && firstRegMonthEl?.value
-        ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2, "0")}`
-        : "");
-  
-    // --- Fallbacks aus URL (wenn UI leer) ---
-    const priceToEff   = (!isNaN(priceTo)   && priceTo   > 0) ? priceTo   : toNum(QP.price_max);
-    const mileageToEff = (!isNaN(mileageTo) && mileageTo > 0) ? mileageTo : toNum(QP.km_max);
-  
-    // EZ: FROM = UI > URL, TO = nur URL; beide robust normalisieren
-    const ezFromEff = parseYM(firstRegFromUI || QP.ezFrom || "", "01"); // nur Jahr → Januar
-    const ezToEff   = parseYM(QP.ezTo || "", "12");                     // nur Jahr → Dezember
-  
-    // Kraftstoff/Getriebe (Beliebig-Handling + Kanonisierung)
-    const fuelEffRaw = (fuelTypeUI !== "beliebig")     ? fuelTypeUI     : (QP.kraftstoff || "beliebig");
-    const gearEffRaw = (transmissionUI !== "beliebig") ? transmissionUI : (QP.getriebe   || "beliebig");
-  
-    const fuelEff = canon(norm(fuelEffRaw), FUEL_MAP);
-    const gearEff = canon(norm(gearEffRaw), GEAR_MAP);
-  
-    // Marke/Modell: UI > URL
-    let brandEff  = QP.marke ? norm(QP.marke) : "";
-    let modelsEff = Array.isArray(QP.modell) ? QP.modell.map(norm) : [];
-    if (markeEl && markeEl.value) brandEff = norm(markeEl.value);
-    if (modellEl && modellEl.options) {
-      const selected = [...modellEl.options].filter(o => o.selected).map(o => norm(o.value));
-      if (selected.length) modelsEff = selected;
-    }
-  
-    // ModellVARIANTE (UI > URL)
-    const modVarUI  = (modVarEl?.value || "").trim().toLowerCase();
-    const modVarEff = modVarUI || (QP.modellausfuehrung || "").toLowerCase();
-  
-    // --- Verbrauch (max) aus UI oder URL bestimmen ---
-    const toDec = (s) => {
-      const t = String(s ?? "").trim().replace(/\s+/g, "").replace(",", ".");
-      const n = parseFloat(t);
-      return Number.isFinite(n) ? n : NaN;
-    };
-    const rawV = selV
-      ? (selV.value === "custom" ? (inpV?.value || "") : selV.value)
-      : (inpV?.value || "");
-    const uiMax = toDec(rawV);
-    const qpMax = toDec(QP.verbrauch_max);
-    const vMax  = Number.isFinite(uiMax) && uiMax > 0 ? uiMax
-                : Number.isFinite(qpMax) && qpMax > 0 ? qpMax
-                : NaN;
-  
-    // --- Filtern (auf Normalform) ---
-    return items.filter(i => {
-      // Marke/Modell/Titel
-      const iBrand = norm(i.marke);
-      const iModel = norm(i.modell);
-      const iTitle = norm(i.titel || "");
-  
-      if (brandEff && iBrand !== brandEff) return false;
-      if (modelsEff.length) {
-        const hit = modelsEff.some(m => iModel.includes(m) || iTitle.includes(m));
-        if (!hit) return false;
-      }
-  
-      // Modellvariante (Titel oder raw.modellausfuehrung)
-      if (modVarEff) {
-        const hay = (String(i.raw?.modellausfuehrung || "") + " " + (i.titel || "")).toLowerCase();
-        if (!hay.includes(modVarEff)) return false;
-      }
-  
-      // Preis
-      const preis = toNum(i.preis);
-      if (!isNaN(priceFrom) && priceFrom > 0 && !(preis >= priceFrom)) return false;
-      if (!isNaN(priceToEff) && priceToEff > 0 && !(preis <= priceToEff)) return false;
-  
-      // Kilometer
-      const km = toNum(i.kilometer);
-      if (!isNaN(mileageFrom) && mileageFrom > 0 && !(km >= mileageFrom)) return false;
-      if (!isNaN(mileageToEff) && mileageToEff > 0 && !(km <= mileageToEff)) return false;
-  
-      // Leistung (PS)
-      const ps = toNum(i.leistung);
-      if (!isNaN(powerFrom) && powerFrom > 0 && !(ps >= powerFrom)) return false;
-      if (!isNaN(powerTo)   && powerTo   > 0 && !(ps <= powerTo))   return false;
-  
-      // Kraftstoff/Getriebe (kanonisiert)
-      if (fuelEff !== "beliebig") {
-        const ft = canon(norm(i.kraftstoff || ""), FUEL_MAP);
-        if (ft !== fuelEff) return false;
-      }
-      if (gearEff !== "beliebig") {
-        const tr = canon(norm(i.getriebe || ""), GEAR_MAP);
-        if (tr !== gearEff) return false;
-      }
-  
-      // Unfallfrei (nur UI; heuristisch)
-      if (accidentFree) {
-        const flag = i.raw?.unfallfrei === true ||
-          (Array.isArray(i.raw?.verkauf_ausstattung) &&
-           i.raw.verkauf_ausstattung.some(a => norm(a).includes("unfall")));
-        if (!flag) return false;
-      }
-  
-      // HU bis (als Mindestdatum) – robust vergleichen
-      if (inspectionUntil) {
-        const huReq  = parseYM(inspectionUntil, "12"); // falls nur Jahr
-        if (huReq) {
-          const huItem = parseYM(i.raw?.hu || i.raw?.verkauf_hu || "", "01");
-          if (huItem && huItem < huReq) return false;
-        }
-      }
-  
-      // Erstzulassung: FROM & TO – robust vergleichen
-      if (ezFromEff || ezToEff) {
-        const ezItem = parseYM(i.erstzulassung || i.raw?.erstzulassung || "", "01");
-        if (ezItem) {
-          if (ezFromEff && ezItem < ezFromEff) return false;
-          if (ezToEff   && ezItem > ezToEff)   return false;
-        }
-      }
-  
-      // Ort (Textmatch; echter Radius später via Geocoding)
-      if (QP.ort) {
-        const standort = norm(i.standort || "");
-        if (!standort.includes(norm(QP.ort))) return false;
-      }
-  
-      // Verbrauch (kombiniert) max – STRIKT:
-      // - ohne erkennbaren l/100km-Wert -> raus
-      // - Elektro (kWh/100 km) -> raus (andere Einheit)
-      if (Number.isFinite(vMax) && vMax > 0) {
-        const fuelRaw =
-          i.kraftstoff ||
-          i.raw?.verkauf_kraftstoff ||
-          i.raw?.kraftstoff ||
-          "";
-        const isElectric = /elektro|electric|ev/i.test(String(fuelRaw));
-  
-        const candidates = [
-          i.verbrauch_kombiniert,
-          i.raw?.verkauf_verbrauch_kombiniert,
-          i.raw?.verbrauch_kombiniert,
-          i.raw?.verbrauch,
-          i.raw?.wltp_kombiniert,
-          i.raw?.wltp?.kombiniert,
-          i.raw?.nefz_kombiniert,
-          i.raw?.nefz?.kombiniert
-        ].filter(Boolean);
-  
-        let vNum = NaN;
-        for (const c of candidates) {
-          const n = parseVerbrauchNum(c);
-          if (Number.isFinite(n)) { vNum = n; break; }
-        }
-  
-        if (!Number.isFinite(vNum) || isElectric) return false;
-        if (vNum > vMax) return false;
-      }
-  
-      // Zusatz-Flags
-      if (QP.partikelfilter) {
-        const pfRaw = i.raw?.verkauf_partikelfilter ?? i.raw?.partikelfilter ?? "";
-        let hasPF = isTruthyRaw(pfRaw);
-        if (!hasPF) {
-          const lists = [i.raw?.verkauf_ausstattung, i.raw?.ausstattung];
-          for (const list of lists) {
-            if (Array.isArray(list) && list.some(a => /partikel|ruß|russ|dpf/i.test(String(a)))) { hasPF = true; break; }
-          }
-        }
-        if (!hasPF) return false;
-      }
-  
-      if (QP.scheckheft) {
-        let hasSH = isTruthyRaw(i.raw?.scheckheft);
-        if (!hasSH) {
-          const lists = [i.raw?.verkauf_ausstattung, i.raw?.ausstattung];
-          for (const list of lists) {
-            if (Array.isArray(list) && list.some(a => /scheckheft/i.test(String(a)))) { hasSH = true; break; }
-          }
-        }
-        if (!hasSH) return false;
-      }
-  
-      if (QP.fahrtauglich) {
-        let ok = isTruthyRaw(i.raw?.fahrtauglich ?? i.raw?.fahrbereit);
-        if (!ok) {
-          const lists = [i.raw?.verkauf_ausstattung, i.raw?.ausstattung];
-          for (const list of lists) {
-            if (Array.isArray(list) && list.some(a => /fahrbereit|fahrtauglich/i.test(String(a)))) { ok = true; break; }
-          }
-        }
-        if (!ok) return false;
-      }
-  
-      return true;
-    });
   }
-  
-  
+  // Zahl aus verschiedensten Verbrauchs-Formaten ziehen.
+// Gibt NaN zurück, wenn es kWh/100km ist (E-Autos) oder nichts erkennbar ist.
+function parseVerbrauchNum(val) {
+  if (val == null) return NaN;
+  if (typeof val === 'number') return Number.isFinite(val) ? val : NaN;
+
+  if (typeof val === 'object') {
+    const keys = [
+      'kombiniert','combined','wltp_kombiniert','wltpCombined','nefz_kombiniert',
+      'combined_l_100km','kombiniert_l_100km','kombiniert_l_pro_100_km'
+    ];
+    for (const k of keys) {
+      if (val[k] != null) {
+        const n = parseVerbrauchNum(val[k]);
+        if (Number.isFinite(n)) return n;
+      }
+    }
+    // Fallback: irgendein Key mit "komb"
+    for (const k in val) {
+      if (/komb/i.test(k)) {
+        const n = parseVerbrauchNum(val[k]);
+        if (Number.isFinite(n)) return n;
+      }
+    }
+    return NaN;
+  }
+
+  const s = String(val).toLowerCase();
+  if (/\bkwh\s*\/?\s*100\s*km/.test(s)) return NaN; // EV-Einheit -> ignorieren
+  const m = s.replace(',', '.').match(/(\d+(?:\.\d+)?)/);
+  return m ? parseFloat(m[1]) : NaN;
+}
+
+// Versucht viele Felder/Strukturen – und mittelt notfalls inner/außerorts.
+function getCombinedConsumption(item) {
+  const candidates = [
+    item.verbrauch_kombiniert,
+    item.raw?.verkauf_verbrauch_kombiniert,
+    item.raw?.verbrauch_kombiniert,
+    item.raw?.verbrauch?.kombiniert,
+    item.raw?.wltp_kombiniert,
+    item.raw?.wltp?.kombiniert,
+    item.raw?.nefz_kombiniert,
+    item.raw?.nefz?.kombiniert,
+    item.raw?.verbrauch // String-Fallback
+  ];
+  for (const c of candidates) {
+    const n = parseVerbrauchNum(c);
+    if (Number.isFinite(n)) return n;
+  }
+
+  // Fallback: Mittelwert aus inner/außerorts, wenn beides vorhanden
+  const inner = parseVerbrauchNum(
+    item.raw?.verbrauch?.innerorts ??
+    item.raw?.verbrauch_innerorts ??
+    item.raw?.verkauf_verbrauch_innerorts
+  );
+  const outer = parseVerbrauchNum(
+    item.raw?.verbrauch?.ausserorts ??
+    item.raw?.verbrauch_ausserorts ??
+    item.raw?.verkauf_verbrauch_ausserorts
+  );
+  if (Number.isFinite(inner) && Number.isFinite(outer)) return (inner + outer) / 2;
+
+  return NaN;
+}
+
+function applyClientFilters(items) {
+  // Sidebar-/Form-Felder (nur verwenden, wenn vorhanden)
+  const priceFromEl       = document.getElementById("priceFrom");
+  const priceToEl         = document.getElementById("priceTo");
+  const mileageFromEl     = document.getElementById("mileageFrom");
+  const mileageToEl       = document.getElementById("mileageTo");
+  const powerFromEl       = document.getElementById("powerFrom");
+  const powerToEl         = document.getElementById("powerTo");
+
+  const fuelTypeEl        = document.getElementById("fuelType") || document.getElementById("fuel");
+  const transmissionEl    = document.getElementById("transmission") || document.getElementById("gear");
+
+  const accidentFreeEl    = document.getElementById("accidentFree");
+  const inspectionUntilEl = document.getElementById("inspectionUntil");
+
+  // Erstzulassung UI
+  const firstRegFromEl    = document.getElementById("firstRegFrom");
+  const firstRegMonthEl   = document.getElementById("first-registration-month");
+  const firstRegYearEl    = document.getElementById("first-registration-year");
+
+  // Marke/Modell
+  const markeEl           = document.getElementById("marke");
+  const modellEl          = document.getElementById("modell");
+  const modVarEl          = document.getElementById("modellausfuehrung");
+
+  // VERBRAUCH UI
+  const selV              = document.getElementById("verbrauch-select");
+  const inpV              = document.getElementById("verbrauch");
+
+  // --- Helper: YYYY-MM normalisieren ---
+  const pad2 = (m) => String(m).padStart(2, "0");
+  function parseYM(val, fallbackMonthIfYearOnly = null) {
+    if (!val) return "";
+    const s = String(val).trim();
+    let m = s.match(/^(\d{4})[-/.](\d{1,2})$/);
+    if (m) return `${m[1]}-${pad2(m[2])}`;
+    m = s.match(/^(\d{1,2})[-/.](\d{4})$/);
+    if (m) return `${m[2]}-${pad2(m[1])}`;
+    m = s.match(/^(\d{4})$/);
+    if (m) return fallbackMonthIfYearOnly ? `${m[1]}-${pad2(fallbackMonthIfYearOnly)}` : "";
+    if (/^\d{4}-\d{2}$/.test(s)) return s;
+    return "";
+  }
+
+  // --- UI lesen ---
+  const priceFrom     = toNum(priceFromEl?.value ?? "");
+  const priceTo       = toNum(priceToEl?.value   ?? "");
+  const mileageFrom   = toNum(mileageFromEl?.value ?? "");
+  const mileageTo     = toNum(mileageToEl?.value   ?? "");
+  const powerFrom     = toNum(powerFromEl?.value ?? "");
+  const powerTo       = toNum(powerToEl?.value   ?? "");
+
+  const fuelTypeUI     = (fuelTypeEl?.value ? String(fuelTypeEl.value) : "Beliebig").toLowerCase();
+  const transmissionUI = (transmissionEl?.value ? String(transmissionEl.value) : "Beliebig").toLowerCase();
+
+  const accidentFree    = !!accidentFreeEl?.checked;
+  const inspectionUntil = inspectionUntilEl?.value || ""; // YYYY-MM (UI)
+
+  // Erstzulassung aus UI zusammensetzen
+  const firstRegFromUI =
+    (firstRegFromEl?.value) ||
+    (firstRegYearEl?.value && firstRegMonthEl?.value
+      ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2, "0")}`
+      : "");
+
+  // --- Fallbacks aus URL (wenn UI leer) ---
+  const priceToEff   = (!isNaN(priceTo)   && priceTo   > 0) ? priceTo   : toNum(QP.price_max);
+  const mileageToEff = (!isNaN(mileageTo) && mileageTo > 0) ? mileageTo : toNum(QP.km_max);
+
+  // EZ: FROM = UI > URL, TO = nur URL; beide robust normalisieren
+  const ezFromEff = parseYM(firstRegFromUI || QP.ezFrom || "", "01");
+  const ezToEff   = parseYM(QP.ezTo || "", "12");
+
+  // Kraftstoff/Getriebe (Beliebig-Handling + Kanonisierung)
+  const fuelEffRaw = (fuelTypeUI !== "beliebig")     ? fuelTypeUI     : (QP.kraftstoff || "beliebig");
+  const gearEffRaw = (transmissionUI !== "beliebig") ? transmissionUI : (QP.getriebe   || "beliebig");
+
+  const fuelEff = canon(norm(fuelEffRaw), FUEL_MAP);
+  const gearEff = canon(norm(gearEffRaw), GEAR_MAP);
+
+  // Marke/Modell: UI > URL
+  let brandEff  = QP.marke ? norm(QP.marke) : "";
+  let modelsEff = Array.isArray(QP.modell) ? QP.modell.map(norm) : [];
+  if (markeEl && markeEl.value) brandEff = norm(markeEl.value);
+  if (modellEl && modellEl.options) {
+    const selected = [...modellEl.options].filter(o => o.selected).map(o => norm(o.value));
+    if (selected.length) modelsEff = selected;
+  }
+
+  // ModellVARIANTE (UI > URL)
+  const modVarUI  = (modVarEl?.value || "").trim().toLowerCase();
+  const modVarEff = modVarUI || (QP.modellausfuehrung || "").toLowerCase();
+
+  // --- Verbrauch (max) aus UI oder URL bestimmen ---
+  const toDec = (s) => {
+    const t = String(s ?? "").trim().replace(/\s+/g, "").replace(",", ".");
+    const n = parseFloat(t);
+    return Number.isFinite(n) ? n : NaN;
+  };
+  const rawV = selV
+    ? (selV.value === "custom" ? (inpV?.value || "") : selV.value)
+    : (inpV?.value || "");
+  const uiMax = toDec(rawV);
+  const qpMax = toDec(QP.verbrauch_max);
+  const vMax  = Number.isFinite(uiMax) && uiMax > 0 ? uiMax
+              : Number.isFinite(qpMax) && qpMax > 0 ? qpMax
+              : NaN;
+
+  // --- Filtern ---
+  return items.filter(i => {
+    // Marke/Modell/Titel
+    const iBrand = norm(i.marke);
+    const iModel = norm(i.modell);
+    const iTitle = norm(i.titel || "");
+
+    if (brandEff && iBrand !== brandEff) return false;
+    if (modelsEff.length) {
+      const hit = modelsEff.some(m => iModel.includes(m) || iTitle.includes(m));
+      if (!hit) return false;
+    }
+
+    // Modellvariante
+    if (modVarEff) {
+      const hay = (String(i.raw?.modellausfuehrung || "") + " " + (i.titel || "")).toLowerCase();
+      if (!hay.includes(modVarEff)) return false;
+    }
+
+    // Preis
+    const preis = toNum(i.preis);
+    if (!isNaN(priceFrom) && priceFrom > 0 && !(preis >= priceFrom)) return false;
+    if (!isNaN(priceToEff) && priceToEff > 0 && !(preis <= priceToEff)) return false;
+
+    // Kilometer
+    const km = toNum(i.kilometer);
+    if (!isNaN(mileageFrom) && mileageFrom > 0 && !(km >= mileageFrom)) return false;
+    if (!isNaN(mileageToEff) && mileageToEff > 0 && !(km <= mileageToEff)) return false;
+
+    // Leistung (PS)
+    const ps = toNum(i.leistung);
+    if (!isNaN(powerFrom) && powerFrom > 0 && !(ps >= powerFrom)) return false;
+    if (!isNaN(powerTo)   && powerTo   > 0 && !(ps <= powerTo))   return false;
+
+    // Kraftstoff/Getriebe
+    if (fuelEff !== "beliebig") {
+      const ft = canon(norm(i.kraftstoff || ""), FUEL_MAP);
+      if (ft !== fuelEff) return false;
+    }
+    if (gearEff !== "beliebig") {
+      const tr = canon(norm(i.getriebe || ""), GEAR_MAP);
+      if (tr !== gearEff) return false;
+    }
+
+    // Unfallfrei
+    if (accidentFree) {
+      const flag = i.raw?.unfallfrei === true ||
+        (Array.isArray(i.raw?.verkauf_ausstattung) &&
+         i.raw.verkauf_ausstattung.some(a => norm(a).includes("unfall")));
+      if (!flag) return false;
+    }
+
+    // HU bis (robust)
+    if (inspectionUntil) {
+      const huReq  = parseYM(inspectionUntil, "12");
+      if (huReq) {
+        const huItem = parseYM(i.raw?.hu || i.raw?.verkauf_hu || "", "01");
+        if (huItem && huItem < huReq) return false;
+      }
+    }
+
+    // Erstzulassung: FROM & TO
+    if (ezFromEff || ezToEff) {
+      const ezItem = parseYM(i.erstzulassung || i.raw?.erstzulassung || "", "01");
+      if (ezItem) {
+        if (ezFromEff && ezItem < ezFromEff) return false;
+        if (ezToEff   && ezItem > ezToEff)   return false;
+      }
+    }
+
+    // Ort (Textmatch)
+    if (QP.ort) {
+      const standort = norm(i.standort || "");
+      if (!standort.includes(norm(QP.ort))) return false;
+    }
+
+    // Verbrauch (kombiniert) max – nur vergleichen, wenn l/100km-Wert ermittelbar ist.
+    // Fahrzeuge ohne erkennbaren l/100km (oder nur kWh/100km) werden NICHT gefiltert.
+    if (Number.isFinite(vMax) && vMax > 0) {
+      const v = getCombinedConsumption(i);
+      if (Number.isFinite(v) && v > vMax) return false;
+    }
+
+    // Zusatz-Flags
+    if (QP.partikelfilter) {
+      const pfRaw = i.raw?.verkauf_partikelfilter ?? i.raw?.partikelfilter ?? "";
+      let hasPF = isTruthyRaw(pfRaw);
+      if (!hasPF) {
+        const lists = [i.raw?.verkauf_ausstattung, i.raw?.ausstattung];
+        for (const list of lists) {
+          if (Array.isArray(list) && list.some(a => /partikel|ruß|russ|dpf/i.test(String(a)))) { hasPF = true; break; }
+        }
+      }
+      if (!hasPF) return false;
+    }
+
+    if (QP.scheckheft) {
+      let hasSH = isTruthyRaw(i.raw?.scheckheft);
+      if (!hasSH) {
+        const lists = [i.raw?.verkauf_ausstattung, i.raw?.ausstattung];
+        for (const list of lists) {
+          if (Array.isArray(list) && list.some(a => /scheckheft/i.test(String(a)))) { hasSH = true; break; }
+        }
+      }
+      if (!hasSH) return false;
+    }
+
+    if (QP.fahrtauglich) {
+      let ok = isTruthyRaw(i.raw?.fahrtauglich ?? i.raw?.fahrbereit);
+      if (!ok) {
+        const lists = [i.raw?.verkauf_ausstattung, i.raw?.ausstattung];
+        for (const list of lists) {
+          if (Array.isArray(list) && list.some(a => /fahrbereit|fahrtauglich/i.test(String(a)))) { ok = true; break; }
+        }
+      }
+      if (!ok) return false;
+    }
+
+    return true;
+  });
+}
+
 
   // ===== Sortierung (optional, clientseitig) =====
   function sortItems(items) {
