@@ -1,7 +1,5 @@
 // suche.js — TEIL 1 (korrigiert bis inkl. initMediaSlider)
 document.documentElement.classList.remove("no-js");
-
-// ---------- Query-Params ----------
 const QP = (() => {
   const sp = new URLSearchParams(location.search);
   const arr = v => (v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : []);
@@ -10,8 +8,9 @@ const QP = (() => {
   return {
     marke: sp.get("marke") || "",
     modell: arr(sp.get("modell")),
-    modellausfuehrung: sp.get("modellausfuehrung") || "", // ← NEU
+    modellausfuehrung: sp.get("modellausfuehrung") || "",
     fahrzeugtyp: arr(sp.get("fahrzeugtyp")),
+    tueren: arr(sp.get("tueren")),           // ← HINZUGEFÜGT
     ezFrom: sp.get("ezFrom") || "",
     ezTo:   sp.get("ezTo")   || "",
     km_max: sp.get("km_max") || "",
@@ -27,6 +26,7 @@ const QP = (() => {
     fahrtauglich:   truthy(sp.get("fahrtauglich")),
   };
 })();
+
 
 // ---------- Utils ----------
 const norm = (s) => String(s || "")
@@ -1263,7 +1263,8 @@ function renderActiveFilters() {
     marke: sp.get("marke") || "",
     modell: arr(sp.get("modell")),
     modellausfuehrung: sp.get("modellausfuehrung") || "",
-    fahrzeugtyp: arr(sp.get("fahrzeugtyp")),          // ← NEU
+    fahrzeugtyp: arr(sp.get("fahrzeugtyp")),
+    tueren: arr(sp.get("tueren")),             // ← NEU
     ezFrom: sp.get("ezFrom") || "",
     ezTo:   sp.get("ezTo")   || "",
     km_max: sp.get("km_max") || "",
@@ -1339,10 +1340,17 @@ function renderActiveFilters() {
   if (qp.modellausfuehrung)
     chips.push({key:"modellausfuehrung", label:`Modellvariante: ${qp.modellausfuehrung}`});
 
-  // 👇 NEU: Fahrzeugtyp (mehrfach)
+  // Fahrzeugtyp (mehrfach)
   if (qp.fahrzeugtyp && qp.fahrzeugtyp.length) {
     qp.fahrzeugtyp.forEach(t =>
       chips.push({ key:"fahrzeugtyp", value:t, label:`Fahrzeugtyp: ${t}` })
+    );
+  }
+
+  // ← NEU: Türen (mehrfach)
+  if (qp.tueren && qp.tueren.length) {
+    qp.tueren.forEach(n =>
+      chips.push({ key:"tueren", value:n, label:`Türen: ${n}` })
     );
   }
 
@@ -1397,7 +1405,8 @@ function removeFilterChip(key, val = "") {
     fuel:            document.getElementById("fuelType") || document.getElementById("fuel"),
     gear:            document.getElementById("transmission") || document.getElementById("gear"),
     accidentFree:    document.getElementById("accidentFree"),
-    modellausfuehrung: document.getElementById("modellausfuehrung")
+    modellausfuehrung: document.getElementById("modellausfuehrung"),
+    tuerenSelect:    document.getElementById("tueren")         // ← NEU (SELECT oder Single-Select)
   };
 
   switch (key) {
@@ -1427,7 +1436,6 @@ function removeFilterChip(key, val = "") {
     case "marke":     params.delete("marke"); break;
 
     case "modell": {
-      // Ein einzelnes Modell aus der Komma-Liste entfernen
       const list = (params.get("modell") || "").split(",").map(s => s.trim()).filter(Boolean);
       const next = list.filter(m => m.toLowerCase() !== String(val || "").toLowerCase());
       if (next.length) params.set("modell", next.join(","));
@@ -1441,30 +1449,50 @@ function removeFilterChip(key, val = "") {
       params.delete("modellausfuehrung");
       break;
 
-    // 👇 NEU: Fahrzeugtyp (ein einzelnes Element aus Mehrfachliste entfernen)
+    // Fahrzeugtyp (ein einzelnes Element aus Mehrfachliste entfernen)
     case "fahrzeugtyp": {
-      const list = (params.get("fahrzeugtyp") || "")
-        .split(",").map(s => s.trim()).filter(Boolean);
+      const list = (params.get("fahrzeugtyp") || "").split(",").map(s => s.trim()).filter(Boolean);
       const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
       if (next.length) params.set("fahrzeugtyp", next.join(","));
       else params.delete("fahrzeugtyp");
 
-      // UI deselektieren (SELECT multiple oder Checkbox-Gruppe)
+      // UI deselektieren
       const typeEl     = document.getElementById("fahrzeugtyp");
       const typeChecks = document.querySelectorAll('input[name="fahrzeugtyp"]');
-
       if (typeEl && typeEl.tagName === "SELECT") {
         [...typeEl.options].forEach(o => {
-          if (!val) o.selected = false;
-          else if ((o.value || "").toLowerCase() === String(val).toLowerCase()) o.selected = false;
+          if ((o.value || "").toLowerCase() === String(val).toLowerCase()) o.selected = false;
         });
-      } else if (typeEl && typeEl.value) {
-        if (!val || typeEl.value.toLowerCase() === String(val).toLowerCase()) typeEl.value = "";
       }
       if (typeChecks && typeChecks.length) {
         [...typeChecks].forEach(cb => {
-          if (!val) cb.checked = false;
-          else if ((cb.value || "").toLowerCase() === String(val).toLowerCase()) cb.checked = false;
+          if ((cb.value || "").toLowerCase() === String(val).toLowerCase()) cb.checked = false;
+        });
+      }
+      break;
+    }
+
+    // ← NEU: Türen (ein einzelnes Element aus Mehrfachliste entfernen)
+    case "tueren": {
+      const list = (params.get("tueren") || "").split(",").map(s => s.trim()).filter(Boolean);
+      const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
+      if (next.length) params.set("tueren", next.join(","));
+      else params.delete("tueren");
+
+      // UI deselektieren (SELECT multiple oder Checkbox-Gruppe)
+      const doorsEl     = document.getElementById("tueren");
+      const doorsChecks = document.querySelectorAll('input[name="tueren"]');
+
+      if (doorsEl && doorsEl.tagName === "SELECT") {
+        [...doorsEl.options].forEach(o => {
+          if ((o.value || "").toLowerCase() === String(val).toLowerCase()) o.selected = false;
+        });
+      } else if (doorsEl && typeof doorsEl.value === "string") {
+        if (doorsEl.value.toLowerCase() === String(val).toLowerCase()) doorsEl.value = "";
+      }
+      if (doorsChecks && doorsChecks.length) {
+        [...doorsChecks].forEach(cb => {
+          if ((cb.value || "").toLowerCase() === String(val).toLowerCase()) cb.checked = false;
         });
       }
       break;
@@ -1491,7 +1519,7 @@ function clearAllFilters() {
 
   // Alles, was wir kennen & auf die Suche wirkt
   [
-    "marke","modell","modellausfuehrung","fahrzeugtyp", // ← NEU: fahrzeugtyp
+    "marke","modell","modellausfuehrung","fahrzeugtyp","tueren", // ← NEU: tueren
     "ezFrom","ezTo",
     "km_max","price_max","getriebe","kraftstoff",
     "ort","umkreis","sort","verbrauch_max",
@@ -1503,16 +1531,21 @@ function clearAllFilters() {
   const ids = ["priceFrom","priceTo","mileageFrom","mileageTo","powerFrom","powerTo","firstRegFrom","inspectionUntil","modellausfuehrung"];
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
 
-  // Fahrzeugtyp UI zurücksetzen (SELECT multiple ODER Checkboxen)
+  // Fahrzeugtyp UI zurücksetzen
   const typeEl = document.getElementById("fahrzeugtyp");
   if (typeEl) {
-    if (typeEl.tagName === "SELECT") {
-      [...typeEl.options].forEach(o => o.selected = false);
-    } else {
-      typeEl.value = "";
-    }
+    if (typeEl.tagName === "SELECT") [...typeEl.options].forEach(o => o.selected = false);
+    else typeEl.value = "";
   }
   document.querySelectorAll('input[name="fahrzeugtyp"]').forEach(cb => cb.checked = false);
+
+  // ← NEU: Türen UI zurücksetzen
+  const doorsEl = document.getElementById("tueren");
+  if (doorsEl) {
+    if (doorsEl.tagName === "SELECT") [...doorsEl.options].forEach(o => o.selected = false);
+    else doorsEl.value = "";
+  }
+  document.querySelectorAll('input[name="tueren"]').forEach(cb => cb.checked = false);
 
   const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
   const gearEl = document.getElementById("transmission") || document.getElementById("gear");
