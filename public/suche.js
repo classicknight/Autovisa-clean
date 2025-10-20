@@ -11,6 +11,7 @@ const QP = (() => {
     marke: sp.get("marke") || "",
     modell: arr(sp.get("modell")),
     modellausfuehrung: sp.get("modellausfuehrung") || "", // ← NEU
+    fahrzeugtyp: arr(sp.get("fahrzeugtyp")),
     ezFrom: sp.get("ezFrom") || "",
     ezTo:   sp.get("ezTo")   || "",
     km_max: sp.get("km_max") || "",
@@ -1236,7 +1237,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-
 // ---- Aktive Filter (Chips) ----
 function renderActiveFilters() {
   const bar = document.getElementById('activeFilterBar');
@@ -1262,7 +1262,8 @@ function renderActiveFilters() {
   const qp = {
     marke: sp.get("marke") || "",
     modell: arr(sp.get("modell")),
-    modellausfuehrung: sp.get("modellausfuehrung") || "",   // 👈 NEU
+    modellausfuehrung: sp.get("modellausfuehrung") || "",
+    fahrzeugtyp: arr(sp.get("fahrzeugtyp")),          // ← NEU
     ezFrom: sp.get("ezFrom") || "",
     ezTo:   sp.get("ezTo")   || "",
     km_max: sp.get("km_max") || "",
@@ -1334,8 +1335,16 @@ function renderActiveFilters() {
     models.forEach(m => chips.push({key:"modell", value:m, label:`Modell: ${m}`}));
   }
 
-  // 👇 NEU: Modellvariante-Chip
-  if (qp.modellausfuehrung)                 chips.push({key:"modellausfuehrung", label:`Modellvariante: ${qp.modellausfuehrung}`});
+  // Modellvariante
+  if (qp.modellausfuehrung)
+    chips.push({key:"modellausfuehrung", label:`Modellvariante: ${qp.modellausfuehrung}`});
+
+  // 👇 NEU: Fahrzeugtyp (mehrfach)
+  if (qp.fahrzeugtyp && qp.fahrzeugtyp.length) {
+    qp.fahrzeugtyp.forEach(t =>
+      chips.push({ key:"fahrzeugtyp", value:t, label:`Fahrzeugtyp: ${t}` })
+    );
+  }
 
   if (ort)                                  chips.push({key:"ort",       label:`Ort: ${ort}`});
   if (umkreis)                              chips.push({key:"umkreis",   label:`Umkreis: ${umkreis} km`});
@@ -1388,7 +1397,7 @@ function removeFilterChip(key, val = "") {
     fuel:            document.getElementById("fuelType") || document.getElementById("fuel"),
     gear:            document.getElementById("transmission") || document.getElementById("gear"),
     accidentFree:    document.getElementById("accidentFree"),
-    modellausfuehrung: document.getElementById("modellausfuehrung") // 👈 falls auf der Seite vorhanden
+    modellausfuehrung: document.getElementById("modellausfuehrung")
   };
 
   switch (key) {
@@ -1416,6 +1425,7 @@ function removeFilterChip(key, val = "") {
 
     // Reine URL-Filter
     case "marke":     params.delete("marke"); break;
+
     case "modell": {
       // Ein einzelnes Modell aus der Komma-Liste entfernen
       const list = (params.get("modell") || "").split(",").map(s => s.trim()).filter(Boolean);
@@ -1425,11 +1435,40 @@ function removeFilterChip(key, val = "") {
       break;
     }
 
-    // 👇 NEU: Modellvariante löschen
+    // Modellvariante
     case "modellausfuehrung":
       if (mapEl.modellausfuehrung) mapEl.modellausfuehrung.value = "";
       params.delete("modellausfuehrung");
       break;
+
+    // 👇 NEU: Fahrzeugtyp (ein einzelnes Element aus Mehrfachliste entfernen)
+    case "fahrzeugtyp": {
+      const list = (params.get("fahrzeugtyp") || "")
+        .split(",").map(s => s.trim()).filter(Boolean);
+      const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
+      if (next.length) params.set("fahrzeugtyp", next.join(","));
+      else params.delete("fahrzeugtyp");
+
+      // UI deselektieren (SELECT multiple oder Checkbox-Gruppe)
+      const typeEl     = document.getElementById("fahrzeugtyp");
+      const typeChecks = document.querySelectorAll('input[name="fahrzeugtyp"]');
+
+      if (typeEl && typeEl.tagName === "SELECT") {
+        [...typeEl.options].forEach(o => {
+          if (!val) o.selected = false;
+          else if ((o.value || "").toLowerCase() === String(val).toLowerCase()) o.selected = false;
+        });
+      } else if (typeEl && typeEl.value) {
+        if (!val || typeEl.value.toLowerCase() === String(val).toLowerCase()) typeEl.value = "";
+      }
+      if (typeChecks && typeChecks.length) {
+        [...typeChecks].forEach(cb => {
+          if (!val) cb.checked = false;
+          else if ((cb.value || "").toLowerCase() === String(val).toLowerCase()) cb.checked = false;
+        });
+      }
+      break;
+    }
 
     case "ort":            params.delete("ort");      break;
     case "umkreis":        params.delete("umkreis");  break;
@@ -1452,7 +1491,7 @@ function clearAllFilters() {
 
   // Alles, was wir kennen & auf die Suche wirkt
   [
-    "marke","modell","modellausfuehrung", // 👈 NEU
+    "marke","modell","modellausfuehrung","fahrzeugtyp", // ← NEU: fahrzeugtyp
     "ezFrom","ezTo",
     "km_max","price_max","getriebe","kraftstoff",
     "ort","umkreis","sort","verbrauch_max",
@@ -1463,6 +1502,17 @@ function clearAllFilters() {
   // UI Felder zurücksetzen
   const ids = ["priceFrom","priceTo","mileageFrom","mileageTo","powerFrom","powerTo","firstRegFrom","inspectionUntil","modellausfuehrung"];
   ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+
+  // Fahrzeugtyp UI zurücksetzen (SELECT multiple ODER Checkboxen)
+  const typeEl = document.getElementById("fahrzeugtyp");
+  if (typeEl) {
+    if (typeEl.tagName === "SELECT") {
+      [...typeEl.options].forEach(o => o.selected = false);
+    } else {
+      typeEl.value = "";
+    }
+  }
+  document.querySelectorAll('input[name="fahrzeugtyp"]').forEach(cb => cb.checked = false);
 
   const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
   const gearEl = document.getElementById("transmission") || document.getElementById("gear");
