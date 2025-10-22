@@ -856,14 +856,17 @@ function applyClientFilters(items) {
       if (!standort.includes(norm(QP.ort))) return false;
     }
 
- // Verbrauch (kombiniert) max
-// Wenn gesetzt: NUR Fahrzeuge mit ermittelbarem l/100 km <= vMax zulassen.
-// kWh/100 km (EVs) oder unbekannter Verbrauch -> ausschließen.
+// Verbrauch (kombiniert) max (tolerant, weil Server paginiert)
+// Regel: Nur Fahrzeuge mit *bekanntem* Verbrauch > vMax rausfiltern.
+// Unbekannt (NaN / kWh) bleibt drin.
 if (Number.isFinite(vMax) && vMax > 0) {
   const v = getCombinedConsumption(i);
-  if (!Number.isFinite(v)) return false; // EV/keine Angabe raus
-  if (v > vMax) return false;
+  if (Number.isFinite(v) && v > vMax) return false;
+  // optional fürs Sortieren/Labeln:
+  i.__vKnown = Number.isFinite(v);
+  i.__vValue = v;
 }
+
 
 
     // Zusatz-Flags
