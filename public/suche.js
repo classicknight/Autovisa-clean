@@ -199,16 +199,6 @@ document.addEventListener("DOMContentLoaded", () => {
   };
   const sanitizePhone = (p) => String(p || "").replace(/[^\d+]/g, "");
 
-  // Zahl aus "6,5", "6.5 l/100 km", "6 l" etc. holen
-  function parseVerbrauchNum(v) {
-    if (v == null) return NaN;
-    if (typeof v === "number") return v;
-    const s = String(v).toLowerCase().replace(/\s+/g, "");
-    const m = s.match(/(\d+(?:[.,]\d+)?)/);
-    if (!m) return NaN;
-    const n = parseFloat(m[1].replace(",", "."));
-    return Number.isFinite(n) ? n : NaN;
-  }
 
   function closeAllDropdowns(except = null) {
     dropdownLis.forEach(li => {
@@ -585,7 +575,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       raw
     };
-  }// Gibt NaN zurück, wenn es kWh/100km ist (E-Autos) oder nichts erkennbar ist.
+  }// Gibt eine Zahl in l/100 km zurück.
+// - Bevorzugt Zahlen direkt vor "l/100 km"
+// - Ignoriert kWh/100 km (EVs -> NaN)
+// - Bei Bereichen (z. B. "4,6–5,2 l/100 km") wird der höhere Wert genommen
+// - Fallback: max. Zahl < 60 (um CO₂ "120 g/km" zu ignorieren)
 function parseVerbrauchNum(val) {
   if (val == null) return NaN;
   if (typeof val === 'number') return Number.isFinite(val) ? val : NaN;
@@ -611,17 +605,36 @@ function parseVerbrauchNum(val) {
     return NaN;
   }
 
-  const s = String(val).toLowerCase();
-  if (/\bkwh\s*\/?\s*100\s*km/.test(s)) return NaN; // EV-Einheit -> ignorieren
-  const m = s.replace(',', '.').match(/(\d+(?:\.\d+)?)/);
-  return m ? parseFloat(m[1]) : NaN;
+  const s = String(val).toLowerCase().replace(/\s+/g, ' ').trim();
+
+  // EV-/PHEV-Einheit -> ignorieren
+  if (/\bkwh\s*\/?\s*100\s*km\b/.test(s)) return NaN;
+
+  // 1) Zahlen direkt vor "l/100 km"
+  const litersAll = [];
+  const rxLiters = /(\d+(?:[.,]\d+)?)(?=\s*(?:l|liter)\s*\/\s*100\s*km\b)/gi;
+  for (const m of s.matchAll(rxLiters)) {
+    litersAll.push(parseFloat(m[1].replace(',', '.')));
+  }
+  if (litersAll.length) {
+    return Math.max(...litersAll.filter(n => Number.isFinite(n)));
+  }
+
+  // 2) Fallback: nimm max aller Zahlen < 60 (um 120 g/km auszuschließen)
+  const nums = (s.match(/\d+(?:[.,]\d+)?/g) || [])
+    .map(t => parseFloat(t.replace(',', '.')))
+    .filter(n => Number.isFinite(n) && n < 60);
+  if (nums.length) return Math.max(...nums);
+
+  return NaN;
 }
 
-// Holt "kombiniert" aus möglichst vielen Varianten und mittelt notfalls inner/außerorts.
+// Holt "kombiniert" aus möglichst vielen Varianten.
+// Gibt NaN zurück, wenn nur kWh/100 km vorhanden oder nichts erkennbar.
 function getCombinedConsumption(item) {
   const candidates = [
-    item.verkauf_verbrauch_kombiniert,   // Top-Level (Mongo/normalisiert)
-    item.verbrauch_kombiniert,           // evtl. Alias (normalisiert)
+    item.verkauf_verbrauch_kombiniert,
+    item.verbrauch_kombiniert,
     item.raw?.verkauf_verbrauch_kombiniert,
     item.raw?.verbrauch_kombiniert,
     item.raw?.verbrauch?.kombiniert,
@@ -629,14 +642,14 @@ function getCombinedConsumption(item) {
     item.raw?.wltp?.kombiniert,
     item.raw?.nefz_kombiniert,
     item.raw?.nefz?.kombiniert,
-    item.raw?.verbrauch                  // String-Fallback
+    item.raw?.verbrauch // String-Fallback
   ];
   for (const c of candidates) {
     const n = parseVerbrauchNum(c);
     if (Number.isFinite(n)) return n;
   }
 
-  // Fallback: Mittelwert inner/außerorts (Top-Level ODER raw)
+  // Fallback: Mittelwert inner/außerorts
   const inner = parseVerbrauchNum(
     item.verkauf_verbrauch_innerorts ??
     item.raw?.verkauf_verbrauch_innerorts ??
@@ -653,6 +666,7 @@ function getCombinedConsumption(item) {
 
   return NaN;
 }
+
 
 function applyClientFilters(items) {
   // Sidebar-/Form-Felder (nur verwenden, wenn vorhanden)
@@ -842,12 +856,15 @@ function applyClientFilters(items) {
       if (!standort.includes(norm(QP.ort))) return false;
     }
 
-    // Verbrauch (kombiniert) max – nur vergleichen, wenn l/100km-Wert ermittelbar ist.
-    // Fahrzeuge ohne erkennbaren l/100km (oder nur kWh/100km) werden NICHT gefiltert.
-    if (Number.isFinite(vMax) && vMax > 0) {
-      const v = getCombinedConsumption(i);
-      if (Number.isFinite(v) && v > vMax) return false;
-    }
+ // Verbrauch (kombiniert) max
+// Wenn gesetzt: NUR Fahrzeuge mit ermittelbarem l/100 km <= vMax zulassen.
+// kWh/100 km (EVs) oder unbekannter Verbrauch -> ausschließen.
+if (Number.isFinite(vMax) && vMax > 0) {
+  const v = getCombinedConsumption(i);
+  if (!Number.isFinite(v)) return false; // EV/keine Angabe raus
+  if (v > vMax) return false;
+}
+
 
     // Zusatz-Flags
     if (QP.partikelfilter) {
@@ -966,25 +983,24 @@ function applyClientFilters(items) {
     const parts = name.trim().split(/\s+/).slice(0, 2);
     return parts.map(p => (p[0] || "").toUpperCase()).join("") || "AV";
   }
-
   function renderItems() {
     if (!container) return;
     container.innerHTML = "";
-
+  
     // Server liefert *nur die aktuelle Seite*:
     const view = filteredItems;
-
+  
     if (!view.length) {
       container.innerHTML = "<p>❌ Keine Fahrzeuge gefunden.</p>";
       renderPager(serverTotal);
       return;
     }
-
+  
     // Helper: Datensatz für anzeige.html zusammenbauen
     function toAnzeigePayload(item) {
       const raw = item?.raw && typeof item.raw === "object" ? item.raw : {};
       const merged = { ...raw, ...item }; // normalisierte Felder überschreiben raw
-
+  
       if (merged.verkauf_kilometer == null && item.kilometer != null) merged.verkauf_kilometer = item.kilometer;
       if (!merged.verkauf_erstzulassung && item.erstzulassung) merged.verkauf_erstzulassung = item.erstzulassung;
       if (!merged.verkauf_kraftstoff && item.kraftstoff) merged.verkauf_kraftstoff = item.kraftstoff;
@@ -993,17 +1009,17 @@ function applyClientFilters(items) {
       if (!merged.verkauf_verbrauch_kombiniert && item.verbrauch_kombiniert) merged.verkauf_verbrauch_kombiniert = item.verbrauch_kombiniert;
       if (!merged.verkauf_verkaeufer && item.verkaeufer) merged.verkauf_verkaeufer = item.verkaeufer;
       if (!merged.verkauf_name && item.name) merged.verkauf_name = item.name;
-
+  
       // Preise robuster abbilden
       if (merged.verkauf_brutto == null && (merged.brutto_preis != null)) merged.verkauf_brutto = merged.brutto_preis;
       if (merged.verkauf_brutto == null && (merged["brutto-preis"] != null)) merged.verkauf_brutto = merged["brutto-preis"];
       if (merged.verkauf_preis == null && (item.preis != null)) merged.verkauf_preis = item.preis;
-
+  
       if (!merged.telefon && item.telefon) merged.telefon = item.telefon;
-
+  
       return merged;
     }
-
+  
     view.forEach(inserat => {
       // Medien säubern
       const imgs = (Array.isArray(inserat.images) ? inserat.images : [])
@@ -1012,10 +1028,10 @@ function applyClientFilters(items) {
       const videoUrl = String(inserat.video || "");
       const tel  = sanitizePhone(inserat.telefon);
       const phoneHref = (tel && tel.length >= 3) ? `tel:${tel}` : "#";
-
+  
       const priceNum = toNum(inserat.preis);
       const kmNum    = toNum(inserat.kilometer);
-
+  
       // Verkäuferdaten robust bestimmen
       const rawType = String(
         inserat.seller?.type ||
@@ -1023,31 +1039,37 @@ function applyClientFilters(items) {
         inserat.raw?.verkauf_verkaeufer ||
         ""
       ).toLowerCase();
-
+  
       const isHaendler =
         rawType === "haendler" ||
         rawType === "händler" ||
         rawType.includes("händ") ||
         rawType.includes("haend");
-
+  
       const sellerName =
         inserat.seller?.name ||
         inserat.name ||
         inserat.raw?.verkauf_name ||
         (isHaendler ? "Händler" : "Privatanbieter");
-
+  
       const sellerLogo =
         inserat.seller?.logoUrl ||
         inserat.raw?.seller?.logoUrl ||
         inserat.logoUrl ||
         "";
-
+  
       const sellerLocation =
         inserat.standort ||
         inserat.raw?.standort ||
         [inserat.plz, inserat.ort].filter(Boolean).join(" ") ||
         "Standort nicht angegeben";
-
+  
+      // 🔹 Verbrauch fürs UI robust ermitteln (gleicher Parser wie Filter)
+      const vShow = getCombinedConsumption(inserat);
+      const vShowText = Number.isFinite(vShow)
+        ? String(vShow.toFixed(1)).replace('.', ',')   // z. B. "5,3"
+        : '?';
+  
       // Karte rendern (ohne gefährliche Text-Injektionen)
       const card = document.createElement("div");
       card.className = "car-card horizontal";
@@ -1068,24 +1090,24 @@ function applyClientFilters(items) {
             <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
           </div>
         </div>
-
+  
         <div class="car-details">
           <div class="car-top-row">
             <h2 class="car-title"></h2>
             <p class="car-price">${isNaN(priceNum) ? "Preis n. a." : priceNum.toLocaleString("de-DE") + " €"}</p>
           </div>
-
+  
           <p class="car-subtitle"></p>
-
+  
           <div class="car-info-grid">
             <p><i class="fas fa-road"></i> ${isNaN(kmNum) ? "?" : kmNum.toLocaleString("de-DE")} km</p>
             <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.erstzulassung || "?"}</p>
             <p><i class="fas fa-gas-pump"></i> ${inserat.kraftstoff || "?"}</p>
             <p><i class="fas fa-gauge-high"></i> ${inserat.leistung || "?"} PS</p>
             <p><i class="fas fa-gears"></i> ${inserat.getriebe || "?"}</p>
-            <p><i class="fas fa-tint"></i> ${inserat.verbrauch_kombiniert || "?"} l/100 km</p>
+            <p><i class="fas fa-tint"></i> ${vShowText} l/100 km</p>
           </div>
-
+  
           <div class="dealer-info-row">
             <div class="dealer-row">
               <div class="dealer-avatar">
@@ -1106,23 +1128,23 @@ function applyClientFilters(items) {
           </div>
         </div>
       `;
-
+  
       // sichere Texte setzen
       card.querySelector(".car-title").textContent = inserat.titel || "Unbekanntes Fahrzeug";
       card.querySelector(".car-subtitle").textContent = inserat.raw?.verkauf_kurzbeschreibung || "";
       card.querySelector(".dealer-name").textContent = sellerName;
       card.querySelector(".dealer-location").textContent = sellerLocation;
-
+  
       container.appendChild(card);
       initMediaSlider(card.querySelector(".media-container"));
-
+  
       // Safari-sicheres Logo-Laden (nie display:none am <img>)
       const avatar = card.querySelector(".dealer-avatar");
       const img    = avatar.querySelector("img");
       avatar.classList.remove("has-logo");
       img.removeAttribute("src");
       img.setAttribute("alt", `${sellerName} Logo`);
-
+  
       if (sellerLogo) {
         img.addEventListener("load",  () => { avatar.classList.add("has-logo"); }, { once: true });
         img.addEventListener("error", () => {
@@ -1130,12 +1152,12 @@ function applyClientFilters(items) {
           img.removeAttribute("src");
         }, { once: true });
         img.src = sellerLogo;
-
+  
         if (img.complete && img.naturalWidth > 0) {
           avatar.classList.add("has-logo");
         }
       }
-
+  
       // Hochformat-Erkennung + Alt-Texte für Bilder
       const titleForAlt = card.querySelector(".car-title").textContent || "Fahrzeugbild";
       card.querySelectorAll(".slide").forEach((m, idx) => {
@@ -1150,7 +1172,7 @@ function applyClientFilters(items) {
           });
         }
       });
-
+  
       // Karte klickbar (nicht auf Buttons/Arrows)
       const realId = getMongoId(inserat);
       card.dataset.id = realId || "";
@@ -1164,9 +1186,10 @@ function applyClientFilters(items) {
         window.location.href = `anzeige.html${qs}`;
       });
     });
-
+  
     renderPager(serverTotal); // Wichtig: Gesamttreffer vom Server
   }
+  
 
   async function loadAndRender(p = 1) {
     try {
