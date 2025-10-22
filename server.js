@@ -2022,6 +2022,7 @@ app.get("/api/search", async (req, res) => {
         : [{ $sort: { veroeffentlichtAm: -1, _id: -1 } }];
 
     // ---- Parsing/Normalisierung (Preis, KM, PS, ccm, Verbrauch, Halter)
+// ---- Parsing/Normalisierung (Preis, KM, PS, ccm, Verbrauch, Halter)
 const parseNumberStages = [
   { $addFields: {
       _preis_raw: {
@@ -2040,6 +2041,7 @@ const parseNumberStages = [
       _halter_raw: { $ifNull: [ "$halter", { $ifNull: [ "$halteranzahl", "$fahrzeughalter" ] } ] }
     }
   },
+
   // Preis/KM per String-Cleanup
   { $addFields: {
       _preis_clean: {
@@ -2068,21 +2070,23 @@ const parseNumberStages = [
       }
     }
   },
-  // PS/ccm/Verbrauch/Halter
+
+  // PS / ccm / Verbrauch / Halter extrahieren
   { $addFields: {
-      _ps_match:   { $regexFind:   { input: { $toString: "$_ps_raw"  }, regex: /(\d{2,4})/ } },
-      _ccm_match:  { $regexFind:   { input: { $toString: "$_ccm_raw" }, regex: /(\d{3,5})/ } },
+      _ps_match:   { $regexFind: { input: { $toString: "$_ps_raw" },  regex: /(\d{2,4})/ } },
+      _ccm_match:  { $regexFind: { input: { $toString: "$_ccm_raw" }, regex: /(\d{3,5})/ } },
 
-      // Verbrauch normalisieren (Komma -> Punkt)
-      _verb_norm:  { $replaceAll:  { input: { $toString: "$_verb_raw" }, find: ",", replacement: "." } },
+      // Verbrauch: Komma -> Punkt
+      _verb_norm:  { $replaceAll: { input: { $toString: "$_verb_raw" }, find: ",", replacement: "." } },
 
-      // NUR Werte direkt vor "l/100 km" bzw. "kWh/100 km"
+      // Nur Zahlen direkt vor "l/100 km"
       _verb_liters: {
         $regexFindAll: {
           input: "$_verb_norm",
           regex: /(\d+(?:\.\d+)?)(?=\s*(?:l|L)\s*\/\s*100\s*km)/i
         }
       },
+      // Nur Zahlen direkt vor "kWh/100 km" (BEV/PHEV)
       _verb_kwh: {
         $regexFindAll: {
           input: "$_verb_norm",
@@ -2090,20 +2094,21 @@ const parseNumberStages = [
         }
       },
 
-      // Fallback: alle Zahlen (für exotische Formate)
+      // Fallback: alle Zahlen (für Fälle ohne Einheitenangabe)
       _verb_all_any: { $regexFindAll: { input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)/ } },
 
-      _halter_match: { $regexFind: { input: { $toString: "$_halter_raw" }, regex: /(\d{1,2})/ } }
+      _halter_match:{ $regexFind: { input: { $toString: "$_halter_raw" }, regex: /(\d{1,2})/ } }
     }
   },
+
   { $addFields: {
       preis_num: { $convert: { input: "$_preis_clean", to: "int", onError: null, onNull: null } },
       km_num:    { $convert: { input: "$_km_clean",    to: "int", onError: null, onNull: null } },
-      ps_num:    { $convert: { input: { $ifNull: ["$_ps_match.match",  null] }, to: "int",    onError: null, onNull: null } },
-      ccm_num:   { $convert: { input: { $ifNull: ["$_ccm_match.match", null] }, to: "int",    onError: null, onNull: null } },
+      ps_num:    { $convert: { input: { $ifNull: ["$_ps_match.match",  null] }, to: "int", onError: null, onNull: null } },
+      ccm_num:   { $convert: { input: { $ifNull: ["$_ccm_match.match", null] }, to: "int", onError: null, onNull: null } },
 
-      // Verbrauch: nehme den höheren Wert aus einem Bereich (z.B. "4.6–5.2 l/100 km").
-      // Wenn keine Einheitstreffer vorhanden sind, Fallback = max aller Zahlen < 60 (CO₂-Zahlen rausfiltern).
+      // Verbrauch: Wenn Einheitentreffer vorhanden → max(l/100, kWh/100).
+      // Sonst Fallback: max aller Zahlen < 60 (damit CO₂ "120 g/km" etc. ignoriert wird).
       verb_num: {
         $let: {
           vars: {
@@ -2135,9 +2140,7 @@ const parseNumberStages = [
               { $max: { $concatArrays: [ "$$liters", "$$kwhs" ] } },
               {
                 $let: {
-                  vars: {
-                    under60: { $filter: { input: "$$anyNums", as: "x", cond: { $lt: [ "$$x", 60 ] } } }
-                  },
+                  vars: { under60: { $filter: { input: "$$anyNums", as: "x", cond: { $lt: [ "$$x", 60 ] } } } },
                   in: {
                     $cond: [
                       { $gt: [ { $size: "$$under60" }, 0 ] },
@@ -2156,6 +2159,7 @@ const parseNumberStages = [
     }
   }
 ];
+
 
 
     // ---- numerische Filter (Preis/KM) + Basisfilter
