@@ -2022,91 +2022,141 @@ app.get("/api/search", async (req, res) => {
         : [{ $sort: { veroeffentlichtAm: -1, _id: -1 } }];
 
     // ---- Parsing/Normalisierung (Preis, KM, PS, ccm, Verbrauch, Halter)
-    const parseNumberStages = [
-      { $addFields: {
-          _preis_raw: {
-            $ifNull: [
-              "$brutto-preis",
-              { $ifNull: [
-                "$brutto_preis",
-                { $ifNull: [ "$verkauf_brutto", { $ifNull: [ "$preis", "$verkauf_preis" ] } ] }
-              ] }
-            ]
-          },
-          _km_raw:     { $ifNull: ["$verkauf_kilometer", { $ifNull: ["$kilometer", "$km"] }] },
-          _ps_raw:     { $ifNull: [ "$verkauf_leistung", { $ifNull: [ "$leistung", "$ps" ] } ] },
-          _ccm_raw:    { $ifNull: [ "$verkauf_hubraum",  { $ifNull: [ "$hubraum",  "$ccm" ] } ] },
-          _verb_raw:   { $ifNull: [ "$verkauf_verbrauch_kombiniert", { $ifNull: [ "$verbrauch_kombiniert", "$verbrauch" ] } ] },
-          _halter_raw: { $ifNull: [ "$halter", { $ifNull: [ "$halteranzahl", "$fahrzeughalter" ] } ] }
-        }
+const parseNumberStages = [
+  { $addFields: {
+      _preis_raw: {
+        $ifNull: [
+          "$brutto-preis",
+          { $ifNull: [
+            "$brutto_preis",
+            { $ifNull: [ "$verkauf_brutto", { $ifNull: [ "$preis", "$verkauf_preis" ] } ] }
+          ] }
+        ]
       },
-      // Preis/KM per String-Cleanup
-      { $addFields: {
-          _preis_clean: {
-            $replaceAll: {
+      _km_raw:     { $ifNull: ["$verkauf_kilometer", { $ifNull: ["$kilometer", "$km"] }] },
+      _ps_raw:     { $ifNull: [ "$verkauf_leistung", { $ifNull: [ "$leistung", "$ps" ] } ] },
+      _ccm_raw:    { $ifNull: [ "$verkauf_hubraum",  { $ifNull: [ "$hubraum",  "$ccm" ] } ] },
+      _verb_raw:   { $ifNull: [ "$verkauf_verbrauch_kombiniert", { $ifNull: [ "$verbrauch_kombiniert", "$verbrauch" ] } ] },
+      _halter_raw: { $ifNull: [ "$halter", { $ifNull: [ "$halteranzahl", "$fahrzeughalter" ] } ] }
+    }
+  },
+  // Preis/KM per String-Cleanup
+  { $addFields: {
+      _preis_clean: {
+        $replaceAll: {
+          input: { $replaceAll: {
+            input: { $replaceAll: {
               input: { $replaceAll: {
-                input: { $replaceAll: {
-                  input: { $replaceAll: {
-                    input: { $trim: { input: { $toString: "$_preis_raw" } } },
-                    find: ".", replacement: ""
-                  } },
-                  find: "€", replacement: ""
-                } },
-                find: " ", replacement: ""
-              } },
-              find: ",", replacement: ""
-            }
-          },
-          _km_clean: {
-            $replaceAll: {
-              input: { $replaceAll: {
-                input: { $trim: { input: { $toString: "$_km_raw" } } },
+                input: { $trim: { input: { $toString: "$_preis_raw" } } },
                 find: ".", replacement: ""
               } },
-              find: " ", replacement: ""
-            }
-          }
+              find: "€", replacement: ""
+            } },
+            find: " ", replacement: ""
+          } },
+          find: ",", replacement: ""
         }
       },
-      // PS/ccm/Verbrauch/Halter via $regexFind / $regexFindAll
-      { $addFields: {
-          _ps_match:    { $regexFind:   { input: { $toString: "$_ps_raw"  }, regex: /(\d{2,4})/ } },
-          _ccm_match:   { $regexFind:   { input: { $toString: "$_ccm_raw" }, regex: /(\d{3,5})/ } },
-          _verb_norm:   { $replaceAll:  { input: { $toString: "$_verb_raw" }, find: ",", replacement: "." } },
-          _verb_all:    { $regexFindAll:{ input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)/ } }, // sammelt alle Zahlen (z.B. "4.6–5.2")
-          _halter_match:{ $regexFind:   { input: { $toString: "$_halter_raw" }, regex: /(\d{1,2})/ } }
+      _km_clean: {
+        $replaceAll: {
+          input: { $replaceAll: {
+            input: { $trim: { input: { $toString: "$_km_raw" } } },
+            find: ".", replacement: ""
+          } },
+          find: " ", replacement: ""
+        }
+      }
+    }
+  },
+  // PS/ccm/Verbrauch/Halter
+  { $addFields: {
+      _ps_match:   { $regexFind:   { input: { $toString: "$_ps_raw"  }, regex: /(\d{2,4})/ } },
+      _ccm_match:  { $regexFind:   { input: { $toString: "$_ccm_raw" }, regex: /(\d{3,5})/ } },
+
+      // Verbrauch normalisieren (Komma -> Punkt)
+      _verb_norm:  { $replaceAll:  { input: { $toString: "$_verb_raw" }, find: ",", replacement: "." } },
+
+      // NUR Werte direkt vor "l/100 km" bzw. "kWh/100 km"
+      _verb_liters: {
+        $regexFindAll: {
+          input: "$_verb_norm",
+          regex: /(\d+(?:\.\d+)?)(?=\s*(?:l|L)\s*\/\s*100\s*km)/i
         }
       },
-      { $addFields: {
-          preis_num:  { $convert: { input: "$_preis_clean", to: "int",    onError: null, onNull: null } },
-          km_num:     { $convert: { input: "$_km_clean",    to: "int",    onError: null, onNull: null } },
-          ps_num:     { $convert: { input: { $ifNull: ["$_ps_match.match",     null] }, to: "int",    onError: null, onNull: null } },
-          ccm_num:    { $convert: { input: { $ifNull: ["$_ccm_match.match",    null] }, to: "int",    onError: null, onNull: null } },
-          // Verbrauch: wenn Bereich angegeben, nimm den HÖHEREN Wert → konservativ für "max"-Filter
-          verb_num: {
-            $let: {
-              vars: {
-                nums: {
-                  $map: {
-                    input: { $ifNull: ["$_verb_all", []] },
-                    as: "m",
-                    in: { $convert: { input: "$$m.match", to: "double", onError: null, onNull: null } }
-                  }
-                }
-              },
-              in: {
-                $cond: [
-                  { $gt: [{ $size: "$$nums" }, 0] },
-                  { $max: "$$nums" },
-                  null
-                ]
+      _verb_kwh: {
+        $regexFindAll: {
+          input: "$_verb_norm",
+          regex: /(\d+(?:\.\d+)?)(?=\s*kwh\s*\/\s*100\s*km)/i
+        }
+      },
+
+      // Fallback: alle Zahlen (für exotische Formate)
+      _verb_all_any: { $regexFindAll: { input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)/ } },
+
+      _halter_match: { $regexFind: { input: { $toString: "$_halter_raw" }, regex: /(\d{1,2})/ } }
+    }
+  },
+  { $addFields: {
+      preis_num: { $convert: { input: "$_preis_clean", to: "int", onError: null, onNull: null } },
+      km_num:    { $convert: { input: "$_km_clean",    to: "int", onError: null, onNull: null } },
+      ps_num:    { $convert: { input: { $ifNull: ["$_ps_match.match",  null] }, to: "int",    onError: null, onNull: null } },
+      ccm_num:   { $convert: { input: { $ifNull: ["$_ccm_match.match", null] }, to: "int",    onError: null, onNull: null } },
+
+      // Verbrauch: nehme den höheren Wert aus einem Bereich (z.B. "4.6–5.2 l/100 km").
+      // Wenn keine Einheitstreffer vorhanden sind, Fallback = max aller Zahlen < 60 (CO₂-Zahlen rausfiltern).
+      verb_num: {
+        $let: {
+          vars: {
+            liters: {
+              $map: {
+                input: { $ifNull: ["$_verb_liters", []] },
+                as: "m",
+                in: { $convert: { input: "$$m.match", to: "double", onError: null, onNull: null } }
+              }
+            },
+            kwhs: {
+              $map: {
+                input: { $ifNull: ["$_verb_kwh", []] },
+                as: "m",
+                in: { $convert: { input: "$$m.match", to: "double", onError: null, onNull: null } }
+              }
+            },
+            anyNums: {
+              $map: {
+                input: { $ifNull: ["$_verb_all_any", []] },
+                as: "m",
+                in: { $convert: { input: "$$m.match", to: "double", onError: null, onNull: null } }
               }
             }
           },
-          halter_num: { $convert: { input: { $ifNull: ["$_halter_match.match", null] }, to: "int", onError: null, onNull: null } }
+          in: {
+            $cond: [
+              { $gt: [ { $size: { $concatArrays: [ "$$liters", "$$kwhs" ] } }, 0 ] },
+              { $max: { $concatArrays: [ "$$liters", "$$kwhs" ] } },
+              {
+                $let: {
+                  vars: {
+                    under60: { $filter: { input: "$$anyNums", as: "x", cond: { $lt: [ "$$x", 60 ] } } }
+                  },
+                  in: {
+                    $cond: [
+                      { $gt: [ { $size: "$$under60" }, 0 ] },
+                      { $max: "$$under60" },
+                      null
+                    ]
+                  }
+                }
+              }
+            ]
+          }
         }
-      }
-    ];
+      },
+
+      halter_num: { $convert: { input: { $ifNull: ["$_halter_match.match", null] }, to: "int", onError: null, onNull: null } }
+    }
+  }
+];
+
 
     // ---- numerische Filter (Preis/KM) + Basisfilter
     const numberFilterStages = [
