@@ -86,6 +86,91 @@ const setText = (id, v) => {
   const el = $id(id);
   if (el) el.textContent = v ?? "—";
 };
+function parseVerbrauchNum(val) {
+  if (val == null) return NaN;
+  if (typeof val === "number") return Number.isFinite(val) ? val : NaN;
+
+  if (typeof val === "object") {
+    const keys = [
+      "kombiniert","combined","wltp_kombiniert","wltpCombined","nefz_kombiniert",
+      "combined_l_100km","kombiniert_l_100km","kombiniert_l_pro_100_km"
+    ];
+    for (const k of keys) {
+      if (val[k] != null) {
+        const n = parseVerbrauchNum(val[k]);
+        if (Number.isFinite(n)) return n;
+      }
+    }
+    for (const k in val) {
+      if (/komb/i.test(k)) {
+        const n = parseVerbrauchNum(val[k]);
+        if (Number.isFinite(n)) return n;
+      }
+    }
+    return NaN;
+  }
+
+  const s = String(val).toLowerCase().replace(/\s+/g, " ").trim();
+
+  // 1) Zahlen direkt vor "l/100 km"
+  const litersAll = [];
+  const rxLiters = /(\d+(?:[.,]\d+)?)(?=\s*(?:l|liter)\s*\/\s*100\s*km\b)/gi;
+  for (const m of s.matchAll(rxLiters)) litersAll.push(parseFloat(m[1].replace(",", ".")));
+  if (litersAll.length) return Math.max(...litersAll.filter(Number.isFinite));
+
+  // 2) Wenn keine Liter gefunden wurden, aber kWh/100 km vorkommt -> EV/PHEV → NaN
+  if (/\bkwh\s*\/?\s*100\s*km\b/.test(s)) return NaN;
+
+  // 3) Fallback: größte Zahl < 60
+  const nums = (s.match(/\d+(?:[.,]\d+)?/g) || [])
+    .map(t => parseFloat(t.replace(",", ".")))
+    .filter(n => Number.isFinite(n) && n < 60);
+  if (nums.length) return Math.max(...nums);
+
+  return NaN;
+}
+
+
+// Holt "kombiniert" aus möglichst vielen Varianten.
+// Bezieht auch Top-Level `verbrauch` mit ein (manche Datensätze haben nur das).
+function getCombinedConsumption(item) {
+  const cands = [
+    item.verkauf_verbrauch_kombiniert,
+    item.verbrauch_kombiniert,
+    item.verbrauch,                         // ← Top-Level String
+    item.raw?.verkauf_verbrauch_kombiniert,
+    item.raw?.verbrauch_kombiniert,
+    item.raw?.verbrauch?.kombiniert,
+    item.raw?.wltp_kombiniert,
+    item.raw?.wltp?.kombiniert,
+    item.raw?.nefz_kombiniert,
+    item.raw?.nefz?.kombiniert,
+    item.raw?.verbrauch                    // ← Roh-String
+  ];
+  for (const c of cands) {
+    const n = parseVerbrauchNum(c);
+    if (Number.isFinite(n)) return n;
+  }
+
+  // Fallback: Mittelwert inner/außerorts
+  const inner = parseVerbrauchNum(
+    item.verkauf_verbrauch_innerorts ??
+    item.verbrauch_innerorts ??
+    item.raw?.verkauf_verbrauch_innerorts ??
+    item.raw?.verbrauch_innerorts ??
+    item.raw?.verbrauch?.innerorts
+  );
+  const outer = parseVerbrauchNum(
+    item.verkauf_verbrauch_ausserorts ??
+    item.verbrauch_ausserorts ??
+    item.raw?.verkauf_verbrauch_ausserorts ??
+    item.raw?.verbrauch_ausserorts ??
+    item.raw?.verbrauch?.ausserorts
+  );
+  if (Number.isFinite(inner) && Number.isFinite(outer)) return (inner + outer) / 2;
+
+  return NaN;
+}
 
 /* ------------------------ Auth + Navbar ------------------------ */
 function setupAuthLink() {
@@ -220,7 +305,6 @@ function fillTop(inserat) {
     mapRoleToLabel(inserat?.seller?.type) || mapRoleToLabel(inserat?.verkauf_verkaeufer);
   if (sellerTypeEl) sellerTypeEl.textContent = sellerLabel;
 }
-
 function fillTechnical(inserat) {
   // einfache Textfelder (direkte Strings)
   const simpleMap = [
@@ -228,7 +312,7 @@ function fillTechnical(inserat) {
     ["fahrzeugart", "v-fahrzeugart"],
     ["verkauf_fahrzeugtyp", "v-fahrzeugtyp"],
     ["verkauf_hubraum", "v-hubraum"],
-    ["verkauf_verbrauch_kombiniert", "v-verbrauch-kombiniert"],
+    // ⚠️ kombinierten Verbrauch NICHT mehr hier setzen – das machen wir unten berechnet
     ["verkauf_verbrauch_innerorts", "v-verbrauch-innerorts"],
     ["verkauf_verbrauch_ausserorts", "v-verbrauch-ausserorts"],
     ["verkauf_antrieb", "v-antrieb"],
@@ -249,6 +333,30 @@ function fillTechnical(inserat) {
     const val = String(inserat[key] ?? "").trim();
     el.textContent = val || "–";
   });
+
+  // 🚗 Kombinierter Verbrauch *berechnet* setzen (überschreibt evtl. vorigen Wert)
+  (function () {
+    const vCombEl = document.getElementById("v-verbrauch-kombiniert");
+    if (!vCombEl) return;
+
+    let txt = "–";
+
+    if (typeof getCombinedConsumption === "function") {
+      const n = getCombinedConsumption(inserat);
+      if (Number.isFinite(n)) {
+        txt = String(n.toFixed(1)).replace(".", ",") + " l/100 km";
+      }
+    } else {
+      // Fallback, falls die Helfer noch nicht eingebunden sind:
+      const raw =
+        (inserat.verkauf_verbrauch_kombiniert ??
+         inserat.verbrauch_kombiniert ??
+         inserat.verbrauch ?? "");
+      txt = String(raw || "–");
+    }
+
+    vCombEl.textContent = txt;
+  })();
 
   // Halter (Anzahl)
   const halterEl = document.getElementById("v-halter");
