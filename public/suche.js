@@ -585,9 +585,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       raw
     };
-  }
-  // Zahl aus verschiedensten Verbrauchs-Formaten ziehen.
-// Gibt NaN zurück, wenn es kWh/100km ist (E-Autos) oder nichts erkennbar ist.
+  }// Gibt NaN zurück, wenn es kWh/100km ist (E-Autos) oder nichts erkennbar ist.
 function parseVerbrauchNum(val) {
   if (val == null) return NaN;
   if (typeof val === 'number') return Number.isFinite(val) ? val : NaN;
@@ -619,10 +617,11 @@ function parseVerbrauchNum(val) {
   return m ? parseFloat(m[1]) : NaN;
 }
 
-// Versucht viele Felder/Strukturen – und mittelt notfalls inner/außerorts.
+// Holt "kombiniert" aus möglichst vielen Varianten und mittelt notfalls inner/außerorts.
 function getCombinedConsumption(item) {
   const candidates = [
-    item.verbrauch_kombiniert,
+    item.verkauf_verbrauch_kombiniert,   // Top-Level (Mongo/normalisiert)
+    item.verbrauch_kombiniert,           // evtl. Alias (normalisiert)
     item.raw?.verkauf_verbrauch_kombiniert,
     item.raw?.verbrauch_kombiniert,
     item.raw?.verbrauch?.kombiniert,
@@ -630,23 +629,25 @@ function getCombinedConsumption(item) {
     item.raw?.wltp?.kombiniert,
     item.raw?.nefz_kombiniert,
     item.raw?.nefz?.kombiniert,
-    item.raw?.verbrauch // String-Fallback
+    item.raw?.verbrauch                  // String-Fallback
   ];
   for (const c of candidates) {
     const n = parseVerbrauchNum(c);
     if (Number.isFinite(n)) return n;
   }
 
-  // Fallback: Mittelwert aus inner/außerorts, wenn beides vorhanden
+  // Fallback: Mittelwert inner/außerorts (Top-Level ODER raw)
   const inner = parseVerbrauchNum(
-    item.raw?.verbrauch?.innerorts ??
+    item.verkauf_verbrauch_innerorts ??
+    item.raw?.verkauf_verbrauch_innerorts ??
     item.raw?.verbrauch_innerorts ??
-    item.raw?.verkauf_verbrauch_innerorts
+    item.raw?.verbrauch?.innerorts
   );
   const outer = parseVerbrauchNum(
-    item.raw?.verbrauch?.ausserorts ??
+    item.verkauf_verbrauch_ausserorts ??
+    item.raw?.verkauf_verbrauch_ausserorts ??
     item.raw?.verbrauch_ausserorts ??
-    item.raw?.verkauf_verbrauch_ausserorts
+    item.raw?.verbrauch?.ausserorts
   );
   if (Number.isFinite(inner) && Number.isFinite(outer)) return (inner + outer) / 2;
 
@@ -668,7 +669,7 @@ function applyClientFilters(items) {
   const accidentFreeEl    = document.getElementById("accidentFree");
   const inspectionUntilEl = document.getElementById("inspectionUntil");
 
-  // Erstzulassung UI
+  // Erstzulassung UI (variante: <input type="month"> oder zwei Selects)
   const firstRegFromEl    = document.getElementById("firstRegFrom");
   const firstRegMonthEl   = document.getElementById("first-registration-month");
   const firstRegYearEl    = document.getElementById("first-registration-year");
@@ -702,8 +703,12 @@ function applyClientFilters(items) {
   const priceTo       = toNum(priceToEl?.value   ?? "");
   const mileageFrom   = toNum(mileageFromEl?.value ?? "");
   const mileageTo     = toNum(mileageToEl?.value   ?? "");
-  const powerFrom     = toNum(powerFromEl?.value ?? "");
-  const powerTo       = toNum(powerToEl?.value   ?? "");
+
+  // ⚙️ PS: UI-Wert, sonst URL-Fallback (ps_min/ps_max)
+  const rawPowerFrom  = toNum(powerFromEl?.value ?? "");
+  const rawPowerTo    = toNum(powerToEl?.value   ?? "");
+  const powerFrom     = (!isNaN(rawPowerFrom) && rawPowerFrom > 0) ? rawPowerFrom : toNum(QP.ps_min);
+  const powerTo       = (!isNaN(rawPowerTo)   && rawPowerTo   > 0) ? rawPowerTo   : toNum(QP.ps_max);
 
   const fuelTypeUI     = (fuelTypeEl?.value ? String(fuelTypeEl.value) : "Beliebig").toLowerCase();
   const transmissionUI = (transmissionEl?.value ? String(transmissionEl.value) : "Beliebig").toLowerCase();
@@ -742,7 +747,7 @@ function applyClientFilters(items) {
     if (selected.length) modelsEff = selected;
   }
 
-  // ModellVARIANTE (UI > URL)
+  // Modellvariante (UI > URL)
   const modVarUI  = (modVarEl?.value || "").trim().toLowerCase();
   const modVarEff = modVarUI || (QP.modellausfuehrung || "").toLowerCase();
 
