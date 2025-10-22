@@ -504,13 +504,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   // --- Ende initMediaSlider ---
 
-  // ===== API =====
   async function fetchSearch(p = 1, limit = pageSize) {
     const reqId = ++lastReqId;
     const params = new URLSearchParams(window.location.search);
+    // Client-only: nicht ans Backend senden
+    params.delete("verbrauch_max");
     params.set("page", String(p));
     params.set("limit", String(limit));
     const res = await fetch(`/api/search?${params.toString()}`, { credentials: "omit" });
+  
     if (!res.ok) throw new Error("Fetch /api/search fehlgeschlagen");
     const data = await res.json();
     if (reqId !== lastReqId) throw new Error("stale"); // alte Antwort verwerfen
@@ -856,16 +858,15 @@ function applyClientFilters(items) {
       if (!standort.includes(norm(QP.ort))) return false;
     }
 
-// Verbrauch (kombiniert) max (tolerant, weil Server paginiert)
-// Regel: Nur Fahrzeuge mit *bekanntem* Verbrauch > vMax rausfiltern.
-// Unbekannt (NaN / kWh) bleibt drin.
-if (Number.isFinite(vMax) && vMax > 0) {
-  const v = getCombinedConsumption(i);
-  if (Number.isFinite(v) && v > vMax) return false;
-  // optional fürs Sortieren/Labeln:
-  i.__vKnown = Number.isFinite(v);
-  i.__vValue = v;
-}
+   
+    // Verbrauch (kombiniert) max
+     // Nur dann rausfiltern, wenn wir einen *zahl*baren l/100 km-Wert ermitteln konnten.
+     if (Number.isFinite(vMax) && vMax > 0) {
+       const v = getCombinedConsumption(i);
+       if (Number.isFinite(v) && v > vMax) return false;
+      // Wenn v nicht ermittelbar ist (NaN / nur kWh/100 km), Fahrzeug *durchlassen*.
+    }
+    
 
 
 
@@ -1732,3 +1733,7 @@ function clearAllFilters() {
   history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
   loadAndRender(1);
 }
+
+
+
+
