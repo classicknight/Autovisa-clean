@@ -1499,8 +1499,26 @@ function renderActiveFilters() {
   const psMaxEff = !isNaN(toInt(powerToEl?.value   ?? "")) && toInt(powerToEl?.value   ?? "") > 0
                    ? toInt(powerToEl.value)   : toInt(qp.ps_max);       // 👈 NEU
 
-  const fuelVal  = (fuelEl?.value || "").toLowerCase();
-  const gearVal  = (gearEl?.value || "").toLowerCase();
+// UI value if present and not "Beliebig", else fallback to URL param
+const effFuel = (() => {
+  const ui = (fuelEl?.value || "").trim();
+  if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return ui;
+  const qpVal = (qp.kraftstoff || "").trim();
+  return qpVal ? qpVal.charAt(0).toUpperCase() + qpVal.slice(1) : "";
+})();
+
+const effGear = (() => {
+  const ui = (gearEl?.value || "").trim();
+  if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return ui;
+  // fallback to URL param ?getriebe=automatik|schalt|schaltgetriebe
+  let v = (qp.getriebe || "").toLowerCase();
+  if (!v) return "";
+  if (/^schalt/.test(v)) v = "Schaltgetriebe";
+  else if (/^auto/.test(v)) v = "Automatik";
+  else v = v.charAt(0).toUpperCase() + v.slice(1);
+  return v;
+})();
+
 
   const ezFromUIraw =
     (firstRegFromEl?.value) ||
@@ -1536,43 +1554,15 @@ function renderActiveFilters() {
   if (!isNaN(psMinEff) && psMinEff > 0) chips.push({key:"ps_min", label:`PS ab ${int(psMinEff)}`});
   if (!isNaN(psMaxEff) && psMaxEff > 0) chips.push({key:"ps_max", label:`PS bis ${int(psMaxEff)}`});
 
-// Kraftstoff-Chip (wie bisher, aber schöneres Label)
-if (fuelVal && !["beliebig","any","alle","all","-"].includes(fuelVal)) {
-  const fuelLabel = fuelEl?.selectedOptions?.[0]?.text || fuelEl?.value || qp.kraftstoff;
-  chips.push({ key: "fuel", label: `Kraftstoff: ${fuelLabel}` });
+// Kraftstoff: benutze den effektiven Wert (UI oder URL)
+if (effFuel) chips.push({ key: "fuel", label: `Kraftstoff: ${effFuel}` });
+
+
+// Getriebe: benutze den effektiven Wert (UI oder URL)
+if (effGear) {
+  chips.push({ key: "gear", label: `Getriebe: ${effGear}` });
 }
 
-// Getriebe-Chip: unterstützt Select ODER Checkboxen ODER nur URL-Param
-(function () {
-  const mapNice = (v) => {
-    v = String(v || "").toLowerCase();
-    if (v.startsWith("auto")) return "Automatik";
-    if (v.startsWith("schalt")) return "Schaltgetriebe";
-    if (v === "schaltgetriebe" || v === "schalt") return "Schaltgetriebe";
-    return v ? v[0].toUpperCase() + v.slice(1) : "";
-  };
-
-  let gearLabel = "";
-
-  // 1) Select vorhanden & nicht "Beliebig"
-  if (gearEl && !["beliebig","any","alle","all","-"].includes(gearVal)) {
-    gearLabel = gearEl.selectedOptions?.[0]?.text || mapNice(gearEl.value);
-  } else {
-    // 2) Checkboxen: wenn genau eine aktiv
-    const cbSel = document.querySelectorAll(
-      '.search-group input[type="checkbox"][value="Automatik"], .search-group input[type="checkbox"][value="Schaltgetriebe"]'
-    );
-    const checked = [...cbSel].filter(cb => cb.checked).map(cb => cb.value);
-    if (checked.length === 1) {
-      gearLabel = checked[0];
-    } else if (!gearLabel && qp.getriebe) {
-      // 3) nur URL-Parameter vorhanden (z.B. ?getriebe=automatik|schalt)
-      gearLabel = mapNice(qp.getriebe);
-    }
-  }
-
-  if (gearLabel) chips.push({ key: "gear", label: `Getriebe: ${gearLabel}` });
-})();
 
 
   if (ezFromEff) chips.push({key:"ezFrom", label:`EZ ab ${fmtYM(ezFromEff)}`});
@@ -1803,7 +1793,5 @@ function clearAllFilters() {
   history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
   loadAndRender(1);
 }
-
-
 
 
