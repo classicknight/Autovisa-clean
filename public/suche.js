@@ -19,6 +19,7 @@ const QP = (() => {
     ps_min: sp.get("ps_min") || "",                // 👈 NEU
     ps_max: sp.get("ps_max") || "",                // 👈 NEU
     getriebe: (sp.get("getriebe") || "").toLowerCase(),
+    antriebsart: (sp.get("antriebsart") || "").toLowerCase(),   // 👈 NEU
     kraftstoff: (sp.get("kraftstoff") || "").toLowerCase(),
     ort: sp.get("ort") || "",
     umkreis: sp.get("umkreis") || "",
@@ -31,6 +32,8 @@ const QP = (() => {
 })();
 
 
+  
+ 
 // ---------- Utils ----------
 const norm = (s) => String(s || "")
   .toLowerCase()
@@ -77,74 +80,75 @@ document.addEventListener("DOMContentLoaded", () => {
   const pager         = document.getElementById("pager");
   const sortBy        = document.getElementById("sortBy");
   const applyFilters  = document.getElementById("applyFiltersBtn");
+// --- Prefill aus URL in die UI ---
+(function prefillFromQuery () {
+  const markeEl   = document.getElementById("marke");
+  const modellEl  = document.getElementById("modell");
+  const modVarEl  = document.getElementById("modellausfuehrung"); // ← NEU
 
-  // --- Prefill aus URL in die UI ---
-  (function prefillFromQuery () {
-    const markeEl   = document.getElementById("marke");
-    const modellEl  = document.getElementById("modell");
-    const modVarEl  = document.getElementById("modellausfuehrung"); // ← NEU
+  const priceToEl = document.getElementById("priceTo");
+  const kmToEl    = document.getElementById("mileageTo");
 
-    const priceToEl = document.getElementById("priceTo");
-    const kmToEl    = document.getElementById("mileageTo");
+  const fuelEl    = document.getElementById("fuelType") || document.getElementById("fuel");
+  const gearEl    = document.getElementById("transmission") || document.getElementById("gear");
+  const driveEl   = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb"); // ← NEU
 
-    const fuelEl    = document.getElementById("fuelType") || document.getElementById("fuel");
-    const gearEl    = document.getElementById("transmission") || document.getElementById("gear");
+  // Ergebnis-Seite (Variante 1)
+  const firstRegFromEl  = document.getElementById("firstRegFrom"); // <input type="month">
+  const firstRegMonthEl = document.getElementById("first-registration-month");
+  const firstRegYearEl  = document.getElementById("first-registration-year");
 
-    // Ergebnis-Seite (Variante 1)
-    const firstRegFromEl  = document.getElementById("firstRegFrom"); // <input type="month">
-    const firstRegMonthEl = document.getElementById("first-registration-month");
-    const firstRegYearEl  = document.getElementById("first-registration-year");
+  // Suchformular-Seite (Variante 2)
+  const ezVonEl = document.getElementById("ez-von"); // <input type="month">
+  const ezBisEl = document.getElementById("ez-bis"); // <input type="month">
 
-    // Suchformular-Seite (Variante 2)
-    const ezVonEl = document.getElementById("ez-von"); // <input type="month">
-    const ezBisEl = document.getElementById("ez-bis"); // <input type="month">
+  // Feature-Checkboxen (falls vorhanden)
+  const pfEl = document.getElementById("partikelfilter");
+  const shEl = document.getElementById("scheckheft");
+  const ftEl = document.getElementById("fahrtauglich");
 
-    // Feature-Checkboxen (falls vorhanden)
-    const pfEl = document.getElementById("partikelfilter");
-    const shEl = document.getElementById("scheckheft");
-    const ftEl = document.getElementById("fahrtauglich");
+  if (markeEl && QP.marke) markeEl.value = QP.marke;
 
-    if (markeEl && QP.marke) markeEl.value = QP.marke;
+  if (modellEl && Array.isArray(QP.modell) && QP.modell.length) {
+    const set = new Set(QP.modell.map(v => v.toLowerCase()));
+    [...modellEl.options].forEach(opt => { opt.selected = set.has(String(opt.value).toLowerCase()); });
+  }
 
-    if (modellEl && Array.isArray(QP.modell) && QP.modell.length) {
-      const set = new Set(QP.modell.map(v => v.toLowerCase()));
-      [...modellEl.options].forEach(opt => { opt.selected = set.has(String(opt.value).toLowerCase()); });
-    }
+  if (modVarEl && QP.modellausfuehrung) modVarEl.value = QP.modellausfuehrung;
 
-    if (modVarEl && QP.modellausfuehrung) modVarEl.value = QP.modellausfuehrung;
+  if (priceToEl && QP.price_max) priceToEl.value = QP.price_max;
+  if (kmToEl   && QP.km_max)     kmToEl.value    = QP.km_max;
 
-    if (priceToEl && QP.price_max) priceToEl.value = QP.price_max;
-    if (kmToEl   && QP.km_max)     kmToEl.value    = QP.km_max;
+  if (fuelEl && QP.kraftstoff) fuelEl.value = QP.kraftstoff;
+  if (gearEl && QP.getriebe)   gearEl.value = QP.getriebe;
+  if (driveEl && QP.antriebsart) driveEl.value = QP.antriebsart; // ← NEU
 
-    if (fuelEl && QP.kraftstoff) fuelEl.value = QP.kraftstoff;
-    if (gearEl && QP.getriebe)   gearEl.value = QP.getriebe;
+  // EZ: Ergebnis-Seite (ein einziges <input type="month">)
+  if (firstRegFromEl && QP.ezFrom) firstRegFromEl.value = QP.ezFrom;
 
-    // EZ: Ergebnis-Seite (ein einziges <input type="month">)
-    if (firstRegFromEl && QP.ezFrom) firstRegFromEl.value = QP.ezFrom;
+  // EZ: Ergebnis-Seite (Jahr/Monat-Dropdowns)
+  if (QP.ezFrom && firstRegMonthEl && firstRegYearEl) {
+    const [y, m] = QP.ezFrom.split("-");
+    if (y) firstRegYearEl.value  = y;
+    if (m) firstRegMonthEl.value = m;
+  }
 
-    // EZ: Ergebnis-Seite (Jahr/Monat-Dropdowns)
-    if (QP.ezFrom && firstRegMonthEl && firstRegYearEl) {
-      const [y, m] = QP.ezFrom.split("-");
-      if (y) firstRegYearEl.value  = y;
-      if (m) firstRegMonthEl.value = m;
-    }
+  // EZ: Suchformular-Seite (von/bis als <input type="month">)
+  if (ezVonEl && QP.ezFrom) ezVonEl.value = QP.ezFrom;
+  if (ezBisEl && QP.ezTo)   ezBisEl.value = QP.ezTo;
 
-    // EZ: Suchformular-Seite (von/bis als <input type="month">)
-    if (ezVonEl && QP.ezFrom) ezVonEl.value = QP.ezFrom;
-    if (ezBisEl && QP.ezTo)   ezBisEl.value = QP.ezTo;
+  // Sortierung aus URL auf das Select mappen
+  if (sortBy) {
+    if (QP.sort === "preis_asc")       sortBy.value = "price-asc";
+    else if (QP.sort === "preis_desc") sortBy.value = "price-desc";
+    else if (QP.sort === "neueste")    sortBy.value = "date-desc";
+    else if (QP.sort)                  sortBy.value = "date-desc"; // Fallback
+  }
 
-    // Sortierung aus URL auf das Select mappen
-    if (sortBy) {
-      if (QP.sort === "preis_asc")       sortBy.value = "price-asc";
-      else if (QP.sort === "preis_desc") sortBy.value = "price-desc";
-      else if (QP.sort === "neueste")    sortBy.value = "date-desc";
-      else if (QP.sort)                  sortBy.value = "date-desc"; // Fallback
-    }
-
-    if (pfEl) pfEl.checked = !!QP.partikelfilter;
-    if (shEl) shEl.checked = !!QP.scheckheft;
-    if (ftEl) ftEl.checked = !!QP.fahrtauglich;
-  })();
+  if (pfEl) pfEl.checked = !!QP.partikelfilter;
+  if (shEl) shEl.checked = !!QP.scheckheft;
+  if (ftEl) ftEl.checked = !!QP.fahrtauglich;
+})();
 
   // Verbrauch: URL -> UI (Select/Custom) + Toggle
   (function () {
@@ -1284,23 +1288,25 @@ function applyClientFilters(items) {
     if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));
     else params.delete("km_max");
   
+    // Kraftstoff / Getriebe / Antriebsart
     const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
     const gearEl = document.getElementById("transmission") || document.getElementById("gear");
-    
+    const driveEl = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
+  
+    // Kraftstoff
     const fuelVal = (fuelEl?.value || "").toLowerCase();
     if (fuelVal && !["beliebig","any","alle","all","-"].includes(fuelVal)) {
       params.set("kraftstoff", fuelVal);
     } else {
       params.delete("kraftstoff");
     }
-    
-    // 1) Versuch: Select (falls vorhanden)
-    const gearValRaw = (gearEl?.value || "").toLowerCase();
+  
+    // Getriebe (Select → Param, sonst Fallback: Checkboxen Automatik/Schaltgetriebe)
+    const gearValRaw  = (gearEl?.value || "").toLowerCase();
     const gearValNorm = (gearValRaw === "schaltgetriebe") ? "schalt" : gearValRaw;
     if (gearEl && gearValNorm && !["beliebig","any","alle","all","-"].includes(gearValNorm)) {
       params.set("getriebe", gearValNorm);
     } else {
-      // 2) Fallback: Checkboxen (wenn genau eine)
       const cb = document.querySelectorAll(
         '.search-group input[type="checkbox"][value="Automatik"], .search-group input[type="checkbox"][value="Schaltgetriebe"]'
       );
@@ -1316,7 +1322,37 @@ function applyClientFilters(items) {
         params.delete("getriebe");
       }
     }
-    
+  
+    // 🔥 Antriebsart (Select → Param, sonst Fallback: Checkboxen Front/Heck/Allrad)
+    (function () {
+      const norm = (s) => String(s || "").trim().toLowerCase();
+      const DRIVE_MAP = {
+        "front": "front", "frontantrieb": "front", "fwd": "front",
+        "heck": "heck", "heckantrieb": "heck", "rwd": "heck",
+        "allrad": "allrad", "4x4": "allrad", "4wd": "allrad", "awd": "allrad"
+      };
+  
+      const uiRaw = norm(driveEl?.value || "");
+      if (driveEl && uiRaw && !["beliebig","any","alle","all","-"].includes(uiRaw)) {
+        params.set("antriebsart", DRIVE_MAP[uiRaw] || uiRaw);
+        return;
+      }
+  
+      // Fallback: Checkboxen (wenn genau eine aktiv)
+      const cbSel = document.querySelectorAll(
+        '.search-group input[type="checkbox"][value="Frontantrieb"], .search-group input[type="checkbox"][value="Heckantrieb"], .search-group input[type="checkbox"][value="Allrad"], .search-group input[type="checkbox"][value="4x4"]'
+      );
+      if (cbSel.length) {
+        const checked = [...cbSel].filter(x => x.checked).map(x => norm(x.value));
+        if (checked.length === 1) {
+          params.set("antriebsart", DRIVE_MAP[checked[0]] || checked[0]);
+        } else {
+          params.delete("antriebsart");
+        }
+      } else {
+        params.delete("antriebsart");
+      }
+    })();
   
     // Verbrauch (max) – Select/Custom -> URL
     (function () {
@@ -1423,7 +1459,6 @@ function applyClientFilters(items) {
   loadAndRender(initialPage);
 });
 
-
 // ---- Aktive Filter (Chips) ----
 function renderActiveFilters() {
   const bar = document.getElementById('activeFilterBar');
@@ -1438,6 +1473,8 @@ function renderActiveFilters() {
   const powerToEl      = document.getElementById("powerTo");
   const fuelEl         = document.getElementById("fuelType") || document.getElementById("fuel");
   const gearEl         = document.getElementById("transmission") || document.getElementById("gear");
+  const driveEl        = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb"); // 👈 NEU
+
   const firstRegFromEl = document.getElementById("firstRegFrom");
   const firstRegMonthEl= document.getElementById("first-registration-month");
   const firstRegYearEl = document.getElementById("first-registration-year");
@@ -1475,9 +1512,10 @@ function renderActiveFilters() {
     ezTo:   sp.get("ezTo")   || "",
     km_max: sp.get("km_max") || "",
     price_max: sp.get("price_max") || "",
-    ps_min: sp.get("ps_min") || "",                // 👈 NEU
-    ps_max: sp.get("ps_max") || "",                // 👈 NEU
+    ps_min: sp.get("ps_min") || "",
+    ps_max: sp.get("ps_max") || "",
     getriebe: (sp.get("getriebe") || "").toLowerCase(),
+    antriebsart: (sp.get("antriebsart") || "").toLowerCase(), // 👈 NEU
     kraftstoff: (sp.get("kraftstoff") || "").toLowerCase(),
     ort: sp.get("ort") || "",
     umkreis: sp.get("umkreis") || "",
@@ -1495,30 +1533,44 @@ function renderActiveFilters() {
   const kmMax    = !isNaN(toInt(mileageToEl?.value ?? "")) && toInt(mileageToEl?.value ?? "") > 0
                    ? toInt(mileageToEl.value) : toInt(qp.km_max);
   const psMinEff = !isNaN(toInt(powerFromEl?.value ?? "")) && toInt(powerFromEl?.value ?? "") > 0
-                   ? toInt(powerFromEl.value) : toInt(qp.ps_min);       // 👈 NEU
+                   ? toInt(powerFromEl.value) : toInt(qp.ps_min);
   const psMaxEff = !isNaN(toInt(powerToEl?.value   ?? "")) && toInt(powerToEl?.value   ?? "") > 0
-                   ? toInt(powerToEl.value)   : toInt(qp.ps_max);       // 👈 NEU
+                   ? toInt(powerToEl.value)   : toInt(qp.ps_max);
 
-// UI value if present and not "Beliebig", else fallback to URL param
-const effFuel = (() => {
-  const ui = (fuelEl?.value || "").trim();
-  if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return ui;
-  const qpVal = (qp.kraftstoff || "").trim();
-  return qpVal ? qpVal.charAt(0).toUpperCase() + qpVal.slice(1) : "";
-})();
+  // Kraftstoff: UI > URL
+  const effFuel = (() => {
+    const ui = (fuelEl?.value || "").trim();
+    if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return ui;
+    const qpVal = (qp.kraftstoff || "").trim();
+    return qpVal ? qpVal.charAt(0).toUpperCase() + qpVal.slice(1) : "";
+  })();
 
-const effGear = (() => {
-  const ui = (gearEl?.value || "").trim();
-  if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return ui;
-  // fallback to URL param ?getriebe=automatik|schalt|schaltgetriebe
-  let v = (qp.getriebe || "").toLowerCase();
-  if (!v) return "";
-  if (/^schalt/.test(v)) v = "Schaltgetriebe";
-  else if (/^auto/.test(v)) v = "Automatik";
-  else v = v.charAt(0).toUpperCase() + v.slice(1);
-  return v;
-})();
+  // Getriebe: UI > URL
+  const effGear = (() => {
+    const ui = (gearEl?.value || "").trim();
+    if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return ui;
+    let v = (qp.getriebe || "").toLowerCase();
+    if (!v) return "";
+    if (/^schalt/.test(v)) v = "Schaltgetriebe";
+    else if (/^auto/.test(v)) v = "Automatik";
+    else v = v.charAt(0).toUpperCase() + v.slice(1);
+    return v;
+  })();
 
+  // 👇 NEU: Antriebsart: UI > URL (+ hübsche Labels)
+  const effDrive = (() => {
+    const norm = s => String(s || "").trim().toLowerCase();
+    const toNice = v => {
+      v = norm(v);
+      if (["front","frontantrieb","fwd"].includes(v)) return "Frontantrieb";
+      if (["heck","heckantrieb","rwd"].includes(v))   return "Heckantrieb";
+      if (["allrad","4x4","awd","4wd"].includes(v))   return "Allrad";
+      return v ? v[0].toUpperCase() + v.slice(1) : "";
+    };
+    const ui = norm(driveEl?.value || "");
+    if (ui && !["beliebig","any","alle","all","-"].includes(ui)) return toNice(ui);
+    return toNice(qp.antriebsart || "");
+  })();
 
   const ezFromUIraw =
     (firstRegFromEl?.value) ||
@@ -1550,20 +1602,14 @@ const effGear = (() => {
   if (!isNaN(kmMin)    && kmMin  > 0)   chips.push({key:"km_min",    label:`KM ab ${int(kmMin)}`});
   if (!isNaN(kmMax)    && kmMax  > 0)   chips.push({key:"km_max",    label:`KM bis ${int(kmMax)}`});
 
-  // 👇 NEU: Leistung (mit URL-Fallback)
+  // Leistung
   if (!isNaN(psMinEff) && psMinEff > 0) chips.push({key:"ps_min", label:`PS ab ${int(psMinEff)}`});
   if (!isNaN(psMaxEff) && psMaxEff > 0) chips.push({key:"ps_max", label:`PS bis ${int(psMaxEff)}`});
 
-// Kraftstoff: benutze den effektiven Wert (UI oder URL)
-if (effFuel) chips.push({ key: "fuel", label: `Kraftstoff: ${effFuel}` });
-
-
-// Getriebe: benutze den effektiven Wert (UI oder URL)
-if (effGear) {
-  chips.push({ key: "gear", label: `Getriebe: ${effGear}` });
-}
-
-
+  // Kraftstoff / Getriebe / Antriebsart
+  if (effFuel)  chips.push({ key: "fuel",  label: `Kraftstoff: ${effFuel}` });
+  if (effGear)  chips.push({ key: "gear",  label: `Getriebe: ${effGear}` });
+  if (effDrive) chips.push({ key: "drive", label: `Antriebsart: ${effDrive}` }); // 👈 NEU
 
   if (ezFromEff) chips.push({key:"ezFrom", label:`EZ ab ${fmtYM(ezFromEff)}`});
   if (ezToEff)   chips.push({key:"ezTo",   label:`EZ bis ${fmtYM(ezToEff)}`});
@@ -1610,8 +1656,6 @@ if (effGear) {
   bar.querySelector(".clear-all")?.addEventListener("click", () => clearAllFilters());
 }
 
-
-
 function removeFilterChip(key, val = "") {
   const params = new URLSearchParams(window.location.search);
 
@@ -1627,9 +1671,10 @@ function removeFilterChip(key, val = "") {
     hu:              document.getElementById("inspectionUntil"),
     fuel:            document.getElementById("fuelType") || document.getElementById("fuel"),
     gear:            document.getElementById("transmission") || document.getElementById("gear"),
+    drive:           document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb"), // 👈 NEU
     accidentFree:    document.getElementById("accidentFree"),
     modellausfuehrung: document.getElementById("modellausfuehrung"),
-    tuerenSelect:    document.getElementById("tueren")         // ← NEU (SELECT oder Single-Select)
+    tuerenSelect:    document.getElementById("tueren")
   };
 
   switch (key) {
@@ -1649,17 +1694,30 @@ function removeFilterChip(key, val = "") {
     case "hu":        if (mapEl.hu)        mapEl.hu.value        = ""; break;
 
     // Kraftstoff / Getriebe
-    case "fuel":      if (mapEl.fuel) mapEl.fuel.value = "Beliebig"; params.delete("kraftstoff"); break;
+    case "fuel":
+      if (mapEl.fuel) mapEl.fuel.value = "Beliebig";
+      params.delete("kraftstoff");
+      break;
+
     case "gear": {
       if (mapEl.gear) mapEl.gear.value = "Beliebig";
-      // Checkboxen (falls vorhanden) abwählen
       document.querySelectorAll(
         '.search-group input[type="checkbox"][value="Automatik"], .search-group input[type="checkbox"][value="Schaltgetriebe"]'
       ).forEach(cb => cb.checked = false);
       params.delete("getriebe");
       break;
     }
-    
+
+    // 👇 NEU: Antriebsart (Select + Checkboxen zurücksetzen)
+    case "drive": {
+      if (mapEl.drive) mapEl.drive.value = "Beliebig";
+      document.querySelectorAll(
+        '.search-group input[type="checkbox"][value="Frontantrieb"], .search-group input[type="checkbox"][value="Heckantrieb"], .search-group input[type="checkbox"][value="Allrad"], .search-group input[type="checkbox"][value="4x4"]'
+      ).forEach(cb => cb.checked = false);
+      params.delete("antriebsart");
+      break;
+    }
+
     // UI Checkboxen
     case "accidentFree": if (mapEl.accidentFree) mapEl.accidentFree.checked = false; break;
 
@@ -1687,7 +1745,6 @@ function removeFilterChip(key, val = "") {
       if (next.length) params.set("fahrzeugtyp", next.join(","));
       else params.delete("fahrzeugtyp");
 
-      // UI deselektieren
       const typeEl     = document.getElementById("fahrzeugtyp");
       const typeChecks = document.querySelectorAll('input[name="fahrzeugtyp"]');
       if (typeEl && typeEl.tagName === "SELECT") {
@@ -1703,14 +1760,13 @@ function removeFilterChip(key, val = "") {
       break;
     }
 
-    // ← NEU: Türen (ein einzelnes Element aus Mehrfachliste entfernen)
+    // Türen (ein einzelnes Element aus Mehrfachliste entfernen)
     case "tueren": {
       const list = (params.get("tueren") || "").split(",").map(s => s.trim()).filter(Boolean);
       const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
       if (next.length) params.set("tueren", next.join(","));
       else params.delete("tueren");
 
-      // UI deselektieren (SELECT multiple oder Checkbox-Gruppe)
       const doorsEl     = document.getElementById("tueren");
       const doorsChecks = document.querySelectorAll('input[name="tueren"]');
 
@@ -1750,9 +1806,9 @@ function clearAllFilters() {
 
   // Alles, was wir kennen & auf die Suche wirkt
   [
-    "marke","modell","modellausfuehrung","fahrzeugtyp","tueren", // ← NEU: tueren
+    "marke","modell","modellausfuehrung","fahrzeugtyp","tueren",
     "ezFrom","ezTo",
-    "km_max","price_max","getriebe","kraftstoff",
+    "km_max","price_max","getriebe","kraftstoff","antriebsart", // 👈 NEU: antriebsart
     "ort","umkreis","sort","verbrauch_max",
     "partikelfilter","scheckheft","fahrtauglich"
   ].forEach(k => params.delete(k));
@@ -1770,7 +1826,7 @@ function clearAllFilters() {
   }
   document.querySelectorAll('input[name="fahrzeugtyp"]').forEach(cb => cb.checked = false);
 
-  // ← NEU: Türen UI zurücksetzen
+  // Türen UI zurücksetzen
   const doorsEl = document.getElementById("tueren");
   if (doorsEl) {
     if (doorsEl.tagName === "SELECT") [...doorsEl.options].forEach(o => o.selected = false);
@@ -1780,18 +1836,25 @@ function clearAllFilters() {
 
   const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
   const gearEl = document.getElementById("transmission") || document.getElementById("gear");
+  const driveEl = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb"); // 👈 NEU
   const accEl  = document.getElementById("accidentFree");
 
-  if (fuelEl) fuelEl.value = "Beliebig";
-  if (gearEl) gearEl.value = "Beliebig";
+  if (fuelEl)  fuelEl.value  = "Beliebig";
+  if (gearEl)  gearEl.value  = "Beliebig";
+  if (driveEl) driveEl.value = "Beliebig"; // 👈 NEU
+
   document.querySelectorAll(
     '.search-group input[type="checkbox"][value="Automatik"], .search-group input[type="checkbox"][value="Schaltgetriebe"]'
   ).forEach(cb => cb.checked = false);
-  
+
+  // 👇 NEU: Antriebsart-Checkboxen zurücksetzen
+  document.querySelectorAll(
+    '.search-group input[type="checkbox"][value="Frontantrieb"], .search-group input[type="checkbox"][value="Heckantrieb"], .search-group input[type="checkbox"][value="Allrad"], .search-group input[type="checkbox"][value="4x4"]'
+  ).forEach(cb => cb.checked = false);
+
   if (accEl)  accEl.checked = false;
 
   history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
   loadAndRender(1);
 }
-
 
