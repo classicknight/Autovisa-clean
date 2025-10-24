@@ -1515,7 +1515,8 @@ function renderActiveFilters() {
     ps_min: sp.get("ps_min") || "",
     ps_max: sp.get("ps_max") || "",
     getriebe: (sp.get("getriebe") || "").toLowerCase(),
-    antriebsart: (sp.get("antriebsart") || "").toLowerCase(), // 👈 NEU
+    // 👇 akzeptiere beide: ?antriebsart=... oder ?antrieb=...
+    antriebsart: (sp.get("antriebsart") || sp.get("antrieb") || "").toLowerCase(),
     kraftstoff: (sp.get("kraftstoff") || "").toLowerCase(),
     ort: sp.get("ort") || "",
     umkreis: sp.get("umkreis") || "",
@@ -1537,7 +1538,7 @@ function renderActiveFilters() {
   const psMaxEff = !isNaN(toInt(powerToEl?.value   ?? "")) && toInt(powerToEl?.value   ?? "") > 0
                    ? toInt(powerToEl.value)   : toInt(qp.ps_max);
 
-  // Kraftstoff: UI > URL
+  // Effektive Labels
   const effFuel = (() => {
     const ui = (fuelEl?.value || "").trim();
     if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return ui;
@@ -1545,7 +1546,6 @@ function renderActiveFilters() {
     return qpVal ? qpVal.charAt(0).toUpperCase() + qpVal.slice(1) : "";
   })();
 
-  // Getriebe: UI > URL
   const effGear = (() => {
     const ui = (gearEl?.value || "").trim();
     if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return ui;
@@ -1557,21 +1557,29 @@ function renderActiveFilters() {
     return v;
   })();
 
-  // 👇 NEU: Antriebsart: UI > URL (+ hübsche Labels)
+  // 👇 NEU: effektiver Antrieb (UI > Checkboxen > URL)
+  const driveNice = (val) => {
+    let v = String(val || "").toLowerCase();
+    if (/(allrad|awd|4x4|4wd|quattro|xdrive|4matic)/.test(v)) return "Allrad";
+    if (/(front|vorder)/.test(v)) return "Frontantrieb";
+    if (/(heck|hinter)/.test(v)) return "Heckantrieb";
+    return v ? v.charAt(0).toUpperCase() + v.slice(1) : "";
+  };
   const effDrive = (() => {
-    const norm = s => String(s || "").trim().toLowerCase();
-    const toNice = v => {
-      v = norm(v);
-      if (["front","frontantrieb","fwd"].includes(v)) return "Frontantrieb";
-      if (["heck","heckantrieb","rwd"].includes(v))   return "Heckantrieb";
-      if (["allrad","4x4","awd","4wd"].includes(v))   return "Allrad";
-      return v ? v[0].toUpperCase() + v.slice(1) : "";
-    };
-    const ui = norm(driveEl?.value || "");
-    if (ui && !["beliebig","any","alle","all","-"].includes(ui)) return toNice(ui);
-    return toNice(qp.antriebsart || "");
+    // 1) Select
+    const ui = (driveEl?.value || "").trim();
+    if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return driveNice(ui);
+    // 2) Checkboxen (falls vorhanden)
+    const cbSel = document.querySelectorAll(
+      '.search-group input[type="checkbox"][value="Frontantrieb"], .search-group input[type="checkbox"][value="Heckantrieb"], .search-group input[type="checkbox"][value="Allrad"]'
+    );
+    const checked = [...cbSel].filter(cb => cb.checked).map(cb => cb.value);
+    if (checked.length === 1) return checked[0];
+    // 3) URL
+    return driveNice(qp.antriebsart);
   })();
 
+  // EZ / HU
   const ezFromUIraw =
     (firstRegFromEl?.value) ||
     (firstRegYearEl?.value && firstRegMonthEl?.value ? `${firstRegYearEl.value}-${pad2(firstRegMonthEl.value)}` : "");
@@ -1602,14 +1610,12 @@ function renderActiveFilters() {
   if (!isNaN(kmMin)    && kmMin  > 0)   chips.push({key:"km_min",    label:`KM ab ${int(kmMin)}`});
   if (!isNaN(kmMax)    && kmMax  > 0)   chips.push({key:"km_max",    label:`KM bis ${int(kmMax)}`});
 
-  // Leistung
   if (!isNaN(psMinEff) && psMinEff > 0) chips.push({key:"ps_min", label:`PS ab ${int(psMinEff)}`});
   if (!isNaN(psMaxEff) && psMaxEff > 0) chips.push({key:"ps_max", label:`PS bis ${int(psMaxEff)}`});
 
-  // Kraftstoff / Getriebe / Antriebsart
-  if (effFuel)  chips.push({ key: "fuel",  label: `Kraftstoff: ${effFuel}` });
-  if (effGear)  chips.push({ key: "gear",  label: `Getriebe: ${effGear}` });
-  if (effDrive) chips.push({ key: "drive", label: `Antriebsart: ${effDrive}` }); // 👈 NEU
+  if (effFuel) chips.push({ key: "fuel",  label: `Kraftstoff: ${effFuel}` });
+  if (effGear) chips.push({ key: "gear",  label: `Getriebe: ${effGear}` });
+  if (effDrive) chips.push({ key: "drive", label: `Antrieb: ${effDrive}` }); // 👈 NEU
 
   if (ezFromEff) chips.push({key:"ezFrom", label:`EZ ab ${fmtYM(ezFromEff)}`});
   if (ezToEff)   chips.push({key:"ezTo",   label:`EZ bis ${fmtYM(ezToEff)}`});
@@ -1693,7 +1699,7 @@ function removeFilterChip(key, val = "") {
     case "ezTo":      params.delete("ezTo"); break;
     case "hu":        if (mapEl.hu)        mapEl.hu.value        = ""; break;
 
-    // Kraftstoff / Getriebe
+    // Kraftstoff / Getriebe / Antrieb
     case "fuel":
       if (mapEl.fuel) mapEl.fuel.value = "Beliebig";
       params.delete("kraftstoff");
@@ -1708,13 +1714,13 @@ function removeFilterChip(key, val = "") {
       break;
     }
 
-    // 👇 NEU: Antriebsart (Select + Checkboxen zurücksetzen)
-    case "drive": {
+    case "drive": { // 👈 NEU
       if (mapEl.drive) mapEl.drive.value = "Beliebig";
       document.querySelectorAll(
-        '.search-group input[type="checkbox"][value="Frontantrieb"], .search-group input[type="checkbox"][value="Heckantrieb"], .search-group input[type="checkbox"][value="Allrad"], .search-group input[type="checkbox"][value="4x4"]'
+        '.search-group input[type="checkbox"][value="Frontantrieb"], .search-group input[type="checkbox"][value="Heckantrieb"], .search-group input[type="checkbox"][value="Allrad"]'
       ).forEach(cb => cb.checked = false);
       params.delete("antriebsart");
+      params.delete("antrieb"); // alte/alternative Param-Variante auch weg
       break;
     }
 
@@ -1732,13 +1738,11 @@ function removeFilterChip(key, val = "") {
       break;
     }
 
-    // Modellvariante
     case "modellausfuehrung":
       if (mapEl.modellausfuehrung) mapEl.modellausfuehrung.value = "";
       params.delete("modellausfuehrung");
       break;
 
-    // Fahrzeugtyp (ein einzelnes Element aus Mehrfachliste entfernen)
     case "fahrzeugtyp": {
       const list = (params.get("fahrzeugtyp") || "").split(",").map(s => s.trim()).filter(Boolean);
       const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
@@ -1760,7 +1764,6 @@ function removeFilterChip(key, val = "") {
       break;
     }
 
-    // Türen (ein einzelnes Element aus Mehrfachliste entfernen)
     case "tueren": {
       const list = (params.get("tueren") || "").split(",").map(s => s.trim()).filter(Boolean);
       const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
@@ -1800,6 +1803,63 @@ function removeFilterChip(key, val = "") {
   history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
   loadAndRender(1);
 }
+
+function clearAllFilters() {
+  const params = new URLSearchParams(window.location.search);
+
+  // Alles, was wir kennen & auf die Suche wirkt
+  [
+    "marke","modell","modellausfuehrung","fahrzeugtyp","tueren",
+    "ezFrom","ezTo",
+    "km_max","price_max","getriebe","kraftstoff",
+    "antriebsart","antrieb",            // 👈 NEU: beide Varianten löschen
+    "ort","umkreis","sort","verbrauch_max",
+    "partikelfilter","scheckheft","fahrtauglich"
+  ].forEach(k => params.delete(k));
+  params.delete("page");
+
+  // UI Felder zurücksetzen
+  const ids = ["priceFrom","priceTo","mileageFrom","mileageTo","powerFrom","powerTo","firstRegFrom","inspectionUntil","modellausfuehrung"];
+  ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+
+  // Fahrzeugtyp UI zurücksetzen
+  const typeEl = document.getElementById("fahrzeugtyp");
+  if (typeEl) {
+    if (typeEl.tagName === "SELECT") [...typeEl.options].forEach(o => o.selected = false);
+    else typeEl.value = "";
+  }
+  document.querySelectorAll('input[name="fahrzeugtyp"]').forEach(cb => cb.checked = false);
+
+  // Türen UI zurücksetzen
+  const doorsEl = document.getElementById("tueren");
+  if (doorsEl) {
+    if (doorsEl.tagName === "SELECT") [...doorsEl.options].forEach(o => o.selected = false);
+    else doorsEl.value = "";
+  }
+  document.querySelectorAll('input[name="tueren"]').forEach(cb => cb.checked = false);
+
+  const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
+  const gearEl = document.getElementById("transmission") || document.getElementById("gear");
+  const driveEl = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb"); // 👈 NEU
+  const accEl  = document.getElementById("accidentFree");
+
+  if (fuelEl)  fuelEl.value  = "Beliebig";
+  if (gearEl)  gearEl.value  = "Beliebig";
+  if (driveEl) driveEl.value = "Beliebig"; // 👈 NEU
+
+  document.querySelectorAll(
+    '.search-group input[type="checkbox"][value="Automatik"], .search-group input[type="checkbox"][value="Schaltgetriebe"]'
+  ).forEach(cb => cb.checked = false);
+  document.querySelectorAll( // 👈 NEU: Antrieb-Checkboxen
+    '.search-group input[type="checkbox"][value="Frontantrieb"], .search-group input[type="checkbox"][value="Heckantrieb"], .search-group input[type="checkbox"][value="Allrad"]'
+  ).forEach(cb => cb.checked = false);
+
+  if (accEl)  accEl.checked = false;
+
+  history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
+  loadAndRender(1);
+}
+
 
 function clearAllFilters() {
   const params = new URLSearchParams(window.location.search);
