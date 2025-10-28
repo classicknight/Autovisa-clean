@@ -31,48 +31,69 @@ const QP = (() => {
   };
 })();
 
-
-  // ---------- Utils ----------
+// ---------- Utils ----------
 const norm = (s) => String(s || "")
-.toLowerCase()
-.normalize("NFD").replace(/\p{Diacritic}/gu, ""); // Umlaute/Diakritika entfernen
+  .toLowerCase()
+  .normalize("NFD")
+  .replace(/\p{Diacritic}/gu, ""); // Umlaute/Diakritika entfernen
 
 const toNum = (v) => {
-if (v === null || v === undefined || v === "") return NaN;
-return Number(String(v).replace(/\./g, "").replace(",", "."));
+  if (v == null || v === "") return NaN;
+  return Number(String(v).replace(/\./g, "").replace(",", "."));
 };
 
-// 🍀 Kraftstoff robust kanonisieren (statt altem FUEL_MAP benutzen)
-const FUEL_LABELS = { benzin: "Benzin", diesel: "Diesel", elektrisch: "Elektrisch", hybrid: "Hybrid" };
+// Schöne Labels für die Anzeige
+const FUEL_LABELS = {
+  benzin: "Benzin",
+  diesel: "Diesel",
+  elektrisch: "Elektrisch",
+  hybrid: "Hybrid"
+};
+
+// 🚦 WICHTIG: Hybrid zuerst erkennen, damit "Hybrid (Benzin/Diesel)" NICHT als Benzin/Diesel zählt
 function fuelCanon(raw) {
-const s = norm(raw);
-if (!s) return "";
-if (/\bdiesel\b/.test(s)) return "diesel";
-if (/\b(benzin|super|e10|e5|e95|e98|superplus|otto|petrol|gasoline)\b/.test(s)) return "benzin";
-if (/\b(elektr|bev|strom)\b/.test(s)) return "elektrisch";
-if (/\b(phev|plug[\s-]?in|plugin|hybrid|mhev|mildhybrid|hev)\b/.test(s)) return "hybrid";
-return s; // unbekannt → unverändert (kleingeschrieben, ohne Diakritika)
+  const s = norm(raw);
+  if (!s) return "";
+  if (/\b(hybrid|phev|plug[\s-]?in|plugin|mhev|hev)\b/.test(s)) return "hybrid";
+  if (/\b(diesel)\b/.test(s)) return "diesel";
+  if (/\b(benzin|super|e10|e5|e95|e98|otto|petrol|gasoline)\b/.test(s)) return "benzin";
+  if (/\b(elektr|bev|strom|ev)\b/.test(s)) return "elektrisch";
+  return s; // unbekannt → unverändert (aber klein/ohne Diakritika)
 }
+
 function fuelNiceLabel(token) {
-const t = String(token || "").toLowerCase();
-return FUEL_LABELS[t] || (t ? t[0].toUpperCase() + t.slice(1) : "");
+  const t = String(token || "").toLowerCase();
+  return FUEL_LABELS[t] || (t ? t[0].toUpperCase() + t.slice(1) : "");
 }
 
-const isTruthyRaw = (v) => {
-if (typeof v === "boolean") return v;
-const s = String(v || "").trim().toLowerCase();
-return ["1","true","ja","mit","yes","vorhanden"].includes(s);
+// Antriebsart kanonisieren
+function driveCanon(raw) {
+  const s = norm(raw);
+  if (!s) return "";
+  if (/(allrad|awd|4x4|4wd|quattro|xdrive|4matic)/.test(s)) return "allrad";
+  if (/(front|vorder)/.test(s)) return "frontantrieb";
+  if (/(heck|hinter)/.test(s)) return "heckantrieb";
+  return s;
+}
+
+// Getriebe-Synonyme → einheitliche Tokens
+const GEAR_MAP = {
+  automatik: "automatik",
+  automatic: "automatik",
+  auto: "automatik",
+  schalt: "schaltgetriebe",
+  schaltung: "schaltgetriebe",
+  manuell: "schaltgetriebe"
 };
 
+// generische Mapper-Helfer (für Getriebe; Kraftstoff bitte über fuelCanon!)
+const canon = (val, map) => map[String(val || "").toLowerCase()] || String(val || "").toLowerCase();
+
+// URL-Parameter ersetzen, ohne Reload
 const replaceUrlParams = (params) => {
-const qs = params.toString();
-history.replaceState(null, "", qs ? `${location.pathname}?${qs}` : location.pathname);
+  const qs = params.toString();
+  history.replaceState(null, "", qs ? `${location.pathname}?${qs}` : location.pathname);
 };
-
-// (Legacy) leichte Synonym-Kanonisierung – NICHT mehr für Kraftstoff verwenden
-const FUEL_MAP = { benz: "benzin", super: "benzin", benzin: "benzin", diesel: "diesel", ev: "elektrisch", elektro: "elektrisch", elektrisch: "elektrisch", hybrid: "hybrid" };
-const GEAR_MAP = { automatik: "automatik", automatic: "automatik", auto: "automatik", schalt: "schaltgetriebe", schaltung: "schaltgetriebe", manuell: "schaltgetriebe" };
-const canon = (val, map) => map[val] || val;
 
 // ---------- App ----------
 document.addEventListener("DOMContentLoaded", () => {
@@ -94,9 +115,11 @@ const container     = document.getElementById("carResults");
 const pager         = document.getElementById("pager");
 const sortBy        = document.getElementById("sortBy");
 const applyFilters  = document.getElementById("applyFiltersBtn");
-
 // --- Prefill aus URL in die UI ---
 (function prefillFromQuery () {
+  const arr = v => (v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : []);
+  const sp  = new URLSearchParams(location.search);
+
   const markeEl   = document.getElementById("marke");
   const modellEl  = document.getElementById("modell");
   const modVarEl  = document.getElementById("modellausfuehrung");
@@ -104,23 +127,43 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   const priceToEl = document.getElementById("priceTo");
   const kmToEl    = document.getElementById("mileageTo");
 
-  const fuelEl    = document.getElementById("fuelType") || document.getElementById("fuel");
+  const fuelSel   = document.getElementById("fuelType") || document.getElementById("fuel");
+  const fuelCbs   = document.querySelectorAll('input[name="kraftstoff"]'); // Mehrfach
   const gearEl    = document.getElementById("transmission") || document.getElementById("gear");
-  const driveEl   = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
 
-  // Ergebnis-Seite (Variante 1)
-  const firstRegFromEl  = document.getElementById("firstRegFrom"); // <input type="month">
+  const driveSel  = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
+  const driveCbs  = document.querySelectorAll('input[name="antriebsart"]'); // Mehrfach
+
+  const firstRegFromEl  = document.getElementById("firstRegFrom");
   const firstRegMonthEl = document.getElementById("first-registration-month");
   const firstRegYearEl  = document.getElementById("first-registration-year");
 
-  // Suchformular-Seite (Variante 2)
-  const ezVonEl = document.getElementById("ez-von"); // <input type="month">
-  const ezBisEl = document.getElementById("ez-bis"); // <input type="month">
+  const ezVonEl = document.getElementById("ez-von");
+  const ezBisEl = document.getElementById("ez-bis");
 
-  // Feature-Checkboxen (falls vorhanden)
   const pfEl = document.getElementById("partikelfilter");
   const shEl = document.getElementById("scheckheft");
   const ftEl = document.getElementById("fahrtauglich");
+
+  // URL-Params (frisch)
+  const QP = {
+    marke: sp.get("marke") || "",
+    modell: arr(sp.get("modell")),
+    modellausfuehrung: sp.get("modellausfuehrung") || "",
+    price_max: sp.get("price_max") || "",
+    km_max: sp.get("km_max") || "",
+    ezFrom: sp.get("ezFrom") || "",
+    ezTo:   sp.get("ezTo")   || "",
+    sort:   sp.get("sort")   || "",
+    // Mehrfach:
+    kraftstoff: arr(sp.get("kraftstoff")).map(fuelCanon),
+    antriebsart: arr(sp.get("antriebsart") || sp.get("antrieb")).map(driveCanon),
+
+    getriebe: (sp.get("getriebe") || "").toLowerCase(),
+    partikelfilter: sp.get("partikelfilter"),
+    scheckheft:     sp.get("scheckheft"),
+    fahrtauglich:   sp.get("fahrtauglich"),
+  };
 
   if (markeEl && QP.marke) markeEl.value = QP.marke;
 
@@ -134,68 +177,54 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   if (priceToEl && QP.price_max) priceToEl.value = QP.price_max;
   if (kmToEl   && QP.km_max)     kmToEl.value    = QP.km_max;
 
-  // Kraftstoff: QP -> UI (tolerant nach Token)
-  if (fuelEl && QP.kraftstoff) {
-    const wanted = fuelCanon(QP.kraftstoff);
-    const match = [...fuelEl.options].find(o =>
+  // Kraftstoff: Checkboxen bevorzugen, sonst Select
+  if (fuelCbs.length) {
+    [...fuelCbs].forEach(cb => {
+      cb.checked = QP.kraftstoff.includes(fuelCanon(cb.value));
+    });
+  } else if (fuelSel && QP.kraftstoff.length === 1) {
+    // nur eindeutiger Einzelwert ins Select
+    const wanted = QP.kraftstoff[0];
+    const match = [...fuelSel.options].find(o =>
       fuelCanon(o.value) === wanted || fuelCanon(o.text) === wanted
     );
-    if (match) fuelEl.value = match.value;
+    if (match) fuelSel.value = match.value;
   }
 
-  // Getriebe: QP -> UI (tolerant)
-  if (gearEl && QP.getriebe) {
-    const wanted = canon(norm(QP.getriebe), GEAR_MAP); // automatik | schaltgetriebe
-    const match = [...gearEl.options].find(o => {
-      const ov = canon(norm(o.value), GEAR_MAP);
-      const ot = canon(norm(o.text),  GEAR_MAP);
-      return ov === wanted || ot === wanted;
+  if (gearEl && QP.getriebe) gearEl.value = QP.getriebe;
+
+  // Antriebsart: Checkboxen bevorzugen, sonst Select
+  if (driveCbs.length) {
+    [...driveCbs].forEach(cb => {
+      cb.checked = QP.antriebsart.includes(driveCanon(cb.value));
     });
-    if (match) gearEl.value = match.value;
-    else gearEl.value = QP.getriebe; // Fallback
+  } else if (driveSel && QP.antriebsart.length === 1) {
+    const wanted = QP.antriebsart[0];
+    const match = [...driveSel.options].find(o => driveCanon(o.value) === wanted || driveCanon(o.text) === wanted);
+    if (match) driveSel.value = match.value;
   }
 
-  // Antriebsart: QP.antriebsart ODER QP.antrieb -> UI (case-insensitiv)
-  if (driveEl) {
-    const wantedRaw = QP.antriebsart || QP.antrieb || "";
-    if (wantedRaw) {
-      const wanted = norm(wantedRaw);
-      const match = [...driveEl.options].find(o => {
-        const ov = norm(o.value);
-        const ot = norm(o.text);
-        return ov === wanted || ot === wanted;
-      });
-      if (match) driveEl.value = match.value;
-      else driveEl.value = wantedRaw; // Fallback
-    }
-  }
-
-  // EZ: Ergebnis-Seite (ein einziges <input type="month">)
   if (firstRegFromEl && QP.ezFrom) firstRegFromEl.value = QP.ezFrom;
-
-  // EZ: Ergebnis-Seite (Jahr/Monat-Dropdowns)
   if (QP.ezFrom && firstRegMonthEl && firstRegYearEl) {
     const [y, m] = QP.ezFrom.split("-");
     if (y) firstRegYearEl.value  = y;
     if (m) firstRegMonthEl.value = m;
   }
-
-  // EZ: Suchformular-Seite (von/bis als <input type="month">)
   if (ezVonEl && QP.ezFrom) ezVonEl.value = QP.ezFrom;
   if (ezBisEl && QP.ezTo)   ezBisEl.value = QP.ezTo;
 
-  // Sortierung aus URL auf das Select mappen
+  const sortBy = document.getElementById("sortBy");
   if (sortBy) {
     if (QP.sort === "preis_asc")       sortBy.value = "price-asc";
     else if (QP.sort === "preis_desc") sortBy.value = "price-desc";
     else if (QP.sort === "neueste")    sortBy.value = "date-desc";
-    else if (QP.sort)                  sortBy.value = "date-desc"; // Fallback
   }
 
-  if (pfEl) pfEl.checked = !!QP.partikelfilter;
-  if (shEl) shEl.checked = !!QP.scheckheft;
-  if (ftEl) ftEl.checked = !!QP.fahrtauglich;
+  if (pfEl) pfEl.checked = /^(1|true|ja|mit|yes)$/i.test(String(QP.partikelfilter||""));
+  if (shEl) shEl.checked = /^(1|true|ja|mit|yes)$/i.test(String(QP.scheckheft||""));
+  if (ftEl) ftEl.checked = /^(1|true|ja|mit|yes)$/i.test(String(QP.fahrtauglich||""));
 })();
+
 
 // Verbrauch: URL -> UI (Select/Custom) + Toggle
 (function () {
@@ -721,7 +750,6 @@ function getCombinedConsumption(item) {
   return NaN;
 }
 
-
 function applyClientFilters(items) {
   // Sidebar-/Form-Felder (nur verwenden, wenn vorhanden)
   const priceFromEl       = document.getElementById("priceFrom");
@@ -772,16 +800,6 @@ function applyClientFilters(items) {
     return Number.isFinite(n) ? n : NaN;
   };
 
-  // 🔄 Antriebsart kanonisieren (front|heck|allrad)
-  const driveCanon = (raw) => {
-    const s = norm(raw);
-    if (!s) return "";
-    if (/(quattro|xdrive|4matic|4motion|awd|allrad|4x4|4wd|all[-\s]?wheel)/i.test(s)) return "allrad";
-    if (/(fwd|front|vorderrad|frontantrieb)/i.test(s)) return "frontantrieb";
-    if (/(rwd|heck|hinterrad|heckantrieb|rear)/i.test(s)) return "heckantrieb";
-    return s; // unbekannt -> roh (klein)
-  };
-
   // --- UI lesen ---
   const priceFrom     = toNum(priceFromEl?.value ?? "");
   const priceTo       = toNum(priceToEl?.value   ?? "");
@@ -794,9 +812,7 @@ function applyClientFilters(items) {
   const powerFrom     = (!isNaN(rawPowerFrom) && rawPowerFrom > 0) ? rawPowerFrom : toNum(QP.ps_min);
   const powerTo       = (!isNaN(rawPowerTo)   && rawPowerTo   > 0) ? rawPowerTo   : toNum(QP.ps_max);
 
-  const fuelTypeUI     = (fuelTypeEl?.value ? String(fuelTypeEl.value) : "Beliebig").toLowerCase();
   const transmissionUI = (transmissionEl?.value ? String(transmissionEl.value) : "Beliebig").toLowerCase();
-  const driveUI        = (driveEl?.value ? String(driveEl.value) : "Beliebig").toLowerCase();
 
   const accidentFree    = !!accidentFreeEl?.checked;
   const inspectionUntil = inspectionUntilEl?.value || ""; // YYYY-MM (UI)
@@ -816,25 +832,68 @@ function applyClientFilters(items) {
   const ezFromEff = parseYM(firstRegFromUI || QP.ezFrom || "", "01");
   const ezToEff   = parseYM(QP.ezTo || "", "12");
 
-  // Kraftstoff/Getriebe/Antriebsart (Beliebig-Handling + Kanonisierung)
-  const fuelEffToken = (() => {
-    const v = (fuelTypeUI !== "beliebig") ? fuelTypeUI : (QP.kraftstoff || "beliebig");
-    return (v === "beliebig") ? "beliebig" : fuelCanon(v); // ← NEU: fuelCanon statt FUEL_MAP
+  // ===== Mehrfach: Kraftstoff (UI + Checkboxen + URL CSV) =====
+  const fuelSelectedUI = (() => {
+    const picked = new Set();
+    if (fuelTypeEl) {
+      if (fuelTypeEl.tagName === "SELECT" && fuelTypeEl.multiple) {
+        [...fuelTypeEl.options].forEach(o => {
+          if (o.selected && !/^(beliebig|any|alle|all|-)$/i.test(o.value))
+            picked.add(fuelCanon(o.value || o.text));
+        });
+      } else {
+        const v = fuelTypeEl.value;
+        if (v && !/^(beliebig|any|alle|all|-)$/i.test(v)) picked.add(fuelCanon(v));
+      }
+    }
+    document.querySelectorAll('input[name="kraftstoff"]:checked, input[name="fuel"]:checked')
+      .forEach(cb => picked.add(fuelCanon(cb.value || cb.getAttribute("data-token") || "")));
+    return [...picked].filter(Boolean);
   })();
 
+  const fuelSelectedURL = (() => {
+    const raw = (QP.kraftstoff || "").split(",").map(s => s.trim()).filter(Boolean);
+    return raw.map(fuelCanon).filter(Boolean);
+  })();
+
+  const fuelEffArr = (fuelSelectedUI.length ? fuelSelectedUI : fuelSelectedURL); // Array von Tokens
+
+  // ===== Getriebe (einfach) =====
   const gearEff = (() => {
     const raw = (transmissionUI !== "beliebig") ? transmissionUI : (QP.getriebe || "beliebig");
     if (raw === "beliebig") return "beliebig";
     return canon(norm(raw), GEAR_MAP); // "automatik" | "schaltgetriebe"
   })();
 
-  const driveEff = (() => {
-    const raw = (driveUI !== "beliebig") ? driveUI : (QP.antriebsart || QP.antrieb || "beliebig");
-    if (raw === "beliebig") return "beliebig";
-    return driveCanon(raw); // "frontantrieb" | "heckantrieb" | "allrad"
+  // ===== Mehrfach: Antrieb (UI + Checkboxen + URL CSV) =====
+  const driveSelectedUI = (() => {
+    const picked = new Set();
+    if (driveEl) {
+      if (driveEl.tagName === "SELECT" && driveEl.multiple) {
+        [...driveEl.options].forEach(o => {
+          const v = String(o.value || o.text || "").trim();
+          if (o.selected && v && !/^(beliebig|any|alle|all|-)$/i.test(v))
+            picked.add(driveCanon(v));
+        });
+      } else {
+        const v = String(driveEl.value || "").trim();
+        if (v && !/^(beliebig|any|alle|all|-)$/i.test(v)) picked.add(driveCanon(v));
+      }
+    }
+    document.querySelectorAll('input[name="antriebsart"]:checked, input[name="antrieb"]:checked')
+      .forEach(cb => picked.add(driveCanon(cb.value || cb.getAttribute("data-token") || "")));
+    return [...picked].filter(Boolean);
   })();
 
-  // Marke/Modell: UI > URL
+  const driveSelectedURL = (() => {
+    const raw = (QP.antriebsart || QP.antrieb || "")
+      .split(",").map(s => s.trim()).filter(Boolean);
+    return raw.map(driveCanon).filter(Boolean);
+  })();
+
+  const driveEffArr = (driveSelectedUI.length ? driveSelectedUI : driveSelectedURL); // Array: "frontantrieb" | "heckantrieb" | "allrad"
+
+  // ===== Marke/Modell: UI > URL =====
   let brandEff  = QP.marke ? norm(QP.marke) : "";
   let modelsEff = Array.isArray(QP.modell) ? QP.modell.map(norm) : [];
   if (markeEl && markeEl.value) brandEff = norm(markeEl.value);
@@ -891,23 +950,23 @@ function applyClientFilters(items) {
     if (!isNaN(powerFrom) && powerFrom > 0 && !(ps >= powerFrom)) return false;
     if (!isNaN(powerTo)   && powerTo   > 0 && !(ps <= powerTo))   return false;
 
-    // Kraftstoff (clientseitig) – robust via fuelCanon
-    if (fuelEffToken !== "beliebig") {
+    // ===== Kraftstoff (streng, Mehrfach) =====
+    if (fuelEffArr.length) {
       const ft = fuelCanon(
         i.kraftstoff || i.raw?.verkauf_kraftstoff || i.raw?.kraftstoff || ""
       );
-      if (!ft || ft !== fuelEffToken) return false;
+      if (!ft || !fuelEffArr.includes(ft)) return false; // nur exakt ausgewählte Tokens
     }
 
-    // Getriebe
+    // ===== Getriebe (einfach) =====
     if (gearEff !== "beliebig") {
       const tr = canon(norm(i.getriebe || i.raw?.verkauf_getriebe || i.raw?.getriebe || ""), GEAR_MAP);
       if (!tr || tr !== gearEff) return false;
     }
 
-    // Antriebsart
-    if (driveEff !== "beliebig") {
-      // 1) versuche strukturierte Felder
+    // ===== Antrieb (streng, Mehrfach) =====
+    if (driveEffArr.length) {
+      // 1) strukturierte Felder
       let dt = driveCanon(i.raw?.antriebsart || i.raw?.antrieb || i.raw?.drivetrain || "");
       // 2) Fallback: Textsuche in Titel/Beschreibung/Ausstattung
       if (!dt) {
@@ -919,8 +978,8 @@ function applyClientFilters(items) {
         ].filter(Boolean).join(" ");
         dt = driveCanon(textParts);
       }
-      if (dt && dt !== driveEff) return false;
-      // wenn nichts erkennbar: nicht rausfiltern
+      // Streng: wenn Filter gesetzt sind, müssen wir einen Token haben und er muss passen
+      if (!dt || !driveEffArr.includes(dt)) return false;
     }
 
     // Unfallfrei
@@ -1326,77 +1385,76 @@ function applyClientFilters(items) {
     if (v === "price-asc")  return "preis_asc";
     if (v === "price-desc") return "preis_desc";
     return "neueste"; // "date-desc" und alles andere
+  }function setOrDelete(params, key, val) {
+    if (val == null) return params.delete(key);
+    const s = String(val).trim();
+    if (s === "" || s === "Beliebig" || s === "-" || s === "any" || s === "alle" || s === "all") params.delete(key);
+    else params.set(key, s);
   }
+  
   function updateUrlFromUiAndReload() {
     const params = new URLSearchParams(window.location.search);
   
-    // Marke/Modell/Modellvariante
+    // Marke/Modell/Variante
     const markeEl  = document.getElementById("marke");
     const modellEl = document.getElementById("modell");
     const modVarEl = document.getElementById("modellausfuehrung");
-  
     setOrDelete(params, "marke", markeEl?.value || "");
     if (modellEl && modellEl.options) {
-      const selected = [...modellEl.options]
-        .filter(o => o.selected)
-        .map(o => o.value)
-        .filter(Boolean);
+      const selected = [...modellEl.options].filter(o => o.selected).map(o => o.value).filter(Boolean);
       setOrDelete(params, "modell", selected.length ? selected.join(",") : "");
     }
     setOrDelete(params, "modellausfuehrung", modVarEl?.value || "");
   
-    // EZ (type="month" ODER Jahr/Monat) – FROM
+    // EZ (FROM/TO)
     const firstRegFromEl  = document.getElementById("firstRegFrom");
     const firstRegMonthEl = document.getElementById("first-registration-month");
     const firstRegYearEl  = document.getElementById("first-registration-year");
-    const ezFrom =
-      (firstRegFromEl?.value) ||
-      (firstRegYearEl?.value && firstRegMonthEl?.value
-        ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2, "0")}`
-        : "");
-    setOrDelete(params, "ezFrom", ezFrom);
-  
-    // EZ – TO (nur setzen, wenn UI existiert)
     const firstRegToEl      = document.getElementById("firstRegTo");
     const firstRegMonthToEl = document.getElementById("first-registration-month-to");
     const firstRegYearToEl  = document.getElementById("first-registration-year-to");
+  
+    const ezFrom =
+      (firstRegFromEl?.value) ||
+      (firstRegYearEl?.value && firstRegMonthEl?.value ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2, "0")}` : "");
     const ezTo =
       (firstRegToEl?.value) ||
-      (firstRegYearToEl?.value && firstRegMonthToEl?.value
-        ? `${firstRegYearToEl.value}-${String(firstRegMonthToEl.value).padStart(2, "0")}`
-        : "");
-    setOrDelete(params, "ezTo", ezTo);
+      (firstRegYearToEl?.value && firstRegMonthToEl?.value ? `${firstRegYearToEl.value}-${String(firstRegMonthToEl.value).padStart(2, "0")}` : "");
+    setOrDelete(params, "ezFrom", ezFrom);
+    setOrDelete(params, "ezTo",   ezTo);
   
-    // Preis/KM (max) – nur echte Zahlen > 0
+    // Preis/KM (max)
     const priceToEl   = document.getElementById("priceTo");
     const mileageToEl = document.getElementById("mileageTo");
     const pMax = parseInt(priceToEl?.value || "", 10);
-    if (!Number.isNaN(pMax) && pMax > 0) params.set("price_max", String(pMax));
-    else params.delete("price_max");
     const kmMax = parseInt(mileageToEl?.value || "", 10);
-    if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));
-    else params.delete("km_max");
+    if (!Number.isNaN(pMax) && pMax > 0) params.set("price_max", String(pMax)); else params.delete("price_max");
+    if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax)); else params.delete("km_max");
   
-    // Kraftstoff / Getriebe / Antriebsart
-    const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
-    const gearEl = document.getElementById("transmission") || document.getElementById("gear");
-    const driveEl = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
-  
-    // Kraftstoff
-    const fuelValTok = fuelCanon(fuelEl?.value || "");
-    if (fuelValTok && fuelValTok !== "beliebig") {
-      params.set("kraftstoff", fuelValTok); // immer als Token in die URL
+    // Kraftstoff: Checkboxen (Mehrfach) > Select (Einfach)
+    const fuelSel  = document.getElementById("fuelType") || document.getElementById("fuel");
+    const fuelCbs  = document.querySelectorAll('input[name="kraftstoff"]');
+    if (fuelCbs.length) {
+      const picked = [...fuelCbs]
+        .filter(cb => cb.checked)
+        .map(cb => fuelCanon(cb.value))
+        .filter(Boolean);
+      if (picked.length) params.set("kraftstoff", [...new Set(picked)].join(","));
+      else params.delete("kraftstoff");
     } else {
-      params.delete("kraftstoff");
+      const raw = (fuelSel?.value || "").trim();
+      if (raw && !/^(beliebig|any|alle|all|-)$/i.test(raw)) params.set("kraftstoff", fuelCanon(raw));
+      else params.delete("kraftstoff");
     }
-    
   
-    // Getriebe (Select → Param, sonst Fallback: Checkboxen Automatik/Schaltgetriebe)
-    const gearValRaw  = (gearEl?.value || "").toLowerCase();
+    // Getriebe (wie gehabt)
+    const gearEl = document.getElementById("transmission") || document.getElementById("gear");
+    const gearValRaw = (gearEl?.value || "").toLowerCase();
     const gearValNorm = (gearValRaw === "schaltgetriebe") ? "schalt" : gearValRaw;
     if (gearEl && gearValNorm && !["beliebig","any","alle","all","-"].includes(gearValNorm)) {
       params.set("getriebe", gearValNorm);
     } else {
+      // Checkbox-Fallback (falls du welche hast)
       const cb = document.querySelectorAll(
         '.search-group input[type="checkbox"][value="Automatik"], .search-group input[type="checkbox"][value="Schaltgetriebe"]'
       );
@@ -1405,70 +1463,45 @@ function applyClientFilters(items) {
         if (checked.length === 1) {
           const map = { "automatik": "automatik", "schaltgetriebe": "schalt" };
           params.set("getriebe", map[checked[0]] || checked[0]);
-        } else {
-          params.delete("getriebe");
-        }
-      } else {
-        params.delete("getriebe");
-      }
+        } else params.delete("getriebe");
+      } else params.delete("getriebe");
     }
   
-    // 🔥 Antriebsart (Select → Param, sonst Fallback: Checkboxen Front/Heck/Allrad)
-    (function () {
-      const norm = (s) => String(s || "").trim().toLowerCase();
-      const DRIVE_MAP = {
-        "front": "front", "frontantrieb": "front", "fwd": "front",
-        "heck": "heck", "heckantrieb": "heck", "rwd": "heck",
-        "allrad": "allrad", "4x4": "allrad", "4wd": "allrad", "awd": "allrad"
-      };
+    // Antriebsart: Checkboxen (Mehrfach) > Select (Einfach)
+    const driveSel = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
+    const driveCbs = document.querySelectorAll('input[name="antriebsart"]');
+    if (driveCbs.length) {
+      const picked = [...driveCbs]
+        .filter(cb => cb.checked)
+        .map(cb => driveCanon(cb.value))
+        .filter(Boolean);
+      if (picked.length) params.set("antriebsart", [...new Set(picked)].join(","));
+      else params.delete("antriebsart");
+    } else {
+      const raw = (driveSel?.value || "").trim();
+      if (raw && !/^(beliebig|any|alle|all|-)$/i.test(raw)) params.set("antriebsart", driveCanon(raw));
+      else params.delete("antriebsart");
+    }
   
-      const uiRaw = norm(driveEl?.value || "");
-      if (driveEl && uiRaw && !["beliebig","any","alle","all","-"].includes(uiRaw)) {
-        params.set("antriebsart", DRIVE_MAP[uiRaw] || uiRaw);
-        return;
-      }
-  
-      // Fallback: Checkboxen (wenn genau eine aktiv)
-      const cbSel = document.querySelectorAll(
-        '.search-group input[type="checkbox"][value="Frontantrieb"], .search-group input[type="checkbox"][value="Heckantrieb"], .search-group input[type="checkbox"][value="Allrad"], .search-group input[type="checkbox"][value="4x4"]'
-      );
-      if (cbSel.length) {
-        const checked = [...cbSel].filter(x => x.checked).map(x => norm(x.value));
-        if (checked.length === 1) {
-          params.set("antriebsart", DRIVE_MAP[checked[0]] || checked[0]);
-        } else {
-          params.delete("antriebsart");
-        }
-      } else {
-        params.delete("antriebsart");
-      }
-    })();
-  
-    // Verbrauch (max) – Select/Custom -> URL
+    // Verbrauch max
     (function () {
       const sel = document.getElementById("verbrauch-select");
       const inp = document.getElementById("verbrauch");
       const toDec = (s) => {
         const t = String(s ?? "").trim().replace(/\s+/g, "").replace(",", ".");
-        if (!t) return null;
         const n = parseFloat(t);
         return Number.isFinite(n) ? n : null;
       };
       let raw = "";
-      if (sel) {
-        if (sel.value === "") raw = "";                // Beliebig
-        else if (sel.value === "custom") raw = inp?.value || "";
-        else raw = sel.value;                          // z. B. "6.0"
-      } else {
-        raw = inp?.value || "";
-      }
+      if (sel) raw = (sel.value === "") ? "" : (sel.value === "custom" ? (inp?.value || "") : sel.value);
+      else raw = inp?.value || "";
       const n = toDec(raw);
       setOrDelete(params, "verbrauch_max", (n != null && n > 0) ? String(n) : "");
     })();
   
-    // ORT / UMKREIS
-    const locEl      = document.getElementById("location");
-    const distSel    = document.getElementById("distance-select");
+    // Ort/Umkreis
+    const locEl   = document.getElementById("location");
+    const distSel = document.getElementById("distance-select");
     const distCustom = document.getElementById("distance-custom");
     const locVal = (locEl?.value || "").trim();
     setOrDelete(params, "ort", locVal);
@@ -1476,11 +1509,9 @@ function applyClientFilters(items) {
       const dRaw = distSel.value === "custom" ? (distCustom?.value || "") : distSel.value;
       const d = parseInt(dRaw, 10);
       setOrDelete(params, "umkreis", (!Number.isNaN(d) && d > 0 && d !== 999) ? d : "");
-    } else {
-      params.delete("umkreis");
-    }
+    } else params.delete("umkreis");
   
-    // Zusatz-Flags (Checkboxen)
+    // Flags
     const pfEl = document.getElementById("partikelfilter");
     const shEl = document.getElementById("scheckheft");
     const ftEl = document.getElementById("fahrtauglich");
@@ -1488,46 +1519,14 @@ function applyClientFilters(items) {
     setOrDelete(params, "scheckheft",     shEl?.checked ? "ja"  : "");
     setOrDelete(params, "fahrtauglich",   ftEl?.checked ? "ja"  : "");
   
-    // Fahrzeugtyp (Mehrfach: SELECT multiple ODER Checkboxen)
-    (function () {
-      const typeSel = document.getElementById("fahrzeugtyp");
-      const picked = new Set();
+    // Türen / Fahrzeugtyp unverändert (deine bestehende Mehrfach-Logik)
   
-      if (typeSel && typeSel.tagName === "SELECT") {
-        [...typeSel.options].forEach(o => { if (o.selected && o.value) picked.add(o.value.trim()); });
-      } else if (typeSel && typeSel.value) {
-        picked.add(typeSel.value.trim());
-      }
-  
-      document.querySelectorAll('input[name="fahrzeugtyp"]:checked')
-        .forEach(cb => { const v = (cb.value || "").trim(); if (v) picked.add(v); });
-  
-      setOrDelete(params, "fahrzeugtyp", picked.size ? [...picked].join(",") : "");
-    })();
-  
-    // Türen (Mehrfach: SELECT ODER Checkboxen)
-    (function () {
-      const doorSel = document.getElementById("tueren");
-      const picked = new Set();
-  
-      if (doorSel && doorSel.tagName === "SELECT") {
-        [...doorSel.options].forEach(o => { if (o.selected && o.value) picked.add(o.value.trim()); });
-      } else if (doorSel && doorSel.value) {
-        picked.add(doorSel.value.trim());
-      }
-  
-      document.querySelectorAll('input[name="tueren"]:checked')
-        .forEach(cb => { const v = (cb.value || "").trim(); if (v) picked.add(v); });
-  
-      setOrDelete(params, "tueren", picked.size ? [...picked].join(",") : "");
-    })();
-  
-    // Sortierung -> Serverparam
+    // Sortierung
+    const sortBy = document.getElementById("sortBy");
     const sortSelectVal = sortBy?.value || "";
-    if (sortSelectVal) params.set("sort", mapSortSelectToParam(sortSelectVal));
-    else params.delete("sort");
+    if (sortSelectVal) params.set("sort", mapSortSelectToParam(sortSelectVal)); else params.delete("sort");
   
-    // Bei Filteränderung auf Seite 1 springen
+    // Seite zurück
     params.delete("page");
   
     replaceUrlParams(params);
@@ -1553,10 +1552,10 @@ function renderActiveFilters() {
   const bar = document.getElementById('activeFilterBar');
   if (!bar) return;
 
-  // Optional: Wrapper (falls vorhanden). Wenn nicht, parentElement nutzen.
+  // Optionaler Wrapper für Leer-Handling
   const barWrap = document.getElementById('activeFilterWrap') || bar.parentElement;
 
-  // Umschalten zwischen "ausblenden" (false) oder "Placeholder-Text" (true)
+  // Umschalten: false = komplett ausblenden, true = "Keine Filter aktiv"
   const SHOW_NO_FILTER_PLACEHOLDER = false;
 
   // Refs (UI Felder, wie in applyClientFilters)
@@ -1566,6 +1565,7 @@ function renderActiveFilters() {
   const mileageToEl    = document.getElementById("mileageTo");
   const powerFromEl    = document.getElementById("powerFrom");
   const powerToEl      = document.getElementById("powerTo");
+
   const fuelEl         = document.getElementById("fuelType") || document.getElementById("fuel");
   const gearEl         = document.getElementById("transmission") || document.getElementById("gear");
   const driveEl        = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
@@ -1610,8 +1610,9 @@ function renderActiveFilters() {
     ps_min: sp.get("ps_min") || "",
     ps_max: sp.get("ps_max") || "",
     getriebe: (sp.get("getriebe") || "").toLowerCase(),
-    antriebsart: (sp.get("antriebsart") || sp.get("antrieb") || "").toLowerCase(),
-    kraftstoff: (sp.get("kraftstoff") || "").toLowerCase(),
+    // Mehrfach per URL erlaubt (CSV)
+    antriebsartArr: arr(sp.get("antriebsart") || sp.get("antrieb") || "").map(driveCanon),
+    kraftstoffArr:  arr(sp.get("kraftstoff") || "").map(fuelCanon),
     ort: sp.get("ort") || "",
     umkreis: sp.get("umkreis") || "",
     verbrauch_max: sp.get("verbrauch_max") || "",
@@ -1632,17 +1633,32 @@ function renderActiveFilters() {
   const psMaxEff = !isNaN(toInt(powerToEl?.value   ?? "")) && toInt(powerToEl?.value   ?? "") > 0
                    ? toInt(powerToEl.value)   : toInt(qp.ps_max);
 
-  // Effektive Labels für Kraftstoff/Getriebe/Antrieb
-  const effFuel = (() => {
-    const ui = (fuelEl?.value || "").trim();
-    if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return ui;
-    const qpVal = (qp.kraftstoff || "").trim();
-    return qpVal ? qpVal.charAt(0).toUpperCase() + qpVal.slice(1) : "";
+  // ===== Kraftstoff (Mehrfach: UI > URL) =====
+  const fuelUIArr = (() => {
+    const picked = new Set();
+    if (fuelEl) {
+      if (fuelEl.tagName === "SELECT" && fuelEl.multiple) {
+        [...fuelEl.options].forEach(o => {
+          const val = String(o.value || o.text || "").trim();
+          if (o.selected && val && !/^(beliebig|any|alle|all|-)$/i.test(val))
+            picked.add(fuelCanon(val));
+        });
+      } else {
+        const v = String(fuelEl.value || "").trim();
+        if (v && !/^(beliebig|any|alle|all|-)$/i.test(v)) picked.add(fuelCanon(v));
+      }
+    }
+    // Checkbox-Gruppe (falls vorhanden)
+    document.querySelectorAll('input[name="kraftstoff"]:checked, input[name="fuel"]:checked')
+      .forEach(cb => picked.add(fuelCanon(cb.value || cb.getAttribute("data-token") || "")));
+    return [...picked];
   })();
+  const fuelEffArr = fuelUIArr.length ? fuelUIArr : qp.kraftstoffArr;
 
+  // ===== Getriebe (einfach) =====
   const effGear = (() => {
     const ui = (gearEl?.value || "").trim();
-    if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return ui;
+    if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return /^schalt/i.test(ui) ? "Schaltgetriebe" : "Automatik";
     let v = (qp.getriebe || "").toLowerCase();
     if (!v) return "";
     if (/^schalt/.test(v)) v = "Schaltgetriebe";
@@ -1651,23 +1667,27 @@ function renderActiveFilters() {
     return v;
   })();
 
-  const driveNice = (val) => {
-    let v = String(val || "").toLowerCase();
-    if (/(allrad|awd|4x4|4wd|quattro|xdrive|4matic)/.test(v)) return "Allrad";
-    if (/(front|vorder)/.test(v)) return "Frontantrieb";
-    if (/(heck|hinter)/.test(v)) return "Heckantrieb";
-    return v ? v.charAt(0).toUpperCase() + v.slice(1) : "";
-  };
-  const effDrive = (() => {
-    const ui = (driveEl?.value || "").trim();
-    if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return driveNice(ui);
-    const cbSel = document.querySelectorAll(
-      '.search-group input[type="checkbox"][value="Frontantrieb"], .search-group input[type="checkbox"][value="Heckantrieb"], .search-group input[type="checkbox"][value="Allrad"]'
-    );
-    const checked = [...cbSel].filter(cb => cb.checked).map(cb => cb.value);
-    if (checked.length === 1) return checked[0];
-    return driveNice(qp.antriebsart);
+  // ===== Antrieb (Mehrfach: UI > URL) =====
+  const driveUIArr = (() => {
+    const picked = new Set();
+    if (driveEl) {
+      if (driveEl.tagName === "SELECT" && driveEl.multiple) {
+        [...driveEl.options].forEach(o => {
+          const val = String(o.value || o.text || "").trim();
+          if (o.selected && val && !/^(beliebig|any|alle|all|-)$/i.test(val))
+            picked.add(driveCanon(val));
+        });
+      } else {
+        const v = String(driveEl.value || "").trim();
+        if (v && !/^(beliebig|any|alle|all|-)$/i.test(v)) picked.add(driveCanon(v));
+      }
+    }
+    // Checkbox-Gruppe (falls vorhanden)
+    document.querySelectorAll('input[name="antriebsart"]:checked, input[name="antrieb"]:checked')
+      .forEach(cb => picked.add(driveCanon(cb.value || cb.getAttribute("data-token") || "")));
+    return [...picked];
   })();
+  const driveEffArr = driveUIArr.length ? driveUIArr : qp.antriebsartArr;
 
   // EZ/HU
   const ezFromUIraw =
@@ -1701,9 +1721,25 @@ function renderActiveFilters() {
   if (!isNaN(psMinEff) && psMinEff > 0) chips.push({key:"ps_min", label:`PS ab ${int(psMinEff)}`});
   if (!isNaN(psMaxEff) && psMaxEff > 0) chips.push({key:"ps_max", label:`PS bis ${int(psMaxEff)}`});
 
-  if (effFuel)  chips.push({ key: "fuel",  label: `Kraftstoff: ${effFuel}` });
-  if (effGear)  chips.push({ key: "gear",  label: `Getriebe: ${effGear}` });
-  if (effDrive) chips.push({ key: "drive", label: `Antrieb: ${effDrive}` });
+  // Mehrfach: Kraftstoff → je ein Chip
+  fuelEffArr.forEach(tok => {
+    chips.push({ key: "fuel", value: tok, label: `Kraftstoff: ${fuelNiceLabel(tok)}` });
+  });
+
+  // Getriebe (ein Chip)
+  if (effGear) chips.push({ key: "gear",  label: `Getriebe: ${effGear}` });
+
+  // Mehrfach: Antrieb → je ein Chip (schönes Label)
+  const driveNice = (val) => {
+    let v = String(val || "").toLowerCase();
+    if (/(allrad|awd|4x4|4wd|quattro|xdrive|4matic)/.test(v)) return "Allrad";
+    if (/(front|vorder)/.test(v)) return "Frontantrieb";
+    if (/(heck|hinter)/.test(v)) return "Heckantrieb";
+    return v ? v.charAt(0).toUpperCase() + v.slice(1) : "";
+  };
+  driveEffArr.forEach(tok => {
+    chips.push({ key: "drive", value: tok, label: `Antrieb: ${driveNice(tok)}` });
+  });
 
   if (ezFromEff) chips.push({key:"ezFrom", label:`EZ ab ${fmtYM(ezFromEff)}`});
   if (ezToEff)   chips.push({key:"ezTo",   label:`EZ bis ${fmtYM(ezToEff)}`});
@@ -1726,14 +1762,12 @@ function renderActiveFilters() {
 
   // --- Leer-Handling: ausblenden oder Placeholder ---
   if (!chips.length) {
-    // Kein HTML/Whitespace setzen → :empty matcht sicher
-    bar.textContent = "";
+    bar.textContent = "";                  // keine Whitespace → :empty greift zuverlässig
     bar.classList.add("is-empty");
     bar.removeAttribute("data-has-chips");
     if (barWrap) barWrap.classList.add("no-chips");
 
     if (SHOW_NO_FILTER_PLACEHOLDER) {
-      // Dezent: ein kleiner Platzhalter (nimmt minimale Höhe ein)
       bar.classList.remove("is-empty");
       if (barWrap) barWrap.classList.remove("no-chips");
       bar.innerHTML = `<span class="no-filters">Keine Filter aktiv</span>`;
@@ -1767,6 +1801,7 @@ function renderActiveFilters() {
   });
   bar.querySelector(".clear-all")?.addEventListener("click", () => clearAllFilters());
 }
+
 
 function removeFilterChip(key, val = "") {
   const params = new URLSearchParams(window.location.search);
