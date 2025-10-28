@@ -1548,11 +1548,16 @@ function applyClientFilters(items) {
   const initialPage = Math.max(parseInt(new URLSearchParams(window.location.search).get("page") || "1", 10), 1);
   loadAndRender(initialPage);
 });
-
 // ---- Aktive Filter (Chips) ----
 function renderActiveFilters() {
   const bar = document.getElementById('activeFilterBar');
   if (!bar) return;
+
+  // Optional: Wrapper (falls vorhanden). Wenn nicht, parentElement nutzen.
+  const barWrap = document.getElementById('activeFilterWrap') || bar.parentElement;
+
+  // Umschalten zwischen "ausblenden" (false) oder "Placeholder-Text" (true)
+  const SHOW_NO_FILTER_PLACEHOLDER = false;
 
   // Refs (UI Felder, wie in applyClientFilters)
   const priceFromEl    = document.getElementById("priceFrom");
@@ -1561,10 +1566,9 @@ function renderActiveFilters() {
   const mileageToEl    = document.getElementById("mileageTo");
   const powerFromEl    = document.getElementById("powerFrom");
   const powerToEl      = document.getElementById("powerTo");
-
   const fuelEl         = document.getElementById("fuelType") || document.getElementById("fuel");
   const gearEl         = document.getElementById("transmission") || document.getElementById("gear");
-  const driveEl        = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb"); // NEU
+  const driveEl        = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
 
   const firstRegFromEl = document.getElementById("firstRegFrom");
   const firstRegMonthEl= document.getElementById("first-registration-month");
@@ -1589,7 +1593,7 @@ function renderActiveFilters() {
   }
   const fmtYM = (s) => /^\d{4}-\d{2}$/.test(s) ? `${s.slice(5,7)}/${s.slice(0,4)}` : s;
 
-  // 🔄 immer FRISCHE URL-Parameter
+  // Immer frische URL-Parameter lesen
   const sp = new URLSearchParams(location.search);
   const arr     = v => (v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : []);
   const truthy  = v => /^(1|true|ja|mit|yes)$/i.test(String(v || "").trim());
@@ -1606,7 +1610,6 @@ function renderActiveFilters() {
     ps_min: sp.get("ps_min") || "",
     ps_max: sp.get("ps_max") || "",
     getriebe: (sp.get("getriebe") || "").toLowerCase(),
-    // akzeptiere beide: ?antriebsart=... oder ?antrieb=...
     antriebsart: (sp.get("antriebsart") || sp.get("antrieb") || "").toLowerCase(),
     kraftstoff: (sp.get("kraftstoff") || "").toLowerCase(),
     ort: sp.get("ort") || "",
@@ -1629,64 +1632,53 @@ function renderActiveFilters() {
   const psMaxEff = !isNaN(toInt(powerToEl?.value   ?? "")) && toInt(powerToEl?.value   ?? "") > 0
                    ? toInt(powerToEl.value)   : toInt(qp.ps_max);
 
-  // ========= Effektive Labels =========
-
-  // Kraftstoff: UI -> fuelCanon; sonst URL -> fuelCanon; Anzeige via fuelNiceLabel
+  // Effektive Labels für Kraftstoff/Getriebe/Antrieb
   const effFuel = (() => {
-    const uiRaw = (fuelEl?.value || "").trim();
-    const hasUI = uiRaw && !/^(beliebig|any|alle|all|-)$/i.test(uiRaw);
-    const token = hasUI ? fuelCanon(uiRaw) : fuelCanon(qp.kraftstoff);
-    return token ? fuelNiceLabel(token) : "";
+    const ui = (fuelEl?.value || "").trim();
+    if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return ui;
+    const qpVal = (qp.kraftstoff || "").trim();
+    return qpVal ? qpVal.charAt(0).toUpperCase() + qpVal.slice(1) : "";
   })();
 
-  // Getriebe: "Automatik" / "Schaltgetriebe" aus UI oder URL sauber labeln
   const effGear = (() => {
     const ui = (gearEl?.value || "").trim();
-    const labelFromVal = (v) => {
-      const s = String(v || "").toLowerCase();
-      if (!s || /^(beliebig|any|alle|all|-)$/i.test(s)) return "";
-      if (s.startsWith("auto")) return "Automatik";
-      if (s.startsWith("schalt")) return "Schaltgetriebe";
-      if (s === "schaltgetriebe" || s === "schalt") return "Schaltgetriebe";
-      return s.charAt(0).toUpperCase() + s.slice(1);
-    };
-    return labelFromVal(ui) || labelFromVal(qp.getriebe);
+    if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return ui;
+    let v = (qp.getriebe || "").toLowerCase();
+    if (!v) return "";
+    if (/^schalt/.test(v)) v = "Schaltgetriebe";
+    else if (/^auto/.test(v)) v = "Automatik";
+    else v = v.charAt(0).toUpperCase() + v.slice(1);
+    return v;
   })();
 
-  // Antriebsart: UI/Checkbox/URL -> schönes Label
   const driveNice = (val) => {
     let v = String(val || "").toLowerCase();
-    if (!v || /^(beliebig|any|alle|all|-)$/i.test(v)) return "";
     if (/(allrad|awd|4x4|4wd|quattro|xdrive|4matic)/.test(v)) return "Allrad";
     if (/(front|vorder)/.test(v)) return "Frontantrieb";
-    if (/(heck|hinter|rear)/.test(v)) return "Heckantrieb";
-    return v.charAt(0).toUpperCase() + v.slice(1);
+    if (/(heck|hinter)/.test(v)) return "Heckantrieb";
+    return v ? v.charAt(0).toUpperCase() + v.slice(1) : "";
   };
   const effDrive = (() => {
-    // 1) Select
     const ui = (driveEl?.value || "").trim();
     if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return driveNice(ui);
-    // 2) Checkboxen (falls vorhanden)
     const cbSel = document.querySelectorAll(
       '.search-group input[type="checkbox"][value="Frontantrieb"], .search-group input[type="checkbox"][value="Heckantrieb"], .search-group input[type="checkbox"][value="Allrad"]'
     );
     const checked = [...cbSel].filter(cb => cb.checked).map(cb => cb.value);
     if (checked.length === 1) return checked[0];
-    // 3) URL
     return driveNice(qp.antriebsart);
   })();
 
-  // EZ / HU
+  // EZ/HU
   const ezFromUIraw =
     (firstRegFromEl?.value) ||
     (firstRegYearEl?.value && firstRegMonthEl?.value ? `${firstRegYearEl.value}-${pad2(firstRegMonthEl.value)}` : "");
   const ezFromEff = parseYM(ezFromUIraw || qp.ezFrom, "01");
   const ezToEff   = parseYM(qp.ezTo, "12");
   const huEff     = parseYM(inspectionEl?.value || "", "12");
+  const accFree   = !!accidentFreeEl?.checked;
 
-  const accFree  = !!accidentFreeEl?.checked;
-
-  // weitere URL-Filter
+  // Weitere URL-Filter
   const brand   = qp.marke || "";
   const models  = Array.isArray(qp.modell) ? qp.modell.slice() : [];
   const ort     = qp.ort || "";
@@ -1700,19 +1692,18 @@ function renderActiveFilters() {
   const eur = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")} €`;
   const int = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")}`;
 
-  // Chips
+  // Chips aufbauen
   const chips = [];
   if (!isNaN(priceMin) && priceMin > 0) chips.push({key:"price_min", label:`Preis ab ${eur(priceMin)}`});
   if (!isNaN(priceMax) && priceMax > 0) chips.push({key:"price_max", label:`Preis bis ${eur(priceMax)}`});
   if (!isNaN(kmMin)    && kmMin  > 0)   chips.push({key:"km_min",    label:`KM ab ${int(kmMin)}`});
   if (!isNaN(kmMax)    && kmMax  > 0)   chips.push({key:"km_max",    label:`KM bis ${int(kmMax)}`});
-
   if (!isNaN(psMinEff) && psMinEff > 0) chips.push({key:"ps_min", label:`PS ab ${int(psMinEff)}`});
   if (!isNaN(psMaxEff) && psMaxEff > 0) chips.push({key:"ps_max", label:`PS bis ${int(psMaxEff)}`});
 
   if (effFuel)  chips.push({ key: "fuel",  label: `Kraftstoff: ${effFuel}` });
   if (effGear)  chips.push({ key: "gear",  label: `Getriebe: ${effGear}` });
-  if (effDrive) chips.push({ key: "drive", label: `Antrieb: ${effDrive}` }); // NEU
+  if (effDrive) chips.push({ key: "drive", label: `Antrieb: ${effDrive}` });
 
   if (ezFromEff) chips.push({key:"ezFrom", label:`EZ ab ${fmtYM(ezFromEff)}`});
   if (ezToEff)   chips.push({key:"ezTo",   label:`EZ bis ${fmtYM(ezToEff)}`});
@@ -1721,9 +1712,7 @@ function renderActiveFilters() {
 
   if (brand) chips.push({key:"marke", label:`Marke: ${brand}`});
   if (models && models.length) models.forEach(m => chips.push({key:"modell", value:m, label:`Modell: ${m}`}));
-
   if (qp.modellausfuehrung) chips.push({key:"modellausfuehrung", label:`Modellvariante: ${qp.modellausfuehrung}`});
-
   if (qp.fahrzeugtyp?.length) qp.fahrzeugtyp.forEach(t => chips.push({key:"fahrzeugtyp", value:t, label:`Fahrzeugtyp: ${t}`}));
   if (qp.tueren?.length)      qp.tueren.forEach(n => chips.push({key:"tueren", value:n, label:`Türen: ${n}`}));
 
@@ -1735,8 +1724,28 @@ function renderActiveFilters() {
   if (sh) chips.push({key:"scheckheft", label:`Scheckheftgepflegt`});
   if (ft) chips.push({key:"fahrtauglich", label:`Fahrtauglich`});
 
-  // Render
-  if (!chips.length) { bar.innerHTML = ""; return; }
+  // --- Leer-Handling: ausblenden oder Placeholder ---
+  if (!chips.length) {
+    // Kein HTML/Whitespace setzen → :empty matcht sicher
+    bar.textContent = "";
+    bar.classList.add("is-empty");
+    bar.removeAttribute("data-has-chips");
+    if (barWrap) barWrap.classList.add("no-chips");
+
+    if (SHOW_NO_FILTER_PLACEHOLDER) {
+      // Dezent: ein kleiner Platzhalter (nimmt minimale Höhe ein)
+      bar.classList.remove("is-empty");
+      if (barWrap) barWrap.classList.remove("no-chips");
+      bar.innerHTML = `<span class="no-filters">Keine Filter aktiv</span>`;
+    }
+    return;
+  }
+
+  // Es gibt Chips → anzeigen
+  bar.classList.remove("is-empty");
+  bar.setAttribute("data-has-chips", "1");
+  if (barWrap) barWrap.classList.remove("no-chips");
+
   bar.innerHTML = chips.map(c => `
     <div class="filter-chip" data-key="${c.key}" ${c.value ? `data-value="${c.value}"` : ""}>
       <span class="chip-label">${c.label}</span>
