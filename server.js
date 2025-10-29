@@ -50,6 +50,9 @@ function decodeSession(token){
 
 // ===== Canon + Utils =====
 const escapeRegExp = s => String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Alias, weil an manchen Stellen "escapeRegex" benutzt wird
+const escapeRegex = escapeRegExp;
+
 const norm = s => String(s || "").toLowerCase()
   .normalize("NFD").replace(/\p{Diacritic}/gu, "");
 
@@ -59,7 +62,7 @@ const parseMultiParam = (val) =>
     .map(s => s.trim())
     .filter(Boolean);
 
-// --- Kraftstoff: erst Hybrid erkennen, damit "Hybrid (Benzin/Diesel)" NICHT unter Benzin/Diesel fällt
+// --- Kraftstoff: Hybrid zuerst erkennen (z. B. "Hybrid (Benzin)")
 function fuelCanon(raw) {
   const s = norm(raw);
   if (!s) return "";
@@ -70,7 +73,7 @@ function fuelCanon(raw) {
   return ""; // unbekannt -> nicht matchen
 }
 
-// Regex für Mongo (enthält Lookahead, damit "benzin/diesel" KEIN Hybrid trifft)
+// Regex für kraftstoff, die Hybrid bei Benzin/Diesel explizit ausschließt
 function fuelRegex(token) {
   switch (token) {
     case "hybrid":
@@ -1798,8 +1801,7 @@ process.on("uncaughtException", (err) => {
 
 
 
-// === Helper zum sicheren Regex-Bau ===
-const escapeRegex = (s = "") => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 
 // === Geocoding mit einfachem Mongo-Cache (Node >= 18: global fetch vorhanden)
 async function geocodeToPoint(query) {
@@ -2107,8 +2109,6 @@ app.get("/api/search", async (req, res) => {
           _halter_raw: { $ifNull: [ "$halter", { $ifNull: [ "$halteranzahl", "$fahrzeughalter" ] } ] }
         }
       },
-
-      // Preis/KM per String-Cleanup
       { $addFields: {
           _preis_clean: {
             $replaceAll: {
@@ -2136,45 +2136,34 @@ app.get("/api/search", async (req, res) => {
           }
         }
       },
-
-      // PS / ccm / Verbrauch / Halter extrahieren
       { $addFields: {
           _ps_match:   { $regexFind: { input: { $toString: "$_ps_raw" },  regex: /(\d{2,4})/ } },
           _ccm_match:  { $regexFind: { input: { $toString: "$_ccm_raw" }, regex: /(\d{3,5})/ } },
 
-          // Verbrauch: Komma -> Punkt
           _verb_norm:  { $replaceAll: { input: { $toString: "$_verb_raw" }, find: ",", replacement: "." } },
 
-          // Nur Zahlen direkt vor "l/100 km"
           _verb_liters: {
             $regexFindAll: {
               input: "$_verb_norm",
               regex: /(\d+(?:\.\d+)?)(?=\s*(?:l|L)\s*\/\s*100\s*km)/i
             }
           },
-          // Nur Zahlen direkt vor "kWh/100 km" (BEV/PHEV)
           _verb_kwh: {
             $regexFindAll: {
               input: "$_verb_norm",
               regex: /(\d+(?:\.\d+)?)(?=\s*kwh\s*\/\s*100\s*km)/i
             }
           },
-
-          // Fallback: alle Zahlen (für Fälle ohne Einheitenangabe)
           _verb_all_any: { $regexFindAll: { input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)/ } },
 
           _halter_match:{ $regexFind: { input: { $toString: "$_halter_raw" }, regex: /(\d{1,2})/ } }
         }
       },
-
       { $addFields: {
           preis_num: { $convert: { input: "$_preis_clean", to: "int", onError: null, onNull: null } },
           km_num:    { $convert: { input: "$_km_clean",    to: "int", onError: null, onNull: null } },
           ps_num:    { $convert: { input: { $ifNull: ["$_ps_match.match",  null] }, to: "int", onError: null, onNull: null } },
           ccm_num:   { $convert: { input: { $ifNull: ["$_ccm_match.match", null] }, to: "int", onError: null, onNull: null } },
-
-          // Verbrauch: Wenn Einheitentreffer vorhanden → max(l/100, kWh/100).
-          // Sonst Fallback: max aller Zahlen < 60 (damit CO₂ "120 g/km" etc. ignoriert wird).
           verb_num: {
             $let: {
               vars: {
@@ -2220,7 +2209,6 @@ app.get("/api/search", async (req, res) => {
               }
             }
           },
-
           halter_num: { $convert: { input: { $ifNull: ["$_halter_match.match", null] }, to: "int", onError: null, onNull: null } }
         }
       }
@@ -2355,49 +2343,54 @@ app.get("/api/search", async (req, res) => {
     const consumptionFilterStages =
       Number.isFinite(verbMaxNum) ? [{ $match: { verb_num: { $ne: null, $lte: verbMaxNum } } }] : [];
 
-    // === Mehrfach-Filter: Kraftstoff / Getriebe / Antrieb ===
+    // === Mehrfach-Filter: Kraftstoff / Getriebe / Antrieb (CSV) ===
     const qFuel  = parseMultiParam(kraftstoff || req.query.fuel).map(fuelCanon).filter(Boolean);         // ["benzin","hybrid",...]
     const qGear  = parseMultiParam(getriebe  || req.query.transmission).map(gearCanon).filter(Boolean);  // ["automatik","schaltgetriebe"]
     const qDrive = parseMultiParam(antrieb   || req.query.antriebsart).map(driveCanon).filter(Boolean);  // ["frontantrieb","allrad"]
 
-    // Kraftstoff: exakte Trennung (Hybrid separat; kein Hybrid bei Benzin/Diesel)
+    // Kraftstoff: exakte Trennung (Hybrid separat; kein Hybrid bei Benzin/Diesel) – OR (flach) über alle Tokens/Felder
     let fuelStages = [];
     if (qFuel.length) {
-      const orByToken = qFuel.map(tok => ({
-        $or: [
-          { kraftstoff:         { $regex: fuelRegex(tok) } },
-          { verkauf_kraftstoff: { $regex: fuelRegex(tok) } },
-          { kraftstoffart:      { $regex: fuelRegex(tok) } }
-          // bewusst KEIN Fallback auf beschreibung/titel, um False-Positives zu vermeiden
-        ]
-      }));
-      fuelStages = [{ $match: { $or: orByToken } }];
+      const or = [];
+      for (const tok of qFuel) {
+        const rx = fuelRegex(tok);
+        or.push(
+          { kraftstoff:         { $regex: rx } },
+          { verkauf_kraftstoff: { $regex: rx } },
+          { kraftstoffart:      { $regex: rx } }
+        );
+      }
+      fuelStages = [{ $match: { $or: or } }];
     }
 
-    // Getriebe: OR über alle gewählten
+    // Getriebe: OR (flach) über alle gewählten
     let gearboxStages = [];
     if (qGear.length) {
-      const orByToken = qGear.map(tok => ({
-        $or: [
-          { getriebe:         { $regex: gearRegex(tok) } },
-          { verkauf_getriebe: { $regex: gearRegex(tok) } },
-          { getriebeart:      { $regex: gearRegex(tok) } }
-        ]
-      }));
-      gearboxStages = [{ $match: { $or: orByToken } }];
+      const or = [];
+      for (const tok of qGear) {
+        const rx = gearRegex(tok);
+        or.push(
+          { getriebe:         { $regex: rx } },
+          { verkauf_getriebe: { $regex: rx } },
+          { getriebeart:      { $regex: rx } }
+        );
+      }
+      gearboxStages = [{ $match: { $or: or } }];
     }
 
-    // Antrieb: OR über alle gewählten
+    // Antrieb: OR (flach) über alle gewählten
     let driveStages = [];
     if (qDrive.length) {
-      const orByToken = qDrive.map(tok => ({
-        $or: [
-          { antrieb:         { $regex: driveRegex(tok) } },
-          { antriebsart:     { $regex: driveRegex(tok) } },
-          { verkauf_antrieb: { $regex: driveRegex(tok) } }
-        ]
-      }));
-      driveStages = [{ $match: { $or: orByToken } }];
+      const or = [];
+      for (const tok of qDrive) {
+        const rx = driveRegex(tok);
+        or.push(
+          { antrieb:         { $regex: rx } },
+          { antriebsart:     { $regex: rx } },
+          { verkauf_antrieb: { $regex: rx } }
+        );
+      }
+      driveStages = [{ $match: { $or: or } }];
     }
 
     // Schadstoffklasse
@@ -2407,8 +2400,8 @@ app.get("/api/search", async (req, res) => {
       emissionStages = [{
         $match: {
           $or: [
-            { schadstoffklasse:          { $regex: rx } },
-            { umwelt_schadstoffklasse:   { $regex: rx } }
+            { schadstoffklasse:        { $regex: rx } },
+            { umwelt_schadstoffklasse: { $regex: rx } }
           ]
         }
       }];
@@ -2427,9 +2420,9 @@ app.get("/api/search", async (req, res) => {
         plaketteStages = [{
           $match: {
             $or: [
-              { plakette:         { $regex: rx } },
-              { umweltplakette:   { $regex: rx } },
-              { feinstaubplakette:{ $regex: rx } }
+              { plakette:          { $regex: rx } },
+              { umweltplakette:    { $regex: rx } },
+              { feinstaubplakette: { $regex: rx } }
             ]
           }
         }];
