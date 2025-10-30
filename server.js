@@ -1,4 +1,5 @@
 
+
 try { require("dotenv").config(); } catch {}
 
 const express = require("express");
@@ -46,77 +47,6 @@ function decodeSession(token){
   } catch {
     return null;
   }
-}
-
-// ===== Canon + Utils =====
-const escapeRegExp = s => String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-// Alias, weil an manchen Stellen "escapeRegex" benutzt wird
-const escapeRegex = escapeRegExp;
-
-const norm = s => String(s || "").toLowerCase()
-  .normalize("NFD").replace(/\p{Diacritic}/gu, "");
-
-const parseMultiParam = (val) =>
-  String(val ?? "")
-    .split(",")
-    .map(s => s.trim())
-    .filter(Boolean);
-
-// --- Kraftstoff: Hybrid zuerst erkennen (z. B. "Hybrid (Benzin)")
-function fuelCanon(raw) {
-  const s = norm(raw);
-  if (!s) return "";
-  if (/\b(hybrid|phev|plug[\s-]?in|plugin|mhev|hev)\b/.test(s)) return "hybrid";
-  if (/\b(diesel)\b/.test(s)) return "diesel";
-  if (/\b(elektr|bev|strom|ev)\b/.test(s)) return "elektrisch";
-  if (/\b(benzin|super|e10|e5|e95|e98|otto|petrol|gasoline)\b/.test(s)) return "benzin";
-  return ""; // unbekannt -> nicht matchen
-}
-
-// Regex für kraftstoff, die Hybrid bei Benzin/Diesel explizit ausschließt
-function fuelRegex(token) {
-  switch (token) {
-    case "hybrid":
-      return /\b(hybrid|phev|plug[\s-]?in|plugin|mhev|hev)\b/i;
-    case "diesel":
-      return /^(?!.*\b(hybrid|phev|plug[\s-]?in|plugin|mhev|hev)\b)(?=.*\bdiesel\b).*$/i;
-    case "benzin":
-      return /^(?!.*\b(hybrid|phev|plug[\s-]?in|plugin|mhev|hev)\b)(?=.*\b(benzin|super|e10|e5|e95|e98|otto|petrol|gasoline)\b).*$/i;
-    case "elektrisch":
-      return /\b(elektr|bev|strom|ev)\b/i;
-    default:
-      return new RegExp("\\b" + escapeRegExp(token) + "\\b", "i");
-  }
-}
-
-// --- Getriebe
-function gearCanon(raw) {
-  const s = norm(raw);
-  if (!s) return "";
-  if (/^auto(matik|matic)?/.test(s)) return "automatik";
-  if (/(schalt|getriebe|manuell)/.test(s)) return "schaltgetriebe";
-  return "";
-}
-function gearRegex(token) {
-  return token === "automatik" ? /\b(auto(matik|matic)?)\b/i
-       : token === "schaltgetriebe" ? /\b(schalt|getriebe|manuell)\b/i
-       : new RegExp("\\b" + escapeRegExp(token) + "\\b", "i");
-}
-
-// --- Antriebsart
-function driveCanon(raw) {
-  const s = norm(raw);
-  if (!s) return "";
-  if (/(quattro|xdrive|4matic|4motion|awd|allrad|4x4|4wd|all[-\s]?wheel)/.test(s)) return "allrad";
-  if (/(fwd|front|vorderrad|frontantrieb)/.test(s)) return "frontantrieb";
-  if (/(rwd|heck|hinterrad|heckantrieb|rear)/.test(s)) return "heckantrieb";
-  return "";
-}
-function driveRegex(token) {
-  if (token === "allrad")        return /\b(quattro|xdrive|4matic|4motion|awd|allrad|4x4|4wd|all[-\s]?wheel)\b/i;
-  if (token === "frontantrieb")  return /\b(fwd|front|vorderrad|frontantrieb)\b/i;
-  if (token === "heckantrieb")   return /\b(rwd|heck|hinterrad|heckantrieb|rear)\b/i;
-  return new RegExp("\\b" + escapeRegExp(token) + "\\b", "i");
 }
 
 
