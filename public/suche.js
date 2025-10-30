@@ -1362,210 +1362,155 @@ function applyClientFilters(items) {
     const s = String(val).trim();
     if (s === "" || s === "Beliebig" || s === "-" || s === "any" || s === "alle" || s === "all") params.delete(key);
     else params.set(key, s);
-  }function updateUrlFromUiAndReload() {
+  }
+  
+  function updateUrlFromUiAndReload() {
     const params = new URLSearchParams(window.location.search);
   
-    // Helper: setzt nur sinnvolle Werte (ignoriert "Beliebig", "any", "-")
     const setOrDelete = (p, k, v) => {
       const s = (v == null ? "" : String(v).trim());
       if (!s || /^(beliebig|any|alle|all|-)$/i.test(s)) p.delete(k);
       else p.set(k, s);
     };
   
-    // --- Marke / Modell / Modellausführung ---
+    // Marke/Modell/Variante
     const markeEl  = document.getElementById("marke");
     const modellEl = document.getElementById("modell");
     const modVarEl = document.getElementById("modellausfuehrung");
-  
     setOrDelete(params, "marke", markeEl?.value || "");
     if (modellEl && modellEl.options) {
-      const selected = [...modellEl.options]
-        .filter(o => o.selected)
-        .map(o => o.value)
-        .filter(Boolean);
+      const selected = [...modellEl.options].filter(o => o.selected).map(o => o.value).filter(Boolean);
       setOrDelete(params, "modell", selected.length ? selected.join(",") : "");
     }
     setOrDelete(params, "modellausfuehrung", modVarEl?.value || "");
   
-    // --- Erstzulassung (FROM/TO) -> immer als YYYY-MM; inkl. Fallback auf alte Felder ---
+    // Erstzulassung FROM/TO (inkl. Fallback auf alte Felder)
     const firstRegFromEl     = document.getElementById("firstRegFrom");
     const firstRegMonthEl    = document.getElementById("first-registration-month");
     const firstRegYearEl     = document.getElementById("first-registration-year");
     const firstRegToEl       = document.getElementById("firstRegTo");
     const firstRegMonthToEl  = document.getElementById("first-registration-month-to");
     const firstRegYearToEl   = document.getElementById("first-registration-year-to");
-  
-    const ezVonEl = document.getElementById("ez-von"); // Fallback (alte Inputs)
+    const ezVonEl = document.getElementById("ez-von");
     const ezBisEl = document.getElementById("ez-bis");
   
     const fromRaw =
       firstRegFromEl?.value ||
       (firstRegYearEl?.value && firstRegMonthEl?.value
-        ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2, "0")}`
-        : "") ||
+        ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2,"0")}` : "") ||
       ezVonEl?.value || "";
   
     const toRaw =
       firstRegToEl?.value ||
       (firstRegYearToEl?.value && firstRegMonthToEl?.value
-        ? `${firstRegYearToEl.value}-${String(firstRegMonthToEl.value).padStart(2, "0")}`
-        : "") ||
+        ? `${firstRegYearToEl.value}-${String(firstRegMonthToEl.value).padStart(2,"0")}` : "") ||
       ezBisEl?.value || "";
   
     let [ezFrom, ezTo] = orderYM(parseYM(fromRaw), parseYM(toRaw));
     setOrDelete(params, "ezFrom", ezFrom);
     setOrDelete(params, "ezTo",   ezTo);
   
-    // --- Preis / Kilometer (max) ---
-    const priceToEl   = document.getElementById("priceTo");
-    const mileageToEl = document.getElementById("mileageTo");
-    const pMax = parseInt(priceToEl?.value || "", 10);
-    const kmMax = parseInt(mileageToEl?.value || "", 10);
+    // Preis / KM (max)
+    const pMax = parseInt(document.getElementById("priceTo")?.value || "", 10);
+    const kmMax = parseInt(document.getElementById("mileageTo")?.value || "", 10);
     if (!Number.isNaN(pMax) && pMax > 0) params.set("price_max", String(pMax)); else params.delete("price_max");
     if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax)); else params.delete("km_max");
   
-    // --- Kraftstoff (Select ODER Checkboxen -> CSV) ---
+    // Kraftstoff (Select oder Checkboxen -> CSV)
     const fuelEl  = document.getElementById("fuelType") || document.getElementById("fuel");
-    const fuelCbs = document.querySelectorAll(
-      'input[name="kraftstoff"]:checked, \
-       .search-group input[type="checkbox"][value="Benzin"]:checked, \
-       .search-group input[type="checkbox"][value="Diesel"]:checked, \
-       .search-group input[type="checkbox"][value="Elektrisch"]:checked, \
-       .search-group input[type="checkbox"][value="Hybrid"]:checked'
-    );
+    const fuelCbs = document.querySelectorAll('input[name="kraftstoff"]:checked');
     let fuelList = [...fuelCbs].map(cb => fuelCanon(cb.value)).filter(Boolean);
-    fuelList = uniq(fuelList);
     if (!fuelList.length && fuelEl) {
       const v = String(fuelEl.value || "").trim();
       if (v && !/^(beliebig|any|alle|all|-)$/i.test(v)) fuelList = [fuelCanon(v)];
     }
     setOrDelete(params, "kraftstoff", fuelList.length ? fuelList.join(",") : "");
   
-    // --- Getriebe (ein Wert) ---
+    // Getriebe (ein Wert)
     const gearEl = document.getElementById("transmission") || document.getElementById("gear");
     const gearRaw = (gearEl?.value || "").toLowerCase();
     const gearVal = (gearRaw === "schaltgetriebe") ? "schalt" : gearRaw;
     if (gearVal && !/^(beliebig|any|alle|all|-)$/i.test(gearVal)) params.set("getriebe", gearVal);
-    else {
-      // alte Checkboxen ggf. entkoppeln
-      document.querySelectorAll(
-        '.search-group input[type="checkbox"][value="Automatik"], \
-         .search-group input[type="checkbox"][value="Schaltgetriebe"]'
-      ).forEach(cb => cb.checked = false);
-      params.delete("getriebe");
-    }
+    else params.delete("getriebe");
   
-    // --- Antriebsart (Select ODER Checkboxen -> CSV) ---
+    // Antriebsart (Select oder Checkboxen -> CSV)
     const driveEl = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
-    const driveCbs = document.querySelectorAll(
-      'input[name="antrieb"]:checked, \
-       .search-group input[type="checkbox"][value="Frontantrieb"]:checked, \
-       .search-group input[type="checkbox"][value="Heckantrieb"]:checked, \
-       .search-group input[type="checkbox"][value="Allrad"]:checked'
-    );
+    const driveCbs = document.querySelectorAll('input[name="antrieb"]:checked');
     let driveList = [...driveCbs].map(cb => driveCanon(cb.value)).filter(Boolean);
-    driveList = uniq(driveList);
     if (!driveList.length && driveEl) {
       const v = driveCanon(driveEl.value);
       if (v && !/^(beliebig|any|alle|all|-)$/i.test(v)) driveList = [v];
     }
     setOrDelete(params, "antriebsart", driveList.length ? driveList.join(",") : "");
-    params.delete("antrieb"); // legacy key nicht doppeln
+    params.delete("antrieb"); // legacy key
   
-    // --- Verbrauch (max) – clientseitig ---
+    // Verbrauch (clientseitig)
     (function () {
       const sel = document.getElementById("verbrauch-select");
       const inp = document.getElementById("verbrauch");
-      const toDec = (s) => {
-        const t = String(s ?? "").trim().replace(/\s+/g, "").replace(",", ".");
+      const toDec = s => {
+        const t = String(s ?? "").trim().replace(/\s+/g,"").replace(",",".");
         if (!t) return null;
         const n = parseFloat(t);
         return Number.isFinite(n) ? n : null;
       };
       let raw = "";
-      if (sel) {
-        if (sel.value === "") raw = "";
-        else if (sel.value === "custom") raw = inp?.value || "";
-        else raw = sel.value;
-      } else {
-        raw = inp?.value || "";
-      }
+      if (sel) raw = sel.value === "custom" ? (inp?.value || "") : sel.value;
+      else raw = inp?.value || "";
       const n = toDec(raw);
       setOrDelete(params, "verbrauch_max", (n != null && n > 0) ? String(n) : "");
     })();
   
-    // --- Ort / Umkreis ---
-    const locEl      = document.getElementById("location");
-    const distSel    = document.getElementById("distance-select");
-    const distCustom = document.getElementById("distance-custom");
-    const locVal = (locEl?.value || "").trim();
+    // Ort / Umkreis
+    const locVal = (document.getElementById("location")?.value || "").trim();
     setOrDelete(params, "ort", locVal);
+    const distSel = document.getElementById("distance-select");
+    const distCustom = document.getElementById("distance-custom");
     if (distSel && !distSel.disabled) {
       const dRaw = distSel.value === "custom" ? (distCustom?.value || "") : distSel.value;
       const d = parseInt(dRaw, 10);
       setOrDelete(params, "umkreis", (!Number.isNaN(d) && d > 0 && d !== 999) ? d : "");
-    } else {
-      params.delete("umkreis");
-    }
+    } else params.delete("umkreis");
   
-    // --- Zusatz-Flags ---
-    const pfEl = document.getElementById("partikelfilter");
-    const shEl = document.getElementById("scheckheft");
-    const ftEl = document.getElementById("fahrtauglich");
-    setOrDelete(params, "partikelfilter", pfEl?.checked ? "mit" : "");
-    setOrDelete(params, "scheckheft",     shEl?.checked ? "ja"  : "");
-    setOrDelete(params, "fahrtauglich",   ftEl?.checked ? "ja"  : "");
+    // Zusatz-Flags
+    setOrDelete(params, "partikelfilter", document.getElementById("partikelfilter")?.checked ? "mit" : "");
+    setOrDelete(params, "scheckheft",     document.getElementById("scheckheft")?.checked ? "ja" : "");
+    setOrDelete(params, "fahrtauglich",   document.getElementById("fahrtauglich")?.checked ? "ja" : "");
   
-    // --- Fahrzeugtyp / Türen (Mehrfach) ---
+    // Fahrzeugtyp / Türen
     (function () {
+      const s = new Set();
       const typeSel = document.getElementById("fahrzeugtyp");
-      const picked = new Set();
-      if (typeSel && typeSel.tagName === "SELECT") {
-        [...typeSel.options].forEach(o => { if (o.selected && o.value) picked.add(o.value.trim()); });
-      } else if (typeSel && typeSel.value) {
-        picked.add(typeSel.value.trim());
-      }
-      document.querySelectorAll('input[name="fahrzeugtyp"]:checked').forEach(cb => {
-        const v = (cb.value || "").trim(); if (v) picked.add(v);
-      });
-      setOrDelete(params, "fahrzeugtyp", picked.size ? [...picked].join(",") : "");
+      if (typeSel && typeSel.tagName === "SELECT") [...typeSel.options].forEach(o => { if (o.selected && o.value) s.add(o.value.trim()); });
+      document.querySelectorAll('input[name="fahrzeugtyp"]:checked').forEach(cb => s.add(String(cb.value || "").trim()));
+      setOrDelete(params, "fahrzeugtyp", s.size ? [...s].join(",") : "");
     })();
-  
     (function () {
+      const s = new Set();
       const doorSel = document.getElementById("tueren");
-      const picked = new Set();
-      if (doorSel && doorSel.tagName === "SELECT") {
-        [...doorSel.options].forEach(o => { if (o.selected && o.value) picked.add(o.value.trim()); });
-      } else if (doorSel && doorSel.value) {
-        picked.add(doorSel.value.trim());
-      }
-      document.querySelectorAll('input[name="tueren"]:checked').forEach(cb => {
-        const v = (cb.value || "").trim(); if (v) picked.add(v);
-      });
-      setOrDelete(params, "tueren", picked.size ? [...picked].join(",") : "");
+      if (doorSel && doorSel.tagName === "SELECT") [...doorSel.options].forEach(o => { if (o.selected && o.value) s.add(o.value.trim()); });
+      document.querySelectorAll('input[name="tueren"]:checked').forEach(cb => s.add(String(cb.value || "").trim()));
+      setOrDelete(params, "tueren", s.size ? [...s].join(",") : "");
     })();
   
-    // --- Sortierung -> Serverparam ---
-    const sortBy = document.getElementById("sortBy");
-    const mapSortSelectToParam = (v) =>
-      v === "price-asc" ? "preis_asc"
-      : v === "price-desc" ? "preis_desc"
-      : "neueste";
-    const sortSelectVal = sortBy?.value || "";
-    if (sortSelectVal) params.set("sort", mapSortSelectToParam(sortSelectVal)); else params.delete("sort");
+    // Sortierung -> Serverparam
+    const sortSelect = document.getElementById("sortBy");
+    const mapSort = v => v === "price-asc" ? "preis_asc" : v === "price-desc" ? "preis_desc" : "neueste";
+    const sortVal = sortSelect?.value || "";
+    if (sortVal) params.set("sort", mapSort(sortVal)); else params.delete("sort");
   
-    // Immer Seite 1, URL ersetzen & neu laden
+    // Seite 1 + neu laden
     params.delete("page");
-    replaceUrlParams(params);
+    history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
     loadAndRender(1);
   }
   
-
-  applyFilters?.addEventListener("click", (e) => {
+  // Falls noch nicht gebunden:
+  document.getElementById("applyFiltersBtn")?.addEventListener("click", (e) => {
     e.preventDefault();
     updateUrlFromUiAndReload();
   });
-
+  
   sortBy?.addEventListener("change", () => {
     updateUrlFromUiAndReload();
   });
@@ -1684,8 +1629,9 @@ function renderActiveFilters() {
   const ezFromUIraw =
     (firstRegFromEl?.value) ||
     (firstRegYearEl?.value && firstRegMonthEl?.value ? `${firstRegYearEl.value}-${pad2(firstRegMonthEl.value)}` : "");
-  const ezFromEff = (function parseYMEff(v){ const m = v||qp.ezFrom; return m ? m : ""; })()(ezFromUIraw);
-  const ezToEff   = qp.ezTo;
+    const ezFromEff = parseYM(ezFromUIraw || qp.ezFrom);
+    const ezToEff   = parseYM(qp.ezTo);
+    
   const huEff     = inspectionEl?.value || "";
   const accFree   = !!accidentFreeEl?.checked;
 
