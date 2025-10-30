@@ -41,6 +41,26 @@ const toNum = (v) => {
   return Number(String(v).replace(/\./g, "").replace(",", "."));
 };
 
+// YYYY-MM Parser + Range-Helfer
+function parseYM(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  // akzeptiere: YYYY-MM
+  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(s)) return s;
+  // akzeptiere: MM.YYYY
+  const m1 = s.match(/^(0?[1-9]|1[0-2])[.\-/](\d{4})$/);
+  if (m1) return `${m1[2]}-${String(m1[1]).padStart(2, "0")}`;
+  // akzeptiere: YYYY (-> Monat 01)
+  if (/^\d{4}$/.test(s)) return `${s}-01`;
+  return "";
+}
+
+function orderYM(from, to) {
+  if (from && to && from > to) return [to, from];
+  return [from || "", to || ""];
+}
+
+
 // Labels für Chips
 const FUEL_LABELS = { benzin: "Benzin", diesel: "Diesel", elektrisch: "Elektrisch", hybrid: "Hybrid" };
 const DRIVE_LABELS = { frontantrieb: "Frontantrieb", heckantrieb: "Heckantrieb", allrad: "Allrad" };
