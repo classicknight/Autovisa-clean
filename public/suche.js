@@ -41,24 +41,20 @@ const toNum = (v) => {
   return Number(String(v).replace(/\./g, "").replace(",", "."));
 };
 
-// YYYY-MM Parser + Range-Helfer
 function parseYM(raw) {
   const s = String(raw || "").trim();
   if (!s) return "";
-  // akzeptiere: YYYY-MM
   if (/^\d{4}-(0[1-9]|1[0-2])$/.test(s)) return s;
-  // akzeptiere: MM.YYYY
-  const m1 = s.match(/^(0?[1-9]|1[0-2])[.\-/](\d{4})$/);
-  if (m1) return `${m1[2]}-${String(m1[1]).padStart(2, "0")}`;
-  // akzeptiere: YYYY (-> Monat 01)
+  const m = s.match(/^(0?[1-9]|1[0-2])[.\-/](\d{4})$/);
+  if (m) return `${m[2]}-${String(m[1]).padStart(2, "0")}`;
   if (/^\d{4}$/.test(s)) return `${s}-01`;
   return "";
 }
-
 function orderYM(from, to) {
   if (from && to && from > to) return [to, from];
   return [from || "", to || ""];
 }
+
 
 
 // Labels für Chips
@@ -1366,50 +1362,61 @@ function applyClientFilters(items) {
     const s = String(val).trim();
     if (s === "" || s === "Beliebig" || s === "-" || s === "any" || s === "alle" || s === "all") params.delete(key);
     else params.set(key, s);
-  }
-  function updateUrlFromUiAndReload() {
+  }function updateUrlFromUiAndReload() {
     const params = new URLSearchParams(window.location.search);
   
-    // Marke/Modell/Variante
+    // Helper: setzt nur sinnvolle Werte (ignoriert "Beliebig", "any", "-")
+    const setOrDelete = (p, k, v) => {
+      const s = (v == null ? "" : String(v).trim());
+      if (!s || /^(beliebig|any|alle|all|-)$/i.test(s)) p.delete(k);
+      else p.set(k, s);
+    };
+  
+    // --- Marke / Modell / Modellausführung ---
     const markeEl  = document.getElementById("marke");
     const modellEl = document.getElementById("modell");
     const modVarEl = document.getElementById("modellausfuehrung");
   
-    const setOrDelete = (p, k, v) => {
-      const val = (v == null ? "" : String(v).trim());
-      if (val) p.set(k, val); else p.delete(k);
-    };
-  
     setOrDelete(params, "marke", markeEl?.value || "");
     if (modellEl && modellEl.options) {
-      const selected = [...modellEl.options].filter(o => o.selected).map(o => o.value).filter(Boolean);
+      const selected = [...modellEl.options]
+        .filter(o => o.selected)
+        .map(o => o.value)
+        .filter(Boolean);
       setOrDelete(params, "modell", selected.length ? selected.join(",") : "");
     }
     setOrDelete(params, "modellausfuehrung", modVarEl?.value || "");
   
-    // EZ FROM
-    const firstRegFromEl  = document.getElementById("firstRegFrom");
-    const firstRegMonthEl = document.getElementById("first-registration-month");
-    const firstRegYearEl  = document.getElementById("first-registration-year");
-    const ezFrom =
-      (firstRegFromEl?.value) ||
+    // --- Erstzulassung (FROM/TO) -> immer als YYYY-MM; inkl. Fallback auf alte Felder ---
+    const firstRegFromEl     = document.getElementById("firstRegFrom");
+    const firstRegMonthEl    = document.getElementById("first-registration-month");
+    const firstRegYearEl     = document.getElementById("first-registration-year");
+    const firstRegToEl       = document.getElementById("firstRegTo");
+    const firstRegMonthToEl  = document.getElementById("first-registration-month-to");
+    const firstRegYearToEl   = document.getElementById("first-registration-year-to");
+  
+    const ezVonEl = document.getElementById("ez-von"); // Fallback (alte Inputs)
+    const ezBisEl = document.getElementById("ez-bis");
+  
+    const fromRaw =
+      firstRegFromEl?.value ||
       (firstRegYearEl?.value && firstRegMonthEl?.value
         ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2, "0")}`
-        : "");
-    setOrDelete(params, "ezFrom", ezFrom);
+        : "") ||
+      ezVonEl?.value || "";
   
-    // EZ TO
-    const firstRegToEl      = document.getElementById("firstRegTo");
-    const firstRegMonthToEl = document.getElementById("first-registration-month-to");
-    const firstRegYearToEl  = document.getElementById("first-registration-year-to");
-    const ezTo =
-      (firstRegToEl?.value) ||
+    const toRaw =
+      firstRegToEl?.value ||
       (firstRegYearToEl?.value && firstRegMonthToEl?.value
         ? `${firstRegYearToEl.value}-${String(firstRegMonthToEl.value).padStart(2, "0")}`
-        : "");
-    setOrDelete(params, "ezTo", ezTo);
+        : "") ||
+      ezBisEl?.value || "";
   
-    // Preis/KM max
+    let [ezFrom, ezTo] = orderYM(parseYM(fromRaw), parseYM(toRaw));
+    setOrDelete(params, "ezFrom", ezFrom);
+    setOrDelete(params, "ezTo",   ezTo);
+  
+    // --- Preis / Kilometer (max) ---
     const priceToEl   = document.getElementById("priceTo");
     const mileageToEl = document.getElementById("mileageTo");
     const pMax = parseInt(priceToEl?.value || "", 10);
@@ -1417,9 +1424,15 @@ function applyClientFilters(items) {
     if (!Number.isNaN(pMax) && pMax > 0) params.set("price_max", String(pMax)); else params.delete("price_max");
     if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax)); else params.delete("km_max");
   
-    // Kraftstoff (Select ODER Checkboxen → CSV)
-    const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
-    const fuelCbs = document.querySelectorAll('input[name="kraftstoff"]:checked, .search-group input[type="checkbox"][value="Benzin"]:checked, .search-group input[type="checkbox"][value="Diesel"]:checked, .search-group input[type="checkbox"][value="Elektrisch"]:checked, .search-group input[type="checkbox"][value="Hybrid"]:checked');
+    // --- Kraftstoff (Select ODER Checkboxen -> CSV) ---
+    const fuelEl  = document.getElementById("fuelType") || document.getElementById("fuel");
+    const fuelCbs = document.querySelectorAll(
+      'input[name="kraftstoff"]:checked, \
+       .search-group input[type="checkbox"][value="Benzin"]:checked, \
+       .search-group input[type="checkbox"][value="Diesel"]:checked, \
+       .search-group input[type="checkbox"][value="Elektrisch"]:checked, \
+       .search-group input[type="checkbox"][value="Hybrid"]:checked'
+    );
     let fuelList = [...fuelCbs].map(cb => fuelCanon(cb.value)).filter(Boolean);
     fuelList = uniq(fuelList);
     if (!fuelList.length && fuelEl) {
@@ -1428,30 +1441,38 @@ function applyClientFilters(items) {
     }
     setOrDelete(params, "kraftstoff", fuelList.length ? fuelList.join(",") : "");
   
-    // Getriebe (wie bisher; 1 Wert)
+    // --- Getriebe (ein Wert) ---
     const gearEl = document.getElementById("transmission") || document.getElementById("gear");
-    const gearValRaw = (gearEl?.value || "").toLowerCase();
-    const gearValNorm = (gearValRaw === "schaltgetriebe") ? "schalt" : gearValRaw;
-    if (gearEl && gearValNorm && !["beliebig","any","alle","all","-"].includes(gearValNorm)) {
-      params.set("getriebe", gearValNorm);
-    } else {
-      // evtl. alte Getriebe-Checkboxen abwählen
-      document.querySelectorAll('.search-group input[type="checkbox"][value="Automatik"], .search-group input[type="checkbox"][value="Schaltgetriebe"]').forEach(cb => cb.checked = false);
+    const gearRaw = (gearEl?.value || "").toLowerCase();
+    const gearVal = (gearRaw === "schaltgetriebe") ? "schalt" : gearRaw;
+    if (gearVal && !/^(beliebig|any|alle|all|-)$/i.test(gearVal)) params.set("getriebe", gearVal);
+    else {
+      // alte Checkboxen ggf. entkoppeln
+      document.querySelectorAll(
+        '.search-group input[type="checkbox"][value="Automatik"], \
+         .search-group input[type="checkbox"][value="Schaltgetriebe"]'
+      ).forEach(cb => cb.checked = false);
       params.delete("getriebe");
     }
   
-    // Antrieb (Select ODER Checkboxen → CSV)
+    // --- Antriebsart (Select ODER Checkboxen -> CSV) ---
     const driveEl = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
-    const driveCbs = document.querySelectorAll('input[name="antrieb"]:checked, .search-group input[type="checkbox"][value="Frontantrieb"]:checked, .search-group input[type="checkbox"][value="Heckantrieb"]:checked, .search-group input[type="checkbox"][value="Allrad"]:checked');
+    const driveCbs = document.querySelectorAll(
+      'input[name="antrieb"]:checked, \
+       .search-group input[type="checkbox"][value="Frontantrieb"]:checked, \
+       .search-group input[type="checkbox"][value="Heckantrieb"]:checked, \
+       .search-group input[type="checkbox"][value="Allrad"]:checked'
+    );
     let driveList = [...driveCbs].map(cb => driveCanon(cb.value)).filter(Boolean);
     driveList = uniq(driveList);
     if (!driveList.length && driveEl) {
-      const v = String(driveEl.value || "").trim();
-      if (v && !/^(beliebig|any|alle|all|-)$/i.test(v)) driveList = [driveCanon(v)];
+      const v = driveCanon(driveEl.value);
+      if (v && !/^(beliebig|any|alle|all|-)$/i.test(v)) driveList = [v];
     }
     setOrDelete(params, "antriebsart", driveList.length ? driveList.join(",") : "");
+    params.delete("antrieb"); // legacy key nicht doppeln
   
-    // Verbrauch (max)
+    // --- Verbrauch (max) – clientseitig ---
     (function () {
       const sel = document.getElementById("verbrauch-select");
       const inp = document.getElementById("verbrauch");
@@ -1473,7 +1494,7 @@ function applyClientFilters(items) {
       setOrDelete(params, "verbrauch_max", (n != null && n > 0) ? String(n) : "");
     })();
   
-    // Ort/Umkreis
+    // --- Ort / Umkreis ---
     const locEl      = document.getElementById("location");
     const distSel    = document.getElementById("distance-select");
     const distCustom = document.getElementById("distance-custom");
@@ -1487,7 +1508,7 @@ function applyClientFilters(items) {
       params.delete("umkreis");
     }
   
-    // Zusatz-Flags
+    // --- Zusatz-Flags ---
     const pfEl = document.getElementById("partikelfilter");
     const shEl = document.getElementById("scheckheft");
     const ftEl = document.getElementById("fahrtauglich");
@@ -1495,7 +1516,7 @@ function applyClientFilters(items) {
     setOrDelete(params, "scheckheft",     shEl?.checked ? "ja"  : "");
     setOrDelete(params, "fahrtauglich",   ftEl?.checked ? "ja"  : "");
   
-    // Fahrzeugtyp / Türen (Mehrfach)
+    // --- Fahrzeugtyp / Türen (Mehrfach) ---
     (function () {
       const typeSel = document.getElementById("fahrzeugtyp");
       const picked = new Set();
@@ -1509,6 +1530,7 @@ function applyClientFilters(items) {
       });
       setOrDelete(params, "fahrzeugtyp", picked.size ? [...picked].join(",") : "");
     })();
+  
     (function () {
       const doorSel = document.getElementById("tueren");
       const picked = new Set();
@@ -1523,15 +1545,17 @@ function applyClientFilters(items) {
       setOrDelete(params, "tueren", picked.size ? [...picked].join(",") : "");
     })();
   
-    // Sort → Serverparam
+    // --- Sortierung -> Serverparam ---
     const sortBy = document.getElementById("sortBy");
-    const mapSortSelectToParam = (v) => v === "price-asc" ? "preis_asc" : v === "price-desc" ? "preis_desc" : "neueste";
+    const mapSortSelectToParam = (v) =>
+      v === "price-asc" ? "preis_asc"
+      : v === "price-desc" ? "preis_desc"
+      : "neueste";
     const sortSelectVal = sortBy?.value || "";
     if (sortSelectVal) params.set("sort", mapSortSelectToParam(sortSelectVal)); else params.delete("sort");
   
-    // Immer Seite 1
+    // Immer Seite 1, URL ersetzen & neu laden
     params.delete("page");
-  
     replaceUrlParams(params);
     loadAndRender(1);
   }
