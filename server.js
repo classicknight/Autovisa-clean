@@ -1,5 +1,3 @@
-
-
 try { require("dotenv").config(); } catch {}
 
 const express = require("express");
@@ -13,14 +11,13 @@ const nodemailer = require("nodemailer");
 const cloudinary = require("cloudinary").v2;
 const crypto = require("crypto");
 
-
 const SESSION_SECRET = process.env.SESSION_SECRET;
 if (!SESSION_SECRET) {
   console.error("❌ SESSION_SECRET fehlt in ENV");
   process.exit(1);
 }
 function b64url(buf){ return Buffer.from(buf).toString("base64url"); }
-function makeSessionPayload(user){ 
+function makeSessionPayload(user){
   return { id: user.id, role: user.role || "privat", email: user.email || "" };
 }
 function sign(val){
@@ -49,8 +46,41 @@ function decodeSession(token){
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* 🔎 Search/Filter Utils (für /api/search) – einmalig hier einbinden */
+/* ------------------------------------------------------------------ */
+const escRe = (s) => String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-// === Express Initialisierung ===
+const splitCsv = (v) =>
+  v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : [];
+
+const norm = (s) =>
+  String(s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, ""); // Umlaute/Diakritika entfernen
+
+function driveCanon(raw) {
+  const s = norm(raw);
+  if (!s) return "";
+  if (/(quattro|xdrive|4matic|4motion|awd|allrad|4x4|4wd|all[-\s]?wheel)/.test(s)) return "allrad";
+  if (/(fwd|front|vorderrad|frontantrieb)/.test(s)) return "frontantrieb";
+  if (/(rwd|heck|hinterrad|heckantrieb|rear)/.test(s)) return "heckantrieb";
+  return s;
+}
+
+function fuelCanon(raw) {
+  const s = norm(raw);
+  if (!s) return "";
+  if (/\b(hybrid|phev|plug[\s-]?in|plugin|mhev|hev)\b/.test(s)) return "hybrid";
+  if (/\b(diesel)\b/.test(s)) return "diesel";
+  if (/\b(benzin|super|e10|e5|e95|e98|otto|petrol|gasoline)\b/.test(s)) return "benzin";
+  if (/\b(elektr|bev|strom|ev)\b/.test(s)) return "elektrisch";
+  return s;
+}
+/* ------------------------------------------------------------------ */
+
+/* === Express Initialisierung === */
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 app.set("trust proxy", 1);
@@ -61,7 +91,7 @@ function getUrls() {
   return { api, appUrl };
 }
 
-// === MongoDB Konfiguration ===
+/* === MongoDB Konfiguration === */
 const mongoUri = process.env.MONGODB_URI;
 const client = new MongoClient(mongoUri);
 let db;
@@ -95,7 +125,7 @@ client.connect()
   })
   .catch(err => console.error("❌ MongoDB-Verbindung fehlgeschlagen:", err));
 
-// === Cloudinary Konfiguration ===
+/* === Cloudinary Konfiguration === */
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key:    process.env.CLOUDINARY_API_KEY,
@@ -107,7 +137,7 @@ app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(cookieParser());
 
-// === Statische Dateien ausliefern ===
+/* === Statische Dateien ausliefern === */
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/data", express.static(path.join(__dirname, "data"), {
   dotfiles: "ignore",
@@ -115,12 +145,12 @@ app.use("/data", express.static(path.join(__dirname, "data"), {
   maxAge: "1d"
 }));
 
-// === Startseite ===
+/* === Startseite === */
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// === Multer (A): Medien (Bilder/Video) auf Disk ===
+/* === Multer (A): Medien (Bilder/Video) auf Disk === */
 const TMP_DIR = path.join(__dirname, "uploads_tmp");
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
 
@@ -1951,7 +1981,6 @@ app.get("/api/geosuggest", async (req, res) => {
 //     db.inserate.createIndex({ standortCoords: "2dsphere" })
 // ============================================================
 
-
 app.get("/api/search", async (req, res) => {
   try {
     const {
@@ -1967,7 +1996,7 @@ app.get("/api/search", async (req, res) => {
       ps_min, ps_max,          // Leistung (PS)
       ccm_min, ccm_max,        // Hubraum (cm³)
       verbrauch_max,           // L/100 km (komb.)
-      antrieb,                 // CSV: Frontantrieb,Heckantrieb,Allradantrieb
+      antrieb,                 // CSV: Frontantrieb,Heckantrieb,Allrad
       schadstoffklasse,        // z.B. "Euro 6d"
       plakette,                // "Grün (4)" …
       partikelfilter,          // "1" => erforderlich
@@ -1983,13 +2012,16 @@ app.get("/api/search", async (req, res) => {
     // ---- Basisfilter (immer)
     const baseMatch = { status: "online" };
 
+    // Marke exakt (case-insensitive)
     if (marke) {
-      baseMatch.marke = { $regex: `^${escapeRegex(marke)}$`, $options: "i" };
+      baseMatch.marke = new RegExp(`^${escRe(marke)}$`, "i");
     }
+
+    // Modell: mehrere erlaubt (CSV), jeweils exakt
     if (modell) {
       const arr = String(modell)
         .split(",").map(m => m.trim()).filter(Boolean)
-        .map(m => new RegExp(`^${escapeRegex(m)}$`, "i"));
+        .map(m => new RegExp(`^${escRe(m)}$`, "i"));
       if (arr.length) baseMatch.modell = { $in: arr };
     }
 
@@ -2022,146 +2054,131 @@ app.get("/api/search", async (req, res) => {
           ]
         : [{ $sort: { veroeffentlichtAm: -1, _id: -1 } }];
 
-    // ---- Parsing/Normalisierung (Preis, KM, PS, ccm, Verbrauch, Halter)
-// ---- Parsing/Normalisierung (Preis, KM, PS, ccm, Verbrauch, Halter)
-const parseNumberStages = [
-  { $addFields: {
-      _preis_raw: {
-        $ifNull: [
-          "$brutto-preis",
-          { $ifNull: [
-            "$brutto_preis",
-            { $ifNull: [ "$verkauf_brutto", { $ifNull: [ "$preis", "$verkauf_preis" ] } ] }
-          ] }
-        ]
+    /* ---------------- Parsing / Normalisierung ---------------- */
+    const parseNumberStages = [
+      { $addFields: {
+          _preis_raw: {
+            $ifNull: [
+              "$brutto-preis",
+              { $ifNull: [
+                "$brutto_preis",
+                { $ifNull: [ "$verkauf_brutto", { $ifNull: [ "$preis", "$verkauf_preis" ] } ] }
+              ] }
+            ]
+          },
+          _km_raw:     { $ifNull: ["$verkauf_kilometer", { $ifNull: ["$kilometer", "$km"] }] },
+          _ps_raw:     { $ifNull: [ "$verkauf_leistung", { $ifNull: [ "$leistung", "$ps" ] } ] },
+          _ccm_raw:    { $ifNull: [ "$verkauf_hubraum",  { $ifNull: [ "$hubraum",  "$ccm" ] } ] },
+          _verb_raw:   { $ifNull: [ "$verkauf_verbrauch_kombiniert", { $ifNull: [ "$verbrauch_kombiniert", "$verbrauch" ] } ] },
+          _halter_raw: { $ifNull: [ "$halter", { $ifNull: [ "$halteranzahl", "$fahrzeughalter" ] } ] }
+        }
       },
-      _km_raw:     { $ifNull: ["$verkauf_kilometer", { $ifNull: ["$kilometer", "$km"] }] },
-      _ps_raw:     { $ifNull: [ "$verkauf_leistung", { $ifNull: [ "$leistung", "$ps" ] } ] },
-      _ccm_raw:    { $ifNull: [ "$verkauf_hubraum",  { $ifNull: [ "$hubraum",  "$ccm" ] } ] },
-      _verb_raw:   { $ifNull: [ "$verkauf_verbrauch_kombiniert", { $ifNull: [ "$verbrauch_kombiniert", "$verbrauch" ] } ] },
-      _halter_raw: { $ifNull: [ "$halter", { $ifNull: [ "$halteranzahl", "$fahrzeughalter" ] } ] }
-    }
-  },
 
-  // Preis/KM per String-Cleanup
-  { $addFields: {
-      _preis_clean: {
-        $replaceAll: {
-          input: { $replaceAll: {
-            input: { $replaceAll: {
+      // Preis/KM per String-Cleanup
+      { $addFields: {
+          _preis_clean: {
+            $replaceAll: {
               input: { $replaceAll: {
-                input: { $trim: { input: { $toString: "$_preis_raw" } } },
-                find: ".", replacement: ""
+                input: { $replaceAll: {
+                  input: { $replaceAll: {
+                    input: { $trim: { input: { $toString: "$_preis_raw" } } },
+                    find: ".", replacement: ""
+                  } },
+                  find: "€", replacement: ""
+                } },
+                find: " ", replacement: ""
               } },
-              find: "€", replacement: ""
-            } },
-            find: " ", replacement: ""
-          } },
-          find: ",", replacement: ""
-        }
-      },
-      _km_clean: {
-        $replaceAll: {
-          input: { $replaceAll: {
-            input: { $trim: { input: { $toString: "$_km_raw" } } },
-            find: ".", replacement: ""
-          } },
-          find: " ", replacement: ""
-        }
-      }
-    }
-  },
-
-  // PS / ccm / Verbrauch / Halter extrahieren
-  { $addFields: {
-      _ps_match:   { $regexFind: { input: { $toString: "$_ps_raw" },  regex: /(\d{2,4})/ } },
-      _ccm_match:  { $regexFind: { input: { $toString: "$_ccm_raw" }, regex: /(\d{3,5})/ } },
-
-      // Verbrauch: Komma -> Punkt
-      _verb_norm:  { $replaceAll: { input: { $toString: "$_verb_raw" }, find: ",", replacement: "." } },
-
-      // Nur Zahlen direkt vor "l/100 km"
-      _verb_liters: {
-        $regexFindAll: {
-          input: "$_verb_norm",
-          regex: /(\d+(?:\.\d+)?)(?=\s*(?:l|L)\s*\/\s*100\s*km)/i
-        }
-      },
-      // Nur Zahlen direkt vor "kWh/100 km" (BEV/PHEV)
-      _verb_kwh: {
-        $regexFindAll: {
-          input: "$_verb_norm",
-          regex: /(\d+(?:\.\d+)?)(?=\s*kwh\s*\/\s*100\s*km)/i
-        }
-      },
-
-      // Fallback: alle Zahlen (für Fälle ohne Einheitenangabe)
-      _verb_all_any: { $regexFindAll: { input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)/ } },
-
-      _halter_match:{ $regexFind: { input: { $toString: "$_halter_raw" }, regex: /(\d{1,2})/ } }
-    }
-  },
-
-  { $addFields: {
-      preis_num: { $convert: { input: "$_preis_clean", to: "int", onError: null, onNull: null } },
-      km_num:    { $convert: { input: "$_km_clean",    to: "int", onError: null, onNull: null } },
-      ps_num:    { $convert: { input: { $ifNull: ["$_ps_match.match",  null] }, to: "int", onError: null, onNull: null } },
-      ccm_num:   { $convert: { input: { $ifNull: ["$_ccm_match.match", null] }, to: "int", onError: null, onNull: null } },
-
-      // Verbrauch: Wenn Einheitentreffer vorhanden → max(l/100, kWh/100).
-      // Sonst Fallback: max aller Zahlen < 60 (damit CO₂ "120 g/km" etc. ignoriert wird).
-      verb_num: {
-        $let: {
-          vars: {
-            liters: {
-              $map: {
-                input: { $ifNull: ["$_verb_liters", []] },
-                as: "m",
-                in: { $convert: { input: "$$m.match", to: "double", onError: null, onNull: null } }
-              }
-            },
-            kwhs: {
-              $map: {
-                input: { $ifNull: ["$_verb_kwh", []] },
-                as: "m",
-                in: { $convert: { input: "$$m.match", to: "double", onError: null, onNull: null } }
-              }
-            },
-            anyNums: {
-              $map: {
-                input: { $ifNull: ["$_verb_all_any", []] },
-                as: "m",
-                in: { $convert: { input: "$$m.match", to: "double", onError: null, onNull: null } }
-              }
+              find: ",", replacement: ""
             }
           },
-          in: {
-            $cond: [
-              { $gt: [ { $size: { $concatArrays: [ "$$liters", "$$kwhs" ] } }, 0 ] },
-              { $max: { $concatArrays: [ "$$liters", "$$kwhs" ] } },
-              {
-                $let: {
-                  vars: { under60: { $filter: { input: "$$anyNums", as: "x", cond: { $lt: [ "$$x", 60 ] } } } },
-                  in: {
-                    $cond: [
-                      { $gt: [ { $size: "$$under60" }, 0 ] },
-                      { $max: "$$under60" },
-                      null
-                    ]
-                  }
-                }
-              }
-            ]
+          _km_clean: {
+            $replaceAll: {
+              input: { $replaceAll: {
+                input: { $trim: { input: { $toString: "$_km_raw" } } },
+                find: ".", replacement: ""
+              } },
+              find: " ", replacement: ""
+            }
           }
         }
       },
 
-      halter_num: { $convert: { input: { $ifNull: ["$_halter_match.match", null] }, to: "int", onError: null, onNull: null } }
-    }
-  }
-];
+      // PS / ccm / Verbrauch / Halter extrahieren
+      { $addFields: {
+          _ps_match:   { $regexFind: { input: { $toString: "$_ps_raw" },  regex: /(\d{2,4})/ } },
+          _ccm_match:  { $regexFind: { input: { $toString: "$_ccm_raw" }, regex: /(\d{3,5})/ } },
 
+          _verb_norm:  { $replaceAll: { input: { $toString: "$_verb_raw" }, find: ",", replacement: "." } },
 
+          _verb_liters: {
+            $regexFindAll: {
+              input: "$_verb_norm",
+              regex: /(\d+(?:\.\d+)?)(?=\s*(?:l|L)\s*\/\s*100\s*km)/i
+            }
+          },
+          _verb_kwh: {
+            $regexFindAll: {
+              input: "$_verb_norm",
+              regex: /(\d+(?:\.\d+)?)(?=\s*kwh\s*\/\s*100\s*km)/i
+            }
+          },
+          _verb_all_any: { $regexFindAll: { input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)/ } },
+
+          _halter_match:{ $regexFind: { input: { $toString: "$_halter_raw" }, regex: /(\d{1,2})/ } }
+        }
+      },
+
+      { $addFields: {
+          preis_num: { $convert: { input: "$_preis_clean", to: "int", onError: null, onNull: null } },
+          km_num:    { $convert: { input: "$_km_clean",    to: "int", onError: null, onNull: null } },
+          ps_num:    { $convert: { input: { $ifNull: ["$_ps_match.match",  null] }, to: "int", onError: null, onNull: null } },
+          ccm_num:   { $convert: { input: { $ifNull: ["$_ccm_match.match", null] }, to: "int", onError: null, onNull: null } },
+
+          // Verbrauch: Einheitentreffer bevorzugt, sonst max(alle < 60)
+          verb_num: {
+            $let: {
+              vars: {
+                liters: {
+                  $map: {
+                    input: { $ifNull: ["$_verb_liters", []] },
+                    as: "m",
+                    in: { $convert: { input: "$$m.match", to: "double", onError: null, onNull: null } }
+                  }
+                },
+                kwhs: {
+                  $map: {
+                    input: { $ifNull: ["$_verb_kwh", []] },
+                    as: "m",
+                    in: { $convert: { input: "$$m.match", to: "double", onError: null, onNull: null } }
+                  }
+                },
+                anyNums: {
+                  $map: {
+                    input: { $ifNull: ["$_verb_all_any", []] },
+                    as: "m",
+                    in: { $convert: { input: "$$m.match", to: "double", onError: null, onNull: null } }
+                  }
+                }
+              },
+              in: {
+                $cond: [
+                  { $gt: [ { $size: { $concatArrays: [ "$$liters", "$$kwhs" ] } }, 0 ] },
+                  { $max: { $concatArrays: [ "$$liters", "$$kwhs" ] } },
+                  {
+                    $let: {
+                      vars: { under60: { $filter: { input: "$$anyNums", as: "x", cond: { $lt: [ "$$x", 60 ] } } } },
+                      in: { $cond: [ { $gt: [ { $size: "$$under60" }, 0 ] }, { $max: "$$under60" }, null ] }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+
+          halter_num: { $convert: { input: { $ifNull: ["$_halter_match.match", null] }, to: "int", onError: null, onNull: null } }
+        }
+      }
+    ];
 
     // ---- numerische Filter (Preis/KM) + Basisfilter
     const numberFilterStages = [
@@ -2177,12 +2194,7 @@ const parseNumberStages = [
     if (ezFrom || ezTo) {
       ezStages = [
         { $addFields: {
-            _ez: {
-              $ifNull: [
-                "$erstzulassung",
-                { $ifNull: ["$verkauf_erstzulassung", null] }
-              ]
-            }
+            _ez: { $ifNull: ["$erstzulassung", { $ifNull: ["$verkauf_erstzulassung", null] }] }
           }
         },
         { $match: {
@@ -2200,7 +2212,7 @@ const parseNumberStages = [
       const tokens = modVarRaw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean).slice(0, 6);
       if (tokens.length) {
         const andClauses = tokens.map(w => {
-          const rx = new RegExp(escapeRegex(w), "i");
+          const rx = new RegExp(escRe(w), "i");
           return { $or: [
             { titel: rx }, { modell: rx }, { beschreibung: rx },
             { modellvariante: rx }, { verkauf_modellvariante: rx }
@@ -2224,7 +2236,7 @@ const parseNumberStages = [
         else if (v.includes("kombi"))      rxes.push(/kombi|estate|station\s*wagon/i);
         else if (v.includes("coup"))       rxes.push(/coup[eé]/i);
         else if (v.includes("pickup"))     rxes.push(/pick[-\s]?up|pritsche|pickup/i);
-        else rxes.push(new RegExp(escapeRegex(raw), "i"));
+        else rxes.push(new RegExp(escRe(raw), "i"));
       }
       return rxes;
     }
@@ -2240,8 +2252,7 @@ const parseNumberStages = [
               { fahrzeugart:   { $in: rxes } },
               { karosserie:    { $in: rxes } },
               { karosserieart: { $in: rxes } },
-              // Fallback auf Freitext:
-              { titel:         { $in: rxes } },
+              { titel:         { $in: rxes } }, // Fallbacks
               { beschreibung:  { $in: rxes } }
             ]
           }
@@ -2272,7 +2283,7 @@ const parseNumberStages = [
       const or = [];
       for (const f of fields) or.push({ [f]: { $in: [...allowed, ...allowedStr, slashCombo] } });
 
-      const numbersAlt = allowed.join("|"); // "2|3" oder "4|5"
+      const numbersAlt = allowed.join("|");
       const descRx = new RegExp(`\\b(?:${numbersAlt})(?:\\s*[\\-/]\\s*(?:${numbersAlt}))?\\s*(t[üu]r|t[üu]rer|t[üu]ren)\\b`, "i");
       or.push({ titel: descRx }, { beschreibung: descRx });
 
@@ -2292,31 +2303,47 @@ const parseNumberStages = [
     const consumptionFilterStages =
       Number.isFinite(verbMaxNum) ? [{ $match: { verb_num: { $ne: null, $lte: verbMaxNum } } }] : [];
 
-    // Antrieb (CSV)
+    // ---- Antrieb (CSV; tolerant mit Synonymen)
     let driveStages = [];
     if (antrieb) {
-      const rx = String(antrieb).split(",").map(s => s.trim()).filter(Boolean)
-        .map(w => new RegExp(`^${escapeRegex(w)}`, "i"));
-      if (rx.length) {
-        driveStages = [{
-          $match: {
-            $or: [
-              { antrieb:         { $in: rx } },
-              { antriebsart:     { $in: rx } },
-              { verkauf_antrieb: { $in: rx } }
-            ]
-          }
-        }];
+      const wanted = splitCsv(antrieb).map(driveCanon).filter(Boolean);
+      const rxes = [];
+      if (wanted.includes("frontantrieb")) {
+        rxes.push(/front/i, /vorder/i, /vorderrad/i, /\bfwd\b/i);
       }
+      if (wanted.includes("heckantrieb")) {
+        rxes.push(/heck/i, /hinter/i, /hinterrad/i, /\brwd\b/i, /rear/i);
+      }
+      if (wanted.includes("allrad")) {
+        rxes.push(/allrad/i, /\b4x4\b/i, /\b4wd\b/i, /\bawd\b/i,
+                  /quattro/i, /xdrive/i, /4matic/i, /4motion/i, /all[-\s]?wheel/i);
+      }
+      if (!rxes.length) {
+        // Fallback: direkte Texte verwenden
+        for (const w of wanted) rxes.push(new RegExp(escRe(w), "i"));
+      }
+      driveStages = [{
+        $match: {
+          $or: [
+            { antrieb:         { $in: rxes } },
+            { antriebsart:     { $in: rxes } },
+            { antriebs_typ:    { $in: rxes } },
+            { verkauf_antrieb: { $in: rxes } },
+            // Fallback auf Freitext
+            { titel:           { $in: rxes } },
+            { beschreibung:    { $in: rxes } }
+          ]
+        }
+      }];
     }
 
-    // Getriebe (genau 1)
+    // ---- Getriebe (genau 1)
     let gearboxStages = [];
     if (getriebe) {
       const g = String(getriebe).toLowerCase();
       const rx = g.includes("auto") ? /auto/i :
                  g.includes("schalt") ? /schalt/i :
-                 new RegExp(escapeRegex(getriebe), "i");
+                 new RegExp(escRe(getriebe), "i");
       gearboxStages = [{
         $match: {
           $or: [
@@ -2326,34 +2353,33 @@ const parseNumberStages = [
       }];
     }
 
-    // Kraftstoff (tolerant)
+    // ---- Kraftstoff (tolerant; CSV möglich)
     let fuelStages = [];
     if (kraftstoff) {
-      const k = String(kraftstoff).toLowerCase();
-      let rx = /./; // fallback
-      if (k.startsWith("benzin"))         rx = /benzin|otto/i;
-      else if (k.startsWith("diesel"))    rx = /diesel/i;
-      else if (k.startsWith("elektro"))   rx = /elektro|bev|strom|electric/i;
-      else if (k.includes("hybrid"))      rx = /hybrid|phev|plug[-\s]?in/i;
-      else if (k.includes("wasserstoff")) rx = /wasserstoff|h2|fuel\s*cell/i;
-      else if (k.includes("cng") || k.includes("erdgas")) rx = /cng|erdgas/i;
-      else if (k.includes("lpg") || k.includes("autogas")) rx = /lpg|autogas/i;
-      else if (k.startsWith("ethanol"))   rx = /ethanol|e85/i;
-      else rx = new RegExp(escapeRegex(kraftstoff), "i");
-      fuelStages = [{
+      const fuels = splitCsv(kraftstoff).map(fuelCanon).filter(Boolean);
+      const rxes = fuels.map(f => {
+        if (f === "benzin")     return /benzin|otto/i;
+        if (f === "diesel")     return /diesel/i;
+        if (f === "elektrisch") return /elektro|bev|strom|electric|ev/i;
+        if (f === "hybrid")     return /hybrid|phev|plug[-\s]?in|mhev|hev/i;
+        return new RegExp(escRe(f), "i");
+      });
+      fuelStages = rxes.length ? [{
         $match: {
           $or: [
-            { kraftstoff: rx }, { verkauf_kraftstoff: rx }, { kraftstoffart: rx },
-            { beschreibung: rx } // Fallback
+            { kraftstoff:       { $in: rxes } },
+            { verkauf_kraftstoff:{ $in: rxes } },
+            { kraftstoffart:    { $in: rxes } },
+            { beschreibung:     { $in: rxes } } // Fallback
           ]
         }
-      }];
+      }] : [];
     }
 
-    // Schadstoffklasse
+    // ---- Schadstoffklasse
     let emissionStages = [];
     if (schadstoffklasse) {
-      const rx = new RegExp(escapeRegex(String(schadstoffklasse)), "i");
+      const rx = new RegExp(escRe(String(schadstoffklasse)), "i");
       emissionStages = [{
         $match: {
           $or: [
@@ -2364,7 +2390,7 @@ const parseNumberStages = [
       }];
     }
 
-    // Umweltplakette
+    // ---- Umweltplakette
     let plaketteStages = [];
     if (plakette) {
       const ptxt = plakette.toLowerCase();
@@ -2386,7 +2412,7 @@ const parseNumberStages = [
       }
     }
 
-    // Partikelfilter vorhanden
+    // ---- Partikelfilter vorhanden
     const particulateStages =
       String(partikelfilter) === "1" ? [{
         $match: {
@@ -2400,11 +2426,11 @@ const parseNumberStages = [
         }
       }] : [];
 
-    // Halter max
+    // ---- Halter max
     const halterStages =
       Number.isFinite(halterMaxNum) ? [{ $match: { halter_num: { $ne: null, $lte: halterMaxNum } } }] : [];
 
-    // Farben (Synonyme/mehr Feldnamen)
+    // ---- Farben (Synonyme/mehr Feldnamen)
     function colorRegexFor(token) {
       const t = token.toLowerCase();
       if (/schwarz/.test(t) || /black/.test(t))   return /schwarz|black/i;
@@ -2421,7 +2447,7 @@ const parseNumberStages = [
       if (/violett|lila|purple/.test(t))          return /violett|lila|purple/i;
       if (/gold/.test(t))                         return /gold/i;
       if (/türkis|tuerkis|turquoise/.test(t))     return /t[üu]rkis|turquoise/i;
-      return new RegExp(escapeRegex(token), "i");
+      return new RegExp(escRe(token), "i");
     }
     let colorStages = [];
     if (farbe) {
@@ -2447,19 +2473,17 @@ const parseNumberStages = [
       }
     }
 
-    // Sonstige Merkmale (inkl. Fahrtauglich-Handling)
+    // ---- Sonstige Merkmale (inkl. Fahrtauglich-Handling)
     let featureStages = [];
     let driveabilityStages = [];
     if (merkmale) {
       const rawList = String(merkmale).split(",").map(s => s.trim()).filter(Boolean);
       const wantDriveable = rawList.some(m => /fahrtaug|fahrbereit/i.test(m));
-      // Negativ-Wörter, die wir bei „Fahrtauglich“ ausschließen wollen
       const NEG_RX = /(nicht\s*fahr|fahrun*taug|bastler|defekt|nicht\s*fahrbereit)/i;
 
-      // generische Merkmale ohne „Fahrtauglich“ (damit kein „nicht fahrtauglich“ zufällig matcht)
       const other = rawList.filter(m => !/fahrtaug|fahrbereit/i.test(m));
       if (other.length) {
-        const rxes = other.map(w => new RegExp(escapeRegex(w), "i"));
+        const rxes = other.map(w => new RegExp(escRe(w), "i"));
         featureStages.push({
           $match: {
             $or: [
@@ -2471,15 +2495,8 @@ const parseNumberStages = [
         });
       }
       if (wantDriveable) {
-        // explizit negative Erwähnungen ausschließen
         driveabilityStages.push({
-          $match: {
-            $nor: [
-              { beschreibung: NEG_RX },
-              { titel:        NEG_RX },
-              { zustand:      NEG_RX }
-            ]
-          }
+          $match: { $nor: [ { beschreibung: NEG_RX }, { titel: NEG_RX }, { zustand: NEG_RX } ] }
         });
       }
     }
@@ -2492,7 +2509,6 @@ const parseNumberStages = [
           data: [
             { $project: {
                 token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0,
-                // interne Hilfsfelder entfernen
                 _preis_raw: 0, _km_raw: 0, _preis_clean: 0, _km_clean: 0,
                 _ps_raw: 0, _ccm_raw: 0, _verb_raw: 0, _halter_raw: 0,
                 _ps_match: 0, _ccm_match: 0, _verb_norm: 0, _verb_all: 0,
@@ -2519,7 +2535,6 @@ const parseNumberStages = [
     if (Number.isFinite(lat) && Number.isFinite(lon)) {
       point = { type: "Point", coordinates: [lon, lat] };
     } else {
-      // Fallback: Ort-String geocoden
       const ortStr  = String(ort || "").trim();
       const landStr = String(land || "").trim();
       const geoQuery = (ortStr && landStr) ? `${ortStr}, ${landStr}` : ortStr;
