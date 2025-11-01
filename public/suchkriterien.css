@@ -1,23 +1,22 @@
 
-
 /* ==== Reset & Base ==== */
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
+body{font-family:'Poppins',sans-serif;background:#f5f8fc}
 
-.navbar {
-  position: fixed;
-  top: 0; left: 0; right: 0;
+/* ==== Navbar: oben im Dokument, scrollt ganz normal weg ==== */
+.navbar{
+  position: static !important;          /* überschreibt evtl. sticky/fixed */
   height: 120px;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 40px;
-  z-index: 1000;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 40px;
+  z-index:1;
 
   /* Vertikal (oben hell → unten dunkel) + horizontal gespiegelt */
   background: linear-gradient(180deg, #2c5364 0%, #203a43 60%, #0f2027 100%),
               linear-gradient(270deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 100%);
-  box-shadow: 0 4px 20px rgba(0,0,0,.35);
+  box-shadow:0 4px 20px rgba(0,0,0,.35);
 }
-.logo-container{display:flex;align-items:flex-end;height:100%;margin-left:0px}
+.logo-container{display:flex;align-items:flex-end;height:100%;margin-left:0}
 .logo{height:120px;width:auto}
 
 /* ==== Links (Layout) ==== */
@@ -66,20 +65,20 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 }
 .nav-links>li:not(.active)>a:active::after{transform:translate(-50%,-50%) scale(14)}
 
-/* ==== Neuer Pfeil (näher am Text + Animationen) ==== */
+/* ==== Neuer Pfeil ==== */
 .nav-arrow{
   display:inline-block;margin-left:2px;width:.9em;text-align:center;line-height:1;opacity:.9;
   transform:translateY(1px) rotate(0deg);transition:
     transform .22s cubic-bezier(.3,.7,.2,1.2),
     opacity .2s ease,color .2s ease, letter-spacing .2s ease
 }
-.nav-arrow::before{content:"❯"}              /* schlanker Rechts-Pfeil */
+.nav-arrow::before{content:"❯"}
 .dropdown>a:hover .nav-arrow,
 .dropdown>a:focus .nav-arrow{color:#00ffcc;opacity:1;letter-spacing:.5px}
 .dropdown>a:active .nav-arrow{transform:translateY(2px) rotate(10deg) scale(1.08)}
-.dropdown>a[aria-expanded="true"] .nav-arrow{transform:translateY(2px) rotate(90deg)} /* nach unten */
+.dropdown>a[aria-expanded="true"] .nav-arrow{transform:translateY(2px) rotate(90deg)}
 
-/* ==== Dropdown (connected) ==== */
+/* ==== Dropdown ==== */
 .dropdown-menu{
   position:absolute;top:calc(100% + 12px);left:0;min-width:230px;
   background:#1b2a37;border-radius:14px;border:1px solid rgba(255,255,255,.08);
@@ -89,7 +88,6 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   pointer-events:none;transition:opacity .22s ease, transform .22s ease;
   z-index:2000
 }
-/* Connector unter dem Pill – perfekt zentriert */
 .dropdown.open > a::after{
   content:"";position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);
   width:22px;height:12px;border-radius:0 0 10px 10px;background:#1b2a37;
@@ -98,15 +96,12 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   border-bottom:1px solid rgba(255,255,255,.08);
   box-shadow:0 6px 12px rgba(0,0,0,.22);pointer-events:none
 }
-/* wenn offen, Pill optisch verbinden */
 .dropdown.open > a{
   background:rgba(0,0,0,.34);
   border-color:rgba(0,255,204,.22);
   box-shadow:0 12px 26px rgba(0,184,169,.16), inset 0 1px 0 rgba(255,255,255,.18);
 }
-
 .dropdown-menu.show{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
-
 .dropdown-menu li{width:100%}
 .dropdown-menu a{
   display:block;padding:12px 16px;color:#fff;font-size:15px;
@@ -126,11 +121,9 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 .mobile-shortcuts{display:none}
 
 @media (max-width:900px){
-  body{padding-top:80px}
-
   .navbar{height:80px;padding:0 20px}
   .logo{height:70px}
-  .logo-container{margin-left: 0px;margin-bottom:8px}
+  .logo-container{margin-left:0;margin-bottom:8px}
 
   .navbar-right-mobile{display:flex;align-items:center;gap:12px}
 
@@ -147,12 +140,11 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   /* Burger-Menü Panel */
   .nav-links{
     display:none;flex-direction:column;position:absolute;top:80px;left:0;right:0;
-    background:#1a2733;padding:20px;gap:15px;border-radius:0px;
+    background:#1a2733;padding:20px;gap:15px;border-radius:0;
     box-shadow:0 4px 12px rgba(0,0,0,.2);z-index:999
   }
   .nav-links.active{display:flex}
 
-  /* Zentrierte Links (CTA bleibt rund, weil wir gleich nur .dropdown überschreiben) */
   .nav-links a{
     font-size:16px;
     padding:14px 16px;
@@ -163,40 +155,29 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   }
   .nav-links a:hover{background:rgba(255,255,255,.08);transform:scale(1.03)}
   .nav-links a:active{transform:scale(.97);background:rgba(0,184,169,.15)}
-  .dropdown > a{width:100%} /* volle Klickfläche */
+  .dropdown > a{width:100%}
 
-  /* >>> Nur DROPDOWN kantig (Trigger + Menü + Items) <<< */
   .dropdown > a{ border-radius:0; }
   .dropdown.open > a{ border-radius:0; }
   .dropdown-menu{ border-radius:0; }
-  .dropdown-menu a{ border-radius:0; } /* falls später abgerundet wird, hier hart auf 0 */
+  .dropdown-menu a{ border-radius:0; }
 
-  /* Pfeil näher am Text + Rotation beim Öffnen */
-  .nav-arrow{
-    display:inline-block;margin-left:6px;line-height:1;opacity:.95;
-    transition:transform .22s cubic-bezier(.3,.7,.2,1.2), color .2s ease
-  }
+  .nav-arrow{display:inline-block;margin-left:6px;line-height:1;opacity:.95;
+    transition:transform .22s cubic-bezier(.3,.7,.2,1.2), color .2s ease}
   .dropdown > a:hover .nav-arrow{color:#00ffcc}
-  .dropdown > a[aria-expanded="true"] .nav-arrow{transform:rotate(90deg)} /* nach unten */
+  .dropdown > a[aria-expanded="true"] .nav-arrow{transform:rotate(90deg)}
 
-  /* Mobile-Dropdown: standardmäßig zu, weich ausfahren */
   .dropdown-menu{
     position:static;min-width:unset;border:none;
     background:#253544;box-shadow:none;margin-top:8px;
-
     display:block;max-height:0;opacity:0;overflow:hidden;pointer-events:none;padding:0;
     transform:none;
     transition:max-height .28s ease, opacity .22s ease, padding .22s ease
   }
-  .dropdown.open .dropdown-menu{
-    max-height:1000px;opacity:1;pointer-events:auto;padding:6px 0
-  }
-
-  /* Mobile: kein Connector unter dem Pill */
+  .dropdown.open .dropdown-menu{max-height:1000px;opacity:1;pointer-events:auto;padding:6px 0}
   .dropdown.open > a::after{display:none}
 }
-  
-  
+
   
   
   
@@ -1060,41 +1041,3 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 
 
 
-
-/* === Navbar auf dieser Seite fix/sticky oben halten === */
-:root{
-  /* passe bei Bedarf an; deine Desktop-Navbar ist ~90–110px */
-  --nav-h: clamp(64px, 9vw, 112px);
-}
-
-/* Trifft deine Navbar – nutze mehrere Selektoren für Sicherheit */
-header.navbar,
-header.site-header,
-.navbar,
-.av-navbar {
-  position: sticky;       /* erst sticky versuchen */
-  top: 0;
-  z-index: 2000;          /* über allem */
-  /* optional: leichter Glas-Effekt, falls du ihn nutzt */
-  backdrop-filter: saturate(120%) blur(6px);
-}
-
-/* Platz für die fixe/sticky Navbar schaffen */
-body {
-  scroll-padding-top: var(--nav-h); /* für Anker-Links */
-}
-main, .page, .content, .page-shell, .sk-page {
-  padding-top: calc(var(--nav-h) + 12px);
-}
-
-/* Falls ein übergeordnetes Element sticky verhindert (overflow/transform):
-   dann diesen Block aktivieren und sticky ersetzen. */
-@supports (position: fixed) {
-  .nav-fixed--force header.navbar,
-  .nav-fixed--force header.site-header,
-  .nav-fixed--force .navbar,
-  .nav-fixed--force .av-navbar {
-    position: fixed !important;
-    left: 0; right: 0;
-  }
-}
