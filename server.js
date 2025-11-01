@@ -2352,29 +2352,100 @@ app.get("/api/search", async (req, res) => {
         }
       }];
     }
+// ---- Kraftstoff (tolerant; CSV möglich, Hybrid-Unterarten korrekt)
+let fuelStages = [];
+if (kraftstoff) {
+  // CSV in Tokens aufteilen (z.B. "benzin,hybrid-benzin,plug-in-hybrid")
+  const fuels = String(kraftstoff)
+    .split(",")
+    .map(s => s.trim().toLowerCase())
+    .filter(Boolean);
 
-    // ---- Kraftstoff (tolerant; CSV möglich)
-    let fuelStages = [];
-    if (kraftstoff) {
-      const fuels = splitCsv(kraftstoff).map(fuelCanon).filter(Boolean);
-      const rxes = fuels.map(f => {
-        if (f === "benzin")     return /benzin|otto/i;
-        if (f === "diesel")     return /diesel/i;
-        if (f === "elektrisch") return /elektro|bev|strom|electric|ev/i;
-        if (f === "hybrid")     return /hybrid|phev|plug[-\s]?in|mhev|hev/i;
-        return new RegExp(escRe(f), "i");
-      });
-      fuelStages = rxes.length ? [{
-        $match: {
-          $or: [
-            { kraftstoff:       { $in: rxes } },
-            { verkauf_kraftstoff:{ $in: rxes } },
-            { kraftstoffart:    { $in: rxes } },
-            { beschreibung:     { $in: rxes } } // Fallback
-          ]
-        }
-      }] : [];
+  // Felder, in denen Kraftstoff vorkommen kann
+  const FIELDS = ["kraftstoff", "verkauf_kraftstoff", "kraftstoffart", "beschreibung"];
+
+  // Helfer: OR über alle Felder mit einem Regex
+  const OR_FIELDS = (rx) => ({ $or: FIELDS.map(f => ({ [f]: rx })) });
+  // Helfer: NOR über alle Felder mit einem Regex (zum Ausschließen, z.B. Hybrid bei "elektro")
+  const NOR_FIELDS = (rx) => ({ $nor: FIELDS.map(f => ({ [f]: rx })) });
+
+  // Synonym-Sets
+  const RX = {
+    benzin: /(benzin|otto)\b/i,
+    diesel: /\bdiesel\b/i,
+    elektro: /\b(elektro|bev|electric|strom|ev)\b/i,
+    hybridAny: /\b(hybrid|mhev|hev|phev|plug[\s-]*in)\b/i,
+    phev: /\b(phev|plug[\s-]*in)\b/i,
+    autogas: /\b(lpg|autogas)\b/i,
+    cng: /\b(cng|erdgas)\b/i,
+    ethanol: /\b(ethanol|e85)\b/i,
+    wasserstoff: /\b(wasserstoff|h2|fuel\s*cell)\b/i,
+    andere: /\b(andere|sonstig|unbek|unknown)\b/i
+  };
+
+  // Für jeden gewünschten Token die passende Bedingung bauen
+  const conds = [];
+  for (const raw of fuels) {
+    const t = raw.toLowerCase();
+
+    // Plug-in-Hybride (gesamt / spezifisch)
+    if (t === "plug-in-hybrid-benzin") {
+      conds.push({ $and: [ OR_FIELDS(RX.phev), OR_FIELDS(RX.benzin) ] });
+      continue;
     }
+    if (t === "plug-in-hybrid-diesel") {
+      conds.push({ $and: [ OR_FIELDS(RX.phev), OR_FIELDS(RX.diesel) ] });
+      continue;
+    }
+    if (t === "plug-in-hybrid" || t === "phev") {
+      conds.push(OR_FIELDS(RX.phev));
+      continue;
+    }
+
+    // Hybride (gesamt / spezifisch)
+    if (t === "hybrid-benzin") {
+      // Muss Hybrid enthalten + Benzin enthalten (irgendwo in den Feldern)
+      conds.push({ $and: [ OR_FIELDS(RX.hybridAny), OR_FIELDS(RX.benzin) ] });
+      continue;
+    }
+    if (t === "hybrid-diesel") {
+      conds.push({ $and: [ OR_FIELDS(RX.hybridAny), OR_FIELDS(RX.diesel) ] });
+      continue;
+    }
+    if (t === "hybrid") {
+      conds.push(OR_FIELDS(RX.hybridAny));
+      continue;
+    }
+
+    // Reine Antriebsarten – Hybride explizit ausschließen
+    if (t === "elektro" || t === "elektrisch" || t === "bev" || t === "ev") {
+      conds.push({ $and: [ OR_FIELDS(RX.elektro), NOR_FIELDS(RX.hybridAny) ] });
+      continue;
+    }
+    if (t === "benzin" || t === "otto") {
+      conds.push({ $and: [ OR_FIELDS(RX.benzin), NOR_FIELDS(RX.hybridAny) ] });
+      continue;
+    }
+    if (t === "diesel") {
+      conds.push({ $and: [ OR_FIELDS(RX.diesel), NOR_FIELDS(RX.hybridAny) ] });
+      continue;
+    }
+
+    // Sonstige
+    if (t === "autogas" || t === "lpg") { conds.push(OR_FIELDS(RX.autogas)); continue; }
+    if (t === "cng" || t === "erdgas")  { conds.push(OR_FIELDS(RX.cng)); continue; }
+    if (t === "ethanol" || t === "e85"){ conds.push(OR_FIELDS(RX.ethanol)); continue; }
+    if (t === "wasserstoff" || t === "h2" || t.includes("fuel")) { conds.push(OR_FIELDS(RX.wasserstoff)); continue; }
+    if (t === "andere" || t.startsWith("sonstig")) { conds.push(OR_FIELDS(RX.andere)); continue; }
+
+    // Fallback: direkter Regex auf den Roh-Token
+    const esc = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    conds.push(OR_FIELDS(new RegExp(esc, "i")));
+  }
+
+  fuelStages = conds.length ? [{ $match: { $or: conds } }] : [];
+}
+
 
     // ---- Schadstoffklasse
     let emissionStages = [];

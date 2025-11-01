@@ -845,28 +845,53 @@ document.addEventListener("DOMContentLoaded", () => {
       if (picked.length) qs.set("antrieb", picked.join(","));
     })();
   
-    // Kraftstoff (genau 1)
-    (function () {
-      const grid = document.querySelector(".fuel-type-grid");
-      if (!grid) return;
-      const picked = Array.from(grid.querySelectorAll('input[type="checkbox"]'))
-        .filter(i => i.checked)
-        .map(i => (i.parentElement?.innerText || "").trim().toLowerCase());
-      if (picked.length !== 1) return;
-      const t = picked[0];
-      let token = "";
-      if (t.startsWith("benzin")) token = "benzin";
-      else if (t.startsWith("diesel")) token = "diesel";
-      else if (t.startsWith("elektro")) token = "elektro";
-      else if (t.includes("hybrid")) token = "hybrid";
-      else if (t.startsWith("wasserstoff")) token = "wasserstoff";
-      else if (t.includes("cng") || t.includes("erdgas")) token = "cng";
-      else if (t.includes("lpg") || t.includes("autogas")) token = "lpg";
-      else if (t.startsWith("ethanol")) token = "ethanol";
-      else if (t.startsWith("andere")) token = "andere";
-      if (token) qs.set("kraftstoff", token);
-    })();
-  
+ // Kraftstoff (Mehrfachauswahl + Hybrid-Unterarten)
+(function () {
+  const grid = document.querySelector('#feld-kraftstoff') || document.querySelector('.fuel-type-grid');
+  if (!grid) return;
+
+  const picked = Array.from(grid.querySelectorAll('input[type="checkbox"]:checked'))
+    .map(i => (i.value || i.getAttribute('data-value') || i.parentElement?.innerText || '')
+      .trim().toLowerCase())
+    .filter(Boolean);
+
+  if (!picked.length) {
+    try { qs.delete('kraftstoff'); } catch {}
+    return;
+  }
+
+  const tokens = picked.map(s => {
+    // PHEV zuerst
+    if ((/plug|phev/).test(s) && /hyb/.test(s) && (/benz|otto/).test(s)) return 'plug-in-hybrid-benzin';
+    if ((/plug|phev/).test(s) && /hyb/.test(s))                          return 'plug-in-hybrid';
+
+    // Hybrid (ohne Plug)
+    if (/hyb/.test(s) && /diesel/.test(s))           return 'hybrid-diesel';
+    if (/hyb/.test(s) && (/benz|otto/).test(s))      return 'hybrid-benzin';
+    if (/hyb/.test(s))                                return 'hybrid-benzin'; // Fallback
+
+    if (/benzin|otto/.test(s))                        return 'benzin';
+    if (/diesel/.test(s))                             return 'diesel';
+    if (/elektro|bev|strom|electric/.test(s))         return 'elektro';
+    if (/wasserstoff|h2|fuel\s*cell/.test(s))         return 'wasserstoff';
+    if (/autogas|lpg/.test(s))                        return 'autogas';
+    if (/cng|erdgas/.test(s))                         return 'cng';
+    if (/ethanol|e85/.test(s))                        return 'ethanol';
+    if (/andere|sonstig/.test(s))                     return 'andere';
+    return s;
+  });
+
+  // Doppelte entfernen (Reihenfolge beibehalten)
+  const uniq = [...new Set(tokens)];
+  const val = uniq.join(',');
+
+  try { 
+    qs.set('kraftstoff', val); 
+  } catch {
+    if (typeof Q !== 'undefined' && Q.set) Q.set('kraftstoff', val);
+  }
+})();
+
     // Schadstoffe / Umwelt / HU / Halter
     const schad       = document.getElementById("schadstoffklasse")?.value;
     const schadCustom = document.getElementById("custom-schadstoff")?.value?.trim();
