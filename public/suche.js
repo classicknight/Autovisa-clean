@@ -123,7 +123,7 @@ const container     = document.getElementById("carResults");
 const pager         = document.getElementById("pager");
 const sortBy        = document.getElementById("sortBy");
 const applyFilters  = document.getElementById("applyFiltersBtn");
-// --- Prefill aus URL in die UI ---// --- Prefill aus URL in die UI ---
+// --- Prefill aus URL in die UI ---
 (function prefillFromQuery () {
   const sp = new URLSearchParams(location.search);
 
@@ -138,13 +138,15 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
     km_max:    sp.get("km_max")    || "",
     price_max: sp.get("price_max") || "",
 
-    // Mehrfach möglich (CSV)
+    // Mehrfach (CSV)
     kraftstoff: splitCsv(sp.get("kraftstoff")).map(fuelCanon),
     antrieb:    splitCsv(sp.get("antriebsart") || sp.get("antrieb")).map(driveCanon),
 
-    getriebe:  (sp.get("getriebe") || "").toLowerCase(),
+    getriebe: (sp.get("getriebe") || "").toLowerCase(),
 
+    // Mehrfach (CSV)
     fahrzeugtyp: splitCsv(sp.get("fahrzeugtyp")),
+    farbe:       splitCsv(sp.get("farbe")),
     tueren:      splitCsv(sp.get("tueren")),
 
     sort: sp.get("sort") || "",
@@ -154,6 +156,7 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
     fahrtauglich:   sp.get("fahrtauglich"),
   };
 
+  // --- DOM Refs ---
   const markeEl   = document.getElementById("marke");
   const modellEl  = document.getElementById("modell");
   const modVarEl  = document.getElementById("modellausfuehrung");
@@ -165,11 +168,14 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   const gearEl    = document.getElementById("transmission") || document.getElementById("gear");
   const driveEl   = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
 
+  // (Fallbacks, falls irgendwo doch noch Selects existieren)
+  const vehicleTypeSel = document.getElementById("vehicleType");
+  const colorSel       = document.getElementById("color");
+
   // EZ Felder
   const firstRegFromEl  = document.getElementById("firstRegFrom");
   const firstRegMonthEl = document.getElementById("first-registration-month");
   const firstRegYearEl  = document.getElementById("first-registration-year");
-
   const ezVonEl = document.getElementById("ez-von");
   const ezBisEl = document.getElementById("ez-bis");
 
@@ -178,11 +184,14 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   const shEl = document.getElementById("scheckheft");
   const ftEl = document.getElementById("fahrtauglich");
 
+  // --- Prefill einfache Felder ---
   if (markeEl && QP.marke) markeEl.value = QP.marke;
 
   if (modellEl && QP.modell.length) {
     const set = new Set(QP.modell.map(v => v.toLowerCase()));
-    [...modellEl.options].forEach(opt => { opt.selected = set.has(String(opt.value).toLowerCase()); });
+    [...modellEl.options].forEach(opt => {
+      opt.selected = set.has(String(opt.value).toLowerCase());
+    });
   }
 
   if (modVarEl && QP.modellausfuehrung) modVarEl.value = QP.modellausfuehrung;
@@ -190,39 +199,40 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   if (priceToEl && QP.price_max) priceToEl.value = QP.price_max;
   if (kmToEl   && QP.km_max)     kmToEl.value    = QP.km_max;
 
-// Kraftstoff: unabhängig davon, ob ein <select> existiert
-(function () {
-  const picked = QP.kraftstoff || [];  // Array kanonisierter Tokens
-  if (!picked.length) return;
+  // --- Kraftstoff: Select (erster) + Checkboxen (alle) ---
+  (function () {
+    const picked = QP.kraftstoff || [];  // kanonisierte Tokens
+    if (!picked.length) return;
 
-  // Falls es ein <select> gibt, setze den ersten Treffer
-  if (fuelEl && fuelEl.tagName === "SELECT") {
-    const wanted = picked[0];
-    const match = [...fuelEl.options].find(o =>
-      fuelCanon(o.value) === wanted || fuelCanon(o.text) === wanted
-    );
-    if (match) fuelEl.value = match.value;
-  }
+    // Select: ersten passenden setzen
+    if (fuelEl && fuelEl.tagName === "SELECT") {
+      const wanted = picked[0];
+      const match = [...fuelEl.options].find(o =>
+        fuelCanon(o.value) === wanted || fuelCanon(o.text) === wanted
+      );
+      if (match) fuelEl.value = match.value;
+    }
 
-  // Checkboxen: alle passenden anhaken
-  const set = new Set(picked);
-  const hasHybridAny = set.has("hybrid"); // generisch -> beide Varianten ankreuzen
+    // Checkboxen: alle passenden anhaken
+    const set = new Set(picked);
+    const hasHybridAny = set.has("hybrid"); // generisch -> beide Varianten anhaken
 
-  document.querySelectorAll('input[name="kraftstoff"]').forEach(cb => {
-    const tok = fuelCanon(cb.value); // z.B. "hybrid-benzin", "hybrid-diesel", "diesel" ...
-    cb.checked = set.has(tok) || (hasHybridAny && tok.startsWith("hybrid-"));
-  });
-})();
+    document.querySelectorAll('input[name="kraftstoff"]').forEach(cb => {
+      const tok = fuelCanon(cb.value); // z. B. "hybrid-benzin", "hybrid-diesel", "diesel" ...
+      cb.checked = set.has(tok) || (hasHybridAny && tok.startsWith("hybrid-"));
+    });
+  })();
 
-
-  // Getriebe (einfach)
+  // --- Getriebe (einfach) ---
   if (gearEl && QP.getriebe) gearEl.value = QP.getriebe;
 
-  // Antrieb: Select (erster), Checkboxen (alle)
-  if (driveEl && QP.antrieb.length) {
-    if (driveEl.tagName === "SELECT") {
+  // --- Antrieb: Select (erster) + Checkboxen (alle) ---
+  if (QP.antrieb.length) {
+    if (driveEl && driveEl.tagName === "SELECT") {
       const v = QP.antrieb[0];
-      const match = [...driveEl.options].find(o => driveCanon(o.value) === v || driveCanon(o.text) === v);
+      const match = [...driveEl.options].find(o =>
+        driveCanon(o.value) === v || driveCanon(o.text) === v
+      );
       if (match) driveEl.value = match.value;
     }
     document.querySelectorAll('input[name="antrieb"]').forEach(cb => {
@@ -231,7 +241,34 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
     });
   }
 
-  // EZ Prefill
+  // --- Fahrzeugtyp (Checkboxen; Fallback Select) ---
+  if (QP.fahrzeugtyp.length) {
+    const set = new Set(QP.fahrzeugtyp.map(v => String(v).toLowerCase()));
+    document.querySelectorAll('input[name="fahrzeugtyp"]').forEach(cb => {
+      cb.checked = set.has(String(cb.value || "").toLowerCase());
+    });
+    // Fallback: falls noch <select id="vehicleType">
+    if (vehicleTypeSel && vehicleTypeSel.tagName === "SELECT") {
+      [...vehicleTypeSel.options].forEach(o => {
+        o.selected = set.has(String(o.value || "").toLowerCase());
+      });
+    }
+  }
+
+  // --- Farbe (Checkboxen; Fallback Select) ---
+  if (QP.farbe.length) {
+    const set = new Set(QP.farbe.map(v => String(v).toLowerCase()));
+    document.querySelectorAll('input[name="farbe"]').forEach(cb => {
+      cb.checked = set.has(String(cb.value || "").toLowerCase());
+    });
+    if (colorSel && colorSel.tagName === "SELECT") {
+      [...colorSel.options].forEach(o => {
+        o.selected = set.has(String(o.value || "").toLowerCase());
+      });
+    }
+  }
+
+  // --- EZ Prefill ---
   if (firstRegFromEl && QP.ezFrom) firstRegFromEl.value = QP.ezFrom;
   if (QP.ezFrom && firstRegMonthEl && firstRegYearEl) {
     const [y, m] = QP.ezFrom.split("-");
@@ -241,7 +278,7 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   if (ezVonEl && QP.ezFrom) ezVonEl.value = QP.ezFrom;
   if (ezBisEl && QP.ezTo)   ezBisEl.value = QP.ezTo;
 
-  // Sort
+  // --- Sortierung ---
   const sortBy = document.getElementById("sortBy");
   if (sortBy) {
     if (QP.sort === "preis_asc")       sortBy.value = "price-asc";
@@ -250,10 +287,12 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
     else if (QP.sort)                  sortBy.value = "date-desc";
   }
 
+  // --- Flags ---
   if (pfEl) pfEl.checked = !!QP.partikelfilter;
   if (shEl) shEl.checked = !!QP.scheckheft;
   if (ftEl) ftEl.checked = !!QP.fahrtauglich;
 })();
+
 
 
 
@@ -1488,14 +1527,26 @@ if (fuelSet.size) {
     setOrDelete(params, "scheckheft",     document.getElementById("scheckheft")?.checked ? "ja" : "");
     setOrDelete(params, "fahrtauglich",   document.getElementById("fahrtauglich")?.checked ? "ja" : "");
   
-    // Fahrzeugtyp / Türen
-    (function () {
-      const s = new Set();
-      const typeSel = document.getElementById("fahrzeugtyp");
-      if (typeSel && typeSel.tagName === "SELECT") [...typeSel.options].forEach(o => { if (o.selected && o.value) s.add(o.value.trim()); });
-      document.querySelectorAll('input[name="fahrzeugtyp"]:checked').forEach(cb => s.add(String(cb.value || "").trim()));
-      setOrDelete(params, "fahrzeugtyp", s.size ? [...s].join(",") : "");
-    })();
+// Fahrzeugtyp (CSV aus Checkboxen)
+(function () {
+  const s = new Set();
+  document.querySelectorAll('input[name="fahrzeugtyp"]:checked')
+    .forEach(cb => s.add(String(cb.value || "").trim()));
+  const typeSel = document.getElementById("fahrzeugtyp"); // falls irgendwo noch ein Select existiert
+  if (typeSel && typeSel.tagName === "SELECT") {
+    [...typeSel.options].forEach(o => { if (o.selected && o.value) s.add(o.value.trim()); });
+  }
+  setOrDelete(params, "fahrzeugtyp", s.size ? [...s].join(",") : "");
+})();
+
+// Farbe (CSV aus Checkboxen)
+(function () {
+  const s = new Set();
+  document.querySelectorAll('input[name="farbe"]:checked')
+    .forEach(cb => s.add(String(cb.value || "").trim()));
+  setOrDelete(params, "farbe", s.size ? [...s].join(",") : "");
+})();
+
     (function () {
       const s = new Set();
       const doorSel = document.getElementById("tueren");
@@ -1589,6 +1640,7 @@ function renderActiveFilters() {
     // Mehrfach möglich:
     kraftstoff: splitCsv(sp.get("kraftstoff")).map(fuelCanon),
     antrieb: splitCsv(sp.get("antriebsart") || sp.get("antrieb")).map(driveCanon),
+    farbe: splitCsv(sp.get("farbe")),
 
     ort: sp.get("ort") || "",
     umkreis: sp.get("umkreis") || "",
@@ -1689,6 +1741,10 @@ function renderActiveFilters() {
   if (models && models.length) models.forEach(m => chips.push({key:"modell", value:m, label:`Modell: ${m}`}));
   if (qp.modellausfuehrung) chips.push({key:"modellausfuehrung", label:`Modellvariante: ${qp.modellausfuehrung}`});
   if (qp.fahrzeugtyp?.length) qp.fahrzeugtyp.forEach(t => chips.push({key:"fahrzeugtyp", value:t, label:`Fahrzeugtyp: ${t}`}));
+
+
+if (qp.farbe?.length)       qp.farbe.forEach(f => chips.push({key:"farbe",       value:f, label:`Farbe: ${f}`}));
+
   if (qp.tueren?.length)      qp.tueren.forEach(n => chips.push({key:"tueren", value:n, label:`Türen: ${n}`}));
 
   if (ort)     chips.push({key:"ort",     label:`Ort: ${ort}`});
@@ -1864,7 +1920,30 @@ function removeFilterChip(key, val = "") {
       }
       break;
     }
-
+    case "fahrzeugtyp": {
+      const list = splitCsv(params.get("fahrzeugtyp"));
+      const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
+      if (next.length) params.set("fahrzeugtyp", next.join(","));
+      else params.delete("fahrzeugtyp");
+    
+      document.querySelectorAll('input[name="fahrzeugtyp"]').forEach(cb => {
+        if ((cb.value || "").toLowerCase() === String(val).toLowerCase()) cb.checked = false;
+      });
+      break;
+    }
+    
+    case "farbe": {
+      const list = splitCsv(params.get("farbe"));
+      const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
+      if (next.length) params.set("farbe", next.join(","));
+      else params.delete("farbe");
+    
+      document.querySelectorAll('input[name="farbe"]').forEach(cb => {
+        if ((cb.value || "").toLowerCase() === String(val).toLowerCase()) cb.checked = false;
+      });
+      break;
+    }
+    
     case "ort":            params.delete("ort");      break;
     case "umkreis":        params.delete("umkreis");  break;
     case "verbrauch_max":  params.delete("verbrauch_max"); break;
@@ -1930,6 +2009,9 @@ function clearAllFilters() {
   const driveEl = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
   if (driveEl) driveEl.value = "Beliebig";
   document.querySelectorAll('input[name="antrieb"]').forEach(cb => cb.checked = false);
+
+  document.querySelectorAll('input[name="fahrzeugtyp"]').forEach(cb => cb.checked = false);
+document.querySelectorAll('input[name="farbe"]').forEach(cb => cb.checked = false);
 
   const accEl  = document.getElementById("accidentFree");
   if (accEl)  accEl.checked = false;

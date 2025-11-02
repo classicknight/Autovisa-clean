@@ -203,34 +203,57 @@
       </div>
 
       <div class="filter-group">
-        <label for="vehicleType">Fahrzeugtyp</label>
-        <select id="vehicleType">
-          <option>Beliebig</option>
-          <option>Limousine</option>
-          <option>Kombi</option>
-          <option>SUV/Geländewagen</option>
-          <option>Cabrio</option>
-          <option>Coupe</option>
-          <option>Kleinwagen</option>
-          <option>Van</option>
-          <option>Pick-Up</option>
-        </select>
+        <label>Fahrzeugtyp</label>
+        <div class="checkbox-grid" id="vehicletype-grid">
+          <label class="checkbox-tile"><input type="checkbox" name="fahrzeugtyp" value="Limousine"><span class="checkbox-label">Limousine</span></label>
+          <label class="checkbox-tile"><input type="checkbox" name="fahrzeugtyp" value="Kombi"><span class="checkbox-label">Kombi</span></label>
+          <label class="checkbox-tile"><input type="checkbox" name="fahrzeugtyp" value="Geländewagen / SUV"><span class="checkbox-label">Geländewagen / SUV</span></label>
+          <label class="checkbox-tile"><input type="checkbox" name="fahrzeugtyp" value="Cabrio / Roadster"><span class="checkbox-label">Cabrio / Roadster</span></label>
+          <label class="checkbox-tile"><input type="checkbox" name="fahrzeugtyp" value="Sportwagen / Coupé"><span class="checkbox-label">Sportwagen / Coupé</span></label>
+          <label class="checkbox-tile"><input type="checkbox" name="fahrzeugtyp" value="Kleinwagen"><span class="checkbox-label">Kleinwagen</span></label>
+          <label class="checkbox-tile"><input type="checkbox" name="fahrzeugtyp" value="Van / Minibus"><span class="checkbox-label">Van / Minibus</span></label>
+        </div>
       </div>
+      
 
       <div class="filter-group">
-        <label for="color">Farbe</label>
-        <select id="color">
-          <option>Beliebig</option>
-          <option>Schwarz</option>
-          <option>Weiß</option>
-          <option>Silber</option>
-          <option>Grau</option>
-          <option>Blau</option>
-          <option>Rot</option>
-          <option>Grün</option>
-          <option>Gelb</option>
-        </select>
+        <label>Farbe</label>
+        <div class="checkbox-grid color-grid" id="color-grid">
+          <label class="checkbox-tile color-tile">
+            <input type="checkbox" name="farbe" value="Schwarz">
+            <span class="swatch" style="--c:#111"></span><span class="checkbox-label">Schwarz</span>
+          </label>
+          <label class="checkbox-tile color-tile">
+            <input type="checkbox" name="farbe" value="Weiß">
+            <span class="swatch" style="--c:#fff; --b:#e4e7eb"></span><span class="checkbox-label">Weiß</span>
+          </label>
+          <label class="checkbox-tile color-tile">
+            <input type="checkbox" name="farbe" value="Silber">
+            <span class="swatch" style="--c:#c9cdd3"></span><span class="checkbox-label">Silber</span>
+          </label>
+          <label class="checkbox-tile color-tile">
+            <input type="checkbox" name="farbe" value="Grau">
+            <span class="swatch" style="--c:#7a828e"></span><span class="checkbox-label">Grau</span>
+          </label>
+          <label class="checkbox-tile color-tile">
+            <input type="checkbox" name="farbe" value="Blau">
+            <span class="swatch" style="--c:#2f6fb5"></span><span class="checkbox-label">Blau</span>
+          </label>
+          <label class="checkbox-tile color-tile">
+            <input type="checkbox" name="farbe" value="Rot">
+            <span class="swatch" style="--c:#c63535"></span><span class="checkbox-label">Rot</span>
+          </label>
+          <label class="checkbox-tile color-tile">
+            <input type="checkbox" name="farbe" value="Grün">
+            <span class="swatch" style="--c:#2a8b57"></span><span class="checkbox-label">Grün</span>
+          </label>
+          <label class="checkbox-tile color-tile">
+            <input type="checkbox" name="farbe" value="Gelb">
+            <span class="swatch" style="--c:#ffcc33"></span><span class="checkbox-label">Gelb</span>
+          </label>
+        </div>
       </div>
+      
 
       <div class="filter-group center-checkbox">
         <label for="accidentFree">Nur unfallfreie Fahrzeuge</label>
