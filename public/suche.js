@@ -20,7 +20,8 @@ const QP = (() => {
     ps_max: sp.get("ps_max") || "",                // 👈 NEU
     getriebe: (sp.get("getriebe") || "").toLowerCase(),
     antriebsart: (sp.get("antriebsart") || "").toLowerCase(),   // 👈 NEU
-    kraftstoff: (sp.get("kraftstoff") || "").toLowerCase(),
+    kraftstoff: splitCsv(sp.get("kraftstoff")).map(fuelCanon),
+
     ort: sp.get("ort") || "",
     umkreis: sp.get("umkreis") || "",
     sort: sp.get("sort") || "",
@@ -222,20 +223,30 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   if (priceToEl && QP.price_max) priceToEl.value = QP.price_max;
   if (kmToEl   && QP.km_max)     kmToEl.value    = QP.km_max;
 
-  // Kraftstoff: Select → ersten Treffer setzen, Checkboxen → alle setzen
-  if (fuelEl && QP.kraftstoff.length) {
-    // Select
-    if (fuelEl.tagName === "SELECT") {
-      const wanted = QP.kraftstoff[0];
-      const match = [...fuelEl.options].find(o => fuelCanon(o.value) === wanted || fuelCanon(o.text) === wanted);
-      if (match) fuelEl.value = match.value;
-    }
-    // Checkboxen
-    document.querySelectorAll('input[name="kraftstoff"]').forEach(cb => {
-      const tok = fuelCanon(cb.value);
-      cb.checked = QP.kraftstoff.includes(tok);
-    });
+// Kraftstoff: unabhängig davon, ob ein <select> existiert
+(function () {
+  const picked = QP.kraftstoff || [];  // Array kanonisierter Tokens
+  if (!picked.length) return;
+
+  // Falls es ein <select> gibt, setze den ersten Treffer
+  if (fuelEl && fuelEl.tagName === "SELECT") {
+    const wanted = picked[0];
+    const match = [...fuelEl.options].find(o =>
+      fuelCanon(o.value) === wanted || fuelCanon(o.text) === wanted
+    );
+    if (match) fuelEl.value = match.value;
   }
+
+  // Checkboxen: alle passenden anhaken
+  const set = new Set(picked);
+  const hasHybridAny = set.has("hybrid"); // generisch -> beide Varianten ankreuzen
+
+  document.querySelectorAll('input[name="kraftstoff"]').forEach(cb => {
+    const tok = fuelCanon(cb.value); // z.B. "hybrid-benzin", "hybrid-diesel", "diesel" ...
+    cb.checked = set.has(tok) || (hasHybridAny && tok.startsWith("hybrid-"));
+  });
+})();
+
 
   // Getriebe (einfach)
   if (gearEl && QP.getriebe) gearEl.value = QP.getriebe;
