@@ -1,36 +1,9 @@
 // suche.js — TEIL 1
 document.documentElement.classList.remove("no-js");
 
-const QP = (() => {
-  const sp = new URLSearchParams(location.search);
-  const arr = v => (v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : []);
-  const truthy = v => /^(1|true|ja|mit|yes)$/i.test(String(v || "").trim());
-
-  return {
-    marke: sp.get("marke") || "",
-    modell: arr(sp.get("modell")),
-    modellausfuehrung: sp.get("modellausfuehrung") || "",
-    fahrzeugtyp: arr(sp.get("fahrzeugtyp")),
-    tueren: arr(sp.get("tueren")),                 // bleibt
-    ezFrom: sp.get("ezFrom") || "",
-    ezTo:   sp.get("ezTo")   || "",
-    km_max: sp.get("km_max") || "",
-    price_max: sp.get("price_max") || "",
-    ps_min: sp.get("ps_min") || "",                // 👈 NEU
-    ps_max: sp.get("ps_max") || "",                // 👈 NEU
-    getriebe: (sp.get("getriebe") || "").toLowerCase(),
-    antriebsart: (sp.get("antriebsart") || "").toLowerCase(),   // 👈 NEU
-    kraftstoff: splitCsv(sp.get("kraftstoff")).map(fuelCanon),
-
-    ort: sp.get("ort") || "",
-    umkreis: sp.get("umkreis") || "",
-    sort: sp.get("sort") || "",
-    verbrauch_max: sp.get("verbrauch_max") || "",
-    partikelfilter: truthy(sp.get("partikelfilter")),
-    scheckheft:     truthy(sp.get("scheckheft")),
-    fahrtauglich:   truthy(sp.get("fahrtauglich")),
-  };
-})();
+// ❌ Kein globales QP mehr hier!
+// Die Query-Parameter werden später in `prefillFromQuery()` gelesen,
+// damit nichts vor den Utils initialisiert wird (Safari-TDZ-Fix).
 
 // ---------- Utils (einmalig) ----------
 const norm = (s) => String(s || "")
@@ -56,7 +29,6 @@ function orderYM(from, to) {
   return [from || "", to || ""];
 }
 
-
 // Labels für Chips
 const FUEL_LABELS = {
   benzin: "Benzin",
@@ -64,27 +36,24 @@ const FUEL_LABELS = {
   elektrisch: "Elektrisch",
   hybrid: "Hybrid",
   "hybrid-benzin": "Hybrid (Benzin)",
-  "hybrid-diesel": "Hybrid (Diesel)",
-  gas: "Gas" // falls vorhanden
+  "hybrid-diesel": "Hybrid (Diesel)"
 };
-
-
 const DRIVE_LABELS = { frontantrieb: "Frontantrieb", heckantrieb: "Heckantrieb", allrad: "Allrad" };
 
+// Kraftstoff → kanonischer Token
 function fuelCanon(raw) {
   const s = norm(raw);
   if (!s) return "";
 
-  // 1) Explizite Tokens aus UI (Werte der Checkboxen/URL) direkt durchlassen
+  // explizite UI-Tokens direkt
   if (/^hybrid[\s-]*diesel$/.test(s)) return "hybrid-diesel";
   if (/^hybrid[\s-]*(benzin|otto|petrol|gasoline|e10|e5)$/.test(s)) return "hybrid-benzin";
 
-  // 2) Freitext-Erkennung in Datensätzen
+  // Freitext-Erkennung (Daten)
   const hasHybrid = /\b(hybrid|phev|plug[\s-]?in|plugin|mhev|hev)\b/.test(s);
   const hasDiesel = /\b(diesel)\b/.test(s);
   const hasBenzin = /\b(benzin|super|e10|e5|e95|e98|otto|petrol|gasoline)\b/.test(s);
   const hasEv     = /\b(elektr|bev|strom|ev)\b/.test(s);
-  const hasGas    = /\b(gas|lpg|cng|erdgas|autogas)\b/.test(s);
 
   if (hasHybrid && hasDiesel) return "hybrid-diesel";
   if (hasHybrid && hasBenzin) return "hybrid-benzin";
@@ -92,17 +61,15 @@ function fuelCanon(raw) {
   if (hasDiesel)              return "diesel";
   if (hasBenzin)              return "benzin";
   if (hasEv)                  return "elektrisch";
-  if (hasGas)                 return "gas"; // optional, falls du "Gas" anbietest
 
-  // Unbekannt → roh (klein)
-  return s;
+  return s; // unbekannt
 }
-
 function fuelNiceLabel(token) {
   const t = String(token || "").toLowerCase();
   return FUEL_LABELS[t] || (t ? t[0].toUpperCase() + t.slice(1) : "");
 }
 
+// Antrieb → kanonischer Token
 function driveCanon(raw) {
   const s = norm(raw);
   if (!s) return "";
@@ -134,7 +101,7 @@ const replaceUrlParams = (params) => {
 };
 
 const splitCsv = (v) => (v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : []);
-const uniq = (arr) => [...new Set(arr)];
+const uniq     = (arr) => [...new Set(arr)];
 
 // ---------- App ----------
 document.addEventListener("DOMContentLoaded", () => {
