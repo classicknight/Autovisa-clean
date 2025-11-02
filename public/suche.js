@@ -56,21 +56,47 @@ function orderYM(from, to) {
 }
 
 
-
 // Labels für Chips
-const FUEL_LABELS = { benzin: "Benzin", diesel: "Diesel", elektrisch: "Elektrisch", hybrid: "Hybrid" };
+const FUEL_LABELS = {
+  benzin: "Benzin",
+  diesel: "Diesel",
+  elektrisch: "Elektrisch",
+  hybrid: "Hybrid",
+  "hybrid-benzin": "Hybrid (Benzin)",
+  "hybrid-diesel": "Hybrid (Diesel)",
+  gas: "Gas" // falls vorhanden
+};
+
+
 const DRIVE_LABELS = { frontantrieb: "Frontantrieb", heckantrieb: "Heckantrieb", allrad: "Allrad" };
 
-// ⚠️ Hybrid zuerst prüfen, damit "Hybrid (Benzin)" nicht als Benin/Diesel erkannt wird
 function fuelCanon(raw) {
   const s = norm(raw);
   if (!s) return "";
-  if (/\b(hybrid|phev|plug[\s-]?in|plugin|mhev|hev)\b/.test(s)) return "hybrid";
-  if (/\b(diesel)\b/.test(s)) return "diesel";
-  if (/\b(benzin|super|e10|e5|e95|e98|otto|petrol|gasoline)\b/.test(s)) return "benzin";
-  if (/\b(elektr|bev|strom|ev)\b/.test(s)) return "elektrisch";
-  return s; // unbekannt → roh (klein)
+
+  // 1) Explizite Tokens aus UI (Werte der Checkboxen/URL) direkt durchlassen
+  if (/^hybrid[\s-]*diesel$/.test(s)) return "hybrid-diesel";
+  if (/^hybrid[\s-]*(benzin|otto|petrol|gasoline|e10|e5)$/.test(s)) return "hybrid-benzin";
+
+  // 2) Freitext-Erkennung in Datensätzen
+  const hasHybrid = /\b(hybrid|phev|plug[\s-]?in|plugin|mhev|hev)\b/.test(s);
+  const hasDiesel = /\b(diesel)\b/.test(s);
+  const hasBenzin = /\b(benzin|super|e10|e5|e95|e98|otto|petrol|gasoline)\b/.test(s);
+  const hasEv     = /\b(elektr|bev|strom|ev)\b/.test(s);
+  const hasGas    = /\b(gas|lpg|cng|erdgas|autogas)\b/.test(s);
+
+  if (hasHybrid && hasDiesel) return "hybrid-diesel";
+  if (hasHybrid && hasBenzin) return "hybrid-benzin";
+  if (hasHybrid)              return "hybrid";
+  if (hasDiesel)              return "diesel";
+  if (hasBenzin)              return "benzin";
+  if (hasEv)                  return "elektrisch";
+  if (hasGas)                 return "gas"; // optional, falls du "Gas" anbietest
+
+  // Unbekannt → roh (klein)
+  return s;
 }
+
 function fuelNiceLabel(token) {
   const t = String(token || "").toLowerCase();
   return FUEL_LABELS[t] || (t ? t[0].toUpperCase() + t.slice(1) : "");
@@ -934,11 +960,18 @@ function applyClientFilters(items) {
     if (!isNaN(powerFrom) && powerFrom > 0 && !(ps >= powerFrom)) return false;
     if (!isNaN(powerTo)   && powerTo   > 0 && !(ps <= powerTo))   return false;
 
-    // Kraftstoff: ODER-Match gegen Set
-    if (fuelSet.size) {
-      const ft = fuelCanon(i.kraftstoff || i.raw?.verkauf_kraftstoff || i.raw?.kraftstoff || "");
-      if (!ft || !fuelSet.has(ft)) return false;
-    }
+// Kraftstoff: ODER-Match gegen Set
+// - exakte Tokens (benzin, diesel, elektrisch, hybrid-benzin, hybrid-diesel, gas)
+// - Sonderfall: wenn 'hybrid' ausgewählt ist, akzeptiere jede Hybrid-Variante.
+if (fuelSet.size) {
+  const ft = fuelCanon(i.kraftstoff || i.raw?.verkauf_kraftstoff || i.raw?.kraftstoff || "");
+  if (!ft) return false;
+
+  const isHybridAny = ft.startsWith("hybrid") && fuelSet.has("hybrid");
+  const ok = fuelSet.has(ft) || isHybridAny;
+  if (!ok) return false;
+}
+
 
     // Getriebe (einfach)
     if (gearEff !== "beliebig") {

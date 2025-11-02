@@ -144,17 +144,68 @@
         </div>
       </div>
 
-      <div class="filter-group">
-        <label for="fuelType">Kraftstoff</label>
-        <select id="fuelType">
-          <option>Beliebig</option>
-          <option>Benzin</option>
-          <option>Diesel</option>
-          <option>Elektro</option>
-          <option>Hybrid</option>
-          <option>Gas</option>
-        </select>
+      <div class="fuel-type-grid">
+        <label class="checkbox-tile">
+          <input type="checkbox" name="kraftstoff" value="benzin">
+          <span class="checkbox-label">Benzin</span>
+        </label>
+      
+        <label class="checkbox-tile">
+          <input type="checkbox" name="kraftstoff" value="diesel">
+          <span class="checkbox-label">Diesel</span>
+        </label>
+      
+        <label class="checkbox-tile">
+          <input type="checkbox" name="kraftstoff" value="elektro">
+          <span class="checkbox-label">Elektro</span>
+        </label>
+      
+        <label class="checkbox-tile">
+          <input type="checkbox" name="kraftstoff" value="hybrid">
+          <span class="checkbox-label">Hybrid (allgemein)</span>
+        </label>
+      
+        <label class="checkbox-tile">
+          <input type="checkbox" name="kraftstoff" value="hybrid-benzin">
+          <span class="checkbox-label">Hybrid (Benzin)</span>
+        </label>
+      
+        <label class="checkbox-tile">
+          <input type="checkbox" name="kraftstoff" value="hybrid-diesel">
+          <span class="checkbox-label">Hybrid (Diesel)</span>
+        </label>
+      
+        <label class="checkbox-tile">
+          <input type="checkbox" name="kraftstoff" value="plug-in-hybrid">
+          <span class="checkbox-label">Plug-in-Hybrid (PHEV)</span>
+        </label>
+      
+        <label class="checkbox-tile">
+          <input type="checkbox" name="kraftstoff" value="lpg">
+          <span class="checkbox-label">Autogas (LPG)</span>
+        </label>
+      
+        <label class="checkbox-tile">
+          <input type="checkbox" name="kraftstoff" value="cng">
+          <span class="checkbox-label">Erdgas (CNG)</span>
+        </label>
+      
+        <label class="checkbox-tile">
+          <input type="checkbox" name="kraftstoff" value="ethanol">
+          <span class="checkbox-label">Ethanol (E85)</span>
+        </label>
+      
+        <label class="checkbox-tile">
+          <input type="checkbox" name="kraftstoff" value="wasserstoff">
+          <span class="checkbox-label">Wasserstoff (H₂)</span>
+        </label>
+      
+        <label class="checkbox-tile">
+          <input type="checkbox" name="kraftstoff" value="andere">
+          <span class="checkbox-label">Andere</span>
+        </label>
       </div>
+      
 
       <div class="filter-group">
         <label for="transmission">Getriebe</label>
