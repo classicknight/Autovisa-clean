@@ -102,174 +102,171 @@
 
 
 
+<!-- Filterbutton für Mobilgeräte -->
+<button class="toggle-filters" id="toggleFiltersBtn">
+  <i class="fas fa-sliders-h"></i> Filter anzeigen
+</button>
 
+<div class="search-layout">
+  <aside class="filter-sidebar" id="filterSidebar">
+    <h2>Filter</h2>
 
-  <!-- Filterbutton für Mobilgeräte -->
-  <button class="toggle-filters" id="toggleFiltersBtn">
-    <i class="fas fa-sliders-h"></i> Filter anzeigen
-  </button>
-
-  <div class="search-layout">
-    <aside class="filter-sidebar" id="filterSidebar">
-      <h2>Filter</h2>
-
-      <div class="filter-group">
-        <label for="priceFrom">Preis (€)</label>
-        <div class="range-inputs">
-          <input type="number" id="priceFrom" placeholder="von" min="0" />
-          <input type="number" id="priceTo" placeholder="bis" min="0" />
-        </div>
+    <!-- Preis -->
+    <div class="filter-group">
+      <label for="priceFrom">Preis (€)</label>
+      <div class="range-inputs">
+        <input type="number" id="priceFrom" placeholder="von" min="0" />
+        <input type="number" id="priceTo" placeholder="bis" min="0" />
       </div>
+    </div>
 
-      <div class="filter-group">
-        <label for="firstRegFrom">Erstzulassung</label>
-        <div class="range-inputs">
-          <input type="month" id="firstRegFrom" />
-        </div>
+    <!-- Erstzulassung -->
+    <div class="filter-group">
+      <label for="firstRegFrom">Erstzulassung</label>
+      <div class="range-inputs">
+        <input type="month" id="firstRegFrom" />
       </div>
+    </div>
 
-      <div class="filter-group">
-        <label for="mileageFrom">Kilometerstand</label>
-        <div class="range-inputs">
-          <input type="number" id="mileageFrom" placeholder="von" min="0" />
-          <input type="number" id="mileageTo" placeholder="bis" min="0" />
-        </div>
+    <!-- Kilometer -->
+    <div class="filter-group">
+      <label for="mileageFrom">Kilometerstand</label>
+      <div class="range-inputs">
+        <input type="number" id="mileageFrom" placeholder="von" min="0" />
+        <input type="number" id="mileageTo" placeholder="bis" min="0" />
       </div>
+    </div>
 
-      <div class="filter-group">
-        <label for="powerFrom">Leistung (PS)</label>
-        <div class="range-inputs">
-          <input type="number" id="powerFrom" placeholder="von" min="0" />
-          <input type="number" id="powerTo" placeholder="bis" min="0" />
-        </div>
+    <!-- Leistung -->
+    <div class="filter-group">
+      <label for="powerFrom">Leistung (PS)</label>
+      <div class="range-inputs">
+        <input type="number" id="powerFrom" placeholder="von" min="0" />
+        <input type="number" id="powerTo" placeholder="bis" min="0" />
       </div>
+    </div>
 
-      <div class="fuel-type-grid">
-        <label class="checkbox-tile">
+    <!-- Kraftstoff -->
+    <div class="filter-group">
+      <p class="avf-title">Kraftstoff</p>
+      <div class="avf-grid" id="fuelGrid">
+        <label class="avf-check-tile">
           <input type="checkbox" name="kraftstoff" value="benzin">
-          <span class="checkbox-label">Benzin</span>
+          <span class="avf-label">Benzin</span>
         </label>
-      
-        <label class="checkbox-tile">
+        <label class="avf-check-tile">
           <input type="checkbox" name="kraftstoff" value="diesel">
-          <span class="checkbox-label">Diesel</span>
+          <span class="avf-label">Diesel</span>
         </label>
-      
-        <label class="checkbox-tile">
-          <input type="checkbox" name="kraftstoff" value="elektro">
-          <span class="checkbox-label">Elektro</span>
+        <label class="avf-check-tile">
+          <input type="checkbox" name="kraftstoff" value="elektrisch">
+          <span class="avf-label">Elektro</span>
         </label>
-      
-       
-      
-        <label class="checkbox-tile">
+        <label class="avf-check-tile">
           <input type="checkbox" name="kraftstoff" value="hybrid-benzin">
-          <span class="checkbox-label">Hybrid (Benzin)</span>
+          <span class="avf-label">Hybrid (Benzin)</span>
         </label>
-      
-        <label class="checkbox-tile">
+        <label class="avf-check-tile">
           <input type="checkbox" name="kraftstoff" value="hybrid-diesel">
-          <span class="checkbox-label">Hybrid (Diesel)</span>
+          <span class="avf-label">Hybrid (Diesel)</span>
         </label>
-      
-     
-      
-        <label class="checkbox-tile">
+        <label class="avf-check-tile">
           <input type="checkbox" name="kraftstoff" value="lpg">
-          <span class="checkbox-label">Autogas (LPG)</span>
+          <span class="avf-label">Autogas (LPG)</span>
         </label>
-      
-       
-      
-        <label class="checkbox-tile">
+        <label class="avf-check-tile">
           <input type="checkbox" name="kraftstoff" value="ethanol">
-          <span class="checkbox-label">Ethanol</span>
+          <span class="avf-label">Ethanol</span>
         </label>
-      
-        <label class="checkbox-tile">
+        <label class="avf-check-tile">
           <input type="checkbox" name="kraftstoff" value="wasserstoff">
-          <span class="checkbox-label">Wasserstoff</span>
+          <span class="avf-label">Wasserstoff</span>
         </label>
-      
-   
-
-      <div class="filter-group">
-        <label for="transmission">Getriebe</label>
-        <select id="transmission">
-          <option>Beliebig</option>
-          <option>Manuell</option>
-          <option>Automatik</option>
-        </select>
       </div>
+    </div>
 
-      <div class="filter-group">
-        <label>Fahrzeugtyp</label>
-        <div class="checkbox-grid" id="vehicletype-grid">
-          <label class="checkbox-tile"><input type="checkbox" name="fahrzeugtyp" value="Limousine"><span class="checkbox-label">Limousine</span></label>
-          <label class="checkbox-tile"><input type="checkbox" name="fahrzeugtyp" value="Kombi"><span class="checkbox-label">Kombi</span></label>
-          <label class="checkbox-tile"><input type="checkbox" name="fahrzeugtyp" value="Geländewagen / SUV"><span class="checkbox-label">Geländewagen / SUV</span></label>
-          <label class="checkbox-tile"><input type="checkbox" name="fahrzeugtyp" value="Cabrio / Roadster"><span class="checkbox-label">Cabrio / Roadster</span></label>
-          <label class="checkbox-tile"><input type="checkbox" name="fahrzeugtyp" value="Sportwagen / Coupé"><span class="checkbox-label">Sportwagen / Coupé</span></label>
-          <label class="checkbox-tile"><input type="checkbox" name="fahrzeugtyp" value="Kleinwagen"><span class="checkbox-label">Kleinwagen</span></label>
-          <label class="checkbox-tile"><input type="checkbox" name="fahrzeugtyp" value="Van / Minibus"><span class="checkbox-label">Van / Minibus</span></label>
-        </div>
+    <!-- Getriebe -->
+    <div class="filter-group">
+      <label for="transmission">Getriebe</label>
+      <select id="transmission" class="avf-select">
+        <option>Beliebig</option>
+        <option>Manuell</option>
+        <option>Automatik</option>
+      </select>
+    </div>
+
+    <!-- Fahrzeugtyp -->
+    <div class="filter-group">
+      <p class="avf-title">Fahrzeugtyp</p>
+      <div class="avf-grid" id="vehicletype-grid">
+        <label class="avf-check-tile"><input type="checkbox" name="fahrzeugtyp" value="Limousine"><span class="avf-label">Limousine</span></label>
+        <label class="avf-check-tile"><input type="checkbox" name="fahrzeugtyp" value="Kombi"><span class="avf-label">Kombi</span></label>
+        <label class="avf-check-tile"><input type="checkbox" name="fahrzeugtyp" value="Geländewagen / SUV"><span class="avf-label">Geländewagen / SUV</span></label>
+        <label class="avf-check-tile"><input type="checkbox" name="fahrzeugtyp" value="Cabrio / Roadster"><span class="avf-label">Cabrio / Roadster</span></label>
+        <label class="avf-check-tile"><input type="checkbox" name="fahrzeugtyp" value="Sportwagen / Coupé"><span class="avf-label">Sportwagen / Coupé</span></label>
+        <label class="avf-check-tile"><input type="checkbox" name="fahrzeugtyp" value="Kleinwagen"><span class="avf-label">Kleinwagen</span></label>
+        <label class="avf-check-tile"><input type="checkbox" name="fahrzeugtyp" value="Van / Minibus"><span class="avf-label">Van / Minibus</span></label>
       </div>
-      
+    </div>
 
-      <div class="filter-group">
-        <label>Farbe</label>
-        <div class="checkbox-grid color-grid" id="color-grid">
-          <label class="checkbox-tile color-tile">
-            <input type="checkbox" name="farbe" value="Schwarz">
-            <span class="swatch" style="--c:#111"></span><span class="checkbox-label">Schwarz</span>
-          </label>
-          <label class="checkbox-tile color-tile">
-            <input type="checkbox" name="farbe" value="Weiß">
-            <span class="swatch" style="--c:#fff; --b:#e4e7eb"></span><span class="checkbox-label">Weiß</span>
-          </label>
-          <label class="checkbox-tile color-tile">
-            <input type="checkbox" name="farbe" value="Silber">
-            <span class="swatch" style="--c:#c9cdd3"></span><span class="checkbox-label">Silber</span>
-          </label>
-          <label class="checkbox-tile color-tile">
-            <input type="checkbox" name="farbe" value="Grau">
-            <span class="swatch" style="--c:#7a828e"></span><span class="checkbox-label">Grau</span>
-          </label>
-          <label class="checkbox-tile color-tile">
-            <input type="checkbox" name="farbe" value="Blau">
-            <span class="swatch" style="--c:#2f6fb5"></span><span class="checkbox-label">Blau</span>
-          </label>
-          <label class="checkbox-tile color-tile">
-            <input type="checkbox" name="farbe" value="Rot">
-            <span class="swatch" style="--c:#c63535"></span><span class="checkbox-label">Rot</span>
-          </label>
-          <label class="checkbox-tile color-tile">
-            <input type="checkbox" name="farbe" value="Grün">
-            <span class="swatch" style="--c:#2a8b57"></span><span class="checkbox-label">Grün</span>
-          </label>
-          <label class="checkbox-tile color-tile">
-            <input type="checkbox" name="farbe" value="Gelb">
-            <span class="swatch" style="--c:#ffcc33"></span><span class="checkbox-label">Gelb</span>
-          </label>
-        </div>
+    <!-- Farbe -->
+    <div class="filter-group">
+      <p class="avf-title">Farbe</p>
+      <div class="avf-color-grid" id="color-grid">
+        <label class="avf-color-tile">
+          <input type="checkbox" name="farbe" value="Schwarz">
+          <span class="avf-swatch" style="--c:#111"></span><span class="avf-label">Schwarz</span>
+        </label>
+        <label class="avf-color-tile">
+          <input type="checkbox" name="farbe" value="Weiß">
+          <span class="avf-swatch" style="--c:#fff; --b:#e4e7eb"></span><span class="avf-label">Weiß</span>
+        </label>
+        <label class="avf-color-tile">
+          <input type="checkbox" name="farbe" value="Silber">
+          <span class="avf-swatch" style="--c:#c9cdd3"></span><span class="avf-label">Silber</span>
+        </label>
+        <label class="avf-color-tile">
+          <input type="checkbox" name="farbe" value="Grau">
+          <span class="avf-swatch" style="--c:#7a828e"></span><span class="avf-label">Grau</span>
+        </label>
+        <label class="avf-color-tile">
+          <input type="checkbox" name="farbe" value="Blau">
+          <span class="avf-swatch" style="--c:#2f6fb5"></span><span class="avf-label">Blau</span>
+        </label>
+        <label class="avf-color-tile">
+          <input type="checkbox" name="farbe" value="Rot">
+          <span class="avf-swatch" style="--c:#c63535"></span><span class="avf-label">Rot</span>
+        </label>
+        <label class="avf-color-tile">
+          <input type="checkbox" name="farbe" value="Grün">
+          <span class="avf-swatch" style="--c:#2a8b57"></span><span class="avf-label">Grün</span>
+        </label>
+        <label class="avf-color-tile">
+          <input type="checkbox" name="farbe" value="Gelb">
+          <span class="avf-swatch" style="--c:#ffcc33"></span><span class="avf-label">Gelb</span>
+        </label>
       </div>
-      
+    </div>
 
-      <div class="filter-group center-checkbox">
-        <label for="accidentFree">Nur unfallfreie Fahrzeuge</label>
+    <!-- Unfallfrei / HU -->
+    <div class="filter-group">
+      <label class="avf-switch">
         <input type="checkbox" id="accidentFree" />
-      </div>
+        <span>Nur unfallfreie Fahrzeuge</span>
+      </label>
+    </div>
 
-      <div class="filter-group">
-        <label for="inspectionUntil">HU gültig bis</label>
-        <input type="month" id="inspectionUntil" />
-      </div>
+    <div class="filter-group">
+      <label for="inspectionUntil">HU gültig bis</label>
+      <input type="month" id="inspectionUntil" class="avf-month" />
+    </div>
 
-      <div class="filter-button-wrapper">
-        <button class="more-filters-button" id="moreFiltersBtn">Weitere Filter</button>
-        <button class="filter-button" id="applyFiltersBtn">Anwenden</button>
-      </div>
-    </aside>
+    <div class="filter-button-wrapper">
+      <button class="more-filters-button" id="moreFiltersBtn">Weitere Filter</button>
+      <button class="filter-button" id="applyFiltersBtn">Anwenden</button>
+    </div>
+  </aside>
+
 
     <div class="results-container">
       <div class="sort-wrapper">

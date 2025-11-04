@@ -1550,3 +1550,126 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
 /* Fuel-Grid an das gleiche Raster anpassen (optional) */
 .fuel-type-grid{ display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap:10px; }
 @media(max-width:900px){ .fuel-type-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ===== Autovisa Filter – isoliertes Design ===== */
+:root{
+  --avf-bg:#f5f8fc;
+  --avf-card:#ffffff;
+  --avf-line:#e3e9ef;
+  --avf-text:#1a2a33;
+  --avf-muted:#6b7a86;
+  --avf-accent:#00b8a9;
+}
+
+.filter-sidebar .avf-title{
+  margin:0 0 .55rem;
+  font-weight:600;
+  color:var(--avf-text);
+}
+
+/* Inputs/Selects (optional modernisiert) */
+.filter-sidebar .avf-select,
+.filter-sidebar .avf-month{
+  width:100%;
+  border:1px solid var(--avf-line);
+  background:var(--avf-card);
+  color:var(--avf-text);
+  border-radius:12px;
+  padding:.6rem .8rem;
+}
+
+/* Grid für Checkbox-Kacheln (Kraftstoff/Fahrzeugtyp) */
+.filter-sidebar .avf-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap:.65rem;
+}
+
+/* Checkbox-Tile (neutral) */
+.filter-sidebar .avf-check-tile{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  gap:.55rem;
+  padding:.6rem .8rem;
+  border:1px solid var(--avf-line);
+  border-radius:14px;
+  background:var(--avf-card);
+  cursor:pointer;
+  user-select:none;
+  transition:border .2s, box-shadow .2s, transform .02s, background .2s;
+}
+.filter-sidebar .avf-check-tile:active{ transform:translateY(1px); }
+.filter-sidebar .avf-check-tile input{
+  position:absolute; inset:0; opacity:0; cursor:pointer;
+}
+.filter-sidebar .avf-check-tile .avf-label{ color:var(--avf-text); line-height:1.2; }
+
+/* aktiv */
+.filter-sidebar .avf-check-tile:has(input:checked){
+  border-color:var(--avf-accent);
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--avf-accent) 22%, transparent);
+}
+
+/* Farben – Grid + Chips */
+.filter-sidebar .avf-color-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap:.6rem;
+}
+.filter-sidebar .avf-color-tile{
+  position:relative;
+  display:flex; align-items:center; gap:.6rem;
+  padding:.55rem .8rem;
+  border:1px solid var(--avf-line);
+  border-radius:14px;
+  background:var(--avf-card);
+  cursor:pointer;
+  transition:border .2s, box-shadow .2s, transform .02s, background .2s;
+}
+.filter-sidebar .avf-color-tile:active{ transform:translateY(1px); }
+.filter-sidebar .avf-color-tile input{
+  position:absolute; inset:0; opacity:0; cursor:pointer;
+}
+.filter-sidebar .avf-color-tile .avf-swatch{
+  width:16px; height:16px; border-radius:50%;
+  background:var(--c, #ccc);
+  border:1px solid var(--b, rgba(0,0,0,.12));
+}
+.filter-sidebar .avf-color-tile .avf-label{ color:var(--avf-text); }
+
+.filter-sidebar .avf-color-tile:has(input:checked){
+  border-color:var(--avf-accent);
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--avf-accent) 22%, transparent);
+}
+
+/* Unfallfrei Row */
+.filter-sidebar .avf-switch{
+  display:flex; align-items:center; gap:.6rem;
+  padding:.55rem .8rem;
+  border:1px solid var(--avf-line);
+  border-radius:12px;
+  background:var(--avf-card);
+}
+.filter-sidebar .avf-switch input{ width:18px; height:18px; }
+
+/* Spacing – nur leicht, kollidiert nicht mit bestehendem Layout */
+.filter-sidebar .filter-group{ margin:1rem 0 1.2rem; }
+.filter-sidebar .range-inputs{ display:grid; grid-template-columns:1fr 1fr; gap:.6rem; }
+@media (max-width:520px){ .filter-sidebar .range-inputs{ grid-template-columns:1fr; } }
