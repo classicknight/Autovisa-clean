@@ -68,6 +68,28 @@ function fuelNiceLabel(token) {
   const t = String(token || "").toLowerCase();
   return FUEL_LABELS[t] || (t ? t[0].toUpperCase() + t.slice(1) : "");
 }
+// ---- Umweltplakette: Canon + Label ----
+function badgeCanon(raw) {
+  let s = String(raw || "")
+    .toLowerCase()
+    .trim()
+    .normalize("NFD").replace(/\p{Diacritic}/gu, "")
+    .replace(/\s+/g, "");
+  if (!s) return "";
+  if (s === "4" || /grun|gruen|green/.test(s)) return "4";
+  if (s === "3" || /gelb|yellow/.test(s))      return "3";
+  if (s === "2" || /rot|red/.test(s))          return "2";
+  const m = s.match(/\b([234])\b/);
+  return m ? m[1] : "";
+}
+function badgeNiceLabel(tok) {
+  switch (String(tok)) {
+    case "4": return "Umweltplakette: Grün";
+    case "3": return "Umweltplakette: Gelb";
+    case "2": return "Umweltplakette: Rot";
+    default:  return "";
+  }
+}
 
 // Antrieb → kanonischer Token
 function driveCanon(raw) {
@@ -154,6 +176,9 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
     partikelfilter: sp.get("partikelfilter"),
     scheckheft:     sp.get("scheckheft"),
     fahrtauglich:   sp.get("fahrtauglich"),
+
+    // Umweltplakette
+    umweltplakette: badgeCanon(sp.get("umweltplakette")),
   };
 
   // --- DOM Refs ---
@@ -164,13 +189,16 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   const priceToEl = document.getElementById("priceTo");
   const kmToEl    = document.getElementById("mileageTo");
 
-  const fuelEl    = document.getElementById("fuelType") || document.getElementById("fuel");
-  const gearEl    = document.getElementById("transmission") || document.getElementById("gear");
-  const driveEl   = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
+  const fuelEl  = document.getElementById("fuelType") || document.getElementById("fuel");
+  const gearEl  = document.getElementById("transmission") || document.getElementById("gear");
+  const driveEl = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
 
-  // (Fallbacks, falls irgendwo doch noch Selects existieren)
+  // (Fallbacks, falls irgendwo noch Selects existieren)
   const vehicleTypeSel = document.getElementById("vehicleType");
   const colorSel       = document.getElementById("color");
+
+  // Umweltplakette (Select-ID flexibel)
+  const badgeSel = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
 
   // EZ Felder
   const firstRegFromEl  = document.getElementById("firstRegFrom");
@@ -218,13 +246,19 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
     const hasHybridAny = set.has("hybrid"); // generisch -> beide Varianten anhaken
 
     document.querySelectorAll('input[name="kraftstoff"]').forEach(cb => {
-      const tok = fuelCanon(cb.value); // z. B. "hybrid-benzin", "hybrid-diesel", "diesel" ...
+      const tok = fuelCanon(cb.value);
       cb.checked = set.has(tok) || (hasHybridAny && tok.startsWith("hybrid-"));
     });
   })();
 
   // --- Getriebe (einfach) ---
-  if (gearEl && QP.getriebe) gearEl.value = QP.getriebe;
+  if (gearEl && QP.getriebe) {
+    const m = [...gearEl.options].find(o =>
+      String(o.value).toLowerCase() === QP.getriebe ||
+      String(o.text).toLowerCase()  === QP.getriebe
+    );
+    if (m) gearEl.value = m.value;
+  }
 
   // --- Antrieb: Select (erster) + Checkboxen (alle) ---
   if (QP.antrieb.length) {
@@ -247,7 +281,6 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
     document.querySelectorAll('input[name="fahrzeugtyp"]').forEach(cb => {
       cb.checked = set.has(String(cb.value || "").toLowerCase());
     });
-    // Fallback: falls noch <select id="vehicleType">
     if (vehicleTypeSel && vehicleTypeSel.tagName === "SELECT") {
       [...vehicleTypeSel.options].forEach(o => {
         o.selected = set.has(String(o.value || "").toLowerCase());
@@ -267,6 +300,23 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
       });
     }
   }
+
+  // --- Umweltplakette (Select + Radio/Checkboxen) ---
+  (function () {
+    const v = QP.umweltplakette; // "4" | "3" | "2" | ""
+    if (!v) return;
+
+    if (badgeSel && badgeSel.tagName === "SELECT") {
+      const opt = [...badgeSel.options].find(o =>
+        badgeCanon(o.value) === v || badgeCanon(o.text) === v
+      );
+      if (opt) badgeSel.value = opt.value;
+    }
+
+    document.querySelectorAll('input[name="umweltplakette"]').forEach(inp => {
+      inp.checked = badgeCanon(inp.value) === v;
+    });
+  })();
 
   // --- EZ Prefill ---
   if (firstRegFromEl && QP.ezFrom) firstRegFromEl.value = QP.ezFrom;
@@ -1554,7 +1604,20 @@ if (fuelSet.size) {
       document.querySelectorAll('input[name="tueren"]:checked').forEach(cb => s.add(String(cb.value || "").trim()));
       setOrDelete(params, "tueren", s.size ? [...s].join(",") : "");
     })();
-  
+  // Umweltplakette (ein Wert)
+(function () {
+  let val = "";
+  const checked = document.querySelector('input[name="umweltplakette"]:checked');
+  if (checked) val = badgeCanon(checked.value);
+
+  if (!val) {
+    const sel = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
+    if (sel) val = badgeCanon(sel.value);
+  }
+
+  setOrDelete(params, "umweltplakette", val);
+})();
+
     // Sortierung -> Serverparam
     const sortSelect = document.getElementById("sortBy");
     const mapSort = v => v === "price-asc" ? "preis_asc" : v === "price-desc" ? "preis_desc" : "neueste";
@@ -1605,6 +1668,8 @@ function renderActiveFilters() {
   const firstRegYearEl = document.getElementById("first-registration-year");
   const accidentFreeEl = document.getElementById("accidentFree");
   const inspectionEl   = document.getElementById("inspectionUntil");
+  const badgeSel = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
+
 
   const pad2 = (m) => String(m).padStart(2, "0");
   const toInt = (v) => {
@@ -1637,6 +1702,8 @@ function renderActiveFilters() {
     ps_min: sp.get("ps_min") || "",
     ps_max: sp.get("ps_max") || "",
     getriebe: (sp.get("getriebe") || "").toLowerCase(),
+    umweltplakette: badgeCanon(sp.get("umweltplakette")),
+
     // Mehrfach möglich:
     kraftstoff: splitCsv(sp.get("kraftstoff")).map(fuelCanon),
     antrieb: splitCsv(sp.get("antriebsart") || sp.get("antrieb")).map(driveCanon),
@@ -1661,6 +1728,9 @@ function renderActiveFilters() {
                    ? toInt(powerFromEl.value) : toInt(qp.ps_min);
   const psMaxEff = !isNaN(toInt(powerToEl?.value   ?? "")) && toInt(powerToEl?.value   ?? "") > 0
                    ? toInt(powerToEl.value)   : toInt(qp.ps_max);
+                   const badgeUI = document.querySelector('input[name="umweltplakette"]:checked');
+const badgeEff = badgeCanon(badgeUI?.value || badgeSel?.value || qp.umweltplakette);
+
 
   // Effektive Kraftstoffe (Mehrfach)
   let fuelList = uniq([
@@ -1742,6 +1812,7 @@ function renderActiveFilters() {
   if (qp.modellausfuehrung) chips.push({key:"modellausfuehrung", label:`Modellvariante: ${qp.modellausfuehrung}`});
   if (qp.fahrzeugtyp?.length) qp.fahrzeugtyp.forEach(t => chips.push({key:"fahrzeugtyp", value:t, label:`Fahrzeugtyp: ${t}`}));
 
+  if (badgeEff) chips.push({ key: "umweltplakette", value: badgeEff, label: badgeNiceLabel(badgeEff) });
 
 if (qp.farbe?.length)       qp.farbe.forEach(f => chips.push({key:"farbe",       value:f, label:`Farbe: ${f}`}));
 
@@ -1845,7 +1916,17 @@ function removeFilterChip(key, val = "") {
       else params.delete("kraftstoff");
       break;
     }
-
+    case "umweltplakette": {
+      // UI zurücksetzen
+      const sel = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
+      if (sel) sel.value = ""; // oder "Beliebig", falls du so ein Option-Label nutzt
+      document.querySelectorAll('input[name="umweltplakette"]').forEach(inp => inp.checked = false);
+    
+      // URL säubern
+      params.delete("umweltplakette");
+      break;
+    }
+    
     // Getriebe (einfach)
     case "gear": {
       if (mapEl.gear) mapEl.gear.value = "Beliebig";
@@ -1964,7 +2045,8 @@ function clearAllFilters() {
   [
     "marke","modell","modellausfuehrung","fahrzeugtyp","tueren",
     "ezFrom","ezTo",
-    "km_max","price_max","getriebe",
+    "km_max","price_max","getriebe","umweltplakette",
+
     // Mehrfach:
     "kraftstoff","antriebsart","antrieb",
     "ort","umkreis","sort","verbrauch_max",
@@ -1999,6 +2081,12 @@ function clearAllFilters() {
   const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
   if (fuelEl) fuelEl.value = "Beliebig";
   document.querySelectorAll('input[name="kraftstoff"]').forEach(cb => cb.checked = false);
+// Umweltplakette
+{
+  const sel = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
+  if (sel) sel.value = ""; // oder "Beliebig"
+  document.querySelectorAll('input[name="umweltplakette"]').forEach(inp => inp.checked = false);
+}
 
   // Getriebe
   const gearEl = document.getElementById("transmission") || document.getElementById("gear");
