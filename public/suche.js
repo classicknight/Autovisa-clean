@@ -1,10 +1,6 @@
 // suche.js — TEIL 1
 document.documentElement.classList.remove("no-js");
 
-// ❌ Kein globales QP mehr hier!
-// Die Query-Parameter werden später in `prefillFromQuery()` gelesen,
-// damit nichts vor den Utils initialisiert wird (Safari-TDZ-Fix).
-
 // ---------- Utils (einmalig) ----------
 const norm = (s) => String(s || "")
   .toLowerCase()
@@ -68,6 +64,7 @@ function fuelNiceLabel(token) {
   const t = String(token || "").toLowerCase();
   return FUEL_LABELS[t] || (t ? t[0].toUpperCase() + t.slice(1) : "");
 }
+
 // ---- Umweltplakette: Canon + Label ----
 function badgeCanon(raw) {
   let s = String(raw || "")
@@ -89,6 +86,46 @@ function badgeNiceLabel(tok) {
     case "2": return "Umweltplakette: Rot";
     default:  return "";
   }
+}
+
+// ---- Schadstoffklasse: Canon + Label ----
+function emissionCanon(raw) {
+  if (raw == null) return "";
+  // leicht robust gegen Groß-/Kleinschreibung, Leerzeichen, Sonderzeichen
+  let s = String(raw).toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+  s = s.replace(/\s+/g, "");
+  // explizite Spezialfälle zuerst
+  if (/6d[- ]?temp|6dtemp/.test(s) || /euro6d[- ]?temp/.test(s)) return "euro6d-temp";
+  if (/euro?6d(?!temp)|\b6d\b/.test(s)) return "euro6d";
+  if (/euro?6c|\b6c\b/.test(s)) return "euro6c";
+  if (/euro?6|\b6\b/.test(s)) return "euro6";
+  if (/euro?5|\b5\b/.test(s)) return "euro5";
+  if (/euro?4|\b4\b/.test(s)) return "euro4";
+  if (/euro?3|\b3\b/.test(s)) return "euro3";
+  if (/euro?2|\b2\b/.test(s)) return "euro2";
+  if (/euro?1|\b1\b/.test(s)) return "euro1";
+
+  // generischer Parser: "euro" + Ziffer + optional d/c + optional temp
+  const m = s.match(/euro?\s*(\d)\s*(d(?:-?temp)?)?|euro?\s*(\d)c/);
+  if (m) {
+    if (m[2]) { // d / d-temp
+      return `euro${m[1]}${m[2].includes("temp") ? "d-temp" : "d"}`;
+    }
+    if (m[3]) { // ...c
+      return `euro${m[3]}c`;
+    }
+  }
+  return "";
+}
+function emissionNiceLabel(tok) {
+  const t = String(tok || "").toLowerCase();
+  if (!t) return "";
+  if (t === "euro6d-temp") return "Schadstoffklasse: Euro 6d-TEMP";
+  if (t === "euro6d")      return "Schadstoffklasse: Euro 6d";
+  if (t === "euro6c")      return "Schadstoffklasse: Euro 6c";
+  const m = t.match(/^euro(\d)$/);
+  if (m) return `Schadstoffklasse: Euro ${m[1]}`;
+  return `Schadstoffklasse: ${t.replace(/^euro/,"Euro ").toUpperCase()}`;
 }
 
 // Antrieb → kanonischer Token
@@ -124,6 +161,7 @@ const replaceUrlParams = (params) => {
 
 const splitCsv = (v) => (v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : []);
 const uniq     = (arr) => [...new Set(arr)];
+
 
 // ---------- App ----------
 document.addEventListener("DOMContentLoaded", () => {
@@ -1462,8 +1500,7 @@ if (fuelSet.size) {
     const s = String(val).trim();
     if (s === "" || s === "Beliebig" || s === "-" || s === "any" || s === "alle" || s === "all") params.delete(key);
     else params.set(key, s);
-  }
-  function updateUrlFromUiAndReload() {
+  }function updateUrlFromUiAndReload() {
     const params = new URLSearchParams(window.location.search);
   
     const setOrDelete = (p, k, v) => {
@@ -1520,7 +1557,7 @@ if (fuelSet.size) {
     if (!Number.isNaN(pMax)  && pMax  > 0) params.set("price_max", String(pMax));  else params.delete("price_max");
     if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max",   String(kmMax)); else params.delete("km_max");
   
-    // Leistung (PS) – optional
+    // Leistung (PS)
     const psMin = parseInt(document.getElementById("powerFrom")?.value || "", 10);
     const psMax = parseInt(document.getElementById("powerTo")?.value   || "", 10);
     if (!Number.isNaN(psMin) && psMin > 0) params.set("ps_min", String(psMin)); else params.delete("ps_min");
@@ -1633,6 +1670,18 @@ if (fuelSet.size) {
       setOrDelete(params, "umweltplakette", val);
     })();
   
+    // *** Schadstoffklasse (ein Wert) ***
+    (function () {
+      let val = "";
+      const checked = document.querySelector('input[name="schadstoffklasse"]:checked, input[name="emission"]:checked');
+      if (checked) val = emissionCanon(checked.value);
+      if (!val) {
+        const sel = document.getElementById("schadstoffklasse") || document.getElementById("emission");
+        if (sel) val = emissionCanon(sel.value);
+      }
+      setOrDelete(params, "schadstoffklasse", val);
+    })();
+  
     // Sortierung -> Serverparam
     const sortSelect = document.getElementById("sortBy");
     const mapSort = v =>
@@ -1648,463 +1697,496 @@ if (fuelSet.size) {
     loadAndRender(1);
   }
   
-  
   // Falls noch nicht gebunden:
   document.getElementById("applyFiltersBtn")?.addEventListener("click", (e) => {
     e.preventDefault();
     updateUrlFromUiAndReload();
   });
   
-  sortBy?.addEventListener("change", () => {
+  document.getElementById("sortBy")?.addEventListener("change", () => {
     updateUrlFromUiAndReload();
   });
-
+  
   // ===== Init =====
   const initialPage = Math.max(parseInt(new URLSearchParams(window.location.search).get("page") || "1", 10), 1);
   loadAndRender(initialPage);
-});// ---- Aktive Filter (Chips) ----
-function renderActiveFilters() {
-  const bar = document.getElementById('activeFilterBar');
-  if (!bar) return;
-
-  const barWrap = document.getElementById('activeFilterWrap') || bar.parentElement;
-  const SHOW_NO_FILTER_PLACEHOLDER = false;
-
-  // Refs
-  const priceFromEl    = document.getElementById("priceFrom");
-  const priceToEl      = document.getElementById("priceTo");
-  const mileageFromEl  = document.getElementById("mileageFrom");
-  const mileageToEl    = document.getElementById("mileageTo");
-  const powerFromEl    = document.getElementById("powerFrom");
-  const powerToEl      = document.getElementById("powerTo");
-
-  const fuelEl         = document.getElementById("fuelType") || document.getElementById("fuel");
-  const gearEl         = document.getElementById("transmission") || document.getElementById("gear");
-  const driveEl        = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
-
-  const firstRegFromEl = document.getElementById("firstRegFrom");
-  const firstRegMonthEl= document.getElementById("first-registration-month");
-  const firstRegYearEl = document.getElementById("first-registration-year");
-  const accidentFreeEl = document.getElementById("accidentFree");
-  const inspectionEl   = document.getElementById("inspectionUntil");
-
-  const badgeSel       = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
-
-  const pad2 = (m) => String(m).padStart(2, "0");
-  const toInt = (v) => {
-    const n = parseInt(String(v ?? "").replace(/\./g,"").replace(",", "."), 10);
-    return Number.isFinite(n) ? n : NaN;
-  };
-  function parseYM(val, fallbackMonthIfYearOnly = null) {
-    if (!val) return "";
-    const s = String(val).trim();
-    let m = s.match(/^(\d{4})[-/.](\d{1,2})$/); if (m) return `${m[1]}-${pad2(m[2])}`;
-    m = s.match(/^(\d{1,2})[-/.](\d{4})$/);     if (m) return `${m[2]}-${pad2(m[1])}`;
-    m = s.match(/^(\d{4})$/);                   if (m) return fallbackMonthIfYearOnly ? `${m[1]}-${pad2(fallbackMonthIfYearOnly)}` : "";
-    if (/^\d{4}-\d{2}$/.test(s)) return s;
-    return "";
-  }
-  const fmtYM = (s) => /^\d{4}-\d{2}$/.test(s) ? `${s.slice(5,7)}/${s.slice(0,4)}` : s;
-
-  // URL-Params
-  const sp = new URLSearchParams(location.search);
-  const qp = {
-    marke: sp.get("marke") || "",
-    modell: (sp.get("modell") || "").split(",").filter(Boolean),
-    modellausfuehrung: sp.get("modellausfuehrung") || "",
-    fahrzeugtyp: (sp.get("fahrzeugtyp") || "").split(",").filter(Boolean),
-    tueren: (sp.get("tueren") || "").split(",").filter(Boolean),
-    ezFrom: sp.get("ezFrom") || "",
-    ezTo:   sp.get("ezTo")   || "",
-    km_max: sp.get("km_max") || "",
-    price_max: sp.get("price_max") || "",
-    ps_min: sp.get("ps_min") || "",
-    ps_max: sp.get("ps_max") || "",
-    getriebe: (sp.get("getriebe") || "").toLowerCase(),
-    kraftstoff: (sp.get("kraftstoff") || "").split(",").map(fuelCanon).filter(Boolean),
-    antrieb: (sp.get("antriebsart") || sp.get("antrieb") || "").split(",").map(driveCanon).filter(Boolean),
-
-    ort: sp.get("ort") || "",
-    umkreis: sp.get("umkreis") || "",
-    verbrauch_max: sp.get("verbrauch_max") || "",
-    partikelfilter: /^(1|true|ja|mit|yes)$/i.test(String(sp.get("partikelfilter") || "")),
-    scheckheft:     /^(1|true|ja|mit|yes)$/i.test(String(sp.get("scheckheft")     || "")),
-    fahrtauglich:   /^(1|true|ja|mit|yes)$/i.test(String(sp.get("fahrtauglich")   || "")),
-
-    // *** Umweltplakette aus URL ***
-    umweltplakette: badgeCanon(sp.get("umweltplakette"))
-  };
-
-  // Effektive Werte (UI > URL)
-  const priceMin = toInt(priceFromEl?.value ?? "");
-  const priceMax = !isNaN(toInt(priceToEl?.value ?? "")) && toInt(priceToEl?.value ?? "") > 0
-                   ? toInt(priceToEl.value) : toInt(qp.price_max);
-  const kmMin    = toInt(mileageFromEl?.value ?? "");
-  const kmMax    = !isNaN(toInt(mileageToEl?.value ?? "")) && toInt(mileageToEl?.value ?? "") > 0
-                   ? toInt(mileageToEl.value) : toInt(qp.km_max);
-  const psMinEff = !isNaN(toInt(powerFromEl?.value ?? "")) && toInt(powerFromEl?.value ?? "") > 0
-                   ? toInt(powerFromEl.value) : toInt(qp.ps_min);
-  const psMaxEff = !isNaN(toInt(powerToEl?.value   ?? "")) && toInt(powerToEl?.value   ?? "") > 0
-                   ? toInt(powerToEl.value)   : toInt(qp.ps_max);
-
-  // Kraftstoff (multi)
-  let fuelList = uniq([
-    ...(fuelEl && fuelEl.value && !/^(beliebig|any|alle|all|-)$/i.test(fuelEl.value) ? [fuelCanon(fuelEl.value)] : []),
-    ...[...document.querySelectorAll('input[name="kraftstoff"]:checked')].map(cb => fuelCanon(cb.value)),
-    ...qp.kraftstoff
-  ]).filter(Boolean);
-
-  // Getriebe
-  const effGear = (() => {
-    const ui = (gearEl?.value || "").trim();
-    if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return ui;
-    let v = (qp.getriebe || "").toLowerCase();
-    if (!v) return "";
-    if (/^schalt/.test(v)) v = "Schaltgetriebe";
-    else if (/^auto/.test(v)) v = "Automatik";
-    else v = v.charAt(0).toUpperCase() + v.slice(1);
-    return v;
-  })();
-
-  // Antrieb (multi)
-  let driveList = uniq([
-    ...(driveEl && driveEl.value && !/^(beliebig|any|alle|all|-)$/i.test(driveEl.value) ? [driveCanon(driveEl.value)] : []),
-    ...[...document.querySelectorAll('input[name="antrieb"]:checked')].map(cb => driveCanon(cb.value)),
-    ...qp.antrieb
-  ]).filter(Boolean);
-
-  // EZ/HU
-  const ezFromUIraw =
-    (firstRegFromEl?.value) ||
-    (firstRegYearEl?.value && firstRegMonthEl?.value ? `${firstRegYearEl.value}-${pad2(firstRegMonthEl.value)}` : "");
-  const ezFromEff = parseYM(ezFromUIraw || qp.ezFrom);
-  const ezToEff   = parseYM(qp.ezTo);
-  const huEff     = inspectionEl?.value || "";
-  const accFree   = !!accidentFreeEl?.checked;
-
-  // *** Umweltplakette – effektiv (UI > URL) ***
-  const badgeEff = (() => {
-    if (badgeSel && badgeCanon(badgeSel.value)) return badgeCanon(badgeSel.value);
-    const r = document.querySelector('input[name="umweltplakette"]:checked');
-    if (r && badgeCanon(r.value)) return badgeCanon(r.value);
-    return qp.umweltplakette || "";
-  })();
-
-  // Chips
-  const eur = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")} €`;
-  const int = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")}`;
-  const chips = [];
-
-  if (!isNaN(priceMin) && priceMin > 0) chips.push({key:"price_min", label:`Preis ab ${eur(priceMin)}`});
-  if (!isNaN(priceMax) && priceMax > 0) chips.push({key:"price_max", label:`Preis bis ${eur(priceMax)}`});
-  if (!isNaN(kmMin)    && kmMin  > 0)   chips.push({key:"km_min",    label:`KM ab ${int(kmMin)}`});
-  if (!isNaN(kmMax)    && kmMax  > 0)   chips.push({key:"km_max",    label:`KM bis ${int(kmMax)}`});
-  if (!isNaN(psMinEff) && psMinEff > 0) chips.push({key:"ps_min", label:`PS ab ${int(psMinEff)}`});
-  if (!isNaN(psMaxEff) && psMaxEff > 0) chips.push({key:"ps_max", label:`PS bis ${int(psMaxEff)}`});
-
-  fuelList.forEach(tok => chips.push({ key: "fuel", value: tok, label: `Kraftstoff: ${fuelNiceLabel(tok)}` }));
-  if (effGear) chips.push({ key: "gear", label: `Getriebe: ${effGear}` });
-  driveList.forEach(tok => chips.push({ key: "drive", value: tok, label: `Antrieb: ${driveNiceLabel(tok)}` }));
-
-  if (badgeEff) chips.push({ key: "umweltplakette", value: badgeEff, label: badgeNiceLabel(badgeEff) });
-
-  if (ezFromEff) chips.push({key:"ezFrom", label:`EZ ab ${fmtYM(ezFromEff)}`});
-  if (ezToEff)   chips.push({key:"ezTo",   label:`EZ bis ${fmtYM(ezToEff)}`});
-  if (accFree)   chips.push({key:"accidentFree", label:`Unfallfrei`});
-  if (huEff)     chips.push({key:"hu", label:`HU bis ${fmtYM(huEff)}`});
-
-  if (qp.marke) chips.push({key:"marke", label:`Marke: ${qp.marke}`});
-  if (qp.modell?.length) qp.modell.forEach(m => chips.push({key:"modell", value:m, label:`Modell: ${m}`}));
-  if (qp.modellausfuehrung) chips.push({key:"modellausfuehrung", label:`Modellvariante: ${qp.modellausfuehrung}`});
-  if (qp.fahrzeugtyp?.length) qp.fahrzeugtyp.forEach(t => chips.push({key:"fahrzeugtyp", value:t, label:`Fahrzeugtyp: ${t}`}));
-  if (qp.tueren?.length)      qp.tueren.forEach(n => chips.push({key:"tueren", value:n, label:`Türen: ${n}`}));
-
-  if (qp.ort)     chips.push({key:"ort",     label:`Ort: ${qp.ort}`});
-  if (qp.umkreis) chips.push({key:"umkreis", label:`Umkreis: ${qp.umkreis} km`});
-  if (qp.verbrauch_max) chips.push({key:"verbrauch_max", label:`Verbrauch ≤ ${String(qp.verbrauch_max).replace('.',',')} l/100km`});
-
-  if (qp.partikelfilter) chips.push({key:"partikelfilter", label:`Partikelfilter`});
-  if (qp.scheckheft)     chips.push({key:"scheckheft", label:`Scheckheftgepflegt`});
-  if (qp.fahrtauglich)   chips.push({key:"fahrtauglich", label:`Fahrtauglich`});
-
-  // Render
-  if (!chips.length) {
-    bar.textContent = "";
-    bar.classList.add("is-empty");
-    bar.removeAttribute("data-has-chips");
-    if (barWrap) barWrap.classList.add("no-chips");
-    return;
-  }
-
-  bar.classList.remove("is-empty");
-  bar.setAttribute("data-has-chips", "1");
-  if (barWrap) barWrap.classList.remove("no-chips");
-
-  bar.innerHTML = chips.map(c => `
-    <div class="filter-chip" data-key="${c.key}" ${c.value ? `data-value="${c.value}"` : ""}>
-      <span class="chip-label">${c.label}</span>
-      <button class="chip-remove" type="button" aria-label="Filter entfernen" title="Filter entfernen">
-        <i class="fas fa-times"></i>
-      </button>
-    </div>
-  `).join("") + `<button class="clear-all" type="button">Alle löschen</button>`;
-
-  bar.querySelectorAll(".filter-chip .chip-remove").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      const chip = e.currentTarget.closest(".filter-chip");
-      if (!chip) return;
-      const key = chip.getAttribute("data-key");
-      const val = chip.getAttribute("data-value") || "";
-      removeFilterChip(key, val);
-    });
-  });
-  bar.querySelector(".clear-all")?.addEventListener("click", () => clearAllFilters());
-}
-
-
-function removeFilterChip(key, val = "") {
-  const params = new URLSearchParams(window.location.search);
-
-  const mapEl = {
-    price_min:          document.getElementById("priceFrom"),
-    price_max:          document.getElementById("priceTo"),
-    km_min:             document.getElementById("mileageFrom"),
-    km_max:             document.getElementById("mileageTo"),
-    ps_min:             document.getElementById("powerFrom"),
-    ps_max:             document.getElementById("powerTo"),
-    ezFrom:             document.getElementById("firstRegFrom"),
-    hu:                 document.getElementById("inspectionUntil"),
-    fuel:               document.getElementById("fuelType") || document.getElementById("fuel"),
-    gear:               document.getElementById("transmission") || document.getElementById("gear"),
-    drive:              document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb"),
-    accidentFree:       document.getElementById("accidentFree"),
-    modellausfuehrung:  document.getElementById("modellausfuehrung"),
-    umweltplakette:     document.getElementById("umweltplakette") || document.getElementById("umwelt-badge")
-  };
-
-  switch (key) {
-    // UI-only Min-Werte
-    case "price_min": if (mapEl.price_min) mapEl.price_min.value = ""; return updateUrlFromUiAndReload();
-    case "km_min":    if (mapEl.km_min)    mapEl.km_min.value    = ""; return updateUrlFromUiAndReload();
-    case "ps_min":    if (mapEl.ps_min)    mapEl.ps_min.value    = ""; return updateUrlFromUiAndReload();
-
-    // Max-Werte (entfernen wir aus URL direkt)
-    case "price_max": if (mapEl.price_max) mapEl.price_max.value = ""; params.delete("price_max"); break;
-    case "km_max":    if (mapEl.km_max)    mapEl.km_max.value    = ""; params.delete("km_max");    break;
-    case "ps_max":    if (mapEl.ps_max)    mapEl.ps_max.value    = ""; params.delete("ps_max");    break;
-
-    // EZ / HU
-    case "ezFrom":    if (mapEl.ezFrom) mapEl.ezFrom.value = ""; params.delete("ezFrom"); break;
-    case "ezTo":      params.delete("ezTo"); break;
-    case "hu":        if (mapEl.hu) mapEl.hu.value = ""; /* kein URL-Param für HU */ break;
-
-    // Mehrfach: Kraftstoff (CSV) – einzelnes Token entfernen
-    case "fuel": {
-      document.querySelectorAll('input[name="kraftstoff"]').forEach(cb => {
-        if (fuelCanon(cb.value) === val) cb.checked = false;
-      });
-      if (mapEl.fuel && fuelCanon(mapEl.fuel.value) === val) mapEl.fuel.value = "Beliebig";
-
-      const list = splitCsv(params.get("kraftstoff")).map(fuelCanon).filter(Boolean);
-      const next = list.filter(x => x !== val);
-      if (next.length) params.set("kraftstoff", next.join(","));
-      else params.delete("kraftstoff");
-      break;
+  
+  
+  // ---- Aktive Filter (Chips) ----
+  function renderActiveFilters() {
+    const bar = document.getElementById('activeFilterBar');
+    if (!bar) return;
+  
+    const barWrap = document.getElementById('activeFilterWrap') || bar.parentElement;
+    const SHOW_NO_FILTER_PLACEHOLDER = false;
+  
+    // Refs
+    const priceFromEl    = document.getElementById("priceFrom");
+    const priceToEl      = document.getElementById("priceTo");
+    const mileageFromEl  = document.getElementById("mileageFrom");
+    const mileageToEl    = document.getElementById("mileageTo");
+    const powerFromEl    = document.getElementById("powerFrom");
+    const powerToEl      = document.getElementById("powerTo");
+  
+    const fuelEl         = document.getElementById("fuelType") || document.getElementById("fuel");
+    const gearEl         = document.getElementById("transmission") || document.getElementById("gear");
+    const driveEl        = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
+  
+    const firstRegFromEl = document.getElementById("firstRegFrom");
+    const firstRegMonthEl= document.getElementById("first-registration-month");
+    const firstRegYearEl = document.getElementById("first-registration-year");
+    const accidentFreeEl = document.getElementById("accidentFree");
+    const inspectionEl   = document.getElementById("inspectionUntil");
+  
+    const badgeSel       = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
+    const emissionSel    = document.getElementById("schadstoffklasse") || document.getElementById("emission");
+  
+    const pad2 = (m) => String(m).padStart(2, "0");
+    const toInt = (v) => {
+      const n = parseInt(String(v ?? "").replace(/\./g,"").replace(",", "."), 10);
+      return Number.isFinite(n) ? n : NaN;
+    };
+    function parseYM_local(val, fallbackMonthIfYearOnly = null) {
+      if (!val) return "";
+      const s = String(val).trim();
+      let m = s.match(/^(\d{4})[-/.](\d{1,2})$/); if (m) return `${m[1]}-${pad2(m[2])}`;
+      m = s.match(/^(\d{1,2})[-/.](\d{4})$/);     if (m) return `${m[2]}-${pad2(m[1])}`;
+      m = s.match(/^(\d{4})$/);                   if (m) return fallbackMonthIfYearOnly ? `${m[1]}-${pad2(fallbackMonthIfYearOnly)}` : "";
+      if (/^\d{4}-\d{2}$/.test(s)) return s;
+      return "";
     }
-
-    // Umweltplakette (einfach)
-    case "umweltplakette": {
-      if (mapEl.umweltplakette) {
-        // falls Select: auf leer / Beliebig
-        if ("value" in mapEl.umweltplakette) mapEl.umweltplakette.value = "";
+    const fmtYM = (s) => /^\d{4}-\d{2}$/.test(s) ? `${s.slice(5,7)}/${s.slice(0,4)}` : s;
+  
+    // URL-Params
+    const sp = new URLSearchParams(location.search);
+    const qp = {
+      marke: sp.get("marke") || "",
+      modell: (sp.get("modell") || "").split(",").filter(Boolean),
+      modellausfuehrung: sp.get("modellausfuehrung") || "",
+      fahrzeugtyp: (sp.get("fahrzeugtyp") || "").split(",").filter(Boolean),
+      tueren: (sp.get("tueren") || "").split(",").filter(Boolean),
+      ezFrom: sp.get("ezFrom") || "",
+      ezTo:   sp.get("ezTo")   || "",
+      km_max: sp.get("km_max") || "",
+      price_max: sp.get("price_max") || "",
+      ps_min: sp.get("ps_min") || "",
+      ps_max: sp.get("ps_max") || "",
+      getriebe: (sp.get("getriebe") || "").toLowerCase(),
+      kraftstoff: (sp.get("kraftstoff") || "").split(",").map(fuelCanon).filter(Boolean),
+      antrieb: (sp.get("antriebsart") || sp.get("antrieb") || "").split(",").map(driveCanon).filter(Boolean),
+  
+      ort: sp.get("ort") || "",
+      umkreis: sp.get("umkreis") || "",
+      verbrauch_max: sp.get("verbrauch_max") || "",
+      partikelfilter: /^(1|true|ja|mit|yes)$/i.test(String(sp.get("partikelfilter") || "")),
+      scheckheft:     /^(1|true|ja|mit|yes)$/i.test(String(sp.get("scheckheft")     || "")),
+      fahrtauglich:   /^(1|true|ja|mit|yes)$/i.test(String(sp.get("fahrtauglich")   || "")),
+  
+      // Umweltplakette + Schadstoffklasse aus URL
+      umweltplakette:  badgeCanon(sp.get("umweltplakette")),
+      schadstoffklasse: emissionCanon(sp.get("schadstoffklasse"))
+    };
+  
+    // Effektive Werte (UI > URL)
+    const priceMin = toInt(priceFromEl?.value ?? "");
+    const priceMax = !isNaN(toInt(priceToEl?.value ?? "")) && toInt(priceToEl?.value ?? "") > 0
+                     ? toInt(priceToEl.value) : toInt(qp.price_max);
+    const kmMin    = toInt(mileageFromEl?.value ?? "");
+    const kmMax    = !isNaN(toInt(mileageToEl?.value ?? "")) && toInt(mileageToEl?.value ?? "") > 0
+                     ? toInt(mileageToEl.value) : toInt(qp.km_max);
+    const psMinEff = !isNaN(toInt(powerFromEl?.value ?? "")) && toInt(powerFromEl?.value ?? "") > 0
+                     ? toInt(powerFromEl.value) : toInt(qp.ps_min);
+    const psMaxEff = !isNaN(toInt(powerToEl?.value   ?? "")) && toInt(powerToEl?.value   ?? "") > 0
+                     ? toInt(powerToEl.value)   : toInt(qp.ps_max);
+  
+    // Kraftstoff (multi)
+    let fuelList = uniq([
+      ...(fuelEl && fuelEl.value && !/^(beliebig|any|alle|all|-)$/i.test(fuelEl.value) ? [fuelCanon(fuelEl.value)] : []),
+      ...[...document.querySelectorAll('input[name="kraftstoff"]:checked')].map(cb => fuelCanon(cb.value)),
+      ...qp.kraftstoff
+    ]).filter(Boolean);
+  
+    // Getriebe
+    const effGear = (() => {
+      const ui = (gearEl?.value || "").trim();
+      if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return ui;
+      let v = (qp.getriebe || "").toLowerCase();
+      if (!v) return "";
+      if (/^schalt/.test(v)) v = "Schaltgetriebe";
+      else if (/^auto/.test(v)) v = "Automatik";
+      else v = v.charAt(0).toUpperCase() + v.slice(1);
+      return v;
+    })();
+  
+    // Antrieb (multi)
+    let driveList = uniq([
+      ...(driveEl && driveEl.value && !/^(beliebig|any|alle|all|-)$/i.test(driveEl.value) ? [driveCanon(driveEl.value)] : []),
+      ...[...document.querySelectorAll('input[name="antrieb"]:checked')].map(cb => driveCanon(cb.value)),
+      ...qp.antrieb
+    ]).filter(Boolean);
+  
+    // EZ/HU
+    const ezFromUIraw =
+      (firstRegFromEl?.value) ||
+      (firstRegYearEl?.value && firstRegMonthEl?.value ? `${firstRegYearEl.value}-${pad2(firstRegMonthEl.value)}` : "");
+    const ezFromEff = parseYM_local(ezFromUIraw || qp.ezFrom);
+    const ezToEff   = parseYM_local(qp.ezTo);
+    const huEff     = inspectionEl?.value || "";
+    const accFree   = !!accidentFreeEl?.checked;
+  
+    // Umweltplakette – effektiv (UI > URL)
+    const badgeEff = (() => {
+      if (badgeSel && badgeCanon(badgeSel.value)) return badgeCanon(badgeSel.value);
+      const r = document.querySelector('input[name="umweltplakette"]:checked');
+      if (r && badgeCanon(r.value)) return badgeCanon(r.value);
+      return qp.umweltplakette || "";
+    })();
+  
+    // *** Schadstoffklasse – effektiv (UI > URL) ***
+    const emissionEff = (() => {
+      const r = document.querySelector('input[name="schadstoffklasse"]:checked, input[name="emission"]:checked');
+      if (r && emissionCanon(r.value)) return emissionCanon(r.value);
+      if (emissionSel && emissionCanon(emissionSel.value)) return emissionCanon(emissionSel.value);
+      return qp.schadstoffklasse || "";
+    })();
+  
+    // Chips
+    const eur = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")} €`;
+    const int = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")}`;
+    const chips = [];
+  
+    if (!isNaN(priceMin) && priceMin > 0) chips.push({key:"price_min", label:`Preis ab ${eur(priceMin)}`});
+    if (!isNaN(priceMax) && priceMax > 0) chips.push({key:"price_max", label:`Preis bis ${eur(priceMax)}`});
+    if (!isNaN(kmMin)    && kmMin  > 0)   chips.push({key:"km_min",    label:`KM ab ${int(kmMin)}`});
+    if (!isNaN(kmMax)    && kmMax  > 0)   chips.push({key:"km_max",    label:`KM bis ${int(kmMax)}`});
+    if (!isNaN(psMinEff) && psMinEff > 0) chips.push({key:"ps_min", label:`PS ab ${int(psMinEff)}`});
+    if (!isNaN(psMaxEff) && psMaxEff > 0) chips.push({key:"ps_max", label:`PS bis ${int(psMaxEff)}`});
+  
+    fuelList.forEach(tok => chips.push({ key: "fuel", value: tok, label: `Kraftstoff: ${fuelNiceLabel(tok)}` }));
+    if (effGear) chips.push({ key: "gear", label: `Getriebe: ${effGear}` });
+    driveList.forEach(tok => chips.push({ key: "drive", value: tok, label: `Antrieb: ${driveNiceLabel(tok)}` }));
+  
+    if (badgeEff)    chips.push({ key: "umweltplakette",   value: badgeEff,    label: badgeNiceLabel(badgeEff) });
+    if (emissionEff) chips.push({ key: "schadstoffklasse", value: emissionEff, label: emissionNiceLabel(emissionEff) });
+  
+    if (ezFromEff) chips.push({key:"ezFrom", label:`EZ ab ${fmtYM(ezFromEff)}`});
+    if (ezToEff)   chips.push({key:"ezTo",   label:`EZ bis ${fmtYM(ezToEff)}`});
+    if (accFree)   chips.push({key:"accidentFree", label:`Unfallfrei`});
+    if (huEff)     chips.push({key:"hu", label:`HU bis ${fmtYM(huEff)}`});
+  
+    if (qp.marke) chips.push({key:"marke", label:`Marke: ${qp.marke}`});
+    if (qp.modell?.length) qp.modell.forEach(m => chips.push({key:"modell", value:m, label:`Modell: ${m}`}));
+    if (qp.modellausfuehrung) chips.push({key:"modellausfuehrung", label:`Modellvariante: ${qp.modellausfuehrung}`});
+    if (qp.fahrzeugtyp?.length) qp.fahrzeugtyp.forEach(t => chips.push({key:"fahrzeugtyp", value:t, label:`Fahrzeugtyp: ${t}`}));
+    if (qp.tueren?.length)      qp.tueren.forEach(n => chips.push({key:"tueren", value:n, label:`Türen: ${n}`}));
+  
+    if (qp.ort)     chips.push({key:"ort",     label:`Ort: ${qp.ort}`});
+    if (qp.umkreis) chips.push({key:"umkreis", label:`Umkreis: ${qp.umkreis} km`});
+    if (qp.verbrauch_max) chips.push({key:"verbrauch_max", label:`Verbrauch ≤ ${String(qp.verbrauch_max).replace('.',',')} l/100km`});
+  
+    if (qp.partikelfilter) chips.push({key:"partikelfilter", label:`Partikelfilter`});
+    if (qp.scheckheft)     chips.push({key:"scheckheft", label:`Scheckheftgepflegt`});
+    if (qp.fahrtauglich)   chips.push({key:"fahrtauglich", label:`Fahrtauglich`});
+  
+    // Render
+    if (!chips.length) {
+      bar.textContent = "";
+      bar.classList.add("is-empty");
+      bar.removeAttribute("data-has-chips");
+      if (barWrap) barWrap.classList.add("no-chips");
+      return;
+    }
+  
+    bar.classList.remove("is-empty");
+    bar.setAttribute("data-has-chips", "1");
+    if (barWrap) barWrap.classList.remove("no-chips");
+  
+    bar.innerHTML = chips.map(c => `
+      <div class="filter-chip" data-key="${c.key}" ${c.value ? `data-value="${c.value}"` : ""}>
+        <span class="chip-label">${c.label}</span>
+        <button class="chip-remove" type="button" aria-label="Filter entfernen" title="Filter entfernen">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    `).join("") + `<button class="clear-all" type="button">Alle löschen</button>`;
+  
+    bar.querySelectorAll(".filter-chip .chip-remove").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const chip = e.currentTarget.closest(".filter-chip");
+        if (!chip) return;
+        const key = chip.getAttribute("data-key");
+        const val = chip.getAttribute("data-value") || "";
+        removeFilterChip(key, val);
+      });
+    });
+    bar.querySelector(".clear-all")?.addEventListener("click", () => clearAllFilters());
+  }
+  
+  
+  function removeFilterChip(key, val = "") {
+    const params = new URLSearchParams(window.location.search);
+  
+    const mapEl = {
+      price_min:          document.getElementById("priceFrom"),
+      price_max:          document.getElementById("priceTo"),
+      km_min:             document.getElementById("mileageFrom"),
+      km_max:             document.getElementById("mileageTo"),
+      ps_min:             document.getElementById("powerFrom"),
+      ps_max:             document.getElementById("powerTo"),
+      ezFrom:             document.getElementById("firstRegFrom"),
+      hu:                 document.getElementById("inspectionUntil"),
+      fuel:               document.getElementById("fuelType") || document.getElementById("fuel"),
+      gear:               document.getElementById("transmission") || document.getElementById("gear"),
+      drive:              document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb"),
+      accidentFree:       document.getElementById("accidentFree"),
+      modellausfuehrung:  document.getElementById("modellausfuehrung"),
+      umweltplakette:     document.getElementById("umweltplakette") || document.getElementById("umwelt-badge"),
+      schadstoffklasse:   document.getElementById("schadstoffklasse") || document.getElementById("emission")
+    };
+  
+    switch (key) {
+      // UI-only Min-Werte
+      case "price_min": if (mapEl.price_min) mapEl.price_min.value = ""; return updateUrlFromUiAndReload();
+      case "km_min":    if (mapEl.km_min)    mapEl.km_min.value    = ""; return updateUrlFromUiAndReload();
+      case "ps_min":    if (mapEl.ps_min)    mapEl.ps_min.value    = ""; return updateUrlFromUiAndReload();
+  
+      // Max-Werte (direkt via URL)
+      case "price_max": if (mapEl.price_max) mapEl.price_max.value = ""; params.delete("price_max"); break;
+      case "km_max":    if (mapEl.km_max)    mapEl.km_max.value    = ""; params.delete("km_max");    break;
+      case "ps_max":    if (mapEl.ps_max)    mapEl.ps_max.value    = ""; params.delete("ps_max");    break;
+  
+      // EZ / HU
+      case "ezFrom":    if (mapEl.ezFrom) mapEl.ezFrom.value = ""; params.delete("ezFrom"); break;
+      case "ezTo":      params.delete("ezTo"); break;
+      case "hu":        if (mapEl.hu) mapEl.hu.value = ""; /* kein URL-Param für HU */ break;
+  
+      // Mehrfach: Kraftstoff (CSV)
+      case "fuel": {
+        document.querySelectorAll('input[name="kraftstoff"]').forEach(cb => {
+          if (fuelCanon(cb.value) === val) cb.checked = false;
+        });
+        if (mapEl.fuel && fuelCanon(mapEl.fuel.value) === val) mapEl.fuel.value = "Beliebig";
+  
+        const list = splitCsv(params.get("kraftstoff")).map(fuelCanon).filter(Boolean);
+        const next = list.filter(x => x !== val);
+        if (next.length) params.set("kraftstoff", next.join(","));
+        else params.delete("kraftstoff");
+        break;
       }
+  
+      // Umweltplakette (einfach)
+      case "umweltplakette": {
+        if (mapEl.umweltplakette) {
+          if ("value" in mapEl.umweltplakette) mapEl.umweltplakette.value = "";
+        }
+        document.querySelectorAll('input[name="umweltplakette"]').forEach(inp => inp.checked = false);
+        params.delete("umweltplakette");
+        break;
+      }
+  
+      // *** Schadstoffklasse (einfach) ***
+      case "schadstoffklasse": {
+        if (mapEl.schadstoffklasse) {
+          if ("value" in mapEl.schadstoffklasse) mapEl.schadstoffklasse.value = "";
+        }
+        document.querySelectorAll('input[name="schadstoffklasse"], input[name="emission"]').forEach(inp => inp.checked = false);
+        params.delete("schadstoffklasse");
+        break;
+      }
+  
+      // Getriebe (einfach)
+      case "gear": {
+        if (mapEl.gear) mapEl.gear.value = "Beliebig";
+        document
+          .querySelectorAll('.search-group input[type="checkbox"][value="Automatik"], .search-group input[type="checkbox"][value="Schaltgetriebe"]')
+          .forEach(cb => cb.checked = false);
+        params.delete("getriebe");
+        break;
+      }
+  
+      // Mehrfach: Antrieb (CSV)
+      case "drive": {
+        document.querySelectorAll('input[name="antrieb"]').forEach(cb => {
+          if (driveCanon(cb.value) === val) cb.checked = false;
+        });
+        if (mapEl.drive && driveCanon(mapEl.drive.value) === val) mapEl.drive.value = "Beliebig";
+  
+        const list = splitCsv(params.get("antriebsart") || params.get("antrieb")).map(driveCanon).filter(Boolean);
+        const next = list.filter(x => x !== val);
+        if (next.length) params.set("antriebsart", next.join(","));
+        else { params.delete("antriebsart"); params.delete("antrieb"); }
+        break;
+      }
+  
+      case "accidentFree": if (mapEl.accidentFree) mapEl.accidentFree.checked = false; break;
+  
+      case "marke": params.delete("marke"); break;
+  
+      case "modell": {
+        const list = splitCsv(params.get("modell"));
+        const next = list.filter(m => m.toLowerCase() !== String(val || "").toLowerCase());
+        if (next.length) params.set("modell", next.join(","));
+        else params.delete("modell");
+        break;
+      }
+  
+      case "modellausfuehrung":
+        if (mapEl.modellausfuehrung) mapEl.modellausfuehrung.value = "";
+        params.delete("modellausfuehrung");
+        break;
+  
+      case "fahrzeugtyp": {
+        const list = splitCsv(params.get("fahrzeugtyp"));
+        const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
+        if (next.length) params.set("fahrzeugtyp", next.join(","));
+        else params.delete("fahrzeugtyp");
+  
+        const typeEl     = document.getElementById("fahrzeugtyp");
+        const typeChecks = document.querySelectorAll('input[name="fahrzeugtyp"]');
+        if (typeEl && typeEl.tagName === "SELECT") {
+          [...typeEl.options].forEach(o => {
+            if ((o.value || "").toLowerCase() === String(val).toLowerCase()) o.selected = false;
+          });
+        }
+        if (typeChecks && typeChecks.length) {
+          [...typeChecks].forEach(cb => {
+            if ((cb.value || "").toLowerCase() === String(val).toLowerCase()) cb.checked = false;
+          });
+        }
+        break;
+      }
+  
+      case "tueren": {
+        const list = splitCsv(params.get("tueren"));
+        const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
+        if (next.length) params.set("tueren", next.join(","));
+        else params.delete("tueren");
+  
+        const doorsEl     = document.getElementById("tueren");
+        const doorsChecks = document.querySelectorAll('input[name="tueren"]');
+        if (doorsEl && doorsEl.tagName === "SELECT") {
+          [...doorsEl.options].forEach(o => {
+            if ((o.value || "").toLowerCase() === String(val).toLowerCase()) o.selected = false;
+          });
+        } else if (doorsEl && typeof doorsEl.value === "string") {
+          if (doorsEl.value.toLowerCase() === String(val).toLowerCase()) doorsEl.value = "";
+        }
+        if (doorsChecks && doorsChecks.length) {
+          [...doorsChecks].forEach(cb => {
+            if ((cb.value || "").toLowerCase() === String(val).toLowerCase()) cb.checked = false;
+          });
+        }
+        break;
+      }
+  
+      case "farbe": {
+        const list = splitCsv(params.get("farbe"));
+        const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
+        if (next.length) params.set("farbe", next.join(","));
+        else params.delete("farbe");
+  
+        document.querySelectorAll('input[name="farbe"]').forEach(cb => {
+          if ((cb.value || "").toLowerCase() === String(val).toLowerCase()) cb.checked = false;
+        });
+        break;
+      }
+  
+      case "ort":            params.delete("ort"); break;
+      case "umkreis":        params.delete("umkreis"); break;
+      case "verbrauch_max":  params.delete("verbrauch_max"); break;
+      case "partikelfilter": params.delete("partikelfilter"); break;
+      case "scheckheft":     params.delete("scheckheft"); break;
+      case "fahrtauglich":   params.delete("fahrtauglich"); break;
+  
+      default: break;
+    }
+  
+    params.delete("page");
+    history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
+    loadAndRender(1);
+  }
+  
+  function clearAllFilters() {
+    const params = new URLSearchParams(window.location.search);
+  
+    [
+      "marke","modell","modellausfuehrung","fahrzeugtyp","tueren",
+      "ezFrom","ezTo",
+      "km_max","price_max","ps_min","ps_max","getriebe",
+      "umweltplakette","schadstoffklasse",      // <— beide explizit löschen
+      // Mehrfach:
+      "kraftstoff","antriebsart","antrieb",
+      "ort","umkreis","sort","verbrauch_max",
+      "partikelfilter","scheckheft","fahrtauglich",
+      "farbe"
+    ].forEach(k => params.delete(k));
+  
+    params.delete("page");
+  
+    // UI-Felder leeren
+    ["priceFrom","priceTo","mileageFrom","mileageTo","powerFrom","powerTo","firstRegFrom","inspectionUntil","modellausfuehrung"]
+      .forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+      });
+  
+    // Fahrzeugtyp
+    const typeEl = document.getElementById("fahrzeugtyp");
+    if (typeEl) {
+      if (typeEl.tagName === "SELECT") [...typeEl.options].forEach(o => o.selected = false);
+      else typeEl.value = "";
+    }
+    document.querySelectorAll('input[name="fahrzeugtyp"]').forEach(cb => cb.checked = false);
+  
+    // Türen
+    const doorsEl = document.getElementById("tueren");
+    if (doorsEl) {
+      if (doorsEl.tagName === "SELECT") [...doorsEl.options].forEach(o => o.selected = false);
+      else doorsEl.value = "";
+    }
+    document.querySelectorAll('input[name="tueren"]').forEach(cb => cb.checked = false);
+  
+    // Farben
+    document.querySelectorAll('input[name="farbe"]').forEach(cb => cb.checked = false);
+  
+    // Kraftstoff
+    const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
+    if (fuelEl) fuelEl.value = "Beliebig";
+    document.querySelectorAll('input[name="kraftstoff"]').forEach(cb => cb.checked = false);
+  
+    // Umweltplakette
+    {
+      const sel = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
+      if (sel) sel.value = ""; // oder "Beliebig"
       document.querySelectorAll('input[name="umweltplakette"]').forEach(inp => inp.checked = false);
-      params.delete("umweltplakette");
-      break;
     }
-
-    // Getriebe (einfach)
-    case "gear": {
-      if (mapEl.gear) mapEl.gear.value = "Beliebig";
-      document
-        .querySelectorAll('.search-group input[type="checkbox"][value="Automatik"], .search-group input[type="checkbox"][value="Schaltgetriebe"]')
-        .forEach(cb => cb.checked = false);
-      params.delete("getriebe");
-      break;
+  
+    // Schadstoffklasse
+    {
+      const sel = document.getElementById("schadstoffklasse") || document.getElementById("emission");
+      if (sel) sel.value = ""; // oder "Beliebig"
+      document.querySelectorAll('input[name="schadstoffklasse"], input[name="emission"]').forEach(inp => inp.checked = false);
     }
+  
+    // Getriebe
+    const gearEl = document.getElementById("transmission") || document.getElementById("gear");
+    if (gearEl) gearEl.value = "Beliebig";
+    document
+      .querySelectorAll('.search-group input[type="checkbox"][value="Automatik"], .search-group input[type="checkbox"][value="Schaltgetriebe"]')
+      .forEach(cb => cb.checked = false);
+  
+    // Antrieb
+    const driveEl = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
+    if (driveEl) driveEl.value = "Beliebig";
+    document.querySelectorAll('input[name="antrieb"]').forEach(cb => cb.checked = false);
+  
+    // Unfallfrei
+    const accEl = document.getElementById("accidentFree");
+    if (accEl) accEl.checked = false;
+  
+    history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
+    loadAndRender(1);
+  
 
-    // Mehrfach: Antrieb (CSV) – einzelnes Token entfernen
-    case "drive": {
-      document.querySelectorAll('input[name="antrieb"]').forEach(cb => {
-        if (driveCanon(cb.value) === val) cb.checked = false;
-      });
-      if (mapEl.drive && driveCanon(mapEl.drive.value) === val) mapEl.drive.value = "Beliebig";
-
-      const list = splitCsv(params.get("antriebsart") || params.get("antrieb")).map(driveCanon).filter(Boolean);
-      const next = list.filter(x => x !== val);
-      if (next.length) params.set("antriebsart", next.join(","));
-      else { params.delete("antriebsart"); params.delete("antrieb"); }
-      break;
-    }
-
-    case "accidentFree": if (mapEl.accidentFree) mapEl.accidentFree.checked = false; break;
-
-    case "marke": params.delete("marke"); break;
-
-    case "modell": {
-      const list = splitCsv(params.get("modell"));
-      const next = list.filter(m => m.toLowerCase() !== String(val || "").toLowerCase());
-      if (next.length) params.set("modell", next.join(","));
-      else params.delete("modell");
-      break;
-    }
-
-    case "modellausfuehrung":
-      if (mapEl.modellausfuehrung) mapEl.modellausfuehrung.value = "";
-      params.delete("modellausfuehrung");
-      break;
-
-    case "fahrzeugtyp": {
-      const list = splitCsv(params.get("fahrzeugtyp"));
-      const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
-      if (next.length) params.set("fahrzeugtyp", next.join(","));
-      else params.delete("fahrzeugtyp");
-
-      const typeEl     = document.getElementById("fahrzeugtyp"); // evtl. alter Select
-      const typeChecks = document.querySelectorAll('input[name="fahrzeugtyp"]');
-      if (typeEl && typeEl.tagName === "SELECT") {
-        [...typeEl.options].forEach(o => {
-          if ((o.value || "").toLowerCase() === String(val).toLowerCase()) o.selected = false;
-        });
-      }
-      if (typeChecks && typeChecks.length) {
-        [...typeChecks].forEach(cb => {
-          if ((cb.value || "").toLowerCase() === String(val).toLowerCase()) cb.checked = false;
-        });
-      }
-      break;
-    }
-
-    case "tueren": {
-      const list = splitCsv(params.get("tueren"));
-      const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
-      if (next.length) params.set("tueren", next.join(","));
-      else params.delete("tueren");
-
-      const doorsEl     = document.getElementById("tueren"); // evtl. alter Select
-      const doorsChecks = document.querySelectorAll('input[name="tueren"]');
-      if (doorsEl && doorsEl.tagName === "SELECT") {
-        [...doorsEl.options].forEach(o => {
-          if ((o.value || "").toLowerCase() === String(val).toLowerCase()) o.selected = false;
-        });
-      } else if (doorsEl && typeof doorsEl.value === "string") {
-        if (doorsEl.value.toLowerCase() === String(val).toLowerCase()) doorsEl.value = "";
-      }
-      if (doorsChecks && doorsChecks.length) {
-        [...doorsChecks].forEach(cb => {
-          if ((cb.value || "").toLowerCase() === String(val).toLowerCase()) cb.checked = false;
-        });
-      }
-      break;
-    }
-
-    case "farbe": {
-      const list = splitCsv(params.get("farbe"));
-      const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
-      if (next.length) params.set("farbe", next.join(","));
-      else params.delete("farbe");
-
-      document.querySelectorAll('input[name="farbe"]').forEach(cb => {
-        if ((cb.value || "").toLowerCase() === String(val).toLowerCase()) cb.checked = false;
-      });
-      break;
-    }
-
-    case "ort":            params.delete("ort"); break;
-    case "umkreis":        params.delete("umkreis"); break;
-    case "verbrauch_max":  params.delete("verbrauch_max"); break;
-    case "partikelfilter": params.delete("partikelfilter"); break;
-    case "scheckheft":     params.delete("scheckheft"); break;
-    case "fahrtauglich":   params.delete("fahrtauglich"); break;
-
-    default: break;
-  }
-
-  params.delete("page");
-  history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
-  loadAndRender(1);
 }
-
-function clearAllFilters() {
-  const params = new URLSearchParams(window.location.search);
-
-  [
-    "marke","modell","modellausfuehrung","fahrzeugtyp","tueren",
-    "ezFrom","ezTo",
-    "km_max","price_max","ps_min","ps_max","getriebe","umweltplakette",
-    // Mehrfach:
-    "kraftstoff","antriebsart","antrieb",
-    "ort","umkreis","sort","verbrauch_max",
-    "partikelfilter","scheckheft","fahrtauglich",
-    "farbe"
-  ].forEach(k => params.delete(k));
-
-  params.delete("page");
-
-  // UI-Felder leeren
-  ["priceFrom","priceTo","mileageFrom","mileageTo","powerFrom","powerTo","firstRegFrom","inspectionUntil","modellausfuehrung"]
-    .forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = "";
-    });
-
-  // Fahrzeugtyp
-  const typeEl = document.getElementById("fahrzeugtyp");
-  if (typeEl) {
-    if (typeEl.tagName === "SELECT") [...typeEl.options].forEach(o => o.selected = false);
-    else typeEl.value = "";
-  }
-  document.querySelectorAll('input[name="fahrzeugtyp"]').forEach(cb => cb.checked = false);
-
-  // Türen
-  const doorsEl = document.getElementById("tueren");
-  if (doorsEl) {
-    if (doorsEl.tagName === "SELECT") [...doorsEl.options].forEach(o => o.selected = false);
-    else doorsEl.value = "";
-  }
-  document.querySelectorAll('input[name="tueren"]').forEach(cb => cb.checked = false);
-
-  // Farben
-  document.querySelectorAll('input[name="farbe"]').forEach(cb => cb.checked = false);
-
-  // Kraftstoff (Select + Checkboxen)
-  const fuelEl = document.getElementById("fuelType") || document.getElementById("fuel");
-  if (fuelEl) fuelEl.value = "Beliebig";
-  document.querySelectorAll('input[name="kraftstoff"]').forEach(cb => cb.checked = false);
-
-  // Umweltplakette
-  {
-    const sel = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
-    if (sel) sel.value = ""; // oder "Beliebig"
-    document.querySelectorAll('input[name="umweltplakette"]').forEach(inp => inp.checked = false);
-  }
-
-  // Getriebe
-  const gearEl = document.getElementById("transmission") || document.getElementById("gear");
-  if (gearEl) gearEl.value = "Beliebig";
-  document
-    .querySelectorAll('.search-group input[type="checkbox"][value="Automatik"], .search-group input[type="checkbox"][value="Schaltgetriebe"]')
-    .forEach(cb => cb.checked = false);
-
-  // Antrieb
-  const driveEl = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
-  if (driveEl) driveEl.value = "Beliebig";
-  document.querySelectorAll('input[name="antrieb"]').forEach(cb => cb.checked = false);
-
-  // Unfallfrei
-  const accEl = document.getElementById("accidentFree");
-  if (accEl) accEl.checked = false;
-
-  history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
-  loadAndRender(1);
-}
+}); // schließt: document.addEventListener("DOMContentLoaded", () => { ... })
