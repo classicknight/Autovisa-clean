@@ -79,6 +79,28 @@ function fuelCanon(raw) {
   return s;
 }
 /* ------------------------------------------------------------------ */
+// --- HU: Datumshelfer (YYYY-MM, MM/YYYY, YYYY -> Date UTC) ---
+function parseYMServer(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return null;
+
+  let y, m;
+  if (/^\d{4}-\d{2}$/.test(s)) {
+    const parts = s.split("-");
+    y = Number(parts[0]); m = Number(parts[1]);
+  } else {
+    const mmYYYY = s.match(/^(0?[1-9]|1[0-2])[./-](\d{4})$/);
+    if (mmYYYY) { y = Number(mmYYYY[2]); m = Number(mmYYYY[1]); }
+    else if (/^\d{4}$/.test(s)) { y = Number(s); m = 1; }
+    else return null;
+  }
+  if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) return null;
+  return new Date(Date.UTC(y, m - 1, 1)); // Monatsanfang genügt
+}
+function monthsLeftFromToday(d) {
+  const now = new Date();
+  return (d.getUTCFullYear() - now.getUTCFullYear()) * 12 + (d.getUTCMonth() - now.getUTCMonth());
+}
 
 /* === Express Initialisierung === */
 const app = express();
@@ -2002,7 +2024,10 @@ app.get("/api/search", async (req, res) => {
       partikelfilter,          // "1" => erforderlich
       halter_max,              // maximale Halter
       farbe,                   // CSV (Karosseriefarbe)
-      merkmale                 // CSV (z. B. Scheckheftgepflegt,Fahrtauglich)
+      merkmale,                // CSV (z. B. Scheckheftgepflegt,Fahrtauglich)
+      // HU (neu)
+      hu_min_monate,
+      hu_bis
     } = req.query;
 
     const p    = Math.max(parseInt(page, 10)  || 1, 1);
@@ -2013,9 +2038,7 @@ app.get("/api/search", async (req, res) => {
     const baseMatch = { status: "online" };
 
     // Marke exakt (case-insensitive)
-    if (marke) {
-      baseMatch.marke = new RegExp(`^${escRe(marke)}$`, "i");
-    }
+    if (marke) baseMatch.marke = new RegExp(`^${escRe(marke)}$`, "i");
 
     // Modell: mehrere erlaubt (CSV), jeweils exakt
     if (modell) {
@@ -2039,6 +2062,11 @@ app.get("/api/search", async (req, res) => {
                           ? parseFloat(String(verbrauch_max).replace(",", "."))
                           : NaN;
     const halterMaxNum = parseInt(halter_max, 10);
+
+    // ---- HU-Parameter aufbereiten
+    const huMinMon = parseInt(hu_min_monate || req.query.hu_min_months || "", 10);
+    const huBisDate = parseYMServer ? parseYMServer(hu_bis) : null; // nutzt deine globale Hilfsfunktion
+    const huBisKey  = huBisDate ? (huBisDate.getUTCFullYear() * 12 + (huBisDate.getUTCMonth() + 1)) : null;
 
     // ---- Sortierung
     const sortStages =
@@ -2105,26 +2133,16 @@ app.get("/api/search", async (req, res) => {
 
       // PS / ccm / Verbrauch / Halter extrahieren
       { $addFields: {
-          _ps_match:   { $regexFind: { input: { $toString: "$_ps_raw" },  regex: /(\d{2,4})/ } },
-          _ccm_match:  { $regexFind: { input: { $toString: "$_ccm_raw" }, regex: /(\d{3,5})/ } },
+          _ps_match:   { $regexFind:  { input: { $toString: "$_ps_raw"  }, regex: /(\d{2,4})/ } },
+          _ccm_match:  { $regexFind:  { input: { $toString: "$_ccm_raw" }, regex: /(\d{3,5})/ } },
 
           _verb_norm:  { $replaceAll: { input: { $toString: "$_verb_raw" }, find: ",", replacement: "." } },
 
-          _verb_liters: {
-            $regexFindAll: {
-              input: "$_verb_norm",
-              regex: /(\d+(?:\.\d+)?)(?=\s*(?:l|L)\s*\/\s*100\s*km)/i
-            }
-          },
-          _verb_kwh: {
-            $regexFindAll: {
-              input: "$_verb_norm",
-              regex: /(\d+(?:\.\d+)?)(?=\s*kwh\s*\/\s*100\s*km)/i
-            }
-          },
-          _verb_all_any: { $regexFindAll: { input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)/ } },
+          _verb_liters: { $regexFindAll: { input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)(?=\s*(?:l|L)\s*\/\s*100\s*km)/i } },
+          _verb_kwh:    { $regexFindAll: { input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)(?=\s*kwh\s*\/\s*100\s*km)/i } },
+          _verb_all_any:{ $regexFindAll: { input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)/ } },
 
-          _halter_match:{ $regexFind: { input: { $toString: "$_halter_raw" }, regex: /(\d{1,2})/ } }
+          _halter_match:{ $regexFind:    { input: { $toString: "$_halter_raw" }, regex: /(\d{1,2})/ } }
         }
       },
 
@@ -2180,6 +2198,81 @@ app.get("/api/search", async (req, res) => {
       }
     ];
 
+    // ---- HU: String -> (year, month) -> hu_key (year*12 + month)
+    const huParseStages = [
+      { $addFields: {
+          _hu_raw: { $ifNull: [
+            "$verkauf_hu",
+            { $ifNull: [
+              "$hu",
+              { $ifNull: [ "$verkauf_hu_bis", { $ifNull: [ "$hauptuntersuchung", null ] } ] }
+            ] }
+          ] }
+        }
+      },
+      { $addFields: {
+          _hu_str:      { $toString: { $ifNull: ["$_hu_raw", ""] } },
+          _hu_rx_y_m:   { $regexFind: { input: "$_hu_str", regex: /(\d{4})[-/.](\d{1,2})/ } }, // YYYY-MM
+          _hu_rx_m_y:   { $regexFind: { input: "$_hu_str", regex: /(\d{1,2})[-/.](\d{4})/ } }, // MM/YYYY
+          _hu_rx_y:     { $regexFind: { input: "$_hu_str", regex: /(\d{4})/ } }                 // YYYY
+        }
+      },
+      { $addFields: {
+          _hu_y: {
+            $let: {
+              vars: { a: "$_hu_rx_y_m", b: "$_hu_rx_m_y", c: "$_hu_rx_y" },
+              in: {
+                $cond: [
+                  { $ne: ["$$a", null] },
+                  { $toInt: { $arrayElemAt: ["$$a.captures", 0] } },
+                  { $cond: [
+                    { $ne: ["$$b", null] },
+                    { $toInt: { $arrayElemAt: ["$$b.captures", 1] } },
+                    { $cond: [
+                      { $ne: ["$$c", null] },
+                      { $toInt: { $arrayElemAt: ["$$c.captures", 0] } },
+                      null
+                    ] }
+                  ] }
+                ]
+              }
+            }
+          },
+          _hu_m: {
+            $let: {
+              vars: { a: "$_hu_rx_y_m", b: "$_hu_rx_m_y", c: "$_hu_rx_y" },
+              in: {
+                $cond: [
+                  { $ne: ["$$a", null] },
+                  { $toInt: { $arrayElemAt: ["$$a.captures", 1] } },
+                  { $cond: [
+                    { $ne: ["$$b", null] },
+                    { $toInt: { $arrayElemAt: ["$$b.captures", 0] } },
+                    1 // nur Jahr angegeben -> Januar
+                  ] }
+                ]
+              }
+            }
+          }
+        }
+      },
+      { $addFields: {
+          hu_key: {
+            $cond: [
+              { $and: [
+                { $ne: ["$_hu_y", null] },
+                { $ne: ["$_hu_m", null] },
+                { $gte: ["$_hu_m", 1] },
+                { $lte: ["$_hu_m", 12] }
+              ] },
+              { $add: [ { $multiply: ["$_hu_y", 12] }, "$_hu_m" ] },
+              null
+            ]
+          }
+        }
+      }
+    ];
+
     // ---- numerische Filter (Preis/KM) + Basisfilter
     const numberFilterStages = [
       { $match: baseMatch },
@@ -2193,10 +2286,7 @@ app.get("/api/search", async (req, res) => {
     let ezStages = [];
     if (ezFrom || ezTo) {
       ezStages = [
-        { $addFields: {
-            _ez: { $ifNull: ["$erstzulassung", { $ifNull: ["$verkauf_erstzulassung", null] }] }
-          }
-        },
+        { $addFields: { _ez: { $ifNull: ["$erstzulassung", { $ifNull: ["$verkauf_erstzulassung", null] }] } } },
         { $match: {
             ...(ezFrom ? { _ez: { $gte: ezFrom } } : {}),
             ...(ezTo   ? { _ez: { ...(ezFrom ? { $gte: ezFrom } : {}), $lte: ezTo } } : {})
@@ -2260,7 +2350,7 @@ app.get("/api/search", async (req, res) => {
       }
     }
 
-    // ---- Türen-Filter (2/3, 4/5, Zahl)
+    // ---- Türen-Filter
     function buildTuerenStages(val) {
       const raw = String(val || "").trim();
       if (!raw) return [];
@@ -2308,20 +2398,11 @@ app.get("/api/search", async (req, res) => {
     if (antrieb) {
       const wanted = splitCsv(antrieb).map(driveCanon).filter(Boolean);
       const rxes = [];
-      if (wanted.includes("frontantrieb")) {
-        rxes.push(/front/i, /vorder/i, /vorderrad/i, /\bfwd\b/i);
-      }
-      if (wanted.includes("heckantrieb")) {
-        rxes.push(/heck/i, /hinter/i, /hinterrad/i, /\brwd\b/i, /rear/i);
-      }
-      if (wanted.includes("allrad")) {
-        rxes.push(/allrad/i, /\b4x4\b/i, /\b4wd\b/i, /\bawd\b/i,
-                  /quattro/i, /xdrive/i, /4matic/i, /4motion/i, /all[-\s]?wheel/i);
-      }
-      if (!rxes.length) {
-        // Fallback: direkte Texte verwenden
-        for (const w of wanted) rxes.push(new RegExp(escRe(w), "i"));
-      }
+      if (wanted.includes("frontantrieb")) rxes.push(/front/i, /vorder/i, /vorderrad/i, /\bfwd\b/i);
+      if (wanted.includes("heckantrieb"))  rxes.push(/heck/i, /hinter/i, /hinterrad/i, /\brwd\b/i, /rear/i);
+      if (wanted.includes("allrad"))       rxes.push(/allrad/i, /\b4x4\b/i, /\b4wd\b/i, /\bawd\b/i,
+                                                    /quattro/i, /xdrive/i, /4matic/i, /4motion/i, /all[-\s]?wheel/i);
+      if (!rxes.length) for (const w of wanted) rxes.push(new RegExp(escRe(w), "i"));
       driveStages = [{
         $match: {
           $or: [
@@ -2329,7 +2410,6 @@ app.get("/api/search", async (req, res) => {
             { antriebsart:     { $in: rxes } },
             { antriebs_typ:    { $in: rxes } },
             { verkauf_antrieb: { $in: rxes } },
-            // Fallback auf Freitext
             { titel:           { $in: rxes } },
             { beschreibung:    { $in: rxes } }
           ]
@@ -2337,7 +2417,7 @@ app.get("/api/search", async (req, res) => {
       }];
     }
 
-    // ---- Getriebe (genau 1)
+    // ---- Getriebe
     let gearboxStages = [];
     if (getriebe) {
       const g = String(getriebe).toLowerCase();
@@ -2345,120 +2425,58 @@ app.get("/api/search", async (req, res) => {
                  g.includes("schalt") ? /schalt/i :
                  new RegExp(escRe(getriebe), "i");
       gearboxStages = [{
-        $match: {
-          $or: [
-            { getriebe: rx }, { verkauf_getriebe: rx }, { getriebeart: rx }
-          ]
-        }
+        $match: { $or: [ { getriebe: rx }, { verkauf_getriebe: rx }, { getriebeart: rx } ] }
       }];
     }
-// ---- Kraftstoff (tolerant; CSV möglich, Hybrid-Unterarten korrekt)
-let fuelStages = [];
-if (kraftstoff) {
-  // CSV in Tokens aufteilen (z.B. "benzin,hybrid-benzin,plug-in-hybrid")
-  const fuels = String(kraftstoff)
-    .split(",")
-    .map(s => s.trim().toLowerCase())
-    .filter(Boolean);
 
-  // Felder, in denen Kraftstoff vorkommen kann
-  const FIELDS = ["kraftstoff", "verkauf_kraftstoff", "kraftstoffart", "beschreibung"];
-
-  // Helfer: OR über alle Felder mit einem Regex
-  const OR_FIELDS = (rx) => ({ $or: FIELDS.map(f => ({ [f]: rx })) });
-  // Helfer: NOR über alle Felder mit einem Regex (zum Ausschließen, z.B. Hybrid bei "elektro")
-  const NOR_FIELDS = (rx) => ({ $nor: FIELDS.map(f => ({ [f]: rx })) });
-
-  // Synonym-Sets
-  const RX = {
-    benzin: /(benzin|otto)\b/i,
-    diesel: /\bdiesel\b/i,
-    elektro: /\b(elektro|bev|electric|strom|ev)\b/i,
-    hybridAny: /\b(hybrid|mhev|hev|phev|plug[\s-]*in)\b/i,
-    phev: /\b(phev|plug[\s-]*in)\b/i,
-    autogas: /\b(lpg|autogas)\b/i,
-    cng: /\b(cng|erdgas)\b/i,
-    ethanol: /\b(ethanol|e85)\b/i,
-    wasserstoff: /\b(wasserstoff|h2|fuel\s*cell)\b/i,
-    andere: /\b(andere|sonstig|unbek|unknown)\b/i
-  };
-
-  // Für jeden gewünschten Token die passende Bedingung bauen
-  const conds = [];
-  for (const raw of fuels) {
-    const t = raw.toLowerCase();
-
-    // Plug-in-Hybride (gesamt / spezifisch)
-    if (t === "plug-in-hybrid-benzin") {
-      conds.push({ $and: [ OR_FIELDS(RX.phev), OR_FIELDS(RX.benzin) ] });
-      continue;
+    // ---- Kraftstoff (inkl. Hybrid-Unterarten)
+    let fuelStages = [];
+    if (kraftstoff) {
+      const fuels = String(kraftstoff).split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+      const FIELDS = ["kraftstoff", "verkauf_kraftstoff", "kraftstoffart", "beschreibung"];
+      const OR_FIELDS  = (rx) => ({ $or: FIELDS.map(f => ({ [f]: rx })) });
+      const NOR_FIELDS = (rx) => ({ $nor: FIELDS.map(f => ({ [f]: rx })) });
+      const RX = {
+        benzin: /(benzin|otto)\b/i,
+        diesel: /\bdiesel\b/i,
+        elektro: /\b(elektro|bev|electric|strom|ev)\b/i,
+        hybridAny: /\b(hybrid|mhev|hev|phev|plug[\s-]*in)\b/i,
+        phev: /\b(phev|plug[\s-]*in)\b/i,
+        autogas: /\b(lpg|autogas)\b/i,
+        cng: /\b(cng|erdgas)\b/i,
+        ethanol: /\b(ethanol|e85)\b/i,
+        wasserstoff: /\b(wasserstoff|h2|fuel\s*cell)\b/i,
+        andere: /\b(andere|sonstig|unbek|unknown)\b/i
+      };
+      const conds = [];
+      for (const t of fuels) {
+        if (t === "plug-in-hybrid-benzin") { conds.push({ $and: [ OR_FIELDS(RX.phev), OR_FIELDS(RX.benzin) ] }); continue; }
+        if (t === "plug-in-hybrid-diesel") { conds.push({ $and: [ OR_FIELDS(RX.phev), OR_FIELDS(RX.diesel) ] }); continue; }
+        if (t === "plug-in-hybrid" || t === "phev") { conds.push(OR_FIELDS(RX.phev)); continue; }
+        if (t === "hybrid-benzin") { conds.push({ $and: [ OR_FIELDS(RX.hybridAny), OR_FIELDS(RX.benzin) ] }); continue; }
+        if (t === "hybrid-diesel") { conds.push({ $and: [ OR_FIELDS(RX.hybridAny), OR_FIELDS(RX.diesel) ] }); continue; }
+        if (t === "hybrid") { conds.push(OR_FIELDS(RX.hybridAny)); continue; }
+        if (["elektro","elektrisch","bev","ev"].includes(t)) { conds.push({ $and: [ OR_FIELDS(RX.elektro), NOR_FIELDS(RX.hybridAny) ] }); continue; }
+        if (["benzin","otto"].includes(t)) { conds.push({ $and: [ OR_FIELDS(RX.benzin), NOR_FIELDS(RX.hybridAny) ] }); continue; }
+        if (t === "diesel") { conds.push({ $and: [ OR_FIELDS(RX.diesel), NOR_FIELDS(RX.hybridAny) ] }); continue; }
+        if (t === "autogas" || t === "lpg") { conds.push(OR_FIELDS(RX.autogas)); continue; }
+        if (t === "cng" || t === "erdgas")  { conds.push(OR_FIELDS(RX.cng)); continue; }
+        if (t === "ethanol" || t === "e85"){ conds.push(OR_FIELDS(RX.ethanol)); continue; }
+        if (t === "wasserstoff" || t === "h2" || t.includes("fuel")) { conds.push(OR_FIELDS(RX.wasserstoff)); continue; }
+        if (t === "andere" || t.startsWith("sonstig")) { conds.push(OR_FIELDS(RX.andere)); continue; }
+        conds.push(OR_FIELDS(new RegExp(escRe(t), "i")));
+      }
+      fuelStages = conds.length ? [{ $match: { $or: conds } }] : [];
     }
-    if (t === "plug-in-hybrid-diesel") {
-      conds.push({ $and: [ OR_FIELDS(RX.phev), OR_FIELDS(RX.diesel) ] });
-      continue;
-    }
-    if (t === "plug-in-hybrid" || t === "phev") {
-      conds.push(OR_FIELDS(RX.phev));
-      continue;
-    }
-
-    // Hybride (gesamt / spezifisch)
-    if (t === "hybrid-benzin") {
-      // Muss Hybrid enthalten + Benzin enthalten (irgendwo in den Feldern)
-      conds.push({ $and: [ OR_FIELDS(RX.hybridAny), OR_FIELDS(RX.benzin) ] });
-      continue;
-    }
-    if (t === "hybrid-diesel") {
-      conds.push({ $and: [ OR_FIELDS(RX.hybridAny), OR_FIELDS(RX.diesel) ] });
-      continue;
-    }
-    if (t === "hybrid") {
-      conds.push(OR_FIELDS(RX.hybridAny));
-      continue;
-    }
-
-    // Reine Antriebsarten – Hybride explizit ausschließen
-    if (t === "elektro" || t === "elektrisch" || t === "bev" || t === "ev") {
-      conds.push({ $and: [ OR_FIELDS(RX.elektro), NOR_FIELDS(RX.hybridAny) ] });
-      continue;
-    }
-    if (t === "benzin" || t === "otto") {
-      conds.push({ $and: [ OR_FIELDS(RX.benzin), NOR_FIELDS(RX.hybridAny) ] });
-      continue;
-    }
-    if (t === "diesel") {
-      conds.push({ $and: [ OR_FIELDS(RX.diesel), NOR_FIELDS(RX.hybridAny) ] });
-      continue;
-    }
-
-    // Sonstige
-    if (t === "autogas" || t === "lpg") { conds.push(OR_FIELDS(RX.autogas)); continue; }
-    if (t === "cng" || t === "erdgas")  { conds.push(OR_FIELDS(RX.cng)); continue; }
-    if (t === "ethanol" || t === "e85"){ conds.push(OR_FIELDS(RX.ethanol)); continue; }
-    if (t === "wasserstoff" || t === "h2" || t.includes("fuel")) { conds.push(OR_FIELDS(RX.wasserstoff)); continue; }
-    if (t === "andere" || t.startsWith("sonstig")) { conds.push(OR_FIELDS(RX.andere)); continue; }
-
-    // Fallback: direkter Regex auf den Roh-Token
-    const esc = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    conds.push(OR_FIELDS(new RegExp(esc, "i")));
-  }
-
-  fuelStages = conds.length ? [{ $match: { $or: conds } }] : [];
-}
-
 
     // ---- Schadstoffklasse
     let emissionStages = [];
     if (schadstoffklasse) {
       const rx = new RegExp(escRe(String(schadstoffklasse)), "i");
-      emissionStages = [{
-        $match: {
-          $or: [
-            { schadstoffklasse: { $regex: rx } },
-            { umwelt_schadstoffklasse: { $regex: rx } }
-          ]
-        }
-      }];
+      emissionStages = [{ $match: { $or: [
+        { schadstoffklasse: { $regex: rx } },
+        { umwelt_schadstoffklasse: { $regex: rx } }
+      ] } }];
     }
 
     // ---- Umweltplakette
@@ -2501,23 +2519,23 @@ if (kraftstoff) {
     const halterStages =
       Number.isFinite(halterMaxNum) ? [{ $match: { halter_num: { $ne: null, $lte: halterMaxNum } } }] : [];
 
-    // ---- Farben (Synonyme/mehr Feldnamen)
+    // ---- Farben
     function colorRegexFor(token) {
       const t = token.toLowerCase();
-      if (/schwarz/.test(t) || /black/.test(t))   return /schwarz|black/i;
-      if (/weiß|weiss|white/.test(t))             return /wei[ßs]|white/i;
-      if (/grau|gray|grey|anth/.test(t))          return /grau|gray|grey|anthrazit|anthracite/i;
-      if (/silber|silver/.test(t))                return /silber|silver/i;
-      if (/blau|blue/.test(t))                    return /blau|blue/i;
-      if (/rot|red/.test(t))                      return /rot|red/i;
-      if (/grün|gruen|green/.test(t))             return /gr[üu]n|green/i;
-      if (/braun|brown/.test(t))                  return /braun|brown/i;
-      if (/beige|sand/.test(t))                   return /beige|sand/i;
-      if (/gelb|yellow/.test(t))                  return /gelb|yellow/i;
-      if (/orange/.test(t))                       return /orange/i;
-      if (/violett|lila|purple/.test(t))          return /violett|lila|purple/i;
-      if (/gold/.test(t))                         return /gold/i;
-      if (/türkis|tuerkis|turquoise/.test(t))     return /t[üu]rkis|turquoise/i;
+      if (/schwarz|black/.test(t))   return /schwarz|black/i;
+      if (/weiß|weiss|white/.test(t))return /wei[ßs]|white/i;
+      if (/grau|gray|grey|anth/.test(t)) return /grau|gray|grey|anthrazit|anthracite/i;
+      if (/silber|silver/.test(t))   return /silber|silver/i;
+      if (/blau|blue/.test(t))       return /blau|blue/i;
+      if (/rot|red/.test(t))         return /rot|red/i;
+      if (/grün|gruen|green/.test(t))return /gr[üu]n|green/i;
+      if (/braun|brown/.test(t))     return /braun|brown/i;
+      if (/beige|sand/.test(t))      return /beige|sand/i;
+      if (/gelb|yellow/.test(t))     return /gelb|yellow/i;
+      if (/orange/.test(t))          return /orange/i;
+      if (/violett|lila|purple/.test(t)) return /violett|lila|purple/i;
+      if (/gold/.test(t))            return /gold/i;
+      if (/türkis|tuerkis|turquoise/.test(t)) return /t[üu]rkis|turquoise/i;
       return new RegExp(escRe(token), "i");
     }
     let colorStages = [];
@@ -2536,7 +2554,7 @@ if (kraftstoff) {
               { lack:               { $in: rxes } },
               { exterior_color:     { $in: rxes } },
               { exterieur_farbe:    { $in: rxes } },
-              { beschreibung:       { $in: rxes } }, // Fallback
+              { beschreibung:       { $in: rxes } },
               { titel:              { $in: rxes } }
             ]
           }
@@ -2544,7 +2562,7 @@ if (kraftstoff) {
       }
     }
 
-    // ---- Sonstige Merkmale (inkl. Fahrtauglich-Handling)
+    // ---- Sonstige Merkmale (inkl. Fahrtauglich)
     let featureStages = [];
     let driveabilityStages = [];
     if (merkmale) {
@@ -2572,6 +2590,26 @@ if (kraftstoff) {
       }
     }
 
+    // ---- HU-Filter-Stages (nach huParseStages!)
+    const huFilterStages =
+      (Number.isFinite(huMinMon) && huMinMon > 0)
+        ? [
+            // Now-Key in Monaten
+            { $addFields: {
+                _now_parts: { $dateToParts: { date: "$$NOW", timezone: "UTC" } },
+                _now_key: { $add: [ { $multiply: ["$_now_parts.year", 12] }, "$_now_parts.month" ] }
+              }
+            },
+            { $match: { hu_key: { $ne: null } } },
+            { $match: { $expr: { $gte: [ { $subtract: [ "$hu_key", "$_now_key" ] }, huMinMon ] } } }
+          ]
+        : (Number.isFinite(huBisKey))
+        ? [
+            { $match: { hu_key: { $ne: null } } },
+            { $match: { $expr: { $gte: [ "$hu_key", huBisKey ] } } }
+          ]
+        : [];
+
     // ---- Projektion & Facet (Paging)
     const endStages = [
       ...sortStages,
@@ -2582,8 +2620,10 @@ if (kraftstoff) {
                 token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0,
                 _preis_raw: 0, _km_raw: 0, _preis_clean: 0, _km_clean: 0,
                 _ps_raw: 0, _ccm_raw: 0, _verb_raw: 0, _halter_raw: 0,
-                _ps_match: 0, _ccm_match: 0, _verb_norm: 0, _verb_all: 0,
-                _halter_match: 0, _preis_null: 0, _ez: 0
+                _ps_match: 0, _ccm_match: 0, _verb_norm: 0, _verb_all_any: 0,
+                _halter_match: 0, _preis_null: 0, _ez: 0,
+                _hu_raw: 0, _hu_str: 0, _hu_rx_y_m: 0, _hu_rx_m_y: 0, _hu_rx_y: 0,
+                _hu_y: 0, _hu_m: 0, _now_parts: 0, _now_key: 0
               }
             },
             { $skip: skip },
@@ -2614,6 +2654,7 @@ if (kraftstoff) {
 
     const commonStages = [
       ...parseNumberStages,
+      ...huParseStages,        // <<< HU-Parsing hier einhängen
       ...numberFilterStages,
       ...powerFilterStages,
       ...ccmFilterStages,
@@ -2632,6 +2673,7 @@ if (kraftstoff) {
       ...variantStages,
       ...vehTypeStages,
       ...tuerenStages,
+      ...huFilterStages,       // <<< HU-Filter hier anwenden (vor Facet/Paging!)
       ...endStages
     ];
 
