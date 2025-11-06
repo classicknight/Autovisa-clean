@@ -215,8 +215,9 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
     scheckheft:     sp.get("scheckheft"),
     fahrtauglich:   sp.get("fahrtauglich"),
 
-    // Umweltplakette
-    umweltplakette: badgeCanon(sp.get("umweltplakette")),
+  // akzeptiert ?umweltplakette=… oder ?plakette=…
+umweltplakette: badgeCanon(sp.get("umweltplakette") || sp.get("plakette")),
+
   };
 
   // --- DOM Refs ---
@@ -1667,7 +1668,15 @@ if (fuelSet.size) {
         const sel = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
         if (sel) val = badgeCanon(sel.value);
       }
-      setOrDelete(params, "umweltplakette", val);
+// Schreibe beide Keys für maximale Kompatibilität:
+if (val) {
+  params.set("plakette", val);
+  params.set("umweltplakette", val);
+} else {
+  params.delete("plakette");
+  params.delete("umweltplakette");
+}
+
     })();
   
     // *** Schadstoffklasse (ein Wert) ***
@@ -1783,7 +1792,8 @@ if (fuelSet.size) {
       fahrtauglich:   /^(1|true|ja|mit|yes)$/i.test(String(sp.get("fahrtauglich")   || "")),
   
       // Umweltplakette + Schadstoffklasse aus URL
-      umweltplakette:  badgeCanon(sp.get("umweltplakette")),
+      umweltplakette:  badgeCanon(sp.get("umweltplakette") || sp.get("plakette")),
+
       schadstoffklasse: emissionCanon(sp.get("schadstoffklasse"))
     };
   
@@ -1973,16 +1983,16 @@ if (fuelSet.size) {
         else params.delete("kraftstoff");
         break;
       }
-  
-      // Umweltplakette (einfach)
       case "umweltplakette": {
         if (mapEl.umweltplakette) {
           if ("value" in mapEl.umweltplakette) mapEl.umweltplakette.value = "";
         }
         document.querySelectorAll('input[name="umweltplakette"]').forEach(inp => inp.checked = false);
         params.delete("umweltplakette");
+        params.delete("plakette"); // <— NEU
         break;
       }
+      
   
       // *** Schadstoffklasse (einfach) ***
       case "schadstoffklasse": {
@@ -2113,13 +2123,13 @@ if (fuelSet.size) {
       "marke","modell","modellausfuehrung","fahrzeugtyp","tueren",
       "ezFrom","ezTo",
       "km_max","price_max","ps_min","ps_max","getriebe",
-      "umweltplakette","schadstoffklasse",      // <— beide explizit löschen
-      // Mehrfach:
+      "umweltplakette","plakette","schadstoffklasse",   // <— plakette ergänzt
       "kraftstoff","antriebsart","antrieb",
       "ort","umkreis","sort","verbrauch_max",
       "partikelfilter","scheckheft","fahrtauglich",
       "farbe"
     ].forEach(k => params.delete(k));
+    
   
     params.delete("page");
   
