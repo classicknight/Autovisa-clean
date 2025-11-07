@@ -78,28 +78,58 @@ function fuelCanon(raw) {
   if (/\b(elektr|bev|strom|ev)\b/.test(s)) return "elektrisch";
   return s;
 }
-/* ------------------------------------------------------------------ */
-// --- HU: Datumshelfer (YYYY-MM, MM/YYYY, YYYY -> Date UTC) ---
-function parseYMServer(raw) {
-  const s = String(raw || "").trim();
-  if (!s) return null;
 
-  let y, m;
-  if (/^\d{4}-\d{2}$/.test(s)) {
-    const parts = s.split("-");
-    y = Number(parts[0]); m = Number(parts[1]);
-  } else {
-    const mmYYYY = s.match(/^(0?[1-9]|1[0-2])[./-](\d{4})$/);
-    if (mmYYYY) { y = Number(mmYYYY[2]); m = Number(mmYYYY[1]); }
-    else if (/^\d{4}$/.test(s)) { y = Number(s); m = 1; }
-    else return null;
+/* ------------------------------------------------------------------ */
+/* --- HU: Datumshelfer (YYYY-MM, MM/YYYY, Monatsname YYYY, YYYY) --- */
+/* ------------------------------------------------------------------ */
+function parseYMServer(input, fallbackMonthIfYearOnly = 1) {
+  if (!input) return null;
+  const s = String(input).trim();
+
+  // 1) YYYY-MM
+  let m = s.match(/^(\d{4})[-/.](\d{1,2})$/);
+  if (m) {
+    const y = +m[1], mo = Math.min(12, Math.max(1, +m[2]));
+    return new Date(Date.UTC(y, mo - 1, 1));
   }
-  if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) return null;
-  return new Date(Date.UTC(y, m - 1, 1)); // Monatsanfang genügt
+  // 2) MM/YYYY
+  m = s.match(/^(\d{1,2})[-/.](\d{4})$/);
+  if (m) {
+    const y = +m[2], mo = Math.min(12, Math.max(1, +m[1]));
+    return new Date(Date.UTC(y, mo - 1, 1));
+  }
+  // 3) Monatsname + Jahr (de/en)
+  const rxName = /(jan(?:uar)?|feb(?:ruar)?|märz|maerz|marz|apr(?:il)?|mai|may|jun(?:i)?|jul(?:i)?|aug(?:ust)?|sep(?:t|tember)?|okt(?:ober)?|oct(?:ober)?|nov(?:ember)?|dez(?:ember)?|dec(?:ember)?)/i;
+  m = s.match(new RegExp(`^${rxName.source}\\s+(\\d{4})$`, "i"));
+  if (m) {
+    const name = m[1].toLowerCase(), y = +m[2];
+    const toMo = (n) =>
+      /^jan/.test(n) ? 1  : /^feb/.test(n) ? 2  :
+      /(märz|maerz|marz)/.test(n) ? 3 :
+      /^apr/.test(n) ? 4  : /(mai|may)/.test(n) ? 5  :
+      /^jun/.test(n) ? 6  : /^jul/.test(n) ? 7  :
+      /^aug/.test(n) ? 8  : /^sep/.test(n) ? 9  :
+      /(okt|oct)/.test(n) ? 10 : /^nov/.test(n) ? 11 :
+      /(dez|dec)/.test(n) ? 12 : 1;
+    const mo = toMo(name);
+    return new Date(Date.UTC(y, mo - 1, 1));
+  }
+  // 4) Nur Jahr
+  m = s.match(/^(\d{4})$/);
+  if (m) {
+    const y = +m[1], mo = Math.min(12, Math.max(1, fallbackMonthIfYearOnly || 1));
+    return new Date(Date.UTC(y, mo - 1, 1));
+  }
+  return null;
 }
+
+// Differenz in Monaten (1-basig, kompatibel zu hu_key = year*12+month)
 function monthsLeftFromToday(d) {
+  if (!(d instanceof Date)) return NaN;
   const now = new Date();
-  return (d.getUTCFullYear() - now.getUTCFullYear()) * 12 + (d.getUTCMonth() - now.getUTCMonth());
+  const yNow = now.getUTCFullYear(),  mNow = now.getUTCMonth() + 1; // 1..12
+  const yItm = d.getUTCFullYear(),    mItm = d.getUTCMonth() + 1;   // 1..12
+  return (yItm * 12 + mItm) - (yNow * 12 + mNow);
 }
 
 /* === Express Initialisierung === */
@@ -166,6 +196,7 @@ app.use("/data", express.static(path.join(__dirname, "data"), {
   etag: true,
   maxAge: "1d"
 }));
+
 
 /* === Startseite === */
 app.get("/", (req, res) => {
@@ -2210,7 +2241,7 @@ app.get("/api/search", async (req, res) => {
       }
     ];
 
-    // ---- HU: Rohwert -> (y,m) -> hu_key (y*12+m)
+    // ---- HU: Rohwert -> (y,m) -> hu_key (y*12+m)  — inkl. Monatsnamen
     const huParseStages = [
       { $addFields: {
           _hu_raw: {
@@ -2238,11 +2269,66 @@ app.get("/api/search", async (req, res) => {
       },
       { $addFields: {
           _hu_str:    { $toString: { $ifNull: ["$_hu_raw", ""] } },
+
+          // Zahl-Formate
           _hu_rx_y_m: { $regexFind: { input: "$_hu_str", regex: /(\d{4})[-/.](\d{1,2})/ } }, // YYYY-MM
           _hu_rx_m_y: { $regexFind: { input: "$_hu_str", regex: /(\d{1,2})[-/.](\d{4})/ } }, // MM/YYYY
-          _hu_rx_y:   { $regexFind: { input: "$_hu_str", regex: /(\d{4})/ } }                 // YYYY
+          _hu_rx_y:   { $regexFind: { input: "$_hu_str", regex: /(\d{4})/ } },                 // YYYY
+
+          // Monatsname + Jahr (de/en)
+          _hu_rx_name_y1: { $regexFind: { 
+            input: "$_hu_str", 
+            regex: /(jan(?:uar)?|feb(?:ruar)?|m(?:ä|ae|a)rz|apr(?:il)?|mai|may|jun(?:i)?|jul(?:i)?|aug(?:ust)?|sep(?:t|tember)?|okt(?:ober)?|oct(?:ober)?|nov(?:ember)?|dez(?:ember)?|dec(?:ember)?)\s+(\d{4})/i
+          } },
+          _hu_rx_name_y2: { $regexFind: { 
+            input: "$_hu_str", 
+            regex: /(\d{4})\s+(jan(?:uar)?|feb(?:ruar)?|m(?:ä|ae|a)rz|apr(?:il)?|mai|may|jun(?:i)?|jul(?:i)?|aug(?:ust)?|sep(?:t|tember)?|okt(?:ober)?|oct(?:ober)?|nov(?:ember)?|dez(?:ember)?|dec(?:ember)?)/i
+          } }
         }
       },
+      // Name->Monat + Jahr extrahieren
+      { $addFields: {
+          _hu_name: {
+            $toLower: {
+              $ifNull: [
+                { $arrayElemAt: ["$_hu_rx_name_y1.captures", 0] },
+                { $arrayElemAt: ["$_hu_rx_name_y2.captures", 1] }
+              ]
+            }
+          },
+          _hu_name_y: {
+            $toInt: {
+              $ifNull: [
+                { $arrayElemAt: ["$_hu_rx_name_y1.captures", 1] },
+                { $arrayElemAt: ["$_hu_rx_name_y2.captures", 0] }
+              ]
+            }
+          }
+        }
+      },
+      { $addFields: {
+          _hu_name_m: {
+            $switch: {
+              branches: [
+                { case: { $regexMatch: { input: "$_hu_name", regex: /^jan/ } }, then: 1 },
+                { case: { $regexMatch: { input: "$_hu_name", regex: /^feb/ } }, then: 2 },
+                { case: { $regexMatch: { input: "$_hu_name", regex: /(m(ä|ae|a)rz)/ } }, then: 3 },
+                { case: { $regexMatch: { input: "$_hu_name", regex: /^apr/ } }, then: 4 },
+                { case: { $regexMatch: { input: "$_hu_name", regex: /(mai|may)/ } }, then: 5 },
+                { case: { $regexMatch: { input: "$_hu_name", regex: /^jun/ } }, then: 6 },
+                { case: { $regexMatch: { input: "$_hu_name", regex: /^jul/ } }, then: 7 },
+                { case: { $regexMatch: { input: "$_hu_name", regex: /^aug/ } }, then: 8 },
+                { case: { $regexMatch: { input: "$_hu_name", regex: /^sep/ } }, then: 9 },
+                { case: { $regexMatch: { input: "$_hu_name", regex: /(okt|oct)/ } }, then: 10 },
+                { case: { $regexMatch: { input: "$_hu_name", regex: /^nov/ } }, then: 11 },
+                { case: { $regexMatch: { input: "$_hu_name", regex: /(dez|dec)/ } }, then: 12 }
+              ],
+              default: null
+            }
+          }
+        }
+      },
+      // Zahlen-Basics y/m extrahieren
       { $addFields: {
           _hu_y: {
             $let: {
@@ -2282,16 +2368,22 @@ app.get("/api/search", async (req, res) => {
           }
         }
       },
+      // Finale y/m: Name hat Vorrang, sonst Zahlen, dann hu_key
+      { $addFields: {
+          _hu_final_y: { $ifNull: ["$_hu_name_y", "$_hu_y"] },
+          _hu_final_m: { $ifNull: ["$_hu_name_m", "$_hu_m"] }
+        }
+      },
       { $addFields: {
           hu_key: {
             $cond: [
               { $and: [
-                { $ne: ["$_hu_y", null] },
-                { $ne: ["$_hu_m", null] },
-                { $gte: ["$_hu_m", 1] },
-                { $lte: ["$_hu_m", 12] }
+                { $ne: ["$_hu_final_y", null] },
+                { $ne: ["$_hu_final_m", null] },
+                { $gte: ["$_hu_final_m", 1] },
+                { $lte: ["$_hu_final_m", 12] }
               ] },
-              { $add: [ { $multiply: ["$_hu_y", 12] }, "$_hu_m" ] },
+              { $add: [ { $multiply: ["$_hu_final_y", 12] }, "$_hu_final_m" ] },
               null
             ]
           }
@@ -2505,12 +2597,13 @@ app.get("/api/search", async (req, res) => {
       ] } }];
     }
 
-    // ---- Umweltplakette
+    // ---- Umweltplakette (nimmt auch ?umweltplakette=… an)
     let plaketteStages = [];
-    if (plakette) {
-      const ptxt = plakette.toLowerCase();
+    const plaketteParam = plakette || req.query.umweltplakette;
+    if (plaketteParam) {
+      const ptxt = String(plaketteParam).toLowerCase();
       let rx = null;
-      if (ptxt.includes("grün") || ptxt.includes("(4)")) rx = /(gr[üu]n|\b4\b)/i;
+      if (ptxt.includes("grün") || ptxt.includes("gruen") || ptxt.includes("(4)")) rx = /(gr[üu]n|\b4\b)/i;
       else if (ptxt.includes("gelb") || ptxt.includes("(3)")) rx = /(gelb|\b3\b)/i;
       else if (ptxt.includes("rot")  || ptxt.includes("(2)")) rx = /(rot|\b2\b)/i;
       else if (ptxt.includes("keine")) rx = /(keine|ohne)/i;
@@ -2649,7 +2742,9 @@ app.get("/api/search", async (req, res) => {
                 _ps_match: 0, _ccm_match: 0, _verb_norm: 0, _verb_all_any: 0,
                 _halter_match: 0, _preis_null: 0, _ez: 0,
                 _hu_raw: 0, _hu_str: 0, _hu_rx_y_m: 0, _hu_rx_m_y: 0, _hu_rx_y: 0,
-                _hu_y: 0, _hu_m: 0, _now_parts: 0, _now_key: 0
+                _hu_name: 0, _hu_name_y: 0, _hu_name_m: 0,
+                _hu_y: 0, _hu_m: 0, _hu_final_y: 0, _hu_final_m: 0,
+                _now_parts: 0, _now_key: 0
               }
             },
             { $skip: skip },
