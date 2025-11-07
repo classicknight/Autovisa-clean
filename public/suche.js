@@ -187,6 +187,22 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
 (function prefillFromQuery () {
   const sp = new URLSearchParams(location.search);
 
+  const pad2 = (m) => String(m).padStart(2, "0");
+  function parseYM(val, fallbackMonthIfYearOnly = null) {
+    if (!val) return "";
+    const s = String(val).trim();
+    let m = s.match(/^(\d{4})[-/.](\d{1,2})$/); if (m) return `${m[1]}-${pad2(m[2])}`;
+    m = s.match(/^(\d{1,2})[-/.](\d{4})$/);     if (m) return `${m[2]}-${pad2(m[1])}`;
+    m = s.match(/^(\d{4})$/);                   if (m) return fallbackMonthIfYearOnly ? `${m[1]}-${pad2(fallbackMonthIfYearOnly)}` : "";
+    if (/^\d{4}-\d{2}$/.test(s)) return s;
+    return "";
+  }
+  const toDec = (s) => {
+    const t = String(s ?? "").trim().replace(/\s+/g, "").replace(",", ".");
+    const n = parseFloat(t);
+    return Number.isFinite(n) ? n : NaN;
+  };
+
   const QP = {
     marke: sp.get("marke") || "",
     modell: splitCsv(sp.get("modell")),
@@ -215,9 +231,14 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
     scheckheft:     sp.get("scheckheft"),
     fahrtauglich:   sp.get("fahrtauglich"),
 
-  // akzeptiert ?umweltplakette=… oder ?plakette=…
-umweltplakette: badgeCanon(sp.get("umweltplakette") || sp.get("plakette")),
+    // akzeptiert ?umweltplakette=… oder ?plakette=…
+    umweltplakette:  badgeCanon(sp.get("umweltplakette") || sp.get("plakette")),
+    schadstoffklasse: emissionCanon(sp.get("schadstoffklasse")),
 
+    // HU: Text und strukturierte Varianten
+    hu_text: sp.get("hu") || "",
+    hu_bis:  sp.get("hu_bis") || sp.get("inspectionUntil") || "",
+    hu_min:  sp.get("hu_min_monate") || sp.get("hu_min_months") || ""
   };
 
   // --- DOM Refs ---
@@ -239,21 +260,33 @@ umweltplakette: badgeCanon(sp.get("umweltplakette") || sp.get("plakette")),
   // Umweltplakette (Select-ID flexibel)
   const badgeSel = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
 
+  // Schadstoffklasse (Select/Radio flexibel)
+  const emissionSel = document.getElementById("schadstoffklasse") || document.getElementById("emission");
+
+  // Verbrauch-UI (optional)
+  const verbrauchSel = document.getElementById("verbrauch-select");
+  const verbrauchInp = document.getElementById("verbrauch");
+
   // EZ Felder
   const firstRegFromEl  = document.getElementById("firstRegFrom");
   const firstRegMonthEl = document.getElementById("first-registration-month");
   const firstRegYearEl  = document.getElementById("first-registration-year");
   const ezVonEl = document.getElementById("ez-von");
   const ezBisEl = document.getElementById("ez-bis");
-// HU (mind. bis Datum) aus URL übernehmen
-const inspectionUntilEl = document.getElementById("inspectionUntil");
-const huFromUrl = sp.get("hu_bis") || sp.get("hu");
-if (inspectionUntilEl && huFromUrl) inspectionUntilEl.value = huFromUrl;
 
-// HU (mind. Monate) optionales Select übernehmen (falls vorhanden)
-const huMinSel = document.getElementById("huMinMonths");
-const huMinVal = parseInt(sp.get("hu_min_monate") || sp.get("huMinMonths") || "", 10);
-if (huMinSel && !isNaN(huMinVal) && huMinVal > 0) huMinSel.value = String(huMinVal);
+  // HU (bis Datum) – aus URL übernehmen (YYYY-MM normalisiert)
+  const inspectionUntilEl = document.getElementById("inspectionUntil");
+  let huBis = parseYM(QP.hu_bis) || parseYM(QP.hu_text); // erlaubt auch, falls ?hu=2026-06
+  if (inspectionUntilEl && huBis) inspectionUntilEl.value = huBis;
+
+  // HU (mind. Monate) – aus expliziten Parametern oder Text „Mind. X Monate“
+  const huMinSel = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
+  let huMin = parseInt(String(QP.hu_min).trim(), 10);
+  if (!Number.isFinite(huMin)) {
+    const m = String(QP.hu_text).match(/(\d{1,2})/); // z. B. „Mind. 6 Monate“
+    if (m) huMin = parseInt(m[1], 10);
+  }
+  if (huMinSel && Number.isFinite(huMin) && huMin > 0) huMinSel.value = String(huMin);
 
   // Flags
   const pfEl = document.getElementById("partikelfilter");
@@ -275,6 +308,19 @@ if (huMinSel && !isNaN(huMinVal) && huMinVal > 0) huMinSel.value = String(huMinV
   if (priceToEl && QP.price_max) priceToEl.value = QP.price_max;
   if (kmToEl   && QP.km_max)     kmToEl.value    = QP.km_max;
 
+  // --- Verbrauch (optional, falls vorhanden) ---
+  (function () {
+    const v = sp.get("verbrauch_max");
+    if (!v) return;
+    if (verbrauchSel) {
+      const match = [...verbrauchSel.options].find(o =>
+        String(o.value).replace(",", ".") === String(v).replace(",", ".")
+      );
+      verbrauchSel.value = match ? match.value : "custom";
+    }
+    if (verbrauchInp) verbrauchInp.value = String(v).replace(".", ",");
+  })();
+
   // --- Kraftstoff: Select (erster) + Checkboxen (alle) ---
   (function () {
     const picked = QP.kraftstoff || [];  // kanonisierte Tokens
@@ -292,7 +338,6 @@ if (huMinSel && !isNaN(huMinVal) && huMinVal > 0) huMinSel.value = String(huMinV
     // Checkboxen: alle passenden anhaken
     const set = new Set(picked);
     const hasHybridAny = set.has("hybrid"); // generisch -> beide Varianten anhaken
-
     document.querySelectorAll('input[name="kraftstoff"]').forEach(cb => {
       const tok = fuelCanon(cb.value);
       cb.checked = set.has(tok) || (hasHybridAny && tok.startsWith("hybrid-"));
@@ -360,9 +405,23 @@ if (huMinSel && !isNaN(huMinVal) && huMinVal > 0) huMinSel.value = String(huMinV
       );
       if (opt) badgeSel.value = opt.value;
     }
-
     document.querySelectorAll('input[name="umweltplakette"]').forEach(inp => {
       inp.checked = badgeCanon(inp.value) === v;
+    });
+  })();
+
+  // --- Schadstoffklasse (Select/Radio) ---
+  (function () {
+    const v = QP.schadstoffklasse;
+    if (!v) return;
+    if (emissionSel && emissionSel.tagName === "SELECT") {
+      const opt = [...emissionSel.options].find(o =>
+        emissionCanon(o.value) === v || emissionCanon(o.text) === v
+      );
+      if (opt) emissionSel.value = opt.value;
+    }
+    document.querySelectorAll('input[name="schadstoffklasse"], input[name="emission"]').forEach(inp => {
+      if (emissionCanon(inp.value) === v) inp.checked = true;
     });
   })();
 
@@ -2029,7 +2088,7 @@ function removeFilterChip(key, val = "") {
     ps_min:             document.getElementById("powerFrom"),
     ps_max:             document.getElementById("powerTo"),
     ezFrom:             document.getElementById("firstRegFrom"),
-    hu:                 document.getElementById("inspectionUntil"),
+    hu:                 document.getElementById("inspectionUntil"), // HU bis (YYYY-MM)
     hu_min_monate:      document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths"),
     fuel:               document.getElementById("fuelType") || document.getElementById("fuel"),
     gear:               document.getElementById("transmission") || document.getElementById("gear"),
@@ -2051,15 +2110,27 @@ function removeFilterChip(key, val = "") {
     case "km_max":    if (mapEl.km_max)    mapEl.km_max.value    = ""; params.delete("km_max");    break;
     case "ps_max":    if (mapEl.ps_max)    mapEl.ps_max.value    = ""; params.delete("ps_max");    break;
 
-    // EZ / HU
-    case "ezFrom":    if (mapEl.ezFrom) mapEl.ezFrom.value = ""; params.delete("ezFrom"); break;
-    case "ezTo":      params.delete("ezTo"); break;
+    // EZ
+    case "ezFrom": {
+      if (mapEl.ezFrom) mapEl.ezFrom.value = "";
+      const m = document.getElementById("first-registration-month");
+      const y = document.getElementById("first-registration-year");
+      if (m) m.value = "";
+      if (y) y.value = "";
+      params.delete("ezFrom");
+      break;
+    }
+    case "ezTo": {
+      params.delete("ezTo");
+      break;
+    }
 
-    // HU bis (YYYY-MM)
+    // HU bis (YYYY-MM / MM/YYYY / YYYY)
     case "hu": {
       if (mapEl.hu) mapEl.hu.value = "";
       params.delete("hu_bis");
-      params.delete("inspectionUntil");
+      params.delete("inspectionUntil"); // falls jemals als URL gesetzt
+      params.delete("hu");              // Textvariante sicherheitshalber mitlöschen
       break;
     }
 
@@ -2068,10 +2139,11 @@ function removeFilterChip(key, val = "") {
       if (mapEl.hu_min_monate) mapEl.hu_min_monate.value = "";
       params.delete("hu_min_monate");
       params.delete("hu_min_months");
+      params.delete("hu"); // Textvariante (Mind. X Monate) ebenfalls entfernen
       break;
     }
 
-    // Mehrfach: Kraftstoff (CSV)
+    // Kraftstoff (CSV)
     case "fuel": {
       document.querySelectorAll('input[name="kraftstoff"]').forEach(cb => {
         if (fuelCanon(cb.value) === val) cb.checked = false;
@@ -2087,20 +2159,16 @@ function removeFilterChip(key, val = "") {
 
     // Umweltplakette
     case "umweltplakette": {
-      if (mapEl.umweltplakette) {
-        if ("value" in mapEl.umweltplakette) mapEl.umweltplakette.value = "";
-      }
+      if (mapEl.umweltplakette && "value" in mapEl.umweltplakette) mapEl.umweltplakette.value = "";
       document.querySelectorAll('input[name="umweltplakette"]').forEach(inp => inp.checked = false);
       params.delete("umweltplakette");
-      params.delete("plakette"); // wichtig für ?plakette=
+      params.delete("plakette");
       break;
     }
 
     // Schadstoffklasse
     case "schadstoffklasse": {
-      if (mapEl.schadstoffklasse) {
-        if ("value" in mapEl.schadstoffklasse) mapEl.schadstoffklasse.value = "";
-      }
+      if (mapEl.schadstoffklasse && "value" in mapEl.schadstoffklasse) mapEl.schadstoffklasse.value = "";
       document.querySelectorAll('input[name="schadstoffklasse"], input[name="emission"]').forEach(inp => inp.checked = false);
       params.delete("schadstoffklasse");
       break;
@@ -2130,7 +2198,10 @@ function removeFilterChip(key, val = "") {
       break;
     }
 
-    case "accidentFree": if (mapEl.accidentFree) mapEl.accidentFree.checked = false; break;
+    case "accidentFree": {
+      if (mapEl.accidentFree) mapEl.accidentFree.checked = false;
+      break;
+    }
 
     case "marke": params.delete("marke"); break;
 
@@ -2225,25 +2296,33 @@ function clearAllFilters() {
     "marke","modell","modellausfuehrung","fahrzeugtyp","tueren",
     "ezFrom","ezTo",
     "km_max","price_max","ps_min","ps_max","getriebe",
-    "umweltplakette","plakette","schadstoffklasse",        // plakette ergänzt
+    "umweltplakette","plakette","schadstoffklasse",
     "kraftstoff","antriebsart","antrieb",
     "ort","umkreis","sort","verbrauch_max",
     "partikelfilter","scheckheft","fahrtauglich",
     "farbe",
-    // HU-Parameter (beide Varianten)
-    "hu_bis","inspectionUntil","hu_min_monate","hu_min_months"
+    // HU-Parameter (alle Varianten)
+    "hu","hu_bis","inspectionUntil","hu_min_monate","hu_min_months"
   ].forEach(k => params.delete(k));
 
   params.delete("page");
 
-  // UI-Felder leeren
+  // UI-Felder leeren (Basis)
   ["priceFrom","priceTo","mileageFrom","mileageTo","powerFrom","powerTo","firstRegFrom","inspectionUntil","modellausfuehrung"]
     .forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = "";
     });
 
-  // HU mind. Monate Feld leeren (falls vorhanden)
+  // EZ Monat/Jahr (falls genutzt)
+  {
+    const m = document.getElementById("first-registration-month");
+    const y = document.getElementById("first-registration-year");
+    if (m) m.value = "";
+    if (y) y.value = "";
+  }
+
+  // HU mind. Monate UI
   {
     const el = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
     if (el) el.value = "";
@@ -2278,14 +2357,14 @@ function clearAllFilters() {
   // Umweltplakette
   {
     const sel = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
-    if (sel) sel.value = ""; // oder "Beliebig"
+    if (sel) sel.value = "";
     document.querySelectorAll('input[name="umweltplakette"]').forEach(inp => inp.checked = false);
   }
 
   // Schadstoffklasse
   {
     const sel = document.getElementById("schadstoffklasse") || document.getElementById("emission");
-    if (sel) sel.value = ""; // oder "Beliebig"
+    if (sel) sel.value = "";
     document.querySelectorAll('input[name="schadstoffklasse"], input[name="emission"]').forEach(inp => inp.checked = false);
   }
 
@@ -2309,8 +2388,15 @@ function clearAllFilters() {
   const accEl = document.getElementById("accidentFree");
   if (accEl) accEl.checked = false;
 
+  // Verbrauch-UI (Select/Custom)
+  {
+    const selV = document.getElementById("verbrauch-select");
+    const inpV = document.getElementById("verbrauch");
+    if (selV) selV.value = "";
+    if (inpV) inpV.value = "";
+  }
+
   history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
   loadAndRender(1);
 }
-
-}); // schließt: document.addEventListener("DOMContentLoaded", () => { ... })
+});

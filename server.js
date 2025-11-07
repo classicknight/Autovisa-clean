@@ -2002,7 +2002,6 @@ app.get("/api/geosuggest", async (req, res) => {
 //  - globale "db" Verbindung (MongoDB) + 2dsphere-Index auf standortCoords
 //     db.inserate.createIndex({ standortCoords: "2dsphere" })
 // ============================================================
-
 app.get("/api/search", async (req, res) => {
   try {
     const {
@@ -2025,9 +2024,10 @@ app.get("/api/search", async (req, res) => {
       halter_max,              // maximale Halter
       farbe,                   // CSV (Karosseriefarbe)
       merkmale,                // CSV (z. B. Scheckheftgepflegt,Fahrtauglich)
-      // HU (neu)
-      hu_min_monate,
-      hu_bis
+      // HU (neu; mehrere Varianten möglich)
+      hu_min_monate,           // z.B. "6"
+      hu_bis,                  // z.B. "2026-03" oder "03/2026" oder "2026"
+      hu                        // z.B. "Mind. 6 Monate"
     } = req.query;
 
     const p    = Math.max(parseInt(page, 10)  || 1, 1);
@@ -2063,9 +2063,21 @@ app.get("/api/search", async (req, res) => {
                           : NaN;
     const halterMaxNum = parseInt(halter_max, 10);
 
-    // ---- HU-Parameter aufbereiten
-    const huMinMon = parseInt(hu_min_monate || req.query.hu_min_months || "", 10);
-    const huBisDate = parseYMServer ? parseYMServer(hu_bis) : null; // nutzt deine globale Hilfsfunktion
+    // ---- HU-Parameter aufbereiten (mind. Monate ODER gültig bis)
+    // Unterstützt: ?hu=Mind.+6+Monate  ODER  ?hu_min_monate=6
+    const huMinMon = (() => {
+      if (hu_min_monate != null && hu_min_monate !== "")
+        return parseInt(hu_min_monate, 10);
+      if (req.query.hu_min_months != null && req.query.hu_min_months !== "")
+        return parseInt(req.query.hu_min_months, 10);
+      if (hu) {
+        const m = String(hu).toLowerCase().match(/(\d{1,2})/);
+        if (m) return parseInt(m[1], 10);
+      }
+      return NaN;
+    })();
+    // Optional: "gültig bis"-Grenze
+    const huBisDate = hu_bis ? parseYMServer(hu_bis) : null;
     const huBisKey  = huBisDate ? (huBisDate.getUTCFullYear() * 12 + (huBisDate.getUTCMonth() + 1)) : null;
 
     // ---- Sortierung
@@ -2198,23 +2210,37 @@ app.get("/api/search", async (req, res) => {
       }
     ];
 
-    // ---- HU: String -> (year, month) -> hu_key (year*12 + month)
+    // ---- HU: Rohwert -> (y,m) -> hu_key (y*12+m)
     const huParseStages = [
       { $addFields: {
-          _hu_raw: { $ifNull: [
-            "$verkauf_hu",
-            { $ifNull: [
+          _hu_raw: {
+            $ifNull: [
               "$hu",
-              { $ifNull: [ "$verkauf_hu_bis", { $ifNull: [ "$hauptuntersuchung", null ] } ] }
-            ] }
-          ] }
+              { $ifNull: [
+                "$verkauf_hu",
+                { $ifNull: [
+                  "$hu_bis",
+                  { $ifNull: [
+                    "$verkauf_hu_bis",
+                    { $ifNull: [
+                      "$hu_gueltig_bis",
+                      { $ifNull: [
+                        "$hauptuntersuchung",
+                        { $ifNull: [ "$tuev", { $ifNull: [ "$tüv", { $ifNull: [ "$tuv", null ] } ] } ] }
+                      ] }
+                    ] }
+                  ] }
+                ] }
+              ] }
+            ]
+          }
         }
       },
       { $addFields: {
-          _hu_str:      { $toString: { $ifNull: ["$_hu_raw", ""] } },
-          _hu_rx_y_m:   { $regexFind: { input: "$_hu_str", regex: /(\d{4})[-/.](\d{1,2})/ } }, // YYYY-MM
-          _hu_rx_m_y:   { $regexFind: { input: "$_hu_str", regex: /(\d{1,2})[-/.](\d{4})/ } }, // MM/YYYY
-          _hu_rx_y:     { $regexFind: { input: "$_hu_str", regex: /(\d{4})/ } }                 // YYYY
+          _hu_str:    { $toString: { $ifNull: ["$_hu_raw", ""] } },
+          _hu_rx_y_m: { $regexFind: { input: "$_hu_str", regex: /(\d{4})[-/.](\d{1,2})/ } }, // YYYY-MM
+          _hu_rx_m_y: { $regexFind: { input: "$_hu_str", regex: /(\d{1,2})[-/.](\d{4})/ } }, // MM/YYYY
+          _hu_rx_y:   { $regexFind: { input: "$_hu_str", regex: /(\d{4})/ } }                 // YYYY
         }
       },
       { $addFields: {
@@ -2240,7 +2266,7 @@ app.get("/api/search", async (req, res) => {
           },
           _hu_m: {
             $let: {
-              vars: { a: "$_hu_rx_y_m", b: "$_hu_rx_m_y", c: "$_hu_rx_y" },
+              vars: { a: "$_hu_rx_y_m", b: "$_hu_rx_m_y" },
               in: {
                 $cond: [
                   { $ne: ["$$a", null] },
@@ -2248,7 +2274,7 @@ app.get("/api/search", async (req, res) => {
                   { $cond: [
                     { $ne: ["$$b", null] },
                     { $toInt: { $arrayElemAt: ["$$b.captures", 0] } },
-                    1 // nur Jahr angegeben -> Januar
+                    1 // nur Jahr -> Januar
                   ] }
                 ]
               }
@@ -2342,7 +2368,7 @@ app.get("/api/search", async (req, res) => {
               { fahrzeugart:   { $in: rxes } },
               { karosserie:    { $in: rxes } },
               { karosserieart: { $in: rxes } },
-              { titel:         { $in: rxes } }, // Fallbacks
+              { titel:         { $in: rxes } },
               { beschreibung:  { $in: rxes } }
             ]
           }
@@ -2396,7 +2422,7 @@ app.get("/api/search", async (req, res) => {
     // ---- Antrieb (CSV; tolerant mit Synonymen)
     let driveStages = [];
     if (antrieb) {
-      const wanted = splitCsv(antrieb).map(driveCanon).filter(Boolean);
+      const wanted = String(antrieb).split(",").map(s => s.trim()).map(driveCanon).filter(Boolean);
       const rxes = [];
       if (wanted.includes("frontantrieb")) rxes.push(/front/i, /vorder/i, /vorderrad/i, /\bfwd\b/i);
       if (wanted.includes("heckantrieb"))  rxes.push(/heck/i, /hinter/i, /hinterrad/i, /\brwd\b/i, /rear/i);
@@ -2594,10 +2620,10 @@ app.get("/api/search", async (req, res) => {
     const huFilterStages =
       (Number.isFinite(huMinMon) && huMinMon > 0)
         ? [
-            // Now-Key in Monaten
+            // NOW (UTC) -> year/month -> now_key
             { $addFields: {
                 _now_parts: { $dateToParts: { date: "$$NOW", timezone: "UTC" } },
-                _now_key: { $add: [ { $multiply: ["$_now_parts.year", 12] }, "$_now_parts.month" ] }
+                _now_key:   { $add: [ { $multiply: ["$_now_parts.year", 12] }, "$_now_parts.month" ] }
               }
             },
             { $match: { hu_key: { $ne: null } } },
@@ -2654,7 +2680,7 @@ app.get("/api/search", async (req, res) => {
 
     const commonStages = [
       ...parseNumberStages,
-      ...huParseStages,        // <<< HU-Parsing hier einhängen
+      ...huParseStages,        // <<< HU-Parsing
       ...numberFilterStages,
       ...powerFilterStages,
       ...ccmFilterStages,
@@ -2673,7 +2699,7 @@ app.get("/api/search", async (req, res) => {
       ...variantStages,
       ...vehTypeStages,
       ...tuerenStages,
-      ...huFilterStages,       // <<< HU-Filter hier anwenden (vor Facet/Paging!)
+      ...huFilterStages,       // <<< HU-Filter anwenden
       ...endStages
     ];
 
