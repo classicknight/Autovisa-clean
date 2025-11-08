@@ -2837,21 +2837,3 @@ app.get("/api/search", async (req, res) => {
 
 
 
-
-app.get("/api/_debug_hu", async (req, res) => {
-  try {
-    const out = await db.collection("inserate").aggregate([
-      // HU-Key bauen (nur Parsing, kein Filtern)
-      ...huParseStages,
-      { $group: {
-          _id: null,
-          total: { $sum: 1 },
-          withKey: { $sum: { $cond: [{ $ne: ["$hu_key", null] }, 1, 0] } },
-          withoutKey: { $sum: { $cond: [{ $eq: ["$hu_key", null] }, 1, 0] } }
-      } }
-    ]).toArray();
-    res.json(out[0] || { total: 0, withKey: 0, withoutKey: 0 });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});

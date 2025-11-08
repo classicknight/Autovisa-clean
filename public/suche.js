@@ -2139,32 +2139,27 @@ function removeFilterChip(key, val = "") {
       break;
     }
 
-    // HU bis (YYYY-MM / MM/YYYY / YYYY)
-    case "hu": {
-      if (mapEl.hu) mapEl.hu.value = "";
-      params.delete("hu_bis");
-      params.delete("inspectionUntil"); // falls jemals als URL gesetzt
-      params.delete("hu");              // Textvariante sicherheitshalber mitlöschen
-      break;
-    }
-
-    // HU mind. Monate
-    case "hu_min_monate": {
-      if (mapEl.hu_min_monate) mapEl.hu_min_monate.value = "";
-      params.delete("hu_min_monate");
-      params.delete("hu_min_months");
-      params.delete("hu"); // Textvariante (Mind. X Monate) ebenfalls entfernen
+    // HU (alle Varianten gemeinsam entfernen)
+    case "hu":
+    case "hu_min_monate":
+    case "hu_bis": {
+      if (mapEl.hu) mapEl.hu.value = ""; // Datum-UI leeren
+      const huMinEl = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
+      if (huMinEl) huMinEl.value = "";   // Min-Monate-UI leeren
+      ["hu", "hu_bis", "inspectionUntil", "hu_min_monate", "hu_min_months"].forEach(k => params.delete(k));
       break;
     }
 
     // Kraftstoff (CSV)
     case "fuel": {
       document.querySelectorAll('input[name="kraftstoff"]').forEach(cb => {
-        if (fuelCanon(cb.value) === val) cb.checked = false;
+        if (typeof fuelCanon === "function" && fuelCanon(cb.value) === val) cb.checked = false;
       });
-      if (mapEl.fuel && fuelCanon(mapEl.fuel.value) === val) mapEl.fuel.value = "Beliebig";
+      if (mapEl.fuel && typeof fuelCanon === "function" && fuelCanon(mapEl.fuel.value) === val) mapEl.fuel.value = "Beliebig";
 
-      const list = splitCsv(params.get("kraftstoff")).map(fuelCanon).filter(Boolean);
+      const list = (typeof splitCsv === "function" ? splitCsv(params.get("kraftstoff")) : String(params.get("kraftstoff")||"").split(","))
+        .map(v => (typeof fuelCanon === "function" ? fuelCanon(v) : v))
+        .filter(Boolean);
       const next = list.filter(x => x !== val);
       if (next.length) params.set("kraftstoff", next.join(","));
       else params.delete("kraftstoff");
@@ -2201,11 +2196,14 @@ function removeFilterChip(key, val = "") {
     // Antrieb (CSV)
     case "drive": {
       document.querySelectorAll('input[name="antrieb"]').forEach(cb => {
-        if (driveCanon(cb.value) === val) cb.checked = false;
+        if (typeof driveCanon === "function" && driveCanon(cb.value) === val) cb.checked = false;
       });
-      if (mapEl.drive && driveCanon(mapEl.drive.value) === val) mapEl.drive.value = "Beliebig";
+      if (mapEl.drive && typeof driveCanon === "function" && driveCanon(mapEl.drive.value) === val) mapEl.drive.value = "Beliebig";
 
-      const list = splitCsv(params.get("antriebsart") || params.get("antrieb")).map(driveCanon).filter(Boolean);
+      const raw = params.get("antriebsart") || params.get("antrieb");
+      const list = (typeof splitCsv === "function" ? splitCsv(raw) : String(raw||"").split(","))
+        .map(v => (typeof driveCanon === "function" ? driveCanon(v) : v))
+        .filter(Boolean);
       const next = list.filter(x => x !== val);
       if (next.length) params.set("antriebsart", next.join(","));
       else { params.delete("antriebsart"); params.delete("antrieb"); }
@@ -2214,13 +2212,14 @@ function removeFilterChip(key, val = "") {
 
     case "accidentFree": {
       if (mapEl.accidentFree) mapEl.accidentFree.checked = false;
+      params.delete("accidentFree");
       break;
     }
 
     case "marke": params.delete("marke"); break;
 
     case "modell": {
-      const list = splitCsv(params.get("modell"));
+      const list = (typeof splitCsv === "function" ? splitCsv(params.get("modell")) : String(params.get("modell")||"").split(","));
       const next = list.filter(m => m.toLowerCase() !== String(val || "").toLowerCase());
       if (next.length) params.set("modell", next.join(","));
       else params.delete("modell");
@@ -2233,7 +2232,7 @@ function removeFilterChip(key, val = "") {
       break;
 
     case "fahrzeugtyp": {
-      const list = splitCsv(params.get("fahrzeugtyp"));
+      const list = (typeof splitCsv === "function" ? splitCsv(params.get("fahrzeugtyp")) : String(params.get("fahrzeugtyp")||"").split(","));
       const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
       if (next.length) params.set("fahrzeugtyp", next.join(","));
       else params.delete("fahrzeugtyp");
@@ -2254,7 +2253,7 @@ function removeFilterChip(key, val = "") {
     }
 
     case "tueren": {
-      const list = splitCsv(params.get("tueren"));
+      const list = (typeof splitCsv === "function" ? splitCsv(params.get("tueren")) : String(params.get("tueren")||"").split(","));
       const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
       if (next.length) params.set("tueren", next.join(","));
       else params.delete("tueren");
@@ -2277,7 +2276,7 @@ function removeFilterChip(key, val = "") {
     }
 
     case "farbe": {
-      const list = splitCsv(params.get("farbe"));
+      const list = (typeof splitCsv === "function" ? splitCsv(params.get("farbe")) : String(params.get("farbe")||"").split(","));
       const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
       if (next.length) params.set("farbe", next.join(","));
       else params.delete("farbe");
@@ -2288,20 +2287,43 @@ function removeFilterChip(key, val = "") {
       break;
     }
 
-    case "ort":            params.delete("ort"); break;
+    case "ort": {
+      params.delete("ort");
+      params.delete("ort_lat");
+      params.delete("ort_lon");
+      break;
+    }
+
     case "umkreis":        params.delete("umkreis"); break;
-    case "verbrauch_max":  params.delete("verbrauch_max"); break;
+
+    case "verbrauch_max": {
+      params.delete("verbrauch_max");
+      const selV = document.getElementById("verbrauch-select");
+      const inpV = document.getElementById("verbrauch");
+      if (selV) selV.value = "";
+      if (inpV) inpV.value = "";
+      break;
+    }
+
     case "partikelfilter": params.delete("partikelfilter"); break;
-    case "scheckheft":     params.delete("scheckheft"); break;
-    case "fahrtauglich":   params.delete("fahrtauglich"); break;
+    case "scheckheft":     params.delete("scheckheft");     break;
+    case "fahrtauglich":   params.delete("fahrtauglich");   break;
 
     default: break;
   }
 
+  // Paging zurücksetzen & URL aktualisieren (ohne trailing '?')
   params.delete("page");
-  history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
-  loadAndRender(1);
+  const qs = params.toString();
+  history.replaceState(null, "", `${location.pathname}${qs ? `?${qs}` : ""}`);
+
+  // Neu laden + Chips sofort aktualisieren
+  if (typeof loadAndRender === "function")      loadAndRender(1);
+  else if (typeof runSearch === "function")     runSearch();
+  else if (typeof fetchAndRender === "function") fetchAndRender();
+  if (typeof renderActiveFilters === "function") renderActiveFilters();
 }
+
 
 function clearAllFilters() {
   const params = new URLSearchParams(window.location.search);
