@@ -2242,9 +2242,10 @@ app.get("/api/search", async (req, res) => {
       }
     ];
 
-    // ---- HU: Rohwert -> (y,m) -> hu_key (y*12+m)  — inkl. Monatsnamen
+    // ---- HU: Rohwert -> (y,m) -> hu_key (y*12+m) — inkl. getrennten Feldern tuevJahr / tuevMonat
     const huParseStages = [
       { $addFields: {
+          // 1) Freitext-/String-Felder (wie bisher)
           _hu_raw: {
             $ifNull: [
               "$hu",
@@ -2265,29 +2266,41 @@ app.get("/api/search", async (req, res) => {
                 ] }
               ] }
             ]
+          },
+
+          // 2) Getrennte Felder aus deiner DB
+          _hu_field_y: {
+            $convert: {
+              input: { $ifNull: [ "$tuevJahr", { $ifNull: [ "$tüvJahr", "$tuvJahr" ] } ] },
+              to: "int", onError: null, onNull: null
+            }
+          },
+          _hu_field_m_str: {
+            $toLower: {
+              $trim: { input: { $toString: { $ifNull: [ "$tuevMonat", { $ifNull: [ "$tüvMonat", "$tuvMonat" ] } ] } } }
+            }
           }
         }
       },
-      { $addFields: {
-          _hu_str:    { $toString: { $ifNull: ["$_hu_raw", ""] } },
 
-          // Zahl-Formate
+      // 3) Freitext-Parsing (YYYY-MM, MM/YYYY, 'Mai 2026', nur Jahr …)
+      { $addFields: {
+          _hu_str: { $toString: { $ifNull: ["$_hu_raw", ""] } },
+
           _hu_rx_y_m: { $regexFind: { input: "$_hu_str", regex: /(\d{4})[-/.](\d{1,2})/ } }, // YYYY-MM
           _hu_rx_m_y: { $regexFind: { input: "$_hu_str", regex: /(\d{1,2})[-/.](\d{4})/ } }, // MM/YYYY
-          _hu_rx_y:   { $regexFind: { input: "$_hu_str", regex: /(\d{4})/ } },                 // YYYY
+          _hu_rx_y:   { $regexFind: { input: "$_hu_str", regex: /(\d{4})/ } },               // YYYY
 
-          // Monatsname + Jahr (de/en)
-          _hu_rx_name_y1: { $regexFind: { 
-            input: "$_hu_str", 
+          _hu_rx_name_y1: { $regexFind: {
+            input: "$_hu_str",
             regex: /(jan(?:uar)?|feb(?:ruar)?|m(?:ä|ae|a)rz|apr(?:il)?|mai|may|jun(?:i)?|jul(?:i)?|aug(?:ust)?|sep(?:t|tember)?|okt(?:ober)?|oct(?:ober)?|nov(?:ember)?|dez(?:ember)?|dec(?:ember)?)\s+(\d{4})/i
           } },
-          _hu_rx_name_y2: { $regexFind: { 
-            input: "$_hu_str", 
+          _hu_rx_name_y2: { $regexFind: {
+            input: "$_hu_str",
             regex: /(\d{4})\s+(jan(?:uar)?|feb(?:ruar)?|m(?:ä|ae|a)rz|apr(?:il)?|mai|may|jun(?:i)?|jul(?:i)?|aug(?:ust)?|sep(?:t|tember)?|okt(?:ober)?|oct(?:ober)?|nov(?:ember)?|dez(?:ember)?|dec(?:ember)?)/i
           } }
         }
       },
-      // Name->Monat + Jahr extrahieren
       { $addFields: {
           _hu_name: {
             $toLower: {
@@ -2329,7 +2342,6 @@ app.get("/api/search", async (req, res) => {
           }
         }
       },
-      // Zahlen-Basics y/m extrahieren
       { $addFields: {
           _hu_y: {
             $let: {
@@ -2369,10 +2381,35 @@ app.get("/api/search", async (req, res) => {
           }
         }
       },
-      // Finale y/m: Name hat Vorrang, sonst Zahlen, dann hu_key
+
+      // 4) tuevMonat-String ("April", "04", "4") -> Monatszahl
       { $addFields: {
-          _hu_final_y: { $ifNull: ["$_hu_name_y", "$_hu_y"] },
-          _hu_final_m: { $ifNull: ["$_hu_name_m", "$_hu_m"] }
+          _hu_field_m: {
+            $switch: {
+              branches: [
+                { case: { $regexMatch: { input: "$_hu_field_m_str", regex: /^(1|01|jan)/ } }, then: 1 },
+                { case: { $regexMatch: { input: "$_hu_field_m_str", regex: /^(2|02|feb)/ } }, then: 2 },
+                { case: { $regexMatch: { input: "$_hu_field_m_str", regex: /(m(ä|ae|a)rz|^3|03)/ } }, then: 3 },
+                { case: { $regexMatch: { input: "$_hu_field_m_str", regex: /^(4|04|apr)/ } }, then: 4 },
+                { case: { $regexMatch: { input: "$_hu_field_m_str", regex: /(mai|may|^5|05)/ } }, then: 5 },
+                { case: { $regexMatch: { input: "$_hu_field_m_str", regex: /^(6|06|jun)/ } }, then: 6 },
+                { case: { $regexMatch: { input: "$_hu_field_m_str", regex: /^(7|07|jul)/ } }, then: 7 },
+                { case: { $regexMatch: { input: "$_hu_field_m_str", regex: /^(8|08|aug)/ } }, then: 8 },
+                { case: { $regexMatch: { input: "$_hu_field_m_str", regex: /^(9|09|sep)/ } }, then: 9 },
+                { case: { $regexMatch: { input: "$_hu_field_m_str", regex: /(okt|oct|^10)/ } }, then: 10 },
+                { case: { $regexMatch: { input: "$_hu_field_m_str", regex: /^(11|nov)/ } }, then: 11 },
+                { case: { $regexMatch: { input: "$_hu_field_m_str", regex: /(dez|dec|^12)/ } }, then: 12 }
+              ],
+              default: null
+            }
+          }
+        }
+      },
+
+      // 5) Finale Wahl: getrennte Felder haben Vorrang, sonst Freitexterkennung
+      { $addFields: {
+          _hu_final_y: { $ifNull: ["$_hu_field_y", { $ifNull: ["$_hu_name_y", "$_hu_y"] }] },
+          _hu_final_m: { $ifNull: ["$_hu_field_m", { $ifNull: ["$_hu_name_m", "$_hu_m"] }] }
         }
       },
       { $addFields: {
