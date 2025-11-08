@@ -163,6 +163,18 @@ const splitCsv = (v) => (v ? String(v).split(",").map(s => s.trim()).filter(Bool
 const uniq     = (arr) => [...new Set(arr)];
 
 
+// --- HU Param Normalisierung: Freitext "hu" -> "hu_min_monate" ---
+function normalizeHuParams(params) {
+  const huTxt = params.get('hu');
+  if (huTxt) {
+    const m = String(huTxt).match(/(\d{1,2})/); // z.B. "Mind. 6 Monate"
+    if (m) params.set('hu_min_monate', String(parseInt(m[1], 10)));
+    params.delete('hu'); // Doppelung vermeiden
+  }
+  return params;
+}
+
+
 // ---------- App ----------
 document.addEventListener("DOMContentLoaded", () => {
 // ===== DOM Refs =====
@@ -815,6 +827,8 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   async function fetchSearch(p = 1, limit = pageSize) {
     const reqId = ++lastReqId;
     const params = new URLSearchParams(window.location.search);
+
+    normalizeHuParams(params);
     // Client-only: nicht ans Backend senden
     params.delete("verbrauch_max");
     params.set("page", String(p));
@@ -2400,3 +2414,5 @@ function clearAllFilters() {
   loadAndRender(1);
 }
 });
+
+

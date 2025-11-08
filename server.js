@@ -2055,10 +2055,11 @@ app.get("/api/search", async (req, res) => {
       halter_max,              // maximale Halter
       farbe,                   // CSV (Karosseriefarbe)
       merkmale,                // CSV (z. B. Scheckheftgepflegt,Fahrtauglich)
+
       // HU (neu; mehrere Varianten möglich)
       hu_min_monate,           // z.B. "6"
       hu_bis,                  // z.B. "2026-03" oder "03/2026" oder "2026"
-      hu                        // z.B. "Mind. 6 Monate"
+      hu                       // z.B. "Mind. 6 Monate"
     } = req.query;
 
     const p    = Math.max(parseInt(page, 10)  || 1, 1);
