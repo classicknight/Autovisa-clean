@@ -2066,6 +2066,10 @@ app.get("/api/search", async (req, res) => {
     const lim  = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
     const skip = (p - 1) * lim;
 
+    // Aktueller Monatsschlüssel (UTC): YYYY*12 + MM
+    const NOW = new Date();
+    const nowKey = NOW.getUTCFullYear() * 12 + (NOW.getUTCMonth() + 1);
+
     // ---- Basisfilter (immer)
     const baseMatch = { status: "online" };
 
@@ -2095,8 +2099,7 @@ app.get("/api/search", async (req, res) => {
                           : NaN;
     const halterMaxNum = parseInt(halter_max, 10);
 
-    // ---- HU-Parameter aufbereiten (mind. Monate ODER gültig bis)
-    // Unterstützt: ?hu=Mind.+6+Monate  ODER  ?hu_min_monate=6
+    // ---- HU-Parameter (mind. Monate ODER gültig bis)
     const huMinMon = (() => {
       if (hu_min_monate != null && hu_min_monate !== "")
         return parseInt(hu_min_monate, 10);
@@ -2108,7 +2111,6 @@ app.get("/api/search", async (req, res) => {
       }
       return NaN;
     })();
-    // Optional: "gültig bis"-Grenze
     const huBisDate = hu_bis ? parseYMServer(hu_bis) : null;
     const huBisKey  = huBisDate ? (huBisDate.getUTCFullYear() * 12 + (huBisDate.getUTCMonth() + 1)) : null;
 
@@ -2145,8 +2147,6 @@ app.get("/api/search", async (req, res) => {
           _halter_raw: { $ifNull: [ "$halter", { $ifNull: [ "$halteranzahl", "$fahrzeughalter" ] } ] }
         }
       },
-
-      // Preis/KM per String-Cleanup
       { $addFields: {
           _preis_clean: {
             $replaceAll: {
@@ -2174,29 +2174,21 @@ app.get("/api/search", async (req, res) => {
           }
         }
       },
-
-      // PS / ccm / Verbrauch / Halter extrahieren
       { $addFields: {
           _ps_match:   { $regexFind:  { input: { $toString: "$_ps_raw"  }, regex: /(\d{2,4})/ } },
           _ccm_match:  { $regexFind:  { input: { $toString: "$_ccm_raw" }, regex: /(\d{3,5})/ } },
-
           _verb_norm:  { $replaceAll: { input: { $toString: "$_verb_raw" }, find: ",", replacement: "." } },
-
-          _verb_liters: { $regexFindAll: { input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)(?=\s*(?:l|L)\s*\/\s*100\s*km)/i } },
-          _verb_kwh:    { $regexFindAll: { input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)(?=\s*kwh\s*\/\s*100\s*km)/i } },
-          _verb_all_any:{ $regexFindAll: { input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)/ } },
-
-          _halter_match:{ $regexFind:    { input: { $toString: "$_halter_raw" }, regex: /(\d{1,2})/ } }
+          _verb_liters:{ $regexFindAll:{ input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)(?=\s*(?:l|L)\s*\/\s*100\s*km)/i } },
+          _verb_kwh:   { $regexFindAll:{ input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)(?=\s*kwh\s*\/\s*100\s*km)/i } },
+          _verb_all_any:{ $regexFindAll:{ input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)/ } },
+          _halter_match:{ $regexFind:   { input: { $toString: "$_halter_raw" }, regex: /(\d{1,2})/ } }
         }
       },
-
       { $addFields: {
           preis_num: { $convert: { input: "$_preis_clean", to: "int", onError: null, onNull: null } },
           km_num:    { $convert: { input: "$_km_clean",    to: "int", onError: null, onNull: null } },
           ps_num:    { $convert: { input: { $ifNull: ["$_ps_match.match",  null] }, to: "int", onError: null, onNull: null } },
           ccm_num:   { $convert: { input: { $ifNull: ["$_ccm_match.match", null] }, to: "int", onError: null, onNull: null } },
-
-          // Verbrauch: Einheitentreffer bevorzugt, sonst max(alle < 60)
           verb_num: {
             $let: {
               vars: {
@@ -2236,7 +2228,6 @@ app.get("/api/search", async (req, res) => {
               }
             }
           },
-
           halter_num: { $convert: { input: { $ifNull: ["$_halter_match.match", null] }, to: "int", onError: null, onNull: null } }
         }
       }
@@ -2245,7 +2236,6 @@ app.get("/api/search", async (req, res) => {
     // ---- HU: Rohwert -> (y,m) -> hu_key (y*12+m) — inkl. getrennten Feldern tuevJahr / tuevMonat
     const huParseStages = [
       { $addFields: {
-          // 1) Freitext-/String-Felder (wie bisher)
           _hu_raw: {
             $ifNull: [
               "$hu",
@@ -2267,8 +2257,6 @@ app.get("/api/search", async (req, res) => {
               ] }
             ]
           },
-
-          // 2) Getrennte Felder aus deiner DB
           _hu_field_y: {
             $convert: {
               input: { $ifNull: [ "$tuevJahr", { $ifNull: [ "$tüvJahr", "$tuvJahr" ] } ] },
@@ -2282,15 +2270,11 @@ app.get("/api/search", async (req, res) => {
           }
         }
       },
-
-      // 3) Freitext-Parsing (YYYY-MM, MM/YYYY, 'Mai 2026', nur Jahr …)
       { $addFields: {
           _hu_str: { $toString: { $ifNull: ["$_hu_raw", ""] } },
-
           _hu_rx_y_m: { $regexFind: { input: "$_hu_str", regex: /(\d{4})[-/.](\d{1,2})/ } }, // YYYY-MM
           _hu_rx_m_y: { $regexFind: { input: "$_hu_str", regex: /(\d{1,2})[-/.](\d{4})/ } }, // MM/YYYY
           _hu_rx_y:   { $regexFind: { input: "$_hu_str", regex: /(\d{4})/ } },               // YYYY
-
           _hu_rx_name_y1: { $regexFind: {
             input: "$_hu_str",
             regex: /(jan(?:uar)?|feb(?:ruar)?|m(?:ä|ae|a)rz|apr(?:il)?|mai|may|jun(?:i)?|jul(?:i)?|aug(?:ust)?|sep(?:t|tember)?|okt(?:ober)?|oct(?:ober)?|nov(?:ember)?|dez(?:ember)?|dec(?:ember)?)\s+(\d{4})/i
@@ -2381,8 +2365,6 @@ app.get("/api/search", async (req, res) => {
           }
         }
       },
-
-      // 4) tuevMonat-String ("April", "04", "4") -> Monatszahl
       { $addFields: {
           _hu_field_m: {
             $switch: {
@@ -2405,8 +2387,6 @@ app.get("/api/search", async (req, res) => {
           }
         }
       },
-
-      // 5) Finale Wahl: getrennte Felder haben Vorrang, sonst Freitexterkennung
       { $addFields: {
           _hu_final_y: { $ifNull: ["$_hu_field_y", { $ifNull: ["$_hu_name_y", "$_hu_y"] }] },
           _hu_final_m: { $ifNull: ["$_hu_field_m", { $ifNull: ["$_hu_name_m", "$_hu_m"] }] }
@@ -2635,7 +2615,7 @@ app.get("/api/search", async (req, res) => {
       ] } }];
     }
 
-    // ---- Umweltplakette (nimmt auch ?umweltplakette=… an)
+    // ---- Umweltplakette
     let plaketteStages = [];
     const plaketteParam = plakette || req.query.umweltplakette;
     if (plaketteParam) {
@@ -2747,18 +2727,12 @@ app.get("/api/search", async (req, res) => {
       }
     }
 
-    // ---- HU-Filter-Stages (nach huParseStages!)
+    // ---- HU-Filter (nach Parsing); nutzt nowKey (JS), kein $$NOW
     const huFilterStages =
       (Number.isFinite(huMinMon) && huMinMon > 0)
         ? [
-            // NOW (UTC) -> year/month -> now_key
-            { $addFields: {
-                _now_parts: { $dateToParts: { date: "$$NOW", timezone: "UTC" } },
-                _now_key:   { $add: [ { $multiply: ["$_now_parts.year", 12] }, "$_now_parts.month" ] }
-              }
-            },
             { $match: { hu_key: { $ne: null } } },
-            { $match: { $expr: { $gte: [ { $subtract: [ "$hu_key", "$_now_key" ] }, huMinMon ] } } }
+            { $match: { $expr: { $gte: [ { $subtract: [ "$hu_key", nowKey ] }, huMinMon ] } } }
           ]
         : (Number.isFinite(huBisKey))
         ? [
@@ -2781,8 +2755,7 @@ app.get("/api/search", async (req, res) => {
                 _halter_match: 0, _preis_null: 0, _ez: 0,
                 _hu_raw: 0, _hu_str: 0, _hu_rx_y_m: 0, _hu_rx_m_y: 0, _hu_rx_y: 0,
                 _hu_name: 0, _hu_name_y: 0, _hu_name_m: 0,
-                _hu_y: 0, _hu_m: 0, _hu_final_y: 0, _hu_final_m: 0,
-                _now_parts: 0, _now_key: 0
+                _hu_y: 0, _hu_m: 0, _hu_final_y: 0, _hu_final_m: 0
               }
             },
             { $skip: skip },
@@ -2813,7 +2786,7 @@ app.get("/api/search", async (req, res) => {
 
     const commonStages = [
       ...parseNumberStages,
-      ...huParseStages,        // <<< HU-Parsing
+      ...huParseStages,        // HU-Parsing
       ...numberFilterStages,
       ...powerFilterStages,
       ...ccmFilterStages,
@@ -2832,7 +2805,7 @@ app.get("/api/search", async (req, res) => {
       ...variantStages,
       ...vehTypeStages,
       ...tuerenStages,
-      ...huFilterStages,       // <<< HU-Filter anwenden
+      ...huFilterStages,       // HU-Filter
       ...endStages
     ];
 
@@ -2859,5 +2832,26 @@ app.get("/api/search", async (req, res) => {
   } catch (err) {
     console.error("Search error:", err);
     res.status(500).json({ error: "Interner Fehler bei der Suche." });
+  }
+});
+
+
+
+
+app.get("/api/_debug_hu", async (req, res) => {
+  try {
+    const out = await db.collection("inserate").aggregate([
+      // HU-Key bauen (nur Parsing, kein Filtern)
+      ...huParseStages,
+      { $group: {
+          _id: null,
+          total: { $sum: 1 },
+          withKey: { $sum: { $cond: [{ $ne: ["$hu_key", null] }, 1, 0] } },
+          withoutKey: { $sum: { $cond: [{ $eq: ["$hu_key", null] }, 1, 0] } }
+      } }
+    ]).toArray();
+    res.json(out[0] || { total: 0, withKey: 0, withoutKey: 0 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
