@@ -11,6 +11,18 @@ const toNum = (v) => {
   return Number(String(v).replace(/\./g, "").replace(",", "."));
 };
 
+// NEU: Akzeptiert YYYY, YYYY-MM, MM/YYYY, YYYY-MM-DD und gibt "YYYY-MM" zurück
+function normalizeYMAny(raw, fallbackMonthIfYearOnly = null) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/); if (m) return `${m[1]}-${m[2]}`;                         // YYYY-MM-DD -> YYYY-MM
+  m = s.match(/^(\d{4})-(\d{1,2})$/);            if (m) return `${m[1]}-${String(m[2]).padStart(2,"0")}`; // YYYY-MM
+  m = s.match(/^(\d{1,2})[./-](\d{4})$/);        if (m) return `${m[2]}-${String(m[1]).padStart(2,"0")}`; // MM/YYYY
+  m = s.match(/^(\d{4})$/);                      if (m) return fallbackMonthIfYearOnly ? `${m[1]}-${String(fallbackMonthIfYearOnly).padStart(2,"0")}` : "";
+  return "";
+}
+
+// (Behalten: wird an anderen Stellen verwendet)
 function parseYM(raw) {
   const s = String(raw || "").trim();
   if (!s) return "";
@@ -91,10 +103,10 @@ function badgeNiceLabel(tok) {
 // ---- Schadstoffklasse: Canon + Label ----
 function emissionCanon(raw) {
   if (raw == null) return "";
-  // leicht robust gegen Groß-/Kleinschreibung, Leerzeichen, Sonderzeichen
+  // robust gegen Groß-/Kleinschreibung, Leerzeichen, Sonderzeichen
   let s = String(raw).toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
   s = s.replace(/\s+/g, "");
-  // explizite Spezialfälle zuerst
+  // Spezialfälle
   if (/6d[- ]?temp|6dtemp/.test(s) || /euro6d[- ]?temp/.test(s)) return "euro6d-temp";
   if (/euro?6d(?!temp)|\b6d\b/.test(s)) return "euro6d";
   if (/euro?6c|\b6c\b/.test(s)) return "euro6c";
@@ -105,7 +117,7 @@ function emissionCanon(raw) {
   if (/euro?2|\b2\b/.test(s)) return "euro2";
   if (/euro?1|\b1\b/.test(s)) return "euro1";
 
-  // generischer Parser: "euro" + Ziffer + optional d/c + optional temp
+  // generisch
   const m = s.match(/euro?\s*(\d)\s*(d(?:-?temp)?)?|euro?\s*(\d)c/);
   if (m) {
     if (m[2]) { // d / d-temp
@@ -162,15 +174,32 @@ const replaceUrlParams = (params) => {
 const splitCsv = (v) => (v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : []);
 const uniq     = (arr) => [...new Set(arr)];
 
-
-// --- HU Param Normalisierung: Freitext "hu" -> "hu_min_monate" ---
+// --- HU Param Normalisierung ---
+// Freitext "hu" -> (a) "hu_min_monate" wenn "Mind. X Monate", sonst (b) Datum -> "hu_bis"
+// Außerdem "inspectionUntil" auf "hu_bis" normalisieren.
 function normalizeHuParams(params) {
-  const huTxt = params.get('hu');
+  const huTxt = params.get("hu");
   if (huTxt) {
-    const m = String(huTxt).match(/(\d{1,2})/); // z.B. "Mind. 6 Monate"
-    if (m) params.set('hu_min_monate', String(parseInt(m[1], 10)));
-    params.delete('hu'); // Doppelung vermeiden
+    // a) "Mind. 6 Monate" / "6 Monate" / "6 months"
+    const m = String(huTxt).match(/(\d{1,2})\s*(?:monate?|months?)/i);
+    if (m) {
+      params.set("hu_min_monate", String(parseInt(m[1], 10)));
+    } else {
+      // b) Datum erkennen und auf YYYY-MM normalisieren
+      const ym = normalizeYMAny(huTxt, 12);
+      if (ym) params.set("hu_bis", ym);
+    }
+    params.delete("hu"); // Doppelung vermeiden
   }
+
+  // Alias "inspectionUntil" -> "hu_bis" (ebenfalls normalisieren)
+  const insp = params.get("inspectionUntil");
+  if (insp) {
+    const ym2 = normalizeYMAny(insp, 12);
+    if (ym2) params.set("hu_bis", ym2);
+    params.delete("inspectionUntil");
+  }
+
   return params;
 }
 
@@ -286,19 +315,23 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   const ezVonEl = document.getElementById("ez-von");
   const ezBisEl = document.getElementById("ez-bis");
 
-  // HU (bis Datum) – aus URL übernehmen (YYYY-MM normalisiert)
-  const inspectionUntilEl = document.getElementById("inspectionUntil");
-  let huBis = parseYM(QP.hu_bis) || parseYM(QP.hu_text); // erlaubt auch, falls ?hu=2026-06
-  if (inspectionUntilEl && huBis) inspectionUntilEl.value = huBis;
+// HU (bis Datum) – aus URL übernehmen (YYYY-MM normalisiert)
+const inspectionUntilEl = document.getElementById("inspectionUntil");
+let huBis =
+  normalizeYMAny(QP.hu_bis) ||
+  normalizeYMAny(QP.hu_text) ||                 // ?hu=2026-06 ODER "Mind. 6 Monate"
+  normalizeYMAny(sp.get("inspectionUntil")) ||  // falls anders gesetzt
+  ""; 
+if (inspectionUntilEl && huBis) inspectionUntilEl.value = huBis;
 
-  // HU (mind. Monate) – aus expliziten Parametern oder Text „Mind. X Monate“
-  const huMinSel = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
-  let huMin = parseInt(String(QP.hu_min).trim(), 10);
-  if (!Number.isFinite(huMin)) {
-    const m = String(QP.hu_text).match(/(\d{1,2})/); // z. B. „Mind. 6 Monate“
-    if (m) huMin = parseInt(m[1], 10);
-  }
-  if (huMinSel && Number.isFinite(huMin) && huMin > 0) huMinSel.value = String(huMin);
+// HU (mind. Monate) – aus expliziten Parametern oder Text „Mind. X Monate“
+const huMinSel = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
+let huMin = parseInt(String(QP.hu_min).trim(), 10);
+if (!Number.isFinite(huMin)) {
+  const m = String(QP.hu_text).match(/(\d{1,2})/); // z. B. „Mind. 6 Monate“
+  if (m) huMin = parseInt(m[1], 10);
+}
+if (huMinSel && Number.isFinite(huMin) && huMin > 0) huMinSel.value = String(huMin);
 
   // Flags
   const pfEl = document.getElementById("partikelfilter");
@@ -1102,10 +1135,16 @@ function getCombinedConsumption(item) {
   // HU: UI & URL-Fallbacks
   const inspectionUntilUI = inspectionUntilEl?.value || ""; // erwartet YYYY-MM
   // - hu_bis oder inspectionUntil aus URL → mind. gültig bis Datum
-  const huUntilEff = parseYM(
-    inspectionUntilUI || sp.get("hu_bis") || sp.get("inspectionUntil") || "",
-    12 // bei Jahresangabe → Dezember
-  );
+// - hu_bis / inspectionUntil / hu (Text) -> mind. gültig bis Datum
+const huUntilEff = normalizeYMAny(
+  inspectionUntilUI ||
+  sp.get("hu_bis") ||
+  sp.get("inspectionUntil") ||
+  sp.get("hu") ||        // falls als Freitext gesetzt
+  "",
+  12 // Jahresangabe -> Dezember
+);
+
   // - hu_min_monate (UI oder URL)
   const huMinMonths = (() => {
     const ui = toNum(huMinMonthsEl?.value ?? "");
@@ -1978,31 +2017,39 @@ function renderActiveFilters() {
     ...qp.antrieb
   ]).filter(Boolean);
 
-  // EZ
-  const ezFromUIraw =
-    (firstRegFromEl?.value) ||
-    (firstRegYearEl?.value && firstRegMonthEl?.value ? `${firstRegYearEl.value}-${pad2(firstRegMonthEl.value)}` : "");
-  const ezFromEff = parseYM_local(ezFromUIraw || qp.ezFrom);
-  const ezToEff   = parseYM_local(qp.ezTo);
+ // EZ
+const ezFromUIraw =
+(firstRegFromEl?.value?.trim()) ||
+(firstRegYearEl?.value && firstRegMonthEl?.value
+  ? `${firstRegYearEl.value}-${pad2(firstRegMonthEl.value)}`
+  : "") ||
+"";
 
-  // HU (beide Varianten)
-  const huUntilEff = parseYM_local(inspectionEl?.value || qp.hu_bis, 12); // YYYY-MM, Jahresangabe -> Dezember
-  const huMinMonthsEff = (() => {
-    const ui = toInt(huMinMonthsEl?.value ?? "");
-    if (Number.isFinite(ui) && ui > 0) return ui;
-    const url = toInt(qp.hu_min_monate);
-    return (Number.isFinite(url) && url > 0) ? url : NaN;
-  })();
+const ezFromEff = parseYM_local(ezFromUIraw || qp.ezFrom);
+const ezToEff   = parseYM_local(qp.ezTo);
 
-  const accFree = !!accidentFreeEl?.checked;
+// HU (beide Varianten)
+const huUntilEff = parseYM_local(
+(inspectionEl?.value || qp.hu_bis || "").trim(),
+12 // wenn nur Jahr: auf Dezember setzen
+);
 
-  // Umweltplakette – effektiv (UI > URL)
-  const badgeEff = (() => {
-    if (badgeSel && badgeCanon(badgeSel.value)) return badgeCanon(badgeSel.value);
-    const r = document.querySelector('input[name="umweltplakette"]:checked');
-    if (r && badgeCanon(r.value)) return badgeCanon(r.value);
-    return qp.umweltplakette || "";
-  })();
+const huMinMonthsEff = (() => {
+const ui = toInt(huMinMonthsEl?.value ?? "");
+if (Number.isFinite(ui) && ui > 0) return ui;
+const q = toInt(qp.hu_min_monate);
+return (Number.isFinite(q) && q > 0) ? q : NaN;
+})();
+
+const accFree = !!accidentFreeEl?.checked;
+
+// Umweltplakette – effektiv (UI > URL)
+const badgeEff = (() => {
+const r = document.querySelector('input[name="umweltplakette"]:checked');
+if (r && badgeCanon(r.value)) return badgeCanon(r.value);
+if (badgeSel && badgeCanon(badgeSel.value)) return badgeCanon(badgeSel.value);
+return qp.umweltplakette || "";
+})();
 
   // Schadstoffklasse – effektiv (UI > URL)
   const emissionEff = (() => {
@@ -2138,17 +2185,18 @@ function removeFilterChip(key, val = "") {
       params.delete("ezTo");
       break;
     }
+// HU (alle Varianten gemeinsam entfernen)
+case "hu":
+case "hu_min_monate":
+case "hu_bis":
+case "inspectionUntil": {
+  if (mapEl.hu) mapEl.hu.value = ""; // Datum-UI leeren
+  const huMinEl = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
+  if (huMinEl) huMinEl.value = "";   // Min-Monate-UI leeren
+  ["hu","hu_bis","inspectionUntil","hu_min_monate","hu_min_months"].forEach(k => params.delete(k));
+  break;
+}
 
-    // HU (alle Varianten gemeinsam entfernen)
-    case "hu":
-    case "hu_min_monate":
-    case "hu_bis": {
-      if (mapEl.hu) mapEl.hu.value = ""; // Datum-UI leeren
-      const huMinEl = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
-      if (huMinEl) huMinEl.value = "";   // Min-Monate-UI leeren
-      ["hu", "hu_bis", "inspectionUntil", "hu_min_monate", "hu_min_months"].forEach(k => params.delete(k));
-      break;
-    }
 
     // Kraftstoff (CSV)
     case "fuel": {
