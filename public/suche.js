@@ -1917,49 +1917,40 @@ const huUntilEff = normalizeYMAny(
   // ===== Init =====
   const initialPage = Math.max(parseInt(new URLSearchParams(window.location.search).get("page") || "1", 10), 1);
   loadAndRender(initialPage);
-  // ---- Aktive Filter (Chips) ----
+ // ---- Aktive Filter (Chips) ----
 function renderActiveFilters() {
   const bar = document.getElementById('activeFilterBar');
   if (!bar) return;
 
   const barWrap = document.getElementById('activeFilterWrap') || bar.parentElement;
-  const SHOW_NO_FILTER_PLACEHOLDER = false;
 
   // Refs
-  const priceFromEl     = document.getElementById("priceFrom");
-  const priceToEl       = document.getElementById("priceTo");
-  const mileageFromEl   = document.getElementById("mileageFrom");
-  const mileageToEl     = document.getElementById("mileageTo");
-  const powerFromEl     = document.getElementById("powerFrom");
-  const powerToEl       = document.getElementById("powerTo");
+  const priceFromEl   = document.getElementById("priceFrom");
+  const priceToEl     = document.getElementById("priceTo");
+  const mileageFromEl = document.getElementById("mileageFrom");
+  const mileageToEl   = document.getElementById("mileageTo");
+  const powerFromEl   = document.getElementById("powerFrom");
+  const powerToEl     = document.getElementById("powerTo");
 
-  const fuelEl          = document.getElementById("fuelType") || document.getElementById("fuel");
-  const gearEl          = document.getElementById("transmission") || document.getElementById("gear");
-  const driveEl         = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
+  const fuelEl  = document.getElementById("fuelType") || document.getElementById("fuel");
+  const gearEl  = document.getElementById("transmission") || document.getElementById("gear");
+  const driveEl = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
 
   const firstRegFromEl  = document.getElementById("firstRegFrom");
   const firstRegMonthEl = document.getElementById("first-registration-month");
   const firstRegYearEl  = document.getElementById("first-registration-year");
   const accidentFreeEl  = document.getElementById("accidentFree");
 
-  // HU
-  const inspectionEl    = document.getElementById("inspectionUntil");        // HU bis (YYYY-MM)
-  const huMinMonthsEl   = document.getElementById("huMinMonths")             // mind. Monate (optional)
-                       || document.getElementById("inspectionMinMonths");
+  // HU Inputs (optional)
+  const inspectionEl  = document.getElementById("inspectionUntil");                 // YYYY-MM
+  const huMinMonthsEl = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
 
-  // UMWELT / EMISSION
-  const badgeSel        = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
-  const emissionSel     = document.getElementById("schadstoffklasse") || document.getElementById("emission");
-
-  // **NEU: max. Halter (mehrere mögliche IDs)**
-  const ownersMaxEl     = document.getElementById("halterMax")
-                       || document.getElementById("ownersMax")
-                       || document.getElementById("ownerCountMax")
-                       || document.getElementById("maxHalter");
+  const badgeSel    = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
+  const emissionSel = document.getElementById("schadstoffklasse") || document.getElementById("emission");
 
   // Utils
-  const uniq = (arr) => [...new Set(arr)];
-  const pad2 = (m) => String(m).padStart(2, "0");
+  const uniq  = (arr) => [...new Set(arr)];
+  const pad2  = (m) => String(m).padStart(2, "0");
   const toInt = (v) => {
     const n = parseInt(String(v ?? "").replace(/\./g,"").replace(",", "."), 10);
     return Number.isFinite(n) ? n : NaN;
@@ -1983,12 +1974,15 @@ function renderActiveFilters() {
     modellausfuehrung: sp.get("modellausfuehrung") || "",
     fahrzeugtyp: (sp.get("fahrzeugtyp") || "").split(",").filter(Boolean),
     tueren: (sp.get("tueren") || "").split(",").filter(Boolean),
+
     ezFrom: sp.get("ezFrom") || "",
     ezTo:   sp.get("ezTo")   || "",
+
     km_max: sp.get("km_max") || "",
     price_max: sp.get("price_max") || "",
     ps_min: sp.get("ps_min") || "",
     ps_max: sp.get("ps_max") || "",
+
     getriebe: (sp.get("getriebe") || "").toLowerCase(),
     kraftstoff: (sp.get("kraftstoff") || "").split(",").map(fuelCanon).filter(Boolean),
     antrieb: (sp.get("antriebsart") || sp.get("antrieb") || "").split(",").map(driveCanon).filter(Boolean),
@@ -2003,15 +1997,13 @@ function renderActiveFilters() {
     umweltplakette:  badgeCanon(sp.get("umweltplakette") || sp.get("plakette")),
     schadstoffklasse: emissionCanon(sp.get("schadstoffklasse")),
 
-    // HU aus URL
+    // --- HU: alle möglichen Keys (URL) ---
     hu_bis: sp.get("hu_bis") || sp.get("inspectionUntil") || "",
-    hu_min_monate: sp.get("hu_min_monate") || sp.get("hu_min_months") || "",
-
-    // **NEU: maximale Halter**
-    halter_max: sp.get("halter_max") || sp.get("ownersMax") || ""
+    // Monate: akzeptiere hu_min_monate, hu_min_months und hu_min
+    hu_min_monate: sp.get("hu_min_monate") || sp.get("hu_min_months") || sp.get("hu_min") || ""
   };
 
-  // Effektive Werte (UI > URL)
+  // Effektive Zahlenwerte
   const priceMin = toInt(priceFromEl?.value ?? "");
   const priceMax = !isNaN(toInt(priceToEl?.value ?? "")) && toInt(priceToEl?.value ?? "") > 0
                    ? toInt(priceToEl.value) : toInt(qp.price_max);
@@ -2023,12 +2015,14 @@ function renderActiveFilters() {
   const psMaxEff = !isNaN(toInt(powerToEl?.value   ?? "")) && toInt(powerToEl?.value   ?? "") > 0
                    ? toInt(powerToEl.value)   : toInt(qp.ps_max);
 
+  // Kraftstoff (multi)
   let fuelList = uniq([
     ...(fuelEl && fuelEl.value && !/^(beliebig|any|alle|all|-)$/i.test(fuelEl.value) ? [fuelCanon(fuelEl.value)] : []),
     ...[...document.querySelectorAll('input[name="kraftstoff"]:checked')].map(cb => fuelCanon(cb.value)),
     ...qp.kraftstoff
   ]).filter(Boolean);
 
+  // Getriebe (schönes Label)
   const effGear = (() => {
     const ui = (gearEl?.value || "").trim();
     if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return ui;
@@ -2040,6 +2034,7 @@ function renderActiveFilters() {
     return v;
   })();
 
+  // Antrieb (multi)
   let driveList = uniq([
     ...(driveEl && driveEl.value && !/^(beliebig|any|alle|all|-)$/i.test(driveEl.value) ? [driveCanon(driveEl.value)] : []),
     ...[...document.querySelectorAll('input[name="antrieb"]:checked')].map(cb => driveCanon(cb.value)),
@@ -2056,18 +2051,25 @@ function renderActiveFilters() {
   const ezFromEff = parseYM_local(ezFromUIraw || qp.ezFrom);
   const ezToEff   = parseYM_local(qp.ezTo);
 
-  // HU (beide Varianten)
-  const huUntilEff = parseYM_local((inspectionEl?.value || qp.hu_bis || "").trim(), 12);
+  // --- HU effektiv ---
+  // HU bis (YYYY-MM) — UI > URL
+  const huUntilEff = parseYM_local(
+    (inspectionEl?.value || qp.hu_bis || "").trim(),
+    12 // Jahresangabe -> Dezember
+  );
+
+  // HU mind. Monate — UI > URL, akzeptiere mehrere Parameternamen
   const huMinMonthsEff = (() => {
     const ui = toInt(huMinMonthsEl?.value ?? "");
     if (Number.isFinite(ui) && ui > 0) return ui;
-    const q = toInt(qp.hu_min_monate);
-    return (Number.isFinite(q) && q > 0) ? q : NaN;
+    const q1 = toInt(qp.hu_min_monate);
+    if (Number.isFinite(q1) && q1 > 0) return q1;
+    return NaN;
   })();
 
   const accFree = !!accidentFreeEl?.checked;
 
-  // Umwelt/Emission
+  // Umweltplakette/Schadstoffklasse – effektiv (UI > URL)
   const badgeEff = (() => {
     const r = document.querySelector('input[name="umweltplakette"]:checked');
     if (r && badgeCanon(r.value)) return badgeCanon(r.value);
@@ -2079,14 +2081,6 @@ function renderActiveFilters() {
     if (r && emissionCanon(r.value)) return emissionCanon(r.value);
     if (emissionSel && emissionCanon(emissionSel.value)) return emissionCanon(emissionSel.value);
     return qp.schadstoffklasse || "";
-  })();
-
-  // **NEU: max. Halter – effektiv (UI > URL)**
-  const ownersMaxEff = (() => {
-    const ui = toInt(ownersMaxEl?.value ?? "");
-    if (Number.isFinite(ui) && ui > 0) return ui;
-    const url = toInt(qp.halter_max);
-    return (Number.isFinite(url) && url > 0) ? url : NaN;
   })();
 
   // Chips
@@ -2112,20 +2106,14 @@ function renderActiveFilters() {
   if (ezToEff)   chips.push({key:"ezTo",   label:`EZ bis ${fmtYM(ezToEff)}`});
   if (accFree)   chips.push({key:"accidentFree", label:`Unfallfrei`});
 
-  // HU-Chips
+  // --- HU Chips ---
   if (Number.isFinite(huMinMonthsEff) && huMinMonthsEff > 0) {
     chips.push({ key: "hu_min_monate", label: `HU ≥ ${int(huMinMonthsEff)} Monate` });
   }
   if (huUntilEff) {
-    chips.push({ key: "hu", label: `HU bis ${fmtYM(huUntilEff)}` });
+    chips.push({ key: "hu_bis", label: `HU bis ${fmtYM(huUntilEff)}` });
   }
 
-  // **NEU: Halter-Chip**
-  if (Number.isFinite(ownersMaxEff) && ownersMaxEff > 0) {
-    chips.push({ key: "halter_max", label: `Halter ≤ ${int(ownersMaxEff)}` });
-  }
-
-  // Marke/Modell etc.
   if (qp.marke) chips.push({key:"marke", label:`Marke: ${qp.marke}`});
   if (qp.modell?.length) qp.modell.forEach(m => chips.push({key:"modell", value:m, label:`Modell: ${m}`}));
   if (qp.modellausfuehrung) chips.push({key:"modellausfuehrung", label:`Modellvariante: ${qp.modellausfuehrung}`});
@@ -2173,6 +2161,7 @@ function renderActiveFilters() {
   });
   bar.querySelector(".clear-all")?.addEventListener("click", () => clearAllFilters());
 }
+
 
 function removeFilterChip(key, val = "") {
   const params = new URLSearchParams(window.location.search);
@@ -2381,7 +2370,19 @@ case "inspectionUntil": {
       });
       break;
     }
-
+    case "hu_min_monate": {
+      ["hu_min_monate","hu_min_months","hu_min"].forEach(k => params.delete(k));
+      const el = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
+      if (el) el.value = "";
+      break;
+    }
+    case "hu_bis": {
+      ["hu_bis","inspectionUntil"].forEach(k => params.delete(k));
+      const el = document.getElementById("inspectionUntil");
+      if (el) el.value = "";
+      break;
+    }
+    
     case "ort": {
       params.delete("ort");
       params.delete("ort_lat");
