@@ -1972,6 +1972,14 @@ function renderActiveFilters() {
   const inspectionEl  = document.getElementById("inspectionUntil");              // HU bis (YYYY-MM)
   const huMinMonthsEl = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths"); // HU mind. Monate
 
+  // **Fahrzeughalter max (mehrere mögliche IDs abgedeckt)**
+  const halterMaxEl =
+    document.getElementById("halterMax") ||
+    document.getElementById("halter_max") ||
+    document.getElementById("ownerMax")   ||
+    document.getElementById("ownersMax")  ||
+    document.getElementById("anzahlFahrzeughalterMax");
+
   const badgeSel    = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
   const emissionSel = document.getElementById("schadstoffklasse") || document.getElementById("emission");
 
@@ -2001,6 +2009,9 @@ function renderActiveFilters() {
     scheckheft:     isTruthyRaw(sp.get("scheckheft")),
     fahrtauglich:   isTruthyRaw(sp.get("fahrtauglich")),
 
+    // **Fahrzeughalter max – mehrere Param-Namen akzeptieren**
+    halter_max: sp.get("halter_max") || sp.get("max_halter") || sp.get("owners_max") || "",
+
     // Umweltplakette & Schadstoffklasse
     umweltplakette:  badgeCanon(sp.get("umweltplakette") || sp.get("plakette")),
     schadstoffklasse: emissionCanon(sp.get("schadstoffklasse")),
@@ -2018,6 +2029,14 @@ function renderActiveFilters() {
   const kmMax    = (() => { const n = toInt(mileageToEl?.value ?? ""); return Number.isFinite(n) && n > 0 ? n : toInt(qp.km_max); })();
   const psMinEff = (() => { const n = toInt(powerFromEl?.value ?? ""); return Number.isFinite(n) && n > 0 ? n : toInt(qp.ps_min); })();
   const psMaxEff = (() => { const n = toInt(powerToEl?.value   ?? ""); return Number.isFinite(n) && n > 0 ? n : toInt(qp.ps_max); })();
+
+  // **Fahrzeughalter max – effektiver Wert**
+  const halterMaxEff = (() => {
+    const ui = toInt(halterMaxEl?.value ?? "");
+    if (Number.isFinite(ui) && ui > 0) return ui;
+    const url = toInt(qp.halter_max);
+    return (Number.isFinite(url) && url > 0) ? url : NaN;
+  })();
 
   // Kraftstoff (multi)
   let fuelList = uniq([
@@ -2111,13 +2130,15 @@ function renderActiveFilters() {
     chips.push({ key: "hu_min_monate", label: `HU ≥ ${int(huMinMonthsEff)} Monate` });
   }
   if (huUntilEff) {
-    // key "hu" funktioniert mit removeFilterChip, sonst gerne "hu_bis" nehmen und dort behandeln
     chips.push({ key: "hu", label: `HU bis ${fmtYM(huUntilEff)}` });
   }
 
   // **Scheckheft als Chip**
-  if (qp.scheckheft) {
-    chips.push({key:"scheckheft", label:"Scheckheftgepflegt"});
+  if (qp.scheckheft) chips.push({key:"scheckheft", label:"Scheckheftgepflegt"});
+
+  // **Fahrzeughalter max als Chip**
+  if (Number.isFinite(halterMaxEff)) {
+    chips.push({ key: "halter_max", label: `Halter ≤ ${int(halterMaxEff)}` });
   }
 
   // weitere URL-basierte Chips
@@ -2146,8 +2167,8 @@ function renderActiveFilters() {
   if (barWrap) barWrap.classList.remove("no-chips");
 
   bar.innerHTML = chips.map(c => `
-    <div class="filter-chip" data-key="${c.key}" ${c.value ? `data-value="${c.value}"` : ""}>
-      <span class="chip-label">${c.label}</span>
+    <div class="filter-chip" data-key="\${c.key}" ${'value' in c ? `data-value="\${c.value}"` : ""}>
+      <span class="chip-label">\${c.label}</span>
       <button class="chip-remove" type="button" aria-label="Filter entfernen" title="Filter entfernen">
         <i class="fas fa-times"></i>
       </button>
@@ -2166,6 +2187,7 @@ function renderActiveFilters() {
   });
   bar.querySelector(".clear-all")?.addEventListener("click", () => clearAllFilters());
 }
+
 
 
 
