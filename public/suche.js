@@ -1970,7 +1970,8 @@ function renderActiveFilters() {
   const fmtYM = (s) => /^\d{4}-\d{2}$/.test(s) ? `${s.slice(5,7)}/${s.slice(0,4)}` : s;
 
   // --- URL-Params (roh) ---
-  const sp = new URLSearchParams(location.search);
+  const sp = normalizeHuParams(new URLSearchParams(location.search));
+
   const qp = {
     marke: sp.get("marke") || "",
     modell: (sp.get("modell") || "").split(",").filter(Boolean),
