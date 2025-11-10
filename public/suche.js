@@ -1783,21 +1783,44 @@ const huUntilEff = normalizeYMAny(
     } else {
       params.delete("umkreis");
     }
-  // HU bis (YYYY-MM)
-{
-  const val = document.getElementById("inspectionUntil")?.value || "";
-  if (val && /^\d{4}-\d{2}$/.test(val.trim())) params.set("hu_bis", val.trim());
-  else params.delete("hu_bis");
-}
-
-// HU mind. Monate
-{
-  const raw = document.getElementById("huMinMonths")?.value || "";
-  const n = parseInt(raw, 10);
-  if (!isNaN(n) && n > 0) params.set("hu_min_monate", String(n));
-  else params.delete("hu_min_monate");
-}
-
+  
+    // === HU bis (YYYY-MM) — nur anfassen, wenn UI-Feld existiert ===
+    {
+      const huUntilEl =
+        document.getElementById("inspectionUntil") ||
+        document.getElementById("huUntil") ||
+        null;
+  
+      if (huUntilEl) {
+        const raw = (huUntilEl.value || "").trim();
+        let val = "";
+        if (/^\d{4}-(0[1-9]|1[0-2])$/.test(raw)) {
+          val = raw;
+        } else if (/^\d{4}$/.test(raw)) {
+          // Jahresangabe -> Dezember
+          val = `${raw}-12`;
+        }
+        if (val) params.set("hu_bis", val);
+        else params.delete("hu_bis");
+      }
+      // Falls KEIN Feld existiert: vorhandenen URL-Param NICHT ändern
+    }
+  
+    // === HU mind. Monate — nur anfassen, wenn UI-Feld existiert ===
+    {
+      const huMinEl =
+        document.getElementById("huMinMonths") ||
+        document.getElementById("inspectionMinMonths") ||
+        null;
+  
+      if (huMinEl) {
+        const n = parseInt((huMinEl.value || "").trim(), 10);
+        if (Number.isFinite(n) && n > 0) params.set("hu_min_monate", String(n));
+        else params.delete("hu_min_monate");
+      }
+      // Falls KEIN Feld existiert: vorhandenen URL-Param NICHT ändern
+    }
+  
     // Zusatz-Flags
     setOrDelete(params, "partikelfilter", document.getElementById("partikelfilter")?.checked ? "mit" : "");
     setOrDelete(params, "scheckheft",     document.getElementById("scheckheft")?.checked     ? "ja"  : "");
@@ -1844,15 +1867,14 @@ const huUntilEff = normalizeYMAny(
         const sel = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
         if (sel) val = badgeCanon(sel.value);
       }
-// Schreibe beide Keys für maximale Kompatibilität:
-if (val) {
-  params.set("plakette", val);
-  params.set("umweltplakette", val);
-} else {
-  params.delete("plakette");
-  params.delete("umweltplakette");
-}
-
+      // Beide Keys für Kompatibilität schreiben
+      if (val) {
+        params.set("plakette", val);
+        params.set("umweltplakette", val);
+      } else {
+        params.delete("plakette");
+        params.delete("umweltplakette");
+      }
     })();
   
     // *** Schadstoffklasse (ein Wert) ***
@@ -1896,13 +1918,12 @@ if (val) {
   const initialPage = Math.max(parseInt(new URLSearchParams(window.location.search).get("page") || "1", 10), 1);
   loadAndRender(initialPage);
   
-  // ---- Aktive Filter (Chips) ----
+ // ---- Aktive Filter (Chips) ----
 function renderActiveFilters() {
   const bar = document.getElementById('activeFilterBar');
   if (!bar) return;
 
   const barWrap = document.getElementById('activeFilterWrap') || bar.parentElement;
-  const SHOW_NO_FILTER_PLACEHOLDER = false;
 
   // Refs
   const priceFromEl     = document.getElementById("priceFrom");
@@ -1919,15 +1940,18 @@ function renderActiveFilters() {
   const firstRegFromEl  = document.getElementById("firstRegFrom");
   const firstRegMonthEl = document.getElementById("first-registration-month");
   const firstRegYearEl  = document.getElementById("first-registration-year");
-  const accidentFreeEl  = document.getElementById("accidentFree");
-  const inspectionEl    = document.getElementById("inspectionUntil");        // HU bis (YYYY-MM)
-  const huMinMonthsEl   = document.getElementById("huMinMonths")             // HU mind. (Monate) – optionales Feld
-                       || document.getElementById("inspectionMinMonths");
 
+  const accidentFreeEl  = document.getElementById("accidentFree");
+
+  // HU Felder (optional, je nach Seite)
+  const inspectionEl    = document.getElementById("inspectionUntil") || document.getElementById("huUntil"); // HU bis (YYYY-MM oder YYYY)
+  const huMinMonthsEl   = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
+
+  // Umwelt
   const badgeSel        = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
   const emissionSel     = document.getElementById("schadstoffklasse") || document.getElementById("emission");
 
-  // Utils
+  // --- Utils (lokal) ---
   const uniq = (arr) => [...new Set(arr)];
   const pad2 = (m) => String(m).padStart(2, "0");
   const toInt = (v) => {
@@ -1945,7 +1969,7 @@ function renderActiveFilters() {
   }
   const fmtYM = (s) => /^\d{4}-\d{2}$/.test(s) ? `${s.slice(5,7)}/${s.slice(0,4)}` : s;
 
-  // URL-Params
+  // --- URL-Params (roh) ---
   const sp = new URLSearchParams(location.search);
   const qp = {
     marke: sp.get("marke") || "",
@@ -1953,43 +1977,57 @@ function renderActiveFilters() {
     modellausfuehrung: sp.get("modellausfuehrung") || "",
     fahrzeugtyp: (sp.get("fahrzeugtyp") || "").split(",").filter(Boolean),
     tueren: (sp.get("tueren") || "").split(",").filter(Boolean),
+
     ezFrom: sp.get("ezFrom") || "",
     ezTo:   sp.get("ezTo")   || "",
+
     km_max: sp.get("km_max") || "",
     price_max: sp.get("price_max") || "",
     ps_min: sp.get("ps_min") || "",
     ps_max: sp.get("ps_max") || "",
+
     getriebe: (sp.get("getriebe") || "").toLowerCase(),
     kraftstoff: (sp.get("kraftstoff") || "").split(",").map(fuelCanon).filter(Boolean),
-    antrieb: (sp.get("antriebsart") || sp.get("antrieb") || "").split(",").map(driveCanon).filter(Boolean),
+    antriebsart: (sp.get("antriebsart") || sp.get("antrieb") || "").split(",").map(driveCanon).filter(Boolean),
 
     ort: sp.get("ort") || "",
     umkreis: sp.get("umkreis") || "",
     verbrauch_max: sp.get("verbrauch_max") || "",
+
     partikelfilter: /^(1|true|ja|mit|yes)$/i.test(String(sp.get("partikelfilter") || "")),
     scheckheft:     /^(1|true|ja|mit|yes)$/i.test(String(sp.get("scheckheft")     || "")),
     fahrtauglich:   /^(1|true|ja|mit|yes)$/i.test(String(sp.get("fahrtauglich")   || "")),
 
-    // Umweltplakette + Schadstoffklasse aus URL
-    umweltplakette:  badgeCanon(sp.get("umweltplakette") || sp.get("plakette")),   // <-- unterstützt ?plakette=
+    // Umwelt
+    umweltplakette:  badgeCanon(sp.get("umweltplakette") || sp.get("plakette")),
     schadstoffklasse: emissionCanon(sp.get("schadstoffklasse")),
 
-    // HU (URL)
+    // HU aus URL (beide Varianten)
     hu_bis: sp.get("hu_bis") || sp.get("inspectionUntil") || "",
     hu_min_monate: sp.get("hu_min_monate") || sp.get("hu_min_months") || ""
   };
 
-  // Effektive Werte (UI > URL)
+  // --- Effektive Werte (UI > URL) ---
   const priceMin = toInt(priceFromEl?.value ?? "");
-  const priceMax = !isNaN(toInt(priceToEl?.value ?? "")) && toInt(priceToEl?.value ?? "") > 0
-                   ? toInt(priceToEl.value) : toInt(qp.price_max);
-  const kmMin    = toInt(mileageFromEl?.value ?? "");
-  const kmMax    = !isNaN(toInt(mileageToEl?.value ?? "")) && toInt(mileageToEl?.value ?? "") > 0
-                   ? toInt(mileageToEl.value) : toInt(qp.km_max);
-  const psMinEff = !isNaN(toInt(powerFromEl?.value ?? "")) && toInt(powerFromEl?.value ?? "") > 0
-                   ? toInt(powerFromEl.value) : toInt(qp.ps_min);
-  const psMaxEff = !isNaN(toInt(powerToEl?.value   ?? "")) && toInt(powerToEl?.value   ?? "") > 0
-                   ? toInt(powerToEl.value)   : toInt(qp.ps_max);
+  const priceMax = (() => {
+    const ui = toInt(priceToEl?.value ?? "");
+    return (!isNaN(ui) && ui > 0) ? ui : toInt(qp.price_max);
+  })();
+
+  const kmMin = toInt(mileageFromEl?.value ?? "");
+  const kmMax = (() => {
+    const ui = toInt(mileageToEl?.value ?? "");
+    return (!isNaN(ui) && ui > 0) ? ui : toInt(qp.km_max);
+  })();
+
+  const psMinEff = (() => {
+    const ui = toInt(powerFromEl?.value ?? "");
+    return (!isNaN(ui) && ui > 0) ? ui : toInt(qp.ps_min);
+  })();
+  const psMaxEff = (() => {
+    const ui = toInt(powerToEl?.value ?? "");
+    return (!isNaN(ui) && ui > 0) ? ui : toInt(qp.ps_max);
+  })();
 
   // Kraftstoff (multi)
   let fuelList = uniq([
@@ -1998,58 +2036,53 @@ function renderActiveFilters() {
     ...qp.kraftstoff
   ]).filter(Boolean);
 
-  // Getriebe
+  // Getriebe (Label für Chip)
   const effGear = (() => {
     const ui = (gearEl?.value || "").trim();
     if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return ui;
     let v = (qp.getriebe || "").toLowerCase();
     if (!v) return "";
-    if (/^schalt/.test(v)) v = "Schaltgetriebe";
-    else if (/^auto/.test(v)) v = "Automatik";
-    else v = v.charAt(0).toUpperCase() + v.slice(1);
-    return v;
+    if (/^schalt/.test(v)) return "Schaltgetriebe";
+    if (/^auto/.test(v))   return "Automatik";
+    return v.charAt(0).toUpperCase() + v.slice(1);
   })();
 
   // Antrieb (multi)
   let driveList = uniq([
     ...(driveEl && driveEl.value && !/^(beliebig|any|alle|all|-)$/i.test(driveEl.value) ? [driveCanon(driveEl.value)] : []),
     ...[...document.querySelectorAll('input[name="antrieb"]:checked')].map(cb => driveCanon(cb.value)),
-    ...qp.antrieb
+    ...qp.antriebsart
   ]).filter(Boolean);
 
- // EZ
-const ezFromUIraw =
-(firstRegFromEl?.value?.trim()) ||
-(firstRegYearEl?.value && firstRegMonthEl?.value
-  ? `${firstRegYearEl.value}-${pad2(firstRegMonthEl.value)}`
-  : "") ||
-"";
+  // EZ (UI > URL)
+  const ezFromUIraw =
+    (firstRegFromEl?.value?.trim()) ||
+    (firstRegYearEl?.value && firstRegMonthEl?.value ? `${firstRegYearEl.value}-${pad2(firstRegMonthEl.value)}` : "") ||
+    "";
+  const ezFromEff = parseYM_local(ezFromUIraw || qp.ezFrom);
+  const ezToEff   = parseYM_local(qp.ezTo);
 
-const ezFromEff = parseYM_local(ezFromUIraw || qp.ezFrom);
-const ezToEff   = parseYM_local(qp.ezTo);
+  // HU (beide Varianten) – UI > URL
+  const huUntilEff = parseYM_local(
+    (inspectionEl?.value || qp.hu_bis || "").trim(),
+    12 // Nur Jahr angegeben -> Dezember
+  );
+  const huMinMonthsEff = (() => {
+    const ui = toInt(huMinMonthsEl?.value ?? "");
+    if (Number.isFinite(ui) && ui > 0) return ui;
+    const url = toInt(qp.hu_min_monate);
+    return (Number.isFinite(url) && url > 0) ? url : NaN;
+  })();
 
-// HU (beide Varianten)
-const huUntilEff = parseYM_local(
-(inspectionEl?.value || qp.hu_bis || "").trim(),
-12 // wenn nur Jahr: auf Dezember setzen
-);
+  const accFree = !!accidentFreeEl?.checked;
 
-const huMinMonthsEff = (() => {
-const ui = toInt(huMinMonthsEl?.value ?? "");
-if (Number.isFinite(ui) && ui > 0) return ui;
-const q = toInt(qp.hu_min_monate);
-return (Number.isFinite(q) && q > 0) ? q : NaN;
-})();
-
-const accFree = !!accidentFreeEl?.checked;
-
-// Umweltplakette – effektiv (UI > URL)
-const badgeEff = (() => {
-const r = document.querySelector('input[name="umweltplakette"]:checked');
-if (r && badgeCanon(r.value)) return badgeCanon(r.value);
-if (badgeSel && badgeCanon(badgeSel.value)) return badgeCanon(badgeSel.value);
-return qp.umweltplakette || "";
-})();
+  // Umweltplakette – effektiv (UI > URL)
+  const badgeEff = (() => {
+    const r = document.querySelector('input[name="umweltplakette"]:checked');
+    if (r && badgeCanon(r.value)) return badgeCanon(r.value);
+    if (badgeSel && badgeCanon(badgeSel.value)) return badgeCanon(badgeSel.value);
+    return qp.umweltplakette || "";
+  })();
 
   // Schadstoffklasse – effektiv (UI > URL)
   const emissionEff = (() => {
@@ -2059,7 +2092,7 @@ return qp.umweltplakette || "";
     return qp.schadstoffklasse || "";
   })();
 
-  // Chips
+  // --- Chips bauen ---
   const eur = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")} €`;
   const int = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")}`;
   const chips = [];
@@ -2071,9 +2104,9 @@ return qp.umweltplakette || "";
   if (!isNaN(psMinEff) && psMinEff > 0) chips.push({key:"ps_min",    label:`PS ab ${int(psMinEff)}`});
   if (!isNaN(psMaxEff) && psMaxEff > 0) chips.push({key:"ps_max",    label:`PS bis ${int(psMaxEff)}`});
 
-  fuelList.forEach(tok => chips.push({ key: "fuel", value: tok, label: `Kraftstoff: ${fuelNiceLabel(tok)}` }));
-  if (effGear) chips.push({ key: "gear", label: `Getriebe: ${effGear}` });
-  driveList.forEach(tok => chips.push({ key: "drive", value: tok, label: `Antrieb: ${driveNiceLabel(tok)}` }));
+  fuelList.forEach(tok => chips.push({ key: "kraftstoff", value: tok, label: `Kraftstoff: ${fuelNiceLabel(tok)}` }));
+  if (effGear) chips.push({ key: "getriebe", label: `Getriebe: ${effGear}` });
+  driveList.forEach(tok => chips.push({ key: "antriebsart", value: tok, label: `Antrieb: ${driveNiceLabel(tok)}` }));
 
   if (badgeEff)    chips.push({ key: "umweltplakette",   value: badgeEff,    label: badgeNiceLabel(badgeEff) });
   if (emissionEff) chips.push({ key: "schadstoffklasse", value: emissionEff, label: emissionNiceLabel(emissionEff) });
@@ -2082,14 +2115,15 @@ return qp.umweltplakette || "";
   if (ezToEff)   chips.push({key:"ezTo",   label:`EZ bis ${fmtYM(ezToEff)}`});
   if (accFree)   chips.push({key:"accidentFree", label:`Unfallfrei`});
 
-  // HU-Chips
+  // --- HU-Chips (fix: korrekte Keys & Anzeige) ---
   if (Number.isFinite(huMinMonthsEff) && huMinMonthsEff > 0) {
     chips.push({ key: "hu_min_monate", label: `HU ≥ ${int(huMinMonthsEff)} Monate` });
   }
   if (huUntilEff) {
-    chips.push({ key: "hu", label: `HU bis ${fmtYM(huUntilEff)}` });
+    chips.push({ key: "hu_bis", label: `HU bis ${fmtYM(huUntilEff)}` });
   }
 
+  // weitere Chips aus URL
   if (qp.marke) chips.push({key:"marke", label:`Marke: ${qp.marke}`});
   if (qp.modell?.length) qp.modell.forEach(m => chips.push({key:"modell", value:m, label:`Modell: ${m}`}));
   if (qp.modellausfuehrung) chips.push({key:"modellausfuehrung", label:`Modellvariante: ${qp.modellausfuehrung}`});
@@ -2104,7 +2138,7 @@ return qp.umweltplakette || "";
   if (qp.scheckheft)     chips.push({key:"scheckheft", label:`Scheckheftgepflegt`});
   if (qp.fahrtauglich)   chips.push({key:"fahrtauglich", label:`Fahrtauglich`});
 
-  // Render
+  // --- Render ---
   if (!chips.length) {
     bar.textContent = "";
     bar.classList.add("is-empty");
@@ -2126,6 +2160,7 @@ return qp.umweltplakette || "";
     </div>
   `).join("") + `<button class="clear-all" type="button">Alle löschen</button>`;
 
+  // Events
   bar.querySelectorAll(".filter-chip .chip-remove").forEach(btn => {
     btn.addEventListener("click", (e) => {
       const chip = e.currentTarget.closest(".filter-chip");
