@@ -1917,7 +1917,7 @@ const huUntilEff = normalizeYMAny(
   // ===== Init =====
   const initialPage = Math.max(parseInt(new URLSearchParams(window.location.search).get("page") || "1", 10), 1);
   loadAndRender(initialPage);
- // ---- Aktive Filter (Chips) ----
+// ---- Aktive Filter (Chips) ----
 function renderActiveFilters() {
   const bar = document.getElementById('activeFilterBar');
   if (!bar) return;
@@ -1939,14 +1939,22 @@ function renderActiveFilters() {
   const firstRegFromEl  = document.getElementById("firstRegFrom");
   const firstRegMonthEl = document.getElementById("first-registration-month");
   const firstRegYearEl  = document.getElementById("first-registration-year");
-  const accidentFreeEl  = document.getElementById("accidentFree");
 
-  // HU Inputs (optional)
-  const inspectionEl  = document.getElementById("inspectionUntil");                 // YYYY-MM
-  const huMinMonthsEl = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
+  const accidentFreeEl = document.getElementById("accidentFree");
 
+  // HU Felder (optional)
+  const inspectionEl  = document.getElementById("inspectionUntil");           // HU bis (YYYY-MM)
+  const huMinMonthsEl = document.getElementById("huMinMonths")                // HU mind. Monate
+                     || document.getElementById("inspectionMinMonths");
+
+  // Umweltplakette / Emission
   const badgeSel    = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
   const emissionSel = document.getElementById("schadstoffklasse") || document.getElementById("emission");
+
+  // NEU: max. Halter (IDs variabel zulassen)
+  const ownersMaxEl = document.getElementById("halterMax")
+                   || document.getElementById("ownersMax")
+                   || document.getElementById("fahrzeughalterMax");
 
   // Utils
   const uniq  = (arr) => [...new Set(arr)];
@@ -1966,8 +1974,10 @@ function renderActiveFilters() {
   }
   const fmtYM = (s) => /^\d{4}-\d{2}$/.test(s) ? `${s.slice(5,7)}/${s.slice(0,4)}` : s;
 
-  // URL-Params
+  // URL-Params laden und HU-Synonyme normalisieren (WICHTIG!)
   const sp = new URLSearchParams(location.search);
+  normalizeHuParams(sp);
+
   const qp = {
     marke: sp.get("marke") || "",
     modell: (sp.get("modell") || "").split(",").filter(Boolean),
@@ -1997,13 +2007,15 @@ function renderActiveFilters() {
     umweltplakette:  badgeCanon(sp.get("umweltplakette") || sp.get("plakette")),
     schadstoffklasse: emissionCanon(sp.get("schadstoffklasse")),
 
-    // --- HU: alle möglichen Keys (URL) ---
-    hu_bis: sp.get("hu_bis") || sp.get("inspectionUntil") || "",
-    // Monate: akzeptiere hu_min_monate, hu_min_months und hu_min
-    hu_min_monate: sp.get("hu_min_monate") || sp.get("hu_min_months") || sp.get("hu_min") || ""
+    // HU (jetzt nach Normalisierung zuverlässig)
+    hu_bis: sp.get("hu_bis") || "",
+    hu_min_monate: sp.get("hu_min_monate") || "",
+
+    // NEU: Fahrzeughalter (max)
+    halter_max: sp.get("halter_max") || sp.get("owners_max") || ""
   };
 
-  // Effektive Zahlenwerte
+  // Effektive Werte (UI > URL)
   const priceMin = toInt(priceFromEl?.value ?? "");
   const priceMax = !isNaN(toInt(priceToEl?.value ?? "")) && toInt(priceToEl?.value ?? "") > 0
                    ? toInt(priceToEl.value) : toInt(qp.price_max);
@@ -2022,7 +2034,7 @@ function renderActiveFilters() {
     ...qp.kraftstoff
   ]).filter(Boolean);
 
-  // Getriebe (schönes Label)
+  // Getriebe
   const effGear = (() => {
     const ui = (gearEl?.value || "").trim();
     if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return ui;
@@ -2051,31 +2063,26 @@ function renderActiveFilters() {
   const ezFromEff = parseYM_local(ezFromUIraw || qp.ezFrom);
   const ezToEff   = parseYM_local(qp.ezTo);
 
-  // --- HU effektiv ---
-  // HU bis (YYYY-MM) — UI > URL
-  const huUntilEff = parseYM_local(
-    (inspectionEl?.value || qp.hu_bis || "").trim(),
-    12 // Jahresangabe -> Dezember
-  );
-
-  // HU mind. Monate — UI > URL, akzeptiere mehrere Parameternamen
+  // HU (beide Varianten)
+  const huUntilEff = parseYM_local((inspectionEl?.value || qp.hu_bis || "").trim(), 12);
   const huMinMonthsEff = (() => {
     const ui = toInt(huMinMonthsEl?.value ?? "");
     if (Number.isFinite(ui) && ui > 0) return ui;
-    const q1 = toInt(qp.hu_min_monate);
-    if (Number.isFinite(q1) && q1 > 0) return q1;
-    return NaN;
+    const q = toInt(qp.hu_min_monate);
+    return (Number.isFinite(q) && q > 0) ? q : NaN;
   })();
 
   const accFree = !!accidentFreeEl?.checked;
 
-  // Umweltplakette/Schadstoffklasse – effektiv (UI > URL)
+  // Umweltplakette – effektiv (UI > URL)
   const badgeEff = (() => {
     const r = document.querySelector('input[name="umweltplakette"]:checked');
     if (r && badgeCanon(r.value)) return badgeCanon(r.value);
     if (badgeSel && badgeCanon(badgeSel.value)) return badgeCanon(badgeSel.value);
     return qp.umweltplakette || "";
   })();
+
+  // Schadstoffklasse – effektiv (UI > URL)
   const emissionEff = (() => {
     const r = document.querySelector('input[name="schadstoffklasse"]:checked, input[name="emission"]:checked');
     if (r && emissionCanon(r.value)) return emissionCanon(r.value);
@@ -2083,17 +2090,17 @@ function renderActiveFilters() {
     return qp.schadstoffklasse || "";
   })();
 
-  // Chips
-  const eur = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")} €`;
-  const int = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")}`;
+  // === Chips bauen ===
+  const fmtEur = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")} €`;
+  const fmtInt = v => isNaN(v) ? "" : `${Math.round(v).toLocaleString("de-DE")}`;
   const chips = [];
 
-  if (!isNaN(priceMin) && priceMin > 0) chips.push({key:"price_min", label:`Preis ab ${eur(priceMin)}`});
-  if (!isNaN(priceMax) && priceMax > 0) chips.push({key:"price_max", label:`Preis bis ${eur(priceMax)}`});
-  if (!isNaN(kmMin)    && kmMin  > 0)   chips.push({key:"km_min",    label:`KM ab ${int(kmMin)}`});
-  if (!isNaN(kmMax)    && kmMax  > 0)   chips.push({key:"km_max",    label:`KM bis ${int(kmMax)}`});
-  if (!isNaN(psMinEff) && psMinEff > 0) chips.push({key:"ps_min",    label:`PS ab ${int(psMinEff)}`});
-  if (!isNaN(psMaxEff) && psMaxEff > 0) chips.push({key:"ps_max",    label:`PS bis ${int(psMaxEff)}`});
+  if (!isNaN(priceMin) && priceMin > 0) chips.push({key:"price_min", label:`Preis ab ${fmtEur(priceMin)}`});
+  if (!isNaN(priceMax) && priceMax > 0) chips.push({key:"price_max", label:`Preis bis ${fmtEur(priceMax)}`});
+  if (!isNaN(kmMin)    && kmMin  > 0)   chips.push({key:"km_min",    label:`KM ab ${fmtInt(kmMin)}`});
+  if (!isNaN(kmMax)    && kmMax  > 0)   chips.push({key:"km_max",    label:`KM bis ${fmtInt(kmMax)}`});
+  if (!isNaN(psMinEff) && psMinEff > 0) chips.push({key:"ps_min",    label:`PS ab ${fmtInt(psMinEff)}`});
+  if (!isNaN(psMaxEff) && psMaxEff > 0) chips.push({key:"ps_max",    label:`PS bis ${fmtInt(psMaxEff)}`});
 
   fuelList.forEach(tok => chips.push({ key: "fuel", value: tok, label: `Kraftstoff: ${fuelNiceLabel(tok)}` }));
   if (effGear) chips.push({ key: "gear", label: `Getriebe: ${effGear}` });
@@ -2106,14 +2113,15 @@ function renderActiveFilters() {
   if (ezToEff)   chips.push({key:"ezTo",   label:`EZ bis ${fmtYM(ezToEff)}`});
   if (accFree)   chips.push({key:"accidentFree", label:`Unfallfrei`});
 
-  // --- HU Chips ---
+  // HU-Chips (wieder sichtbar dank normalizeHuParams)
   if (Number.isFinite(huMinMonthsEff) && huMinMonthsEff > 0) {
-    chips.push({ key: "hu_min_monate", label: `HU ≥ ${int(huMinMonthsEff)} Monate` });
+    chips.push({ key: "hu_min_monate", label: `HU ≥ ${fmtInt(huMinMonthsEff)} Monate` });
   }
   if (huUntilEff) {
-    chips.push({ key: "hu_bis", label: `HU bis ${fmtYM(huUntilEff)}` });
+    chips.push({ key: "hu", label: `HU bis ${fmtYM(huUntilEff)}` });
   }
 
+  // Marke/Modell/…/Geo/Verbrauch
   if (qp.marke) chips.push({key:"marke", label:`Marke: ${qp.marke}`});
   if (qp.modell?.length) qp.modell.forEach(m => chips.push({key:"modell", value:m, label:`Modell: ${m}`}));
   if (qp.modellausfuehrung) chips.push({key:"modellausfuehrung", label:`Modellvariante: ${qp.modellausfuehrung}`});
@@ -2125,8 +2133,20 @@ function renderActiveFilters() {
   if (qp.verbrauch_max) chips.push({key:"verbrauch_max", label:`Verbrauch ≤ ${String(qp.verbrauch_max).replace('.',',')} l/100km`});
 
   if (qp.partikelfilter) chips.push({key:"partikelfilter", label:`Partikelfilter`});
-  if (qp.scheckheft)     chips.push({key:"scheckheft", label:`Scheckheftgepflegt`});
-  if (qp.fahrtauglich)   chips.push({key:"fahrtauglich", label:`Fahrtauglich`});
+  if (qp.scheckheft)     chips.push({key:"scheckheft",     label:`Scheckheftgepflegt`});
+  if (qp.fahrtauglich)   chips.push({key:"fahrtauglich",   label:`Fahrtauglich`});
+
+  // NEU: Fahrzeughalter (max) – Chip
+  (function () {
+    const fromUI = toInt(ownersMaxEl?.value ?? "");
+    const fromQS = toInt(qp.halter_max);
+    const eff = Number.isFinite(fromUI) && fromUI > 0 ? fromUI
+              : Number.isFinite(fromQS) && fromQS > 0 ? fromQS
+              : NaN;
+    if (Number.isFinite(eff) && eff > 0) {
+      chips.push({ key:"halter_max", label:`Fahrzeughalter ≤ ${fmtInt(eff)}` });
+    }
+  })();
 
   // Render
   if (!chips.length) {
@@ -2161,6 +2181,7 @@ function renderActiveFilters() {
   });
   bar.querySelector(".clear-all")?.addEventListener("click", () => clearAllFilters());
 }
+
 
 
 function removeFilterChip(key, val = "") {
