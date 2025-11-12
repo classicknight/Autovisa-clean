@@ -1924,7 +1924,7 @@ function renderActiveFilters() {
 
   const barWrap = document.getElementById('activeFilterWrap') || bar.parentElement;
 
-  // --- kleine Utils nur für diese Funktion ---
+  // Utils (nur hier)
   const uniq = (arr) => [...new Set(arr)];
   const pad2 = (m) => String(m).padStart(2, "0");
   const toInt = (v) => {
@@ -1950,7 +1950,7 @@ function renderActiveFilters() {
   }
   const fmtYM = (s) => /^\d{4}-\d{2}$/.test(s) ? `${s.slice(5,7)}/${s.slice(0,4)}` : s;
 
-  // --- DOM Refs ---
+  // DOM Refs
   const priceFromEl   = document.getElementById("priceFrom");
   const priceToEl     = document.getElementById("priceTo");
   const mileageFromEl = document.getElementById("mileageFrom");
@@ -1969,10 +1969,10 @@ function renderActiveFilters() {
   const accidentFreeEl = document.getElementById("accidentFree");
 
   // HU Felder
-  const inspectionEl  = document.getElementById("inspectionUntil");              // HU bis (YYYY-MM)
-  const huMinMonthsEl = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths"); // HU mind. Monate
+  const inspectionEl  = document.getElementById("inspectionUntil"); // HU bis (YYYY-MM)
+  const huMinMonthsEl = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
 
-  // **Fahrzeughalter max (mehrere mögliche IDs abgedeckt)**
+  // Max. Fahrzeughalter (div. IDs abdecken)
   const halterMaxEl =
     document.getElementById("halterMax") ||
     document.getElementById("halter_max") ||
@@ -1983,7 +1983,7 @@ function renderActiveFilters() {
   const badgeSel    = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
   const emissionSel = document.getElementById("schadstoffklasse") || document.getElementById("emission");
 
-  // --- URL Params lesen ---
+  // URL-Params
   const sp = new URLSearchParams(location.search);
   const qp = {
     marke: sp.get("marke") || "",
@@ -2004,25 +2004,25 @@ function renderActiveFilters() {
     umkreis: sp.get("umkreis") || "",
     verbrauch_max: sp.get("verbrauch_max") || "",
 
-    // Flags als echte Booleans interpretieren
+    // Flags
     partikelfilter: isTruthyRaw(sp.get("partikelfilter")),
     scheckheft:     isTruthyRaw(sp.get("scheckheft")),
     fahrtauglich:   isTruthyRaw(sp.get("fahrtauglich")),
 
-    // **Fahrzeughalter max – mehrere Param-Namen akzeptieren**
+    // Max. Halter (mehrere Param-Namen akzeptieren)
     halter_max: sp.get("halter_max") || sp.get("max_halter") || sp.get("owners_max") || "",
 
-    // Umweltplakette & Schadstoffklasse
-    umweltplakette:  badgeCanon(sp.get("umweltplakette") || sp.get("plakette")),
+    // Umwelt/Schadstoff
+    umweltplakette:   badgeCanon(sp.get("umweltplakette") || sp.get("plakette")),
     schadstoffklasse: emissionCanon(sp.get("schadstoffklasse")),
 
-    // HU: strukturierte + Freitext-Varianten
-    hu_bis: sp.get("hu_bis") || sp.get("inspectionUntil") || "",
-    hu_min: sp.get("hu_min_monate") || sp.get("hu_min_months") || "",
+    // HU: strukturierte + Freitext-Variante
+    hu_bis:  sp.get("hu_bis") || sp.get("inspectionUntil") || "",
+    hu_min:  sp.get("hu_min_monate") || sp.get("hu_min_months") || "",
     hu_text: sp.get("hu") || ""
   };
 
-  // --- Effektive Werte (UI schlägt URL, wenn befüllt) ---
+  // Effektive Werte (UI > URL, wenn befüllt)
   const priceMin = toInt(priceFromEl?.value ?? "");
   const priceMax = (() => { const n = toInt(priceToEl?.value ?? ""); return Number.isFinite(n) && n > 0 ? n : toInt(qp.price_max); })();
   const kmMin    = toInt(mileageFromEl?.value ?? "");
@@ -2030,7 +2030,7 @@ function renderActiveFilters() {
   const psMinEff = (() => { const n = toInt(powerFromEl?.value ?? ""); return Number.isFinite(n) && n > 0 ? n : toInt(qp.ps_min); })();
   const psMaxEff = (() => { const n = toInt(powerToEl?.value   ?? ""); return Number.isFinite(n) && n > 0 ? n : toInt(qp.ps_max); })();
 
-  // **Fahrzeughalter max – effektiver Wert**
+  // Max. Halter – effektiv
   const halterMaxEff = (() => {
     const ui = toInt(halterMaxEl?.value ?? "");
     if (Number.isFinite(ui) && ui > 0) return ui;
@@ -2045,7 +2045,7 @@ function renderActiveFilters() {
     ...qp.kraftstoff
   ]).filter(Boolean);
 
-  // Getriebe (ein Wert, schön formatiert)
+  // Getriebe (schön formatiert)
   const effGear = (() => {
     const ui = (gearEl?.value || "").trim();
     if (ui && !/^(beliebig|any|alle|all|-)$/i.test(ui)) return ui;
@@ -2082,7 +2082,6 @@ function renderActiveFilters() {
     if (Number.isFinite(ui) && ui > 0) return ui;
     const explicit = toInt(qp.hu_min);
     if (Number.isFinite(explicit) && explicit > 0) return explicit;
-    // Freitext „Mind. X Monate“ in ?hu=
     const m = String(qp.hu_text).match(/(\d{1,2})/);
     const n = m ? parseInt(m[1], 10) : NaN;
     return (Number.isFinite(n) && n > 0) ? n : NaN;
@@ -2090,7 +2089,7 @@ function renderActiveFilters() {
 
   const accFree = !!accidentFreeEl?.checked;
 
-  // Umwelt/SCHAD
+  // Umwelt / Schadstoff
   const badgeEff = (() => {
     const r = document.querySelector('input[name="umweltplakette"]:checked');
     if (r && badgeCanon(r.value)) return badgeCanon(r.value);
@@ -2104,9 +2103,8 @@ function renderActiveFilters() {
     return qp.schadstoffklasse || "";
   })();
 
-  // --- Chips bauen ---
+  // Chips bauen
   const chips = [];
-
   if (!isNaN(priceMin) && priceMin > 0) chips.push({key:"price_min", label:`Preis ab ${eur(priceMin)}`});
   if (!isNaN(priceMax) && priceMax > 0) chips.push({key:"price_max", label:`Preis bis ${eur(priceMax)}`});
   if (!isNaN(kmMin)    && kmMin  > 0)   chips.push({key:"km_min",    label:`KM ab ${int(kmMin)}`});
@@ -2125,7 +2123,7 @@ function renderActiveFilters() {
   if (ezToEff)   chips.push({key:"ezTo",   label:`EZ bis ${fmtYM(ezToEff)}`});
   if (accFree)   chips.push({key:"accidentFree", label:`Unfallfrei`});
 
-  // **HU Chips – immer sichtbar, wenn gesetzt**
+  // HU-Chips
   if (Number.isFinite(huMinMonthsEff) && huMinMonthsEff > 0) {
     chips.push({ key: "hu_min_monate", label: `HU ≥ ${int(huMinMonthsEff)} Monate` });
   }
@@ -2133,15 +2131,15 @@ function renderActiveFilters() {
     chips.push({ key: "hu", label: `HU bis ${fmtYM(huUntilEff)}` });
   }
 
-  // **Scheckheft als Chip**
+  // Scheckheft
   if (qp.scheckheft) chips.push({key:"scheckheft", label:"Scheckheftgepflegt"});
 
-  // **Fahrzeughalter max als Chip**
-  if (Number.isFinite(halterMaxEff)) {
+  // Max. Halter
+  if (Number.isFinite(halterMaxEff) && halterMaxEff > 0) {
     chips.push({ key: "halter_max", label: `Halter ≤ ${int(halterMaxEff)}` });
   }
 
-  // weitere URL-basierte Chips
+  // Weitere URL-basierte Chips
   if (qp.marke) chips.push({key:"marke", label:`Marke: ${qp.marke}`});
   if (qp.modell?.length) qp.modell.forEach(m => chips.push({key:"modell", value:m, label:`Modell: ${m}`}));
   if (qp.modellausfuehrung) chips.push({key:"modellausfuehrung", label:`Modellvariante: ${qp.modellausfuehrung}`});
@@ -2151,9 +2149,9 @@ function renderActiveFilters() {
   if (qp.umkreis)             chips.push({key:"umkreis", label:`Umkreis: ${qp.umkreis} km`});
   if (qp.verbrauch_max)       chips.push({key:"verbrauch_max", label:`Verbrauch ≤ ${String(qp.verbrauch_max).replace('.',',')} l/100km`});
   if (qp.partikelfilter)      chips.push({key:"partikelfilter", label:`Partikelfilter`});
-  if (qp.fahrtauglich)        chips.push({key:"fahrtauglich", label:`Fahrtauglich`});
+  if (qp.fahrtauglich)        chips.push({key:"fahrtauglich",   label:`Fahrtauglich`});
 
-  // --- Render ---
+  // Render
   if (!chips.length) {
     bar.textContent = "";
     bar.classList.add("is-empty");
@@ -2167,15 +2165,14 @@ function renderActiveFilters() {
   if (barWrap) barWrap.classList.remove("no-chips");
 
   bar.innerHTML = chips.map(c => `
-    <div class="filter-chip" data-key="\${c.key}" ${'value' in c ? `data-value="\${c.value}"` : ""}>
-      <span class="chip-label">\${c.label}</span>
+    <div class="filter-chip" data-key="${c.key}" ${('value' in c) ? `data-value="${c.value}"` : ""}>
+      <span class="chip-label">${c.label}</span>
       <button class="chip-remove" type="button" aria-label="Filter entfernen" title="Filter entfernen">
         <i class="fas fa-times"></i>
       </button>
     </div>
   `).join("") + `<button class="clear-all" type="button">Alle löschen</button>`;
 
-  // Events
   bar.querySelectorAll(".filter-chip .chip-remove").forEach(btn => {
     btn.addEventListener("click", (e) => {
       const chip = e.currentTarget.closest(".filter-chip");
@@ -2189,10 +2186,7 @@ function renderActiveFilters() {
 }
 
 
-
-
-
-
+// ---- Einzelnen Chip entfernen ----
 function removeFilterChip(key, val = "") {
   const params = new URLSearchParams(window.location.search);
 
@@ -2204,7 +2198,7 @@ function removeFilterChip(key, val = "") {
     ps_min:             document.getElementById("powerFrom"),
     ps_max:             document.getElementById("powerTo"),
     ezFrom:             document.getElementById("firstRegFrom"),
-    hu:                 document.getElementById("inspectionUntil"), // HU bis (YYYY-MM)
+    hu:                 document.getElementById("inspectionUntil"),
     hu_min_monate:      document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths"),
     fuel:               document.getElementById("fuelType") || document.getElementById("fuel"),
     gear:               document.getElementById("transmission") || document.getElementById("gear"),
@@ -2216,7 +2210,7 @@ function removeFilterChip(key, val = "") {
   };
 
   switch (key) {
-    // UI-only Min-Werte
+    // UI-only Min-Werte -> URL aus UI neu bauen
     case "price_min": if (mapEl.price_min) mapEl.price_min.value = ""; return updateUrlFromUiAndReload();
     case "km_min":    if (mapEl.km_min)    mapEl.km_min.value    = ""; return updateUrlFromUiAndReload();
     case "ps_min":    if (mapEl.ps_min)    mapEl.ps_min.value    = ""; return updateUrlFromUiAndReload();
@@ -2236,30 +2230,30 @@ function removeFilterChip(key, val = "") {
       params.delete("ezFrom");
       break;
     }
-    case "ezTo": {
+    case "ezTo":
       params.delete("ezTo");
       break;
-    }
-// HU (alle Varianten gemeinsam entfernen)
-case "hu":
-case "hu_min_monate":
-case "hu_bis":
-case "inspectionUntil": {
-  if (mapEl.hu) mapEl.hu.value = ""; // Datum-UI leeren
-  const huMinEl = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
-  if (huMinEl) huMinEl.value = "";   // Min-Monate-UI leeren
-  ["hu","hu_bis","inspectionUntil","hu_min_monate","hu_min_months"].forEach(k => params.delete(k));
-  break;
-}
 
+    // HU (alle Varianten gemeinsam entfernen)
+    case "hu":
+    case "hu_min_monate":
+    case "hu_bis":
+    case "inspectionUntil": {
+      if (mapEl.hu) mapEl.hu.value = "";
+      const huMinEl = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
+      if (huMinEl) huMinEl.value = "";
+      ["hu","hu_bis","inspectionUntil","hu_min_monate","hu_min_months"].forEach(k => params.delete(k));
+      break;
+    }
 
     // Kraftstoff (CSV)
     case "fuel": {
       document.querySelectorAll('input[name="kraftstoff"]').forEach(cb => {
         if (typeof fuelCanon === "function" && fuelCanon(cb.value) === val) cb.checked = false;
       });
-      if (mapEl.fuel && typeof fuelCanon === "function" && fuelCanon(mapEl.fuel.value) === val) mapEl.fuel.value = "Beliebig";
-
+      if (mapEl.fuel && typeof fuelCanon === "function" && fuelCanon(mapEl.fuel.value) === val) {
+        mapEl.fuel.value = "Beliebig";
+      }
       const list = (typeof splitCsv === "function" ? splitCsv(params.get("kraftstoff")) : String(params.get("kraftstoff")||"").split(","))
         .map(v => (typeof fuelCanon === "function" ? fuelCanon(v) : v))
         .filter(Boolean);
@@ -2291,22 +2285,11 @@ case "inspectionUntil": {
       if (mapEl.gear) mapEl.gear.value = "Beliebig";
       document
         .querySelectorAll('.search-group input[type="checkbox"][value="Automatik"], .search-group input[type="checkbox"][value="Schaltgetriebe"]')
-        .forEach(cb => cb.checked = false);
+        .forEach(cb => (cb.checked = false));
       params.delete("getriebe");
       break;
     }
 
-
-    case "halter_max": {
-      const el = document.getElementById("halterMax")
-             || document.getElementById("ownersMax")
-             || document.getElementById("ownerCountMax")
-             || document.getElementById("maxHalter");
-      if (el) el.value = "";
-      params.delete("halter_max");
-      break;
-    }
-    
     // Antrieb (CSV)
     case "drive": {
       document.querySelectorAll('input[name="antrieb"]').forEach(cb => {
@@ -2324,13 +2307,13 @@ case "inspectionUntil": {
       break;
     }
 
-    case "accidentFree": {
+    case "accidentFree":
       if (mapEl.accidentFree) mapEl.accidentFree.checked = false;
       params.delete("accidentFree");
       break;
-    }
 
-    case "marke": params.delete("marke"); break;
+    case "marke":
+      params.delete("marke"); break;
 
     case "modell": {
       const list = (typeof splitCsv === "function" ? splitCsv(params.get("modell")) : String(params.get("modell")||"").split(","));
@@ -2350,18 +2333,13 @@ case "inspectionUntil": {
       const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
       if (next.length) params.set("fahrzeugtyp", next.join(","));
       else params.delete("fahrzeugtyp");
-
       const typeEl     = document.getElementById("fahrzeugtyp");
       const typeChecks = document.querySelectorAll('input[name="fahrzeugtyp"]');
       if (typeEl && typeEl.tagName === "SELECT") {
-        [...typeEl.options].forEach(o => {
-          if ((o.value || "").toLowerCase() === String(val).toLowerCase()) o.selected = false;
-        });
+        [...typeEl.options].forEach(o => { if ((o.value || "").toLowerCase() === String(val).toLowerCase()) o.selected = false; });
       }
       if (typeChecks && typeChecks.length) {
-        [...typeChecks].forEach(cb => {
-          if ((cb.value || "").toLowerCase() === String(val).toLowerCase()) cb.checked = false;
-        });
+        [...typeChecks].forEach(cb => { if ((cb.value || "").toLowerCase() === String(val).toLowerCase()) cb.checked = false; });
       }
       break;
     }
@@ -2371,20 +2349,15 @@ case "inspectionUntil": {
       const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
       if (next.length) params.set("tueren", next.join(","));
       else params.delete("tueren");
-
       const doorsEl     = document.getElementById("tueren");
       const doorsChecks = document.querySelectorAll('input[name="tueren"]');
       if (doorsEl && doorsEl.tagName === "SELECT") {
-        [...doorsEl.options].forEach(o => {
-          if ((o.value || "").toLowerCase() === String(val).toLowerCase()) o.selected = false;
-        });
+        [...doorsEl.options].forEach(o => { if ((o.value || "").toLowerCase() === String(val).toLowerCase()) o.selected = false; });
       } else if (doorsEl && typeof doorsEl.value === "string") {
         if (doorsEl.value.toLowerCase() === String(val).toLowerCase()) doorsEl.value = "";
       }
       if (doorsChecks && doorsChecks.length) {
-        [...doorsChecks].forEach(cb => {
-          if ((cb.value || "").toLowerCase() === String(val).toLowerCase()) cb.checked = false;
-        });
+        [...doorsChecks].forEach(cb => { if ((cb.value || "").toLowerCase() === String(val).toLowerCase()) cb.checked = false; });
       }
       break;
     }
@@ -2394,33 +2367,30 @@ case "inspectionUntil": {
       const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
       if (next.length) params.set("farbe", next.join(","));
       else params.delete("farbe");
-
       document.querySelectorAll('input[name="farbe"]').forEach(cb => {
         if ((cb.value || "").toLowerCase() === String(val).toLowerCase()) cb.checked = false;
       });
       break;
     }
-    case "hu_min_monate": {
-      ["hu_min_monate","hu_min_months","hu_min"].forEach(k => params.delete(k));
-      const el = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
+
+    // Max. Halter
+    case "halter_max": {
+      ["halter_max","max_halter","owners_max"].forEach(k => params.delete(k));
+      const el = document.getElementById("halterMax")
+             || document.getElementById("halter_max")
+             || document.getElementById("ownerMax")
+             || document.getElementById("ownersMax")
+             || document.getElementById("anzahlFahrzeughalterMax");
       if (el) el.value = "";
-      break;
-    }
-    case "hu_bis": {
-      ["hu_bis","inspectionUntil"].forEach(k => params.delete(k));
-      const el = document.getElementById("inspectionUntil");
-      if (el) el.value = "";
-      break;
-    }
-    
-    case "ort": {
-      params.delete("ort");
-      params.delete("ort_lat");
-      params.delete("ort_lon");
       break;
     }
 
-    case "umkreis":        params.delete("umkreis"); break;
+    case "ort":
+      params.delete("ort"); params.delete("ort_lat"); params.delete("ort_lon");
+      break;
+
+    case "umkreis":
+      params.delete("umkreis"); break;
 
     case "verbrauch_max": {
       params.delete("verbrauch_max");
@@ -2438,7 +2408,7 @@ case "inspectionUntil": {
     default: break;
   }
 
-  // Paging zurücksetzen & URL aktualisieren (ohne trailing '?')
+  // Paging zurücksetzen & URL aktualisieren
   params.delete("page");
   const qs = params.toString();
   history.replaceState(null, "", `${location.pathname}${qs ? `?${qs}` : ""}`);
@@ -2450,6 +2420,8 @@ case "inspectionUntil": {
   if (typeof renderActiveFilters === "function") renderActiveFilters();
 }
 
+
+// ---- Alle Filter löschen ----
 function clearAllFilters() {
   const params = new URLSearchParams(window.location.search);
 
@@ -2465,7 +2437,7 @@ function clearAllFilters() {
     // HU-Parameter (alle Varianten)
     "hu","hu_bis","inspectionUntil","hu_min_monate","hu_min_months",
     // Max. Halter
-    "halter_max"
+    "halter_max","max_halter","owners_max"
   ].forEach(k => params.delete(k));
 
   params.delete("page");
@@ -2479,32 +2451,24 @@ function clearAllFilters() {
     "inspectionUntil",
     "modellausfuehrung",
     "location"
-  ].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = "";
-  });
+  ].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
 
   // EZ Fallback-Felder
   [
     "first-registration-month","first-registration-year",
     "first-registration-month-to","first-registration-year-to",
     "ez-von","ez-bis"
-  ].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = "";
-  });
+  ].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
 
   // HU mind. Monate (UI)
-  {
-    const el = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
-    if (el) el.value = "";
-  }
+  { const el = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths"); if (el) el.value = ""; }
 
   // Max. Halter (UI)
   {
     const ownersMaxEl = document.getElementById("halterMax")
                       || document.getElementById("ownersMax")
                       || document.getElementById("ownerCountMax")
+                      || document.getElementById("halter_max")
                       || document.getElementById("maxHalter");
     if (ownersMaxEl) ownersMaxEl.value = "";
   }
@@ -2578,10 +2542,7 @@ function clearAllFilters() {
   }
 
   // Unfallfrei
-  {
-    const accEl = document.getElementById("accidentFree");
-    if (accEl) accEl.checked = false;
-  }
+  { const accEl = document.getElementById("accidentFree"); if (accEl) accEl.checked = false; }
 
   // Verbrauch (Select + Custom)
   {
@@ -2600,12 +2561,10 @@ function clearAllFilters() {
   }
 
   // Sortierung
-  {
-    const sortEl = document.getElementById("sortBy");
-    if (sortEl) sortEl.value = "";
-  }
+  { const sortEl = document.getElementById("sortBy"); if (sortEl) sortEl.value = ""; }
 
   history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
   loadAndRender(1);
 }
+
 });
