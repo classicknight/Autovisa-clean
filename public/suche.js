@@ -47,35 +47,54 @@ const FUEL_LABELS = {
   "hybrid-diesel": "Hybrid (Diesel)"
 };
 const DRIVE_LABELS = { frontantrieb: "Frontantrieb", heckantrieb: "Heckantrieb", allrad: "Allrad" };
-
-// Kraftstoff → kanonischer Token
+// Canon für Kraftstoff
 function fuelCanon(raw) {
-  const s = norm(raw);
-  if (!s) return "";
+  const s = String(raw || "").trim().toLowerCase();
 
-  // explizite UI-Tokens direkt
-  if (/^hybrid[\s-]*diesel$/.test(s)) return "hybrid-diesel";
-  if (/^hybrid[\s-]*(benzin|otto|petrol|gasoline|e10|e5)$/.test(s)) return "hybrid-benzin";
+  // vereinheitlichen (Leerzeichen, Sonderzeichen raus für Erkennung)
+  const flat = s
+    .replace(/[()./\\-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
-  // Freitext-Erkennung (Daten)
-  const hasHybrid = /\b(hybrid|phev|plug[\s-]?in|plugin|mhev|hev)\b/.test(s);
-  const hasDiesel = /\b(diesel)\b/.test(s);
-  const hasBenzin = /\b(benzin|super|e10|e5|e95|e98|otto|petrol|gasoline)\b/.test(s);
-  const hasEv     = /\b(elektr|bev|strom|ev)\b/.test(s);
+  if (!flat) return "";
 
-  if (hasHybrid && hasDiesel) return "hybrid-diesel";
-  if (hasHybrid && hasBenzin) return "hybrid-benzin";
-  if (hasHybrid)              return "hybrid";
-  if (hasDiesel)              return "diesel";
-  if (hasBenzin)              return "benzin";
-  if (hasEv)                  return "elektrisch";
+  // Reihenfolge wichtig: spezifische Synonyme zuerst
+  if (/(^|[\s])autogas([\s]|$)/.test(flat)) return "autogas";
+  if (/\blpg\b/i.test(s)) return "autogas";
 
-  return s; // unbekannt
+  if (/(^|[\s])erdgas([\s]|$)/.test(flat)) return "cng";
+  if (/\bcng\b/i.test(s)) return "cng";
+
+  if (/(^|[\s])benzin|otto|e10|super([\s]|$)/.test(flat)) return "benzin";
+  if (/diesel/.test(flat)) return "diesel";
+
+  if (/(elektro|electric|bev|strom)/.test(flat)) return "elektro";
+
+  if (/(hybrid|plug[\s-]?in|phev|mhev|hev)/.test(flat)) return "hybrid";
+
+  if (/(wasserstoff|hydrogen|h2)/.test(flat)) return "wasserstoff";
+  if (/(ethanol|e85|flexfuel)/.test(flat)) return "ethanol";
+
+  return flat; // Fallback
 }
-function fuelNiceLabel(token) {
-  const t = String(token || "").toLowerCase();
-  return FUEL_LABELS[t] || (t ? t[0].toUpperCase() + t.slice(1) : "");
+
+// Schönes Label für Chips/Select
+function fuelNiceLabel(tok) {
+  const t = String(tok || "").toLowerCase();
+  const map = {
+    benzin:       "Benzin",
+    diesel:       "Diesel",
+    elektro:      "Elektro",
+    hybrid:       "Hybrid",
+    autogas:      "Autogas (LPG)",
+    cng:          "Erdgas (CNG)",
+    wasserstoff:  "Wasserstoff (H2)",
+    ethanol:      "Ethanol (E85)"
+  };
+  return map[t] || (t ? t.charAt(0).toUpperCase() + t.slice(1) : "");
 }
+
 
 // ---- Umweltplakette: Canon + Label ----
 function badgeCanon(raw) {
@@ -2568,3 +2587,6 @@ function clearAllFilters() {
 }
 
 });
+
+
+
