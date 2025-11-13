@@ -2205,7 +2205,6 @@ function renderActiveFilters() {
   });
   bar.querySelector(".clear-all")?.addEventListener("click", () => clearAllFilters());
 }
-
 // ---- Einzelnen Chip entfernen ----
 function removeFilterChip(key, val = "") {
   const params = new URLSearchParams(window.location.search);
@@ -2224,10 +2223,10 @@ function removeFilterChip(key, val = "") {
     gear:               document.getElementById("transmission") || document.getElementById("gear"),
     drive:              document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb"),
     accidentFree:       document.getElementById("accidentFree"),
-    scheckheft:         document.getElementById("scheckheft"),
     modellausfuehrung:  document.getElementById("modellausfuehrung"),
     umweltplakette:     document.getElementById("umweltplakette") || document.getElementById("umwelt-badge"),
-    schadstoffklasse:   document.getElementById("schadstoffklasse") || document.getElementById("emission")
+    schadstoffklasse:   document.getElementById("schadstoffklasse") || document.getElementById("emission"),
+    scheckheft:         document.getElementById("scheckheft")
   };
 
   switch (key) {
@@ -2255,7 +2254,7 @@ function removeFilterChip(key, val = "") {
       params.delete("ezTo");
       break;
 
-    // HU (alle Varianten gemeinsam entfernen)
+    // HU (alle Varianten gemeinsam entfernen) – nur EIN Block
     case "hu":
     case "hu_min_monate":
     case "hu_bis":
@@ -2263,7 +2262,7 @@ function removeFilterChip(key, val = "") {
       if (mapEl.hu) mapEl.hu.value = "";
       const huMinEl = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
       if (huMinEl) huMinEl.value = "";
-      ["hu","hu_bis","inspectionUntil","hu_min_monate","hu_min_months","hu_min"].forEach(k => params.delete(k));
+      ["hu","hu_bis","inspectionUntil","hu_min_monate","hu_min_months"].forEach(k => params.delete(k));
       break;
     }
 
@@ -2318,7 +2317,7 @@ function removeFilterChip(key, val = "") {
       });
       if (mapEl.drive && typeof driveCanon === "function" && driveCanon(mapEl.drive.value) === val) mapEl.drive.value = "Beliebig";
 
-      const raw  = params.get("antriebsart") || params.get("antrieb");
+      const raw = params.get("antriebsart") || params.get("antrieb");
       const list = (typeof splitCsv === "function" ? splitCsv(raw) : String(raw||"").split(","))
         .map(v => (typeof driveCanon === "function" ? driveCanon(v) : v))
         .filter(Boolean);
@@ -2333,7 +2332,6 @@ function removeFilterChip(key, val = "") {
       params.delete("accidentFree");
       break;
 
-    // Scheckheft
     case "scheckheft":
       if (mapEl.scheckheft) mapEl.scheckheft.checked = false;
       params.delete("scheckheft");
@@ -2361,7 +2359,6 @@ function removeFilterChip(key, val = "") {
       const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
       if (next.length) params.set("fahrzeugtyp", next.join(","));
       else params.delete("fahrzeugtyp");
-
       const typeEl     = document.getElementById("fahrzeugtyp");
       const typeChecks = document.querySelectorAll('input[name="fahrzeugtyp"]');
       if (typeEl && typeEl.tagName === "SELECT") {
@@ -2378,7 +2375,6 @@ function removeFilterChip(key, val = "") {
       const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
       if (next.length) params.set("tueren", next.join(","));
       else params.delete("tueren");
-
       const doorsEl     = document.getElementById("tueren");
       const doorsChecks = document.querySelectorAll('input[name="tueren"]');
       if (doorsEl && doorsEl.tagName === "SELECT") {
@@ -2397,7 +2393,6 @@ function removeFilterChip(key, val = "") {
       const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
       if (next.length) params.set("farbe", next.join(","));
       else params.delete("farbe");
-
       document.querySelectorAll('input[name="farbe"]').forEach(cb => {
         if ((cb.value || "").toLowerCase() === String(val).toLowerCase()) cb.checked = false;
       });
@@ -2421,7 +2416,8 @@ function removeFilterChip(key, val = "") {
       break;
 
     case "umkreis":
-      params.delete("umkreis"); break;
+      params.delete("umkreis");
+      break;
 
     case "verbrauch_max": {
       params.delete("verbrauch_max");
@@ -2432,22 +2428,10 @@ function removeFilterChip(key, val = "") {
       break;
     }
 
-    case "partikelfilter": {
-      params.delete("partikelfilter");
-      const pe = document.getElementById("partikelfilter");
-      if (pe) pe.checked = false;
-      break;
-    }
+    case "partikelfilter": params.delete("partikelfilter"); break;
+    case "fahrtauglich":   params.delete("fahrtauglich");   break;
 
-    case "fahrtauglich": {
-      params.delete("fahrtauglich");
-      const fe = document.getElementById("fahrtauglich");
-      if (fe) fe.checked = false;
-      break;
-    }
-
-    default:
-      break;
+    default: break;
   }
 
   // Paging zurücksetzen & URL aktualisieren
@@ -2461,6 +2445,7 @@ function removeFilterChip(key, val = "") {
   else if (typeof fetchAndRender === "function") fetchAndRender();
   if (typeof renderActiveFilters === "function") renderActiveFilters();
 }
+
 
 // ---- Alle Filter löschen ----
 function clearAllFilters() {
@@ -2476,7 +2461,7 @@ function clearAllFilters() {
     "partikelfilter","scheckheft","fahrtauglich",
     "farbe",
     // HU-Parameter (alle Varianten)
-    "hu","hu_bis","inspectionUntil","hu_min_monate","hu_min_months","hu_min",
+    "hu","hu_bis","inspectionUntil","hu_min_monate","hu_min_months",
     // Max. Halter
     "halter_max","max_halter","owners_max"
   ].forEach(k => params.delete(k));
@@ -2514,7 +2499,7 @@ function clearAllFilters() {
     if (ownersMaxEl) ownersMaxEl.value = "";
   }
 
-  // Fahrzeugtyp
+  // Fahrzeugtyp / Türen / Farben / Modell
   {
     const typeEl = document.getElementById("fahrzeugtyp");
     if (typeEl) {
@@ -2522,27 +2507,18 @@ function clearAllFilters() {
       else typeEl.value = "";
     }
     document.querySelectorAll('input[name="fahrzeugtyp"]').forEach(cb => (cb.checked = false));
-  }
 
-  // Türen
-  {
     const doorsEl = document.getElementById("tueren");
     if (doorsEl) {
       if (doorsEl.tagName === "SELECT") [...doorsEl.options].forEach(o => (o.selected = false));
       else doorsEl.value = "";
     }
     document.querySelectorAll('input[name="tueren"]').forEach(cb => (cb.checked = false));
-  }
 
-  // Farben
-  document.querySelectorAll('input[name="farbe"]').forEach(cb => (cb.checked = false));
+    document.querySelectorAll('input[name="farbe"]').forEach(cb => (cb.checked = false));
 
-  // Modell (Mehrfachauswahl)
-  {
     const modellEl = document.getElementById("modell");
-    if (modellEl && modellEl.tagName === "SELECT") {
-      [...modellEl.options].forEach(o => (o.selected = false));
-    }
+    if (modellEl && modellEl.tagName === "SELECT") [...modellEl.options].forEach(o => (o.selected = false));
   }
 
   // Kraftstoff
@@ -2552,43 +2528,39 @@ function clearAllFilters() {
     document.querySelectorAll('input[name="kraftstoff"]').forEach(cb => (cb.checked = false));
   }
 
-  // Umweltplakette
+  // Umweltplakette / Schadstoffklasse
   {
     const sel = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
     if (sel) sel.value = "";
     document.querySelectorAll('input[name="umweltplakette"]').forEach(inp => (inp.checked = false));
-  }
 
-  // Schadstoffklasse
-  {
-    const sel = document.getElementById("schadstoffklasse") || document.getElementById("emission");
-    if (sel) sel.value = "";
+    const sel2 = document.getElementById("schadstoffklasse") || document.getElementById("emission");
+    if (sel2) sel2.value = "";
     document.querySelectorAll('input[name="schadstoffklasse"], input[name="emission"]').forEach(inp => (inp.checked = false));
   }
 
-  // Getriebe
+  // Getriebe / Antrieb
   {
     const gearEl = document.getElementById("transmission") || document.getElementById("gear");
     if (gearEl) gearEl.value = "Beliebig";
     document
       .querySelectorAll('.search-group input[type="checkbox"][value="Automatik"], .search-group input[type="checkbox"][value="Schaltgetriebe"]')
       .forEach(cb => (cb.checked = false));
-  }
 
-  // Antrieb
-  {
     const driveEl = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
     if (driveEl) driveEl.value = "Beliebig";
     document.querySelectorAll('input[name="antrieb"]').forEach(cb => (cb.checked = false));
   }
 
-  // Unfallfrei / Scheckheft / Partikelfilter / Fahrtauglich
-  { const el = document.getElementById("accidentFree"); if (el) el.checked = false; }
-  { const el = document.getElementById("scheckheft");   if (el) el.checked = false; }
-  { const el = document.getElementById("partikelfilter"); if (el) el.checked = false; }
-  { const el = document.getElementById("fahrtauglich"); if (el) el.checked = false; }
+  // Unfallfrei / Scheckheft
+  {
+    const accEl = document.getElementById("accidentFree");
+    if (accEl) accEl.checked = false;
+    const sh = document.getElementById("scheckheft");
+    if (sh) sh.checked = false;
+  }
 
-  // Verbrauch (Select + Custom)
+  // Verbrauch
   {
     const selV = document.getElementById("verbrauch-select");
     const inpV = document.getElementById("verbrauch");
