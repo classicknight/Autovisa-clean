@@ -1986,6 +1986,7 @@ function renderActiveFilters() {
   const firstRegYearEl  = document.getElementById("first-registration-year");
 
   const accidentFreeEl = document.getElementById("accidentFree");
+  const scheckheftEl   = document.getElementById("scheckheft"); // <— NEU: UI-Checkbox-Ref
 
   // HU Felder
   const inspectionEl  = document.getElementById("inspectionUntil"); // HU bis (YYYY-MM)
@@ -2106,7 +2107,8 @@ function renderActiveFilters() {
     return (Number.isFinite(n) && n > 0) ? n : NaN;
   })();
 
-  const accFree = !!accidentFreeEl?.checked;
+  const accFree   = !!accidentFreeEl?.checked;
+  const scheckEff = !!scheckheftEl?.checked || qp.scheckheft; // <— NEU: UI ODER URL
 
   // Umwelt / Schadstoff
   const badgeEff = (() => {
@@ -2150,8 +2152,8 @@ function renderActiveFilters() {
     chips.push({ key: "hu", label: `HU bis ${fmtYM(huUntilEff)}` });
   }
 
-  // Scheckheft
-  if (qp.scheckheft) chips.push({key:"scheckheft", label:"Scheckheftgepflegt"});
+  // Scheckheft (UI oder URL)
+  if (scheckEff) chips.push({key:"scheckheft", label:"Scheckheftgepflegt"});
 
   // Max. Halter
   if (Number.isFinite(halterMaxEff) && halterMaxEff > 0) {
@@ -2204,7 +2206,6 @@ function renderActiveFilters() {
   bar.querySelector(".clear-all")?.addEventListener("click", () => clearAllFilters());
 }
 
-
 // ---- Einzelnen Chip entfernen ----
 function removeFilterChip(key, val = "") {
   const params = new URLSearchParams(window.location.search);
@@ -2223,6 +2224,7 @@ function removeFilterChip(key, val = "") {
     gear:               document.getElementById("transmission") || document.getElementById("gear"),
     drive:              document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb"),
     accidentFree:       document.getElementById("accidentFree"),
+    scheckheft:         document.getElementById("scheckheft"),
     modellausfuehrung:  document.getElementById("modellausfuehrung"),
     umweltplakette:     document.getElementById("umweltplakette") || document.getElementById("umwelt-badge"),
     schadstoffklasse:   document.getElementById("schadstoffklasse") || document.getElementById("emission")
@@ -2261,7 +2263,7 @@ function removeFilterChip(key, val = "") {
       if (mapEl.hu) mapEl.hu.value = "";
       const huMinEl = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
       if (huMinEl) huMinEl.value = "";
-      ["hu","hu_bis","inspectionUntil","hu_min_monate","hu_min_months"].forEach(k => params.delete(k));
+      ["hu","hu_bis","inspectionUntil","hu_min_monate","hu_min_months","hu_min"].forEach(k => params.delete(k));
       break;
     }
 
@@ -2316,7 +2318,7 @@ function removeFilterChip(key, val = "") {
       });
       if (mapEl.drive && typeof driveCanon === "function" && driveCanon(mapEl.drive.value) === val) mapEl.drive.value = "Beliebig";
 
-      const raw = params.get("antriebsart") || params.get("antrieb");
+      const raw  = params.get("antriebsart") || params.get("antrieb");
       const list = (typeof splitCsv === "function" ? splitCsv(raw) : String(raw||"").split(","))
         .map(v => (typeof driveCanon === "function" ? driveCanon(v) : v))
         .filter(Boolean);
@@ -2331,8 +2333,15 @@ function removeFilterChip(key, val = "") {
       params.delete("accidentFree");
       break;
 
+    // Scheckheft
+    case "scheckheft":
+      if (mapEl.scheckheft) mapEl.scheckheft.checked = false;
+      params.delete("scheckheft");
+      break;
+
     case "marke":
-      params.delete("marke"); break;
+      params.delete("marke");
+      break;
 
     case "modell": {
       const list = (typeof splitCsv === "function" ? splitCsv(params.get("modell")) : String(params.get("modell")||"").split(","));
@@ -2352,6 +2361,7 @@ function removeFilterChip(key, val = "") {
       const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
       if (next.length) params.set("fahrzeugtyp", next.join(","));
       else params.delete("fahrzeugtyp");
+
       const typeEl     = document.getElementById("fahrzeugtyp");
       const typeChecks = document.querySelectorAll('input[name="fahrzeugtyp"]');
       if (typeEl && typeEl.tagName === "SELECT") {
@@ -2368,6 +2378,7 @@ function removeFilterChip(key, val = "") {
       const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
       if (next.length) params.set("tueren", next.join(","));
       else params.delete("tueren");
+
       const doorsEl     = document.getElementById("tueren");
       const doorsChecks = document.querySelectorAll('input[name="tueren"]');
       if (doorsEl && doorsEl.tagName === "SELECT") {
@@ -2386,6 +2397,7 @@ function removeFilterChip(key, val = "") {
       const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
       if (next.length) params.set("farbe", next.join(","));
       else params.delete("farbe");
+
       document.querySelectorAll('input[name="farbe"]').forEach(cb => {
         if ((cb.value || "").toLowerCase() === String(val).toLowerCase()) cb.checked = false;
       });
@@ -2420,11 +2432,22 @@ function removeFilterChip(key, val = "") {
       break;
     }
 
-    case "partikelfilter": params.delete("partikelfilter"); break;
-    case "scheckheft":     params.delete("scheckheft");     break;
-    case "fahrtauglich":   params.delete("fahrtauglich");   break;
+    case "partikelfilter": {
+      params.delete("partikelfilter");
+      const pe = document.getElementById("partikelfilter");
+      if (pe) pe.checked = false;
+      break;
+    }
 
-    default: break;
+    case "fahrtauglich": {
+      params.delete("fahrtauglich");
+      const fe = document.getElementById("fahrtauglich");
+      if (fe) fe.checked = false;
+      break;
+    }
+
+    default:
+      break;
   }
 
   // Paging zurücksetzen & URL aktualisieren
@@ -2438,7 +2461,6 @@ function removeFilterChip(key, val = "") {
   else if (typeof fetchAndRender === "function") fetchAndRender();
   if (typeof renderActiveFilters === "function") renderActiveFilters();
 }
-
 
 // ---- Alle Filter löschen ----
 function clearAllFilters() {
@@ -2454,7 +2476,7 @@ function clearAllFilters() {
     "partikelfilter","scheckheft","fahrtauglich",
     "farbe",
     // HU-Parameter (alle Varianten)
-    "hu","hu_bis","inspectionUntil","hu_min_monate","hu_min_months",
+    "hu","hu_bis","inspectionUntil","hu_min_monate","hu_min_months","hu_min",
     // Max. Halter
     "halter_max","max_halter","owners_max"
   ].forEach(k => params.delete(k));
@@ -2560,8 +2582,11 @@ function clearAllFilters() {
     document.querySelectorAll('input[name="antrieb"]').forEach(cb => (cb.checked = false));
   }
 
-  // Unfallfrei
-  { const accEl = document.getElementById("accidentFree"); if (accEl) accEl.checked = false; }
+  // Unfallfrei / Scheckheft / Partikelfilter / Fahrtauglich
+  { const el = document.getElementById("accidentFree"); if (el) el.checked = false; }
+  { const el = document.getElementById("scheckheft");   if (el) el.checked = false; }
+  { const el = document.getElementById("partikelfilter"); if (el) el.checked = false; }
+  { const el = document.getElementById("fahrtauglich"); if (el) el.checked = false; }
 
   // Verbrauch (Select + Custom)
   {
