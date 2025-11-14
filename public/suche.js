@@ -286,10 +286,10 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
     tueren:      splitCsv(sp.get("tueren")),
 
     sort: sp.get("sort") || "",
-
     partikelfilter: sp.get("partikelfilter"),
-    scheckheft:     sp.get("scheckheft"),
-    fahrtauglich:   sp.get("fahrtauglich"),
+    scheckheft: sp.get("scheckheft"),
+    unfallfrei: sp.get("unfallfrei"),
+  
 
     // akzeptiert ?umweltplakette=… oder ?plakette=…
     umweltplakette:  badgeCanon(sp.get("umweltplakette") || sp.get("plakette")),
@@ -352,10 +352,13 @@ if (!Number.isFinite(huMin)) {
 }
 if (huMinSel && Number.isFinite(huMin) && huMin > 0) huMinSel.value = String(huMin);
 
-  // Flags
-  const pfEl = document.getElementById("partikelfilter");
-  const shEl = document.getElementById("scheckheft");
-  const ftEl = document.getElementById("fahrtauglich");
+// Flags
+const pfEl = document.getElementById("partikelfilter");
+const shEl = document.getElementById("scheckheft");
+const ufEl = document.getElementById("unfallfrei");
+
+
+
 
   // --- Prefill einfache Felder ---
   if (markeEl && QP.marke) markeEl.value = QP.marke;
@@ -508,10 +511,11 @@ if (huMinSel && Number.isFinite(huMin) && huMin > 0) huMinSel.value = String(huM
     else if (QP.sort)                  sortBy.value = "date-desc";
   }
 
-  // --- Flags ---
-  if (pfEl) pfEl.checked = !!QP.partikelfilter;
-  if (shEl) shEl.checked = !!QP.scheckheft;
-  if (ftEl) ftEl.checked = !!QP.fahrtauglich;
+// ...
+
+if (pfEl) pfEl.checked = isTruthyRaw(QP.partikelfilter);
+if (shEl) shEl.checked = isTruthyRaw(QP.scheckheft);
+if (ufEl) ufEl.checked = isTruthyRaw(QP.unfallfrei);
 })();
 
 

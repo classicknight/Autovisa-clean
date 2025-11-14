@@ -905,13 +905,27 @@ document.addEventListener("DOMContentLoaded", () => {
     const pf = document.getElementById("partikelfilter");
     if (pf && pf.checked) qs.set("partikelfilter", "1");
   
-    // Sonstige Merkmale
-    (function () {
-      const m = [];
-      if (document.getElementById('scheckheft')?.checked)   m.push('Scheckheftgepflegt');
-      if (document.getElementById('fahrtauglich')?.checked) m.push('Fahrtauglich');
-      if (m.length) qs.set('merkmale', m.join(','));
-    })();
+ // Sonstige Merkmale + Unfallfrei
+(function () {
+  const m = [];
+
+  // bleibt wie bisher: Scheckheft geht in "merkmale"
+  if (document.getElementById('scheckheft')?.checked) {
+    m.push('Scheckheftgepflegt');
+  }
+
+  if (m.length) {
+    qs.set('merkmale', m.join(','));
+  }
+
+  // NEU: Unfallfrei als eigenes Flag
+  const unfallCb = document.getElementById('unfallfrei');
+  if (unfallCb && unfallCb.checked) {
+    // Frontend-Flag -> /api/search muss das auf "unfall" === "keine" mappen
+    qs.set('unfallfrei', '1');
+  }
+})();
+
   
     const huSel    = document.getElementById("hu-gueltig")?.value;
     const huCustom = document.getElementById("custom-hu")?.value?.trim();
