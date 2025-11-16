@@ -2055,6 +2055,7 @@ const huUntilEff = normalizeYMAny(
       // -> Scheckheft kann als eigenes Flag ODER via merkmale kommen
       scheckheft:     isTruthyRaw(sp.get("scheckheft")) || hasScheckheftFromMerkmale,
       fahrtauglich:   isTruthyRaw(sp.get("fahrtauglich")),
+      unfallfrei:     sp.get("unfallfrei"),         // 👈 NEU: roher URL-Wert für Unfallfrei
   
       // Max. Halter
       halter_max: sp.get("halter_max") || sp.get("max_halter") || sp.get("owners_max") || "",
@@ -2188,52 +2189,52 @@ const huUntilEff = normalizeYMAny(
       chips.push({ key: "halter_max", label: `Halter ≤ ${int(halterMaxEff)}` });
     }
   
- // Weitere URL-basierte Chips
-if (qp.marke)
-  chips.push({ key: "marke", label: `Marke: ${qp.marke}` });
-
-if (qp.modell?.length)
-  qp.modell.forEach(m =>
-    chips.push({ key: "modell", value: m, label: `Modell: ${m}` })
-  );
-
-if (qp.modellausfuehrung)
-  chips.push({
-    key: "modellausfuehrung",
-    label: `Modellvariante: ${qp.modellausfuehrung}`
-  });
-
-if (qp.fahrzeugtyp?.length)
-  qp.fahrzeugtyp.forEach(t =>
-    chips.push({ key: "fahrzeugtyp", value: t, label: `Fahrzeugtyp: ${t}` })
-  );
-
-if (qp.tueren?.length)
-  qp.tueren.forEach(n =>
-    chips.push({ key: "tueren", value: n, label: `Türen: ${n}` })
-  );
-
-if (qp.ort)
-  chips.push({ key: "ort", label: `Ort: ${qp.ort}` });
-
-if (qp.umkreis)
-  chips.push({ key: "umkreis", label: `Umkreis: ${qp.umkreis} km` });
-
-if (qp.verbrauch_max)
-  chips.push({
-    key: "verbrauch_max",
-    label: `Verbrauch ≤ ${String(qp.verbrauch_max).replace(".", ",")} l/100km`
-  });
-
-if (isTruthyRaw(qp.partikelfilter))
-  chips.push({ key: "partikelfilter", label: "Partikelfilter" });
-
-if (qp.fahrtauglich)
-  chips.push({ key: "fahrtauglich", label: "Fahrtauglich" });
-
-if (isTruthyRaw(qp.unfallfrei))
-  chips.push({ key: "accidentFree", label: "Unfallfrei" });
-
+    // Weitere URL-basierte Chips
+    if (qp.marke)
+      chips.push({ key: "marke", label: `Marke: ${qp.marke}` });
+  
+    if (qp.modell?.length)
+      qp.modell.forEach(m =>
+        chips.push({ key: "modell", value: m, label: `Modell: ${m}` })
+      );
+  
+    if (qp.modellausfuehrung)
+      chips.push({
+        key: "modellausfuehrung",
+        label: `Modellvariante: ${qp.modellausfuehrung}`
+      });
+  
+    if (qp.fahrzeugtyp?.length)
+      qp.fahrzeugtyp.forEach(t =>
+        chips.push({ key: "fahrzeugtyp", value: t, label: `Fahrzeugtyp: ${t}` })
+      );
+  
+    if (qp.tueren?.length)
+      qp.tueren.forEach(n =>
+        chips.push({ key: "tueren", value: n, label: `Türen: ${n}` })
+      );
+  
+    if (qp.ort)
+      chips.push({ key: "ort", label: `Ort: ${qp.ort}` });
+  
+    if (qp.umkreis)
+      chips.push({ key: "umkreis", label: `Umkreis: ${qp.umkreis} km` });
+  
+    if (qp.verbrauch_max)
+      chips.push({
+        key: "verbrauch_max",
+        label: `Verbrauch ≤ ${String(qp.verbrauch_max).replace(".", ",")} l/100km`
+      });
+  
+    if (isTruthyRaw(qp.partikelfilter))
+      chips.push({ key: "partikelfilter", label: "Partikelfilter" });
+  
+    if (qp.fahrtauglich)
+      chips.push({ key: "fahrtauglich", label: "Fahrtauglich" });
+  
+    if (isTruthyRaw(qp.unfallfrei))
+      chips.push({ key: "accidentFree", label: "Unfallfrei" });
+  
     // Render
     if (!chips.length) {
       bar.textContent = "";
@@ -2267,6 +2268,7 @@ if (isTruthyRaw(qp.unfallfrei))
     });
     bar.querySelector(".clear-all")?.addEventListener("click", () => clearAllFilters());
   }
+  
   
 // ---- Einzelnen Chip entfernen ----
 function removeFilterChip(key, val = "") {
