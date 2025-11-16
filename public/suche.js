@@ -2188,18 +2188,52 @@ const huUntilEff = normalizeYMAny(
       chips.push({ key: "halter_max", label: `Halter ≤ ${int(halterMaxEff)}` });
     }
   
-    // Weitere URL-basierte Chips
-    if (qp.marke) chips.push({key:"marke", label:`Marke: ${qp.marke}`});
-    if (qp.modell?.length) qp.modell.forEach(m => chips.push({key:"modell", value:m, label:`Modell: ${m}`}));
-    if (qp.modellausfuehrung) chips.push({key:"modellausfuehrung", label:`Modellvariante: ${qp.modellausfuehrung}`});
-    if (qp.fahrzeugtyp?.length) qp.fahrzeugtyp.forEach(t => chips.push({key:"fahrzeugtyp", value:t, label:`Fahrzeugtyp: ${t}`}));
-    if (qp.tueren?.length)      qp.tueren.forEach(n => chips.push({key:"tueren", value:n, label:`Türen: ${n}`}));
-    if (qp.ort)                 chips.push({key:"ort",     label:`Ort: ${qp.ort}`});
-    if (qp.umkreis)             chips.push({key:"umkreis", label:`Umkreis: ${qp.umkreis} km`});
-    if (qp.verbrauch_max)       chips.push({key:"verbrauch_max", label:`Verbrauch ≤ ${String(qp.verbrauch_max).replace('.',',')} l/100km`});
-    if (qp.partikelfilter)      chips.push({key:"partikelfilter", label:`Partikelfilter`});
-    if (qp.fahrtauglich)        chips.push({key:"fahrtauglich",   label:`Fahrtauglich`});
-  
+ // Weitere URL-basierte Chips
+if (qp.marke)
+  chips.push({ key: "marke", label: `Marke: ${qp.marke}` });
+
+if (qp.modell?.length)
+  qp.modell.forEach(m =>
+    chips.push({ key: "modell", value: m, label: `Modell: ${m}` })
+  );
+
+if (qp.modellausfuehrung)
+  chips.push({
+    key: "modellausfuehrung",
+    label: `Modellvariante: ${qp.modellausfuehrung}`
+  });
+
+if (qp.fahrzeugtyp?.length)
+  qp.fahrzeugtyp.forEach(t =>
+    chips.push({ key: "fahrzeugtyp", value: t, label: `Fahrzeugtyp: ${t}` })
+  );
+
+if (qp.tueren?.length)
+  qp.tueren.forEach(n =>
+    chips.push({ key: "tueren", value: n, label: `Türen: ${n}` })
+  );
+
+if (qp.ort)
+  chips.push({ key: "ort", label: `Ort: ${qp.ort}` });
+
+if (qp.umkreis)
+  chips.push({ key: "umkreis", label: `Umkreis: ${qp.umkreis} km` });
+
+if (qp.verbrauch_max)
+  chips.push({
+    key: "verbrauch_max",
+    label: `Verbrauch ≤ ${String(qp.verbrauch_max).replace(".", ",")} l/100km`
+  });
+
+if (isTruthyRaw(qp.partikelfilter))
+  chips.push({ key: "partikelfilter", label: "Partikelfilter" });
+
+if (qp.fahrtauglich)
+  chips.push({ key: "fahrtauglich", label: "Fahrtauglich" });
+
+if (isTruthyRaw(qp.unfallfrei))
+  chips.push({ key: "accidentFree", label: "Unfallfrei" });
+
     // Render
     if (!chips.length) {
       bar.textContent = "";
@@ -2255,7 +2289,8 @@ function removeFilterChip(key, val = "") {
     modellausfuehrung:  document.getElementById("modellausfuehrung"),
     umweltplakette:     document.getElementById("umweltplakette") || document.getElementById("umwelt-badge"),
     schadstoffklasse:   document.getElementById("schadstoffklasse") || document.getElementById("emission"),
-    scheckheft:         document.getElementById("scheckheft")
+    scheckheft:         document.getElementById("scheckheft"),
+    unfallfrei:          document.getElementById("unfallfrei") || document.getElementById("accidentFree")
   };
 
   const splitCsv = (v) => v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : [];
@@ -2471,8 +2506,24 @@ function removeFilterChip(key, val = "") {
       break;
     }
 
-    case "partikelfilter": params.delete("partikelfilter"); break;
-    case "fahrtauglich":   params.delete("fahrtauglich");   break;
+    case "partikelfilter":
+      params.delete("partikelfilter");
+      break;
+
+    // ✅ NEU: Unfallfrei-Filter löschen
+    case "accidentFree": {
+      ["unfallfrei", "accidentFree"].forEach(k => params.delete(k));
+      const ufEl =
+        document.getElementById("unfallfrei") ||
+        document.getElementById("accidentFree");
+      if (ufEl && "checked" in ufEl) ufEl.checked = false;
+      break;
+    }
+
+    case "fahrtauglich":
+      params.delete("fahrtauglich");
+      break;
+
 
     default: break;
   }
