@@ -286,10 +286,10 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
     tueren:      splitCsv(sp.get("tueren")),
 
     sort: sp.get("sort") || "",
+
     partikelfilter: sp.get("partikelfilter"),
-    scheckheft: sp.get("scheckheft"),
-    unfallfrei: sp.get("unfallfrei"),
-  
+    scheckheft:     sp.get("scheckheft"),
+    unfallfrei:     sp.get("unfallfrei"),
 
     // akzeptiert ?umweltplakette=… oder ?plakette=…
     umweltplakette:  badgeCanon(sp.get("umweltplakette") || sp.get("plakette")),
@@ -334,31 +334,28 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   const ezVonEl = document.getElementById("ez-von");
   const ezBisEl = document.getElementById("ez-bis");
 
-// HU (bis Datum) – aus URL übernehmen (YYYY-MM normalisiert)
-const inspectionUntilEl = document.getElementById("inspectionUntil");
-let huBis =
-  normalizeYMAny(QP.hu_bis) ||
-  normalizeYMAny(QP.hu_text) ||                 // ?hu=2026-06 ODER "Mind. 6 Monate"
-  normalizeYMAny(sp.get("inspectionUntil")) ||  // falls anders gesetzt
-  ""; 
-if (inspectionUntilEl && huBis) inspectionUntilEl.value = huBis;
+  // HU (bis Datum) – aus URL übernehmen (YYYY-MM normalisiert)
+  const inspectionUntilEl = document.getElementById("inspectionUntil");
+  let huBis =
+    normalizeYMAny(QP.hu_bis) ||
+    normalizeYMAny(QP.hu_text) ||                 // ?hu=2026-06 ODER "Mind. 6 Monate"
+    normalizeYMAny(sp.get("inspectionUntil")) ||  // falls anders gesetzt
+    "";
+  if (inspectionUntilEl && huBis) inspectionUntilEl.value = huBis;
 
-// HU (mind. Monate) – aus expliziten Parametern oder Text „Mind. X Monate“
-const huMinSel = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
-let huMin = parseInt(String(QP.hu_min).trim(), 10);
-if (!Number.isFinite(huMin)) {
-  const m = String(QP.hu_text).match(/(\d{1,2})/); // z. B. „Mind. 6 Monate“
-  if (m) huMin = parseInt(m[1], 10);
-}
-if (huMinSel && Number.isFinite(huMin) && huMin > 0) huMinSel.value = String(huMin);
+  // HU (mind. Monate) – aus expliziten Parametern oder Text „Mind. X Monate“
+  const huMinSel = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
+  let huMin = parseInt(String(QP.hu_min).trim(), 10);
+  if (!Number.isFinite(huMin)) {
+    const m = String(QP.hu_text).match(/(\d{1,2})/); // z. B. „Mind. 6 Monate“
+    if (m) huMin = parseInt(m[1], 10);
+  }
+  if (huMinSel && Number.isFinite(huMin) && huMin > 0) huMinSel.value = String(huMin);
 
-// Flags
-const pfEl = document.getElementById("partikelfilter");
-const shEl = document.getElementById("scheckheft");
-const ufEl = document.getElementById("unfallfrei");
-
-
-
+  // Flags
+  const pfEl = document.getElementById("partikelfilter");
+  const shEl = document.getElementById("scheckheft");
+  const ufEl = document.getElementById("unfallfrei") || document.getElementById("accidentFree");
 
   // --- Prefill einfache Felder ---
   if (markeEl && QP.marke) markeEl.value = QP.marke;
@@ -511,13 +508,11 @@ const ufEl = document.getElementById("unfallfrei");
     else if (QP.sort)                  sortBy.value = "date-desc";
   }
 
-// ...
-
-if (pfEl) pfEl.checked = isTruthyRaw(QP.partikelfilter);
-if (shEl) shEl.checked = isTruthyRaw(QP.scheckheft);
-if (ufEl) ufEl.checked = isTruthyRaw(QP.unfallfrei);
+  // --- Flags ---
+  if (pfEl) pfEl.checked = isTruthyRaw(QP.partikelfilter);
+  if (shEl) shEl.checked = isTruthyRaw(QP.scheckheft);
+  if (ufEl) ufEl.checked = isTruthyRaw(QP.unfallfrei);
 })();
-
 
 
 
@@ -1844,10 +1839,22 @@ const huUntilEff = normalizeYMAny(
       // Falls KEIN Feld existiert: vorhandenen URL-Param NICHT ändern
     }
   
-    // Zusatz-Flags
-    setOrDelete(params, "partikelfilter", document.getElementById("partikelfilter")?.checked ? "mit" : "");
-    setOrDelete(params, "scheckheft",     document.getElementById("scheckheft")?.checked     ? "ja"  : "");
-    setOrDelete(params, "fahrtauglich",   document.getElementById("fahrtauglich")?.checked   ? "ja"  : "");
+    // Zusatz-Flags (Partikelfilter / Scheckheft / Unfallfrei)
+    {
+      const pfChecked = document.getElementById("partikelfilter")?.checked;
+      const shChecked = document.getElementById("scheckheft")?.checked;
+      const ufChecked =
+        document.getElementById("unfallfrei")?.checked ??
+        document.getElementById("accidentFree")?.checked;
+  
+      // Wir schreiben überall "1", damit Backend + Prefill klar damit arbeiten können
+      setOrDelete(params, "partikelfilter", pfChecked ? "1" : "");
+      setOrDelete(params, "scheckheft",     shChecked ? "1" : "");
+      setOrDelete(params, "unfallfrei",     ufChecked ? "1" : "");
+  
+      // altes Fahrtauglich-Flag aufräumen, falls noch irgendwo vorhanden
+      params.delete("fahrtauglich");
+    }
   
     // Fahrzeugtyp (Checkboxen + Fallback-Select) -> CSV
     (function () {
@@ -2624,6 +2631,11 @@ function clearAllFilters() {
 
 
 });
+
+
+
+
+
 
 
 

@@ -2069,31 +2069,41 @@ app.get("/api/geosuggest", async (req, res) => {
 app.get("/api/search", async (req, res) => {
   try {
     const {
-      marke, modell, ezFrom, ezTo,
-      km_min, km_max, price_min, price_max,
-      getriebe, kraftstoff, sort,
-      land = "", ort, umkreis, ort_lat, ort_lon,
-      page = "1", limit = "20",
+      marke,
+      modell,
+      ezFrom,
+      ezTo,
+      km_min,
+      km_max,
+      price_min,
+      price_max,
+      getriebe,
+      kraftstoff,
+      sort,
+      land = "",
+      ort,
+      umkreis,
+      ort_lat,
+      ort_lon,
+      page = "1",
+      limit = "20",
       modellausfuehrung,
       fahrzeugtyp,
       tueren,
-      // neu:
-      ps_min, ps_max,          // Leistung (PS)
-      ccm_min, ccm_max,        // Hubraum (cm³)
-      verbrauch_max,           // L/100 km (komb.)
-      antrieb,                 // CSV: Frontantrieb,Heckantrieb,Allrad
-      schadstoffklasse,        // z.B. "Euro 6d"
-      plakette,                // "Grün (4)" …
-      partikelfilter,          // "1" => erforderlich
-      halter_max,              // maximale Halter
-      farbe,                   // CSV (Karosseriefarbe)
-      merkmale,                // CSV (z. B. Scheckheftgepflegt,Fahrtauglich)
-
-      // HU (neu; mehrere Varianten möglich)
-      hu_min_monate,           // z.B. "6"
-      hu_bis,                  // z.B. "2026-03" oder "03/2026" oder "2026"
-      hu                       // z.B. "Mind. 6 Monate"
+      ps_min,
+      ps_max,
+      ccm_min,
+      ccm_max,
+      verbrauch_max,
+      antrieb,
+      schadstoffklasse,
+      umweltplakette,
+      partikelfilter,
+      scheckheft,
+      // HIER NEU:
+      unfallfrei
     } = req.query;
+
 
     const p    = Math.max(parseInt(page, 10)  || 1, 1);
     const lim  = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
@@ -2102,7 +2112,6 @@ app.get("/api/search", async (req, res) => {
     // Aktueller Monatsschlüssel (UTC): YYYY*12 + MM
     const NOW = new Date();
     const nowKey = NOW.getUTCFullYear() * 12 + (NOW.getUTCMonth() + 1);
-
     // ---- Basisfilter (immer)
     const baseMatch = { status: "online" };
 
@@ -2117,9 +2126,28 @@ app.get("/api/search", async (req, res) => {
       if (arr.length) baseMatch.modell = { $in: arr };
     }
 
+    // ---- Unfallfrei-Filter (Basis: Feld "unfall")
+    const wantsAccidentFree =
+      typeof unfallfrei !== "undefined" &&
+      ["1", "true", "ja", "yes", "on"]
+        .includes(String(unfallfrei).trim().toLowerCase());
+
+    if (wantsAccidentFree) {
+      // Nur Fahrzeuge ohne Unfallschaden
+      baseMatch.$or = [
+        { unfall: { $exists: false } },
+        { unfall: null },
+        { unfall: "" },
+        { unfall: { $regex: /^keine$/i } },      // "Keine"
+        { unfall: { $regex: /unfallfrei/i } }    // falls du später sowas speicherst
+      ];
+    }
+
     // ---- Zahlen aus Query
     const priceMaxNum  = parseInt(price_max, 10);
     const priceMinNum  = parseInt(price_min, 10);
+    // ...
+
     const kmMaxNum     = parseInt(km_max, 10);
     const kmMinNum     = parseInt(km_min, 10);
 
