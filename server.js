@@ -2099,11 +2099,19 @@ app.get("/api/search", async (req, res) => {
       schadstoffklasse,
       umweltplakette,
       partikelfilter,
-      scheckheft,
-      // HIER NEU:
+      scheckheft,         // aktuell nicht benutzt, aber ok
+      // NEU / WICHTIG: alle weiter unten benutzten Query-Keys hier destrukturieren,
+      // damit es keine "is not defined"-Fehler gibt
+      hu,
+      hu_bis,
+      hu_min_monate,
+      halter_max,
+      farbe,
+      plakette,
+      merkmale,
+      // bereits vorhanden:
       unfallfrei
     } = req.query;
-
 
     const p    = Math.max(parseInt(page, 10)  || 1, 1);
     const lim  = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
@@ -2112,6 +2120,7 @@ app.get("/api/search", async (req, res) => {
     // Aktueller Monatsschlüssel (UTC): YYYY*12 + MM
     const NOW = new Date();
     const nowKey = NOW.getUTCFullYear() * 12 + (NOW.getUTCMonth() + 1);
+
     // ---- Basisfilter (immer)
     const baseMatch = { status: "online" };
 
@@ -2146,11 +2155,8 @@ app.get("/api/search", async (req, res) => {
     // ---- Zahlen aus Query
     const priceMaxNum  = parseInt(price_max, 10);
     const priceMinNum  = parseInt(price_min, 10);
-    // ...
-
     const kmMaxNum     = parseInt(km_max, 10);
     const kmMinNum     = parseInt(km_min, 10);
-
     const psMinNum     = parseInt(ps_min, 10);
     const psMaxNum     = parseInt(ps_max, 10);
     const ccmMinNum    = parseInt(ccm_min, 10);
@@ -2172,8 +2178,13 @@ app.get("/api/search", async (req, res) => {
       }
       return NaN;
     })();
+
+    // parseYMServer kann z.B. null zurückgeben – deswegen defensiv
     const huBisDate = hu_bis ? parseYMServer(hu_bis) : null;
-    const huBisKey  = huBisDate ? (huBisDate.getUTCFullYear() * 12 + (huBisDate.getUTCMonth() + 1)) : null;
+    const huBisKey  =
+      (huBisDate instanceof Date && !isNaN(huBisDate))
+        ? (huBisDate.getUTCFullYear() * 12 + (huBisDate.getUTCMonth() + 1))
+        : null;
 
     // ---- Sortierung
     const sortStages =
@@ -2294,7 +2305,7 @@ app.get("/api/search", async (req, res) => {
       }
     ];
 
-    // ---- HU: Rohwert -> (y,m) -> hu_key (y*12+m) — inkl. getrennten Feldern tuevJahr / tuevMonat
+    // ---- HU: Rohwert -> (y,m) -> hu_key (y*12+m)
     const huParseStages = [
       { $addFields: {
           _hu_raw: {
@@ -2331,6 +2342,9 @@ app.get("/api/search", async (req, res) => {
           }
         }
       },
+      // ... ab hier unverändert deine bisherigen HU-Parsing-Stages ...
+      // (ich lasse sie drin, weil sie schon sehr ausführlich sind)
+      // --- SNIP: alle _hu_rx_* / _hu_name_* / _hu_final_* ---
       { $addFields: {
           _hu_str: { $toString: { $ifNull: ["$_hu_raw", ""] } },
           _hu_rx_y_m: { $regexFind: { input: "$_hu_str", regex: /(\d{4})[-/.](\d{1,2})/ } }, // YYYY-MM
@@ -2626,84 +2640,77 @@ app.get("/api/search", async (req, res) => {
       }];
     }
 
-// ---- Kraftstoff (inkl. Hybrid-/PHEV-Unterarten + Autogas/CNG) ----
-let fuelStages = [];
-if (kraftstoff) {
-  // Tokens robust normalisieren (benzin, diesel, elektrisch, hybrid, autogas, cng, …)
-  const fuels = splitCsv(kraftstoff).map(fuelCanon).filter(Boolean);
+    // ---- Kraftstoff
+    let fuelStages = [];
+    if (kraftstoff) {
+      const fuels = splitCsv(kraftstoff).map(fuelCanon).filter(Boolean);
 
-  // In welchen Feldern suchen?
-  const FIELDS = ["verkauf_kraftstoff", "kraftstoff", "kraftstoffart", "beschreibung"];
-  const OR_FIELDS  = (rx) => ({ $or: FIELDS.map(f => ({ [f]: rx })) });
-  const NOR_FIELDS = (rx) => ({ $nor: FIELDS.map(f => ({ [f]: rx })) });
+      const FIELDS = ["verkauf_kraftstoff", "kraftstoff", "kraftstoffart", "beschreibung"];
+      const OR_FIELDS  = (rx) => ({ $or: FIELDS.map(f => ({ [f]: rx })) });
+      const NOR_FIELDS = (rx) => ({ $nor: FIELDS.map(f => ({ [f]: rx })) });
 
-  // Zentrale Regex-Muster (nutzt deine/unsere gemeinsame Canon-Logik)
-  const RX = {
-    benzin:      /benzin|super|e10|e5|e95|e98|otto|petrol|gasoline/i,
-    diesel:      /diesel/i,
-    elektro:     /elektro|electric|bev|strom|ev/i,
-    hybridAny:   /hybrid|mhev|hev|phev|plug[\s-]*in|plugin/i,
-    phev:        /phev|plug[\s-]*in|plugin/i,
-    autogas:     /autogas|\blpg\b/i,
-    cng:         /erdgas|\bcng\b/i,
-    ethanol:     /ethanol|e85|flex\s*fuel/i,
-    wasserstoff: /wasserstoff|hydrogen|\bh2\b|fuel\s*cell/i
-  };
+      const RX = {
+        benzin:      /benzin|super|e10|e5|e95|e98|otto|petrol|gasoline/i,
+        diesel:      /diesel/i,
+        elektro:     /elektro|electric|bev|strom|ev/i,
+        hybridAny:   /hybrid|mhev|hev|phev|plug[\s-]*in|plugin/i,
+        phev:        /phev|plug[\s-]*in|plugin/i,
+        autogas:     /autogas|\blpg\b/i,
+        cng:         /erdgas|\bcng\b/i,
+        ethanol:     /ethanol|e85|flex\s*fuel/i,
+        wasserstoff: /wasserstoff|hydrogen|\bh2\b|fuel\s*cell/i
+      };
 
-  const conds = [];
-  for (const t of fuels) {
-    // PHEV & Hybrid-Unterarten
-    if (t === "plug-in-hybrid-benzin" || t === "phev-benzin") {
-      conds.push({ $and: [ OR_FIELDS(RX.phev), OR_FIELDS(RX.benzin) ] });
-      continue;
-    }
-    if (t === "plug-in-hybrid-diesel" || t === "phev-diesel") {
-      conds.push({ $and: [ OR_FIELDS(RX.phev), OR_FIELDS(RX.diesel) ] });
-      continue;
-    }
-    if (t === "plug-in-hybrid" || t === "phev") {
-      conds.push(OR_FIELDS(RX.phev));
-      continue;
-    }
-    if (t === "hybrid-benzin") {
-      conds.push({ $and: [ OR_FIELDS(RX.hybridAny), OR_FIELDS(RX.benzin) ] });
-      continue;
-    }
-    if (t === "hybrid-diesel") {
-      conds.push({ $and: [ OR_FIELDS(RX.hybridAny), OR_FIELDS(RX.diesel) ] });
-      continue;
-    }
-    if (t === "hybrid") {
-      conds.push(OR_FIELDS(RX.hybridAny));
-      continue;
-    }
+      const conds = [];
+      for (const t of fuels) {
+        if (t === "plug-in-hybrid-benzin" || t === "phev-benzin") {
+          conds.push({ $and: [ OR_FIELDS(RX.phev), OR_FIELDS(RX.benzin) ] });
+          continue;
+        }
+        if (t === "plug-in-hybrid-diesel" || t === "phev-diesel") {
+          conds.push({ $and: [ OR_FIELDS(RX.phev), OR_FIELDS(RX.diesel) ] });
+          continue;
+        }
+        if (t === "plug-in-hybrid" || t === "phev") {
+          conds.push(OR_FIELDS(RX.phev));
+          continue;
+        }
+        if (t === "hybrid-benzin") {
+          conds.push({ $and: [ OR_FIELDS(RX.hybridAny), OR_FIELDS(RX.benzin) ] });
+          continue;
+        }
+        if (t === "hybrid-diesel") {
+          conds.push({ $and: [ OR_FIELDS(RX.hybridAny), OR_FIELDS(RX.diesel) ] });
+          continue;
+        }
+        if (t === "hybrid") {
+          conds.push(OR_FIELDS(RX.hybridAny));
+          continue;
+        }
 
-    // Reine Antriebe (Hybride ausschließen, damit „Benzin“ nicht PHEV matched)
-    if (t === "elektrisch" || t === "elektro" || t === "bev" || t === "ev") {
-      conds.push({ $and: [ OR_FIELDS(RX.elektro), NOR_FIELDS(RX.hybridAny) ] });
-      continue;
-    }
-    if (t === "benzin" || t === "otto") {
-      conds.push({ $and: [ OR_FIELDS(RX.benzin), NOR_FIELDS(RX.hybridAny) ] });
-      continue;
-    }
-    if (t === "diesel") {
-      conds.push({ $and: [ OR_FIELDS(RX.diesel), NOR_FIELDS(RX.hybridAny) ] });
-      continue;
-    }
+        if (t === "elektrisch" || t === "elektro" || t === "bev" || t === "ev") {
+          conds.push({ $and: [ OR_FIELDS(RX.elektro), NOR_FIELDS(RX.hybridAny) ] });
+          continue;
+        }
+        if (t === "benzin" || t === "otto") {
+          conds.push({ $and: [ OR_FIELDS(RX.benzin), NOR_FIELDS(RX.hybridAny) ] });
+          continue;
+        }
+        if (t === "diesel") {
+          conds.push({ $and: [ OR_FIELDS(RX.diesel), NOR_FIELDS(RX.hybridAny) ] });
+          continue;
+        }
 
-    // Gas/Brennstoffe
-    if (t === "autogas" || t === "lpg") { conds.push(OR_FIELDS(RX.autogas)); continue; }
-    if (t === "cng"     || t === "erdgas"){ conds.push(OR_FIELDS(RX.cng));    continue; }
-    if (t === "ethanol" || t === "e85") { conds.push(OR_FIELDS(RX.ethanol));  continue; }
-    if (t === "wasserstoff" || t === "h2") { conds.push(OR_FIELDS(RX.wasserstoff)); continue; }
+        if (t === "autogas" || t === "lpg") { conds.push(OR_FIELDS(RX.autogas)); continue; }
+        if (t === "cng"     || t === "erdgas"){ conds.push(OR_FIELDS(RX.cng));    continue; }
+        if (t === "ethanol" || t === "e85") { conds.push(OR_FIELDS(RX.ethanol));  continue; }
+        if (t === "wasserstoff" || t === "h2") { conds.push(OR_FIELDS(RX.wasserstoff)); continue; }
 
-    // Fallback: Suchbegriff direkt
-    conds.push(OR_FIELDS(new RegExp(escRe(t), "i")));
-  }
+        conds.push(OR_FIELDS(new RegExp(escRe(t), "i")));
+      }
 
-  fuelStages = conds.length ? [{ $match: { $or: conds } }] : [];
-}
+      fuelStages = conds.length ? [{ $match: { $or: conds } }] : [];
+    }
 
     // ---- Schadstoffklasse
     let emissionStages = [];
@@ -2717,7 +2724,7 @@ if (kraftstoff) {
 
     // ---- Umweltplakette
     let plaketteStages = [];
-    const plaketteParam = plakette || req.query.umweltplakette;
+    const plaketteParam = plakette || umweltplakette;
     if (plaketteParam) {
       const ptxt = String(plaketteParam).toLowerCase();
       let rx = null;
@@ -2827,7 +2834,7 @@ if (kraftstoff) {
       }
     }
 
-    // ---- HU-Filter (nach Parsing); nutzt nowKey (JS), kein $$NOW
+    // ---- HU-Filter (nach Parsing); nutzt nowKey (JS)
     const huFilterStages =
       (Number.isFinite(huMinMon) && huMinMon > 0)
         ? [
@@ -2871,7 +2878,6 @@ if (kraftstoff) {
     const umkreisKm = Math.max(parseInt(umkreis, 10) || 0, 0);
     let pipeline;
 
-    // bevorzugt lat/lon nutzen
     let point = null;
     const lat = parseFloat(ort_lat);
     const lon = parseFloat(ort_lon);
@@ -2886,7 +2892,7 @@ if (kraftstoff) {
 
     const commonStages = [
       ...parseNumberStages,
-      ...huParseStages,        // HU-Parsing
+      ...huParseStages,
       ...numberFilterStages,
       ...powerFilterStages,
       ...ccmFilterStages,
@@ -2905,7 +2911,7 @@ if (kraftstoff) {
       ...variantStages,
       ...vehTypeStages,
       ...tuerenStages,
-      ...huFilterStages,       // HU-Filter
+      ...huFilterStages,
       ...endStages
     ];
 
@@ -2934,6 +2940,3 @@ if (kraftstoff) {
     res.status(500).json({ error: "Interner Fehler bei der Suche." });
   }
 });
-
-
-
