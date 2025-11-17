@@ -1041,3 +1041,39 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc}
 
 
 
+.loc-suggest-box {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 0 0 10px 10px;
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 12px 30px rgba(15,32,39,0.18);
+}
+
+.loc-suggest-box.hidden {
+  display: none;
+}
+
+.loc-suggest-item {
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.loc-suggest-item:hover,
+.loc-suggest-item.active {
+  background: #f5f8fc;
+}
+
+.loc-suggest-highlight {
+  font-weight: 600;
+  color: #00b8a9;
+}

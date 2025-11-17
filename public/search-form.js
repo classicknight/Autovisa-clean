@@ -379,7 +379,12 @@ document.addEventListener("DOMContentLoaded", () => {
 // Ortsvorschläge – schnelle Variante (nur DE, mit local PLZ-Index)
 // ============================
 if (locInput) {
-  const wrapper = locInput.closest(".input-icon-wrapper") || locInput.parentElement || document.body;
+  const wrapper =
+    locInput.closest(".input-icon-wrapper") ||
+    locInput.parentElement ||
+    document.body;
+
+  // Container muss positioniert sein, damit die Box korrekt darunter liegt
   if (getComputedStyle(wrapper).position === "static") {
     wrapper.style.position = "relative";
   }
@@ -390,20 +395,21 @@ if (locInput) {
 
   const debounce = (fn, delay = 150) => {
     let t;
-    return (...a) => {
+    return (...args) => {
       clearTimeout(t);
-      t = setTimeout(() => fn(...a), delay);
+      t = setTimeout(() => fn(...args), delay);
     };
   };
 
-  const escapeReg = (s = "") => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escapeReg = (s = "") =>
+    s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
   let items = [];
   let activeIndex = -1;
   let geoAbort = null;
 
-  // Lokaler PLZ-Index für Deutschland
-  let plzIndex = null;
+  // Lokaler PLZ/Ort-Index (DE)
+  let plzIndex = [];
   let plzLoaded = false;
   let plzLoading = false;
 
@@ -411,13 +417,45 @@ if (locInput) {
     if (plzLoaded || plzLoading) return;
     plzLoading = true;
     try {
-      const r = await fetch("/data/plz-de.json", { credentials: "omit" });
+      const r = await fetch("/data/plz-de.json", {
+        credentials: "omit",
+      });
       if (!r.ok) throw new Error("HTTP " + r.status);
       const data = await r.json();
-      plzIndex = Array.isArray(data) ? data : [];
+
+      // Deine Struktur:
+      // { plz: "01067", ort: "Dresden", zusatz: null, bundesland: "Sachsen", country: "DE" }
+      // -> auf ein einheitliches Format normalisieren
+      plzIndex = Array.isArray(data)
+        ? data.map((row) => {
+            const postcode = String(
+              row.postcode || row.plz || ""
+            ).trim();
+            const city = String(
+              row.city || row.ort || ""
+            ).trim();
+            const state = String(
+              row.state || row.bundesland || ""
+            ).trim();
+            const country = String(
+              row.country || "DE"
+            ).trim();
+
+            const base = [postcode, city]
+              .filter(Boolean)
+              .join(" ");
+            const label = state ? `${base}, ${state}` : base;
+
+            return { postcode, city, state, country, label };
+          })
+        : [];
+
       plzLoaded = true;
     } catch (e) {
-      console.warn("plz-de.json konnte nicht geladen werden – Fallback auf /api/geosuggest.", e);
+      console.warn(
+        "plz-de.json konnte nicht geladen werden – Fallback auf /api/geosuggest.",
+        e
+      );
     } finally {
       plzLoading = false;
     }
@@ -432,7 +470,9 @@ if (locInput) {
 
   function setActive(i) {
     const rows = box.querySelectorAll(".loc-suggest-item");
-    rows.forEach((el, idx) => el.classList.toggle("active", idx === i));
+    rows.forEach((el, idx) =>
+      el.classList.toggle("active", idx === i)
+    );
     activeIndex = i;
   }
 
@@ -440,24 +480,33 @@ if (locInput) {
     const it = items[i];
     if (!it) return;
 
-    const base = (it.postcode && it.city)
-      ? `${it.postcode} ${it.city}`
-      : (it.city || it.postcode || it.label || "");
-    const value = it.state ? `${base}, ${it.state}` : base;
+    const postcode = it.postcode || it.plz || "";
+    const city = it.city || it.ort || "";
+    const state = it.state || it.bundesland || "";
+
+    const base =
+      postcode && city
+        ? `${postcode} ${city}`
+        : city || postcode || it.label || "";
+    const value = state ? `${base}, ${state}` : base;
 
     locInput.value = value;
     hideBox();
 
-    // Falls du später lat/lon hidden Felder setzen willst:
-    // const latEl = document.getElementById("ort_lat");
-    // const lonEl = document.getElementById("ort_lon");
+    // Falls du später lat/lon mitschreiben willst:
+    // const latEl = document.getElementById("ort-lat");
+    // const lonEl = document.getElementById("ort-lon");
     // if (latEl && lonEl && it.lat != null && it.lon != null) {
     //   latEl.value = String(it.lat);
     //   lonEl.value = String(it.lon);
     // }
 
-    locInput.dispatchEvent(new Event("input", { bubbles: true }));
-    locInput.dispatchEvent(new Event("change", { bubbles: true }));
+    locInput.dispatchEvent(
+      new Event("input", { bubbles: true })
+    );
+    locInput.dispatchEvent(
+      new Event("change", { bubbles: true })
+    );
   }
 
   function render(list, q) {
@@ -468,51 +517,69 @@ if (locInput) {
 
     const rx = new RegExp("(" + escapeReg(q) + ")", "i");
 
-    box.innerHTML = list.map((s, i) => {
-      const base = (s.postcode && s.city)
-        ? `${s.postcode} ${s.city}`
-        : (s.city || s.postcode || s.label || "");
-      const show = s.state ? `${base}, ${s.state}` : base;
+    box.innerHTML = list
+      .map((s, i) => {
+        const postcode = s.postcode || s.plz || "";
+        const city = s.city || s.ort || "";
+        const state = s.state || s.bundesland || "";
 
-      const labelHtml = show.replace(rx, "<strong>$1</strong>");
+        const base =
+          postcode && city
+            ? `${postcode} ${city}`
+            : city || postcode || s.label || "";
+        const show = state ? `${base}, ${state}` : base;
 
-      return `
-        <button type="button"
-                class="loc-suggest-item"
-                data-idx="${i}">
-          <span class="loc-main">${labelHtml}</span>
-        </button>
-      `;
-    }).join("");
+        const labelHtml = show.replace(
+          rx,
+          '<span class="loc-suggest-highlight">$1</span>'
+        );
+
+        return `<div class="loc-suggest-item" data-idx="${i}">${labelHtml}</div>`;
+      })
+      .join("");
 
     box.classList.remove("hidden");
 
-    box.querySelectorAll(".loc-suggest-item").forEach(el => {
-      el.addEventListener("mousedown", (e) => {
-        e.preventDefault();
-        pick(parseInt(el.dataset.idx, 10));
+    box
+      .querySelectorAll(".loc-suggest-item")
+      .forEach((el) => {
+        el.addEventListener("mousedown", (e) => {
+          e.preventDefault(); // verhindert Blur auf dem Input
+          const idx = parseInt(el.dataset.idx, 10);
+          if (!Number.isNaN(idx)) pick(idx);
+        });
       });
-    });
 
     setActive(-1);
   }
 
   function searchLocal(term) {
-    if (!plzLoaded || !Array.isArray(plzIndex)) return [];
+    if (
+      !plzLoaded ||
+      !Array.isArray(plzIndex) ||
+      !plzIndex.length
+    )
+      return [];
 
     const t = term.toLowerCase();
-    const out = [];
     const MAX = 20;
+    const out = [];
 
     for (let i = 0; i < plzIndex.length; i++) {
       const it = plzIndex[i];
-      const city = String(it.city || "").toLowerCase();
-      const plz  = String(it.postcode || it.plz || "").toLowerCase();
-      const combined = (plz && city) ? `${plz} ${city}` : (city || plz);
-      if (!combined) continue;
+      const city = String(
+        it.city || it.ort || ""
+      ).toLowerCase();
+      const plz = String(
+        it.postcode || it.plz || ""
+      ).toLowerCase();
+
+      const combo =
+        plz && city ? `${plz} ${city}` : city || plz;
+      if (!combo) continue;
 
       if (
-        combined.startsWith(t) ||
+        combo.startsWith(t) ||
         city.startsWith(t) ||
         plz.startsWith(t)
       ) {
@@ -531,10 +598,9 @@ if (locInput) {
       return;
     }
 
-    // 1) Lokaler PLZ-Index
+    // 1) Lokale PLZ/Ort-Suche
     await ensurePlzIndex();
-
-    if (plzLoaded && Array.isArray(plzIndex)) {
+    if (plzLoaded && plzIndex.length) {
       const local = searchLocal(term);
       if (local.length) {
         items = local;
@@ -543,22 +609,29 @@ if (locInput) {
       }
     }
 
-    // 2) Fallback: alter /api/geosuggest-Endpoint (z.B. wenn plz-de.json fehlt)
+    // 2) Fallback: /api/geosuggest (falls plz-de.json fehlt oder nix findet)
     if (geoAbort) geoAbort.abort();
     geoAbort = new AbortController();
 
     try {
       const limit = term.length <= 3 ? 15 : 8;
-      const r = await fetch(`/api/geosuggest?q=${encodeURIComponent(term)}&limit=${limit}`, {
-        credentials: "omit",
-        signal: geoAbort.signal
-      });
+      const r = await fetch(
+        `/api/geosuggest?q=${encodeURIComponent(
+          term
+        )}&limit=${limit}`,
+        {
+          credentials: "omit",
+          signal: geoAbort.signal,
+        }
+      );
+
       if (!r.ok) {
         hideBox();
         return;
       }
+
       const { suggestions = [] } = await r.json();
-      items = suggestions;
+      items = Array.isArray(suggestions) ? suggestions : [];
       render(items, term);
     } catch (err) {
       if (err?.name !== "AbortError") {
@@ -567,21 +640,29 @@ if (locInput) {
     }
   }
 
-  const debouncedSuggest = debounce(() => querySuggestions(locInput.value), 150);
+  const debouncedSuggest = debounce(
+    () => querySuggestions(locInput.value),
+    150
+  );
 
   locInput.addEventListener("input", debouncedSuggest);
   locInput.addEventListener("focus", debouncedSuggest);
 
+  // Keyboard-Navigation der Vorschlagsliste
   locInput.addEventListener("keydown", (e) => {
     if (box.classList.contains("hidden")) return;
     const max = items.length - 1;
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActive(activeIndex < max ? activeIndex + 1 : 0);
+      setActive(
+        activeIndex < max ? activeIndex + 1 : 0
+      );
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setActive(activeIndex > 0 ? activeIndex - 1 : max);
+      setActive(
+        activeIndex > 0 ? activeIndex - 1 : max
+      );
     } else if (e.key === "Enter") {
       if (activeIndex >= 0) {
         e.preventDefault();
