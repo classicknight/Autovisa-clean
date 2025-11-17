@@ -284,8 +284,8 @@ img, video, canvas{
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  margin-left: -4px;     /* minimal näher ans Logo, bei Bedarf anpassen */
-  
+  margin-left: -5px;     /* minimal näher ans Logo, bei Bedarf anpassen */
+  margin-bottom: 6px;
   font-family: 'Poppins', sans-serif;
   font-size: 17px;
   font-weight: 400;

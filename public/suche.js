@@ -1995,7 +1995,7 @@ const huUntilEff = normalizeYMAny(
     const firstRegMonthEl = document.getElementById("first-registration-month");
     const firstRegYearEl  = document.getElementById("first-registration-year");
   
-    const accidentFreeEl = document.getElementById("accidentFree");
+    const accidentFreeEl = document.getElementById("accidentFree") || document.getElementById("unfallfrei");
     const scheckheftEl   = document.getElementById("scheckheft"); // optionales UI-Checkbox-Element
   
     // HU Felder
@@ -2037,15 +2037,21 @@ const huUntilEff = normalizeYMAny(
       modellausfuehrung: sp.get("modellausfuehrung") || "",
       fahrzeugtyp: (sp.get("fahrzeugtyp") || "").split(",").filter(Boolean),
       tueren: (sp.get("tueren") || "").split(",").filter(Boolean),
+  
       ezFrom: sp.get("ezFrom") || "",
       ezTo:   sp.get("ezTo")   || "",
       km_max: sp.get("km_max") || "",
       price_max: sp.get("price_max") || "",
       ps_min: sp.get("ps_min") || "",
       ps_max: sp.get("ps_max") || "",
+  
       getriebe: (sp.get("getriebe") || "").toLowerCase(),
       kraftstoff: (sp.get("kraftstoff") || "").split(",").map(fuelCanon).filter(Boolean),
       antrieb: (sp.get("antriebsart") || sp.get("antrieb") || "").split(",").map(driveCanon).filter(Boolean),
+  
+      // Farben (CSV)
+      farbe: (sp.get("farbe") || "").split(",").map(s => s.trim()).filter(Boolean),
+  
       ort: sp.get("ort") || "",
       umkreis: sp.get("umkreis") || "",
       verbrauch_max: sp.get("verbrauch_max") || "",
@@ -2055,7 +2061,7 @@ const huUntilEff = normalizeYMAny(
       // -> Scheckheft kann als eigenes Flag ODER via merkmale kommen
       scheckheft:     isTruthyRaw(sp.get("scheckheft")) || hasScheckheftFromMerkmale,
       fahrtauglich:   isTruthyRaw(sp.get("fahrtauglich")),
-      unfallfrei:     sp.get("unfallfrei"),         // 👈 NEU: roher URL-Wert für Unfallfrei
+      unfallfrei:     isTruthyRaw(sp.get("unfallfrei")),
   
       // Max. Halter
       halter_max: sp.get("halter_max") || sp.get("max_halter") || sp.get("owners_max") || "",
@@ -2112,6 +2118,13 @@ const huUntilEff = normalizeYMAny(
       ...qp.antrieb
     ]).filter(Boolean);
   
+    // Farben (multi) – aus URL + UI-Checkboxen
+    const colorFromUrl = (qp.farbe || []).map(s => String(s).trim()).filter(Boolean);
+    const colorFromUI  = [...document.querySelectorAll('input[name="farbe"]:checked')]
+      .map(cb => String(cb.value || "").trim())
+      .filter(Boolean);
+    const colorList    = uniq([...colorFromUrl, ...colorFromUI]).filter(Boolean);
+  
     // EZ
     const ezFromUIraw =
       (firstRegFromEl?.value?.trim()) ||
@@ -2135,7 +2148,7 @@ const huUntilEff = normalizeYMAny(
       return (Number.isFinite(n) && n > 0) ? n : NaN;
     })();
   
-    const accFree = !!accidentFreeEl?.checked;
+    const accFree = !!accidentFreeEl?.checked || qp.unfallfrei;
   
     // Umwelt / Schadstoff
     const badgeEff = (() => {
@@ -2164,6 +2177,12 @@ const huUntilEff = normalizeYMAny(
     if (effGear) chips.push({ key: "gear", label: `Getriebe: ${effGear}` });
     driveList.forEach(tok => chips.push({ key: "drive", value: tok, label: `Antrieb: ${driveNiceLabel(tok)}` }));
   
+    // Farb-Chips
+    colorList.forEach(col => {
+      const label = col ? col.charAt(0).toUpperCase() + col.slice(1) : col;
+      chips.push({ key: "farbe", value: col, label: `Farbe: ${label}` });
+    });
+  
     if (badgeEff)    chips.push({ key: "umweltplakette",   value: badgeEff,    label: badgeNiceLabel(badgeEff) });
     if (emissionEff) chips.push({ key: "schadstoffklasse", value: emissionEff, label: emissionNiceLabel(emissionEff) });
   
@@ -2180,7 +2199,7 @@ const huUntilEff = normalizeYMAny(
     }
   
     // Scheckheft – aus Flag ODER aus merkmale
-    if (qp.scheckheft) {
+    if (qp.scheckheft || scheckheftEl?.checked) {
       chips.push({ key: "scheckheft", label: "Scheckheftgepflegt" });
     }
   
@@ -2268,7 +2287,6 @@ const huUntilEff = normalizeYMAny(
     });
     bar.querySelector(".clear-all")?.addEventListener("click", () => clearAllFilters());
   }
-  
   
 // ---- Einzelnen Chip entfernen ----
 function removeFilterChip(key, val = "") {
