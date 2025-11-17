@@ -268,8 +268,79 @@ img, video, canvas{
 
   
 
+
+/* === LOGO + TAGLINE – STACKED VERSION === */
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;              /* kleiner Abstand Logo <-> Text */
+  height: 100%;
+  margin-left: 0;
+}
+
+/* Tagline rechts vom Logo, in zwei Zeilen */
+.logo-tagline {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-left: -4px;     /* minimal näher ans Logo, bei Bedarf anpassen */
+  
+  font-family: 'Poppins', sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  color: #e8f2f8;
+  text-transform: none;
+  white-space: normal;   /* Zeilenumbruch erlaubt */
+  line-height: 1.1;
+  opacity: 0.95;
+}
+
+.tagline-line1,
+.tagline-line2 {
+  display: block;
+}
+
+/* Optional: leicht eingerückte zweite Zeile, falls du es magst */
+.tagline-line2 {
+  margin-left: 12px;
+}
+
+/* Logo-Größe daneben */
+.logo {
+  height: 125px;
+  width: auto;
+}
+
+/* === Mobile: Text ausblenden, damit es nicht zu voll wird === */
+@media screen and (max-width: 900px) {
+  .logo {
+    height: 70px;
+  }
+
+  .logo-container {
+    margin-left: -10px;
+    margin-bottom: 0;
+    gap: 10px;
+  }
+
+  .logo-tagline {
+    display: none;
+  }
+}
+
+
   
   
+
+
+
+
+
+
+
+
   
 /* ===== Autovisa – Basis ===== */
 :root{

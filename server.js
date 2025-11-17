@@ -2095,13 +2095,13 @@ app.get("/api/search", async (req, res) => {
       ccm_min,
       ccm_max,
       verbrauch_max,
+      verbrauch,        // Fallback für ältere/alternative Params
       antrieb,
       schadstoffklasse,
       umweltplakette,
       partikelfilter,
-      scheckheft,         // aktuell nicht benutzt, aber ok
-      // NEU / WICHTIG: alle weiter unten benutzten Query-Keys hier destrukturieren,
-      // damit es keine "is not defined"-Fehler gibt
+      scheckheft,       // aktuell nicht direkt benutzt, aber okay
+      // NEU: alles, was unten verwendet wird, hier destrukturieren
       hu,
       hu_bis,
       hu_min_monate,
@@ -2109,7 +2109,6 @@ app.get("/api/search", async (req, res) => {
       farbe,
       plakette,
       merkmale,
-      // bereits vorhanden:
       unfallfrei
     } = req.query;
 
@@ -2142,13 +2141,12 @@ app.get("/api/search", async (req, res) => {
         .includes(String(unfallfrei).trim().toLowerCase());
 
     if (wantsAccidentFree) {
-      // Nur Fahrzeuge ohne Unfallschaden
       baseMatch.$or = [
         { unfall: { $exists: false } },
         { unfall: null },
         { unfall: "" },
-        { unfall: { $regex: /^keine$/i } },      // "Keine"
-        { unfall: { $regex: /unfallfrei/i } }    // falls du später sowas speicherst
+        { unfall: { $regex: /^keine$/i } },
+        { unfall: { $regex: /unfallfrei/i } }
       ];
     }
 
@@ -2161,9 +2159,16 @@ app.get("/api/search", async (req, res) => {
     const psMaxNum     = parseInt(ps_max, 10);
     const ccmMinNum    = parseInt(ccm_min, 10);
     const ccmMaxNum    = parseInt(ccm_max, 10);
-    const verbMaxNum   = (verbrauch_max != null)
-                          ? parseFloat(String(verbrauch_max).replace(",", "."))
-                          : NaN;
+
+    // Verbrauch: bevorzugt verbrauch_max, sonst (falls gesetzt) „verbrauch“
+    const rawVerb = (verbrauch_max != null && verbrauch_max !== "")
+      ? verbrauch_max
+      : (verbrauch != null ? verbrauch : null);
+
+    const verbMaxNum = (rawVerb != null && rawVerb !== "")
+      ? parseFloat(String(rawVerb).replace(",", "."))
+      : NaN;
+
     const halterMaxNum = parseInt(halter_max, 10);
 
     // ---- HU-Parameter (mind. Monate ODER gültig bis)
@@ -2179,7 +2184,6 @@ app.get("/api/search", async (req, res) => {
       return NaN;
     })();
 
-    // parseYMServer kann z.B. null zurückgeben – deswegen defensiv
     const huBisDate = hu_bis ? parseYMServer(hu_bis) : null;
     const huBisKey  =
       (huBisDate instanceof Date && !isNaN(huBisDate))
@@ -2342,14 +2346,11 @@ app.get("/api/search", async (req, res) => {
           }
         }
       },
-      // ... ab hier unverändert deine bisherigen HU-Parsing-Stages ...
-      // (ich lasse sie drin, weil sie schon sehr ausführlich sind)
-      // --- SNIP: alle _hu_rx_* / _hu_name_* / _hu_final_* ---
       { $addFields: {
           _hu_str: { $toString: { $ifNull: ["$_hu_raw", ""] } },
-          _hu_rx_y_m: { $regexFind: { input: "$_hu_str", regex: /(\d{4})[-/.](\d{1,2})/ } }, // YYYY-MM
-          _hu_rx_m_y: { $regexFind: { input: "$_hu_str", regex: /(\d{1,2})[-/.](\d{4})/ } }, // MM/YYYY
-          _hu_rx_y:   { $regexFind: { input: "$_hu_str", regex: /(\d{4})/ } },               // YYYY
+          _hu_rx_y_m: { $regexFind: { input: "$_hu_str", regex: /(\d{4})[-/.](\d{1,2})/ } },
+          _hu_rx_m_y: { $regexFind: { input: "$_hu_str", regex: /(\d{1,2})[-/.](\d{4})/ } },
+          _hu_rx_y:   { $regexFind: { input: "$_hu_str", regex: /(\d{4})/ } },
           _hu_rx_name_y1: { $regexFind: {
             input: "$_hu_str",
             regex: /(jan(?:uar)?|feb(?:ruar)?|m(?:ä|ae|a)rz|apr(?:il)?|mai|may|jun(?:i)?|jul(?:i)?|aug(?:ust)?|sep(?:t|tember)?|okt(?:ober)?|oct(?:ober)?|nov(?:ember)?|dez(?:ember)?|dec(?:ember)?)\s+(\d{4})/i
@@ -2432,7 +2433,7 @@ app.get("/api/search", async (req, res) => {
                   { $cond: [
                     { $ne: ["$$b", null] },
                     { $toInt: { $arrayElemAt: ["$$b.captures", 0] } },
-                    1 // nur Jahr -> Januar
+                    1
                   ] }
                 ]
               }
@@ -2493,7 +2494,7 @@ app.get("/api/search", async (req, res) => {
       ...(Number.isFinite(kmMaxNum)    ? [{ $match: { km_num:    { $ne: null, $lte: kmMaxNum } } }] : [])
     ];
 
-    // ---- EZ (YYYY-MM) — optional!
+    // ---- EZ (YYYY-MM)
     let ezStages = [];
     if (ezFrom || ezTo) {
       ezStages = [
@@ -2506,7 +2507,7 @@ app.get("/api/search", async (req, res) => {
       ];
     }
 
-    // ---- Freitext „Modellvariante“ (AND aus Tokens)
+    // ---- Modellvariante (Freitext)
     const modVarRaw = String(modellausfuehrung || "").trim();
     let variantStages = [];
     if (modVarRaw) {
@@ -2523,7 +2524,7 @@ app.get("/api/search", async (req, res) => {
       }
     }
 
-    // ---- Fahrzeugtyp (mehrere erlaubt, Synonyme + Titel/Beschreibung)
+    // ---- Fahrzeugtyp
     function makeVehTypeRegexes(inputCsv = "") {
       const rawList = String(inputCsv).split(",").map(s => s.trim()).filter(Boolean);
       const rxes = [];
@@ -2541,6 +2542,7 @@ app.get("/api/search", async (req, res) => {
       }
       return rxes;
     }
+
     let vehTypeStages = [];
     if (fahrzeugtyp) {
       const rxes = makeVehTypeRegexes(fahrzeugtyp);
@@ -2561,7 +2563,7 @@ app.get("/api/search", async (req, res) => {
       }
     }
 
-    // ---- Türen-Filter
+    // ---- Türen
     function buildTuerenStages(val) {
       const raw = String(val || "").trim();
       if (!raw) return [];
@@ -2592,7 +2594,7 @@ app.get("/api/search", async (req, res) => {
     }
     const tuerenStages = buildTuerenStages(tueren);
 
-    // ---- Leistungs-/Hubraum-/Verbrauchs-/usw. Filter
+    // ---- PS / Hubraum / Verbrauch
     const powerFilterStages = [
       ...(Number.isFinite(psMinNum) ? [{ $match: { ps_num:  { $ne: null, $gte: psMinNum } } }] : []),
       ...(Number.isFinite(psMaxNum) ? [{ $match: { ps_num:  { $ne: null, $lte: psMaxNum } } }] : [])
@@ -2602,9 +2604,11 @@ app.get("/api/search", async (req, res) => {
       ...(Number.isFinite(ccmMaxNum) ? [{ $match: { ccm_num: { $ne: null, $lte: ccmMaxNum } } }] : [])
     ];
     const consumptionFilterStages =
-      Number.isFinite(verbMaxNum) ? [{ $match: { verb_num: { $ne: null, $lte: verbMaxNum } } }] : [];
+      Number.isFinite(verbMaxNum)
+        ? [{ $match: { verb_num: { $ne: null, $lte: verbMaxNum } } }]
+        : [];
 
-    // ---- Antrieb (CSV; tolerant mit Synonymen)
+    // ---- Antrieb
     let driveStages = [];
     if (antrieb) {
       const wanted = String(antrieb).split(",").map(s => s.trim()).map(driveCanon).filter(Boolean);
@@ -2745,7 +2749,7 @@ app.get("/api/search", async (req, res) => {
       }
     }
 
-    // ---- Partikelfilter vorhanden
+    // ---- Partikelfilter
     const particulateStages =
       String(partikelfilter) === "1" ? [{
         $match: {
@@ -2782,6 +2786,7 @@ app.get("/api/search", async (req, res) => {
       if (/türkis|tuerkis|turquoise/.test(t)) return /t[üu]rkis|turquoise/i;
       return new RegExp(escRe(token), "i");
     }
+
     let colorStages = [];
     if (farbe) {
       const rxes = String(farbe).split(",").map(s => s.trim()).filter(Boolean).map(colorRegexFor);
@@ -2806,7 +2811,7 @@ app.get("/api/search", async (req, res) => {
       }
     }
 
-    // ---- Sonstige Merkmale (inkl. Fahrtauglich)
+    // ---- Merkmale (inkl. Fahrtauglich)
     let featureStages = [];
     let driveabilityStages = [];
     if (merkmale) {
@@ -2834,7 +2839,7 @@ app.get("/api/search", async (req, res) => {
       }
     }
 
-    // ---- HU-Filter (nach Parsing); nutzt nowKey (JS)
+    // ---- HU-Filter (nach Parsing); nutzt nowKey
     const huFilterStages =
       (Number.isFinite(huMinMon) && huMinMon > 0)
         ? [
