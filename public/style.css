@@ -269,23 +269,60 @@ img, video, canvas{
   
 
 
-/* === LOGO + TAGLINE – STACKED VERSION === */
+/* === LOGO + TAGLINE + SCHRÄGE AUTOVISA-LINIE – FINAL === */
 
+/* Logo + Linie + Text nebeneinander */
 .logo-container {
   display: flex;
   align-items: center;
-  gap: 6px;              /* kleiner Abstand Logo <-> Text */
+  gap: 14px;              /* Abstand Logo – Linie – Text */
   height: 100%;
   margin-left: 0;
 }
 
-/* Tagline rechts vom Logo, in zwei Zeilen */
+/* Logo-Größe */
+.logo {
+  height: 125px;
+  width: auto;
+}
+
+/* Container für die Linie */
+.logo-divider {
+  position: relative;
+  width: 26px;            /* „Breite“ des Bereichs */
+  height: 46px;           /* „Höhe“ des Bereichs */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  margin-left: -25px;
+}
+
+/* Eigentliche schräge Linie */
+.logo-divider::before {
+  content: "";
+  width: 2px;
+  height: 65px;
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 184, 169, 0.0),
+    #00b8a9,
+    rgba(0, 184, 169, 0.0)
+  );
+  box-shadow: 0 0 10px rgba(0, 184, 169, 0.7);
+  transform: rotate(-25deg);   /* Neigung der Linie */
+  transform-origin: center;
+}
+
+/* Tagline rechts vom Logo in zwei Zeilen */
 .logo-tagline {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  margin-left: -5px;     /* minimal näher ans Logo, bei Bedarf anpassen */
-  margin-bottom: 6px;
+  margin-left: -12px;
+  margin-bottom: 4px;    /* schiebt den Text leicht nach oben */
+
   font-family: 'Poppins', sans-serif;
   font-size: 17px;
   font-weight: 400;
@@ -302,18 +339,12 @@ img, video, canvas{
   display: block;
 }
 
-/* Optional: leicht eingerückte zweite Zeile, falls du es magst */
+/* leichte Einrückung der zweiten Zeile */
 .tagline-line2 {
-  margin-left: 12px;
+  margin-left: 10px;
 }
 
-/* Logo-Größe daneben */
-.logo {
-  height: 125px;
-  width: auto;
-}
-
-/* === Mobile: Text ausblenden, damit es nicht zu voll wird === */
+/* === Mobile: Divider + Text ausblenden === */
 @media screen and (max-width: 900px) {
   .logo {
     height: 70px;
@@ -325,11 +356,11 @@ img, video, canvas{
     gap: 10px;
   }
 
-  .logo-tagline {
+  .logo-tagline,
+  .logo-divider {
     display: none;
   }
 }
-
 
   
   
