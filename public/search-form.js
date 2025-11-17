@@ -375,87 +375,228 @@ document.addEventListener("DOMContentLoaded", () => {
   locInput?.addEventListener("change", syncDistanceEnabled);
   syncDistanceEnabled();
 
-  // ============================
-  // Ortsvorschläge – eigene Dropdown-Liste (Startseite/Kriterienseite)
-  // ============================
-  if (locInput) {
-    const wrapper = locInput.closest(".input-icon-wrapper") || locInput.parentElement || document.body;
-    if (getComputedStyle(wrapper).position === "static") wrapper.style.position = "relative";
+// ============================
+// Ortsvorschläge – schnelle Variante (nur DE, mit local PLZ-Index)
+// ============================
+if (locInput) {
+  const wrapper = locInput.closest(".input-icon-wrapper") || locInput.parentElement || document.body;
+  if (getComputedStyle(wrapper).position === "static") {
+    wrapper.style.position = "relative";
+  }
 
-    const box = document.createElement("div");
-    box.className = "loc-suggest-box hidden";
-    wrapper.appendChild(box);
+  const box = document.createElement("div");
+  box.className = "loc-suggest-box hidden";
+  wrapper.appendChild(box);
 
-    const debounce = (fn, delay = 120) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), delay); }; };
-    const escapeReg = (s = "") => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const debounce = (fn, delay = 150) => {
+    let t;
+    return (...a) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...a), delay);
+    };
+  };
 
-    let geoAbort = null;
-    let items = [];
-    let activeIndex = -1;
+  const escapeReg = (s = "") => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-    function hideBox() { box.classList.add("hidden"); box.innerHTML = ""; items = []; activeIndex = -1; }
-    function setActive(i) {
-      const rows = box.querySelectorAll(".loc-suggest-item");
-      rows.forEach((el, idx) => el.classList.toggle("active", idx === i));
-      activeIndex = i;
+  let items = [];
+  let activeIndex = -1;
+  let geoAbort = null;
+
+  // Lokaler PLZ-Index für Deutschland
+  let plzIndex = null;
+  let plzLoaded = false;
+  let plzLoading = false;
+
+  async function ensurePlzIndex() {
+    if (plzLoaded || plzLoading) return;
+    plzLoading = true;
+    try {
+      const r = await fetch("/data/plz-de.json", { credentials: "omit" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const data = await r.json();
+      plzIndex = Array.isArray(data) ? data : [];
+      plzLoaded = true;
+    } catch (e) {
+      console.warn("plz-de.json konnte nicht geladen werden – Fallback auf /api/geosuggest.", e);
+    } finally {
+      plzLoading = false;
     }
-    function pick(i) {
-      const it = items[i];
-      if (!it) return;
-      const base = (it.postcode && it.city) ? `${it.postcode} ${it.city}` : (it.city || it.postcode || it.label || "");
-      const value = it.state ? `${base}, ${it.state}` : base;
-      locInput.value = value;
+  }
+
+  function hideBox() {
+    box.classList.add("hidden");
+    box.innerHTML = "";
+    items = [];
+    activeIndex = -1;
+  }
+
+  function setActive(i) {
+    const rows = box.querySelectorAll(".loc-suggest-item");
+    rows.forEach((el, idx) => el.classList.toggle("active", idx === i));
+    activeIndex = i;
+  }
+
+  function pick(i) {
+    const it = items[i];
+    if (!it) return;
+
+    const base = (it.postcode && it.city)
+      ? `${it.postcode} ${it.city}`
+      : (it.city || it.postcode || it.label || "");
+    const value = it.state ? `${base}, ${it.state}` : base;
+
+    locInput.value = value;
+    hideBox();
+
+    // Falls du später lat/lon hidden Felder setzen willst:
+    // const latEl = document.getElementById("ort_lat");
+    // const lonEl = document.getElementById("ort_lon");
+    // if (latEl && lonEl && it.lat != null && it.lon != null) {
+    //   latEl.value = String(it.lat);
+    //   lonEl.value = String(it.lon);
+    // }
+
+    locInput.dispatchEvent(new Event("input", { bubbles: true }));
+    locInput.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function render(list, q) {
+    if (!list.length) {
       hideBox();
-      locInput.dispatchEvent(new Event("input", { bubbles: true }));
-      locInput.dispatchEvent(new Event("change", { bubbles: true }));
+      return;
     }
-    function render(list, q) {
-      if (!list.length) { hideBox(); return; }
-      const rx = new RegExp(`^(${escapeReg(q)})`, "i");
-      box.innerHTML = list.map((s, i) => {
-        const base = (s.postcode && s.city) ? `${s.postcode} ${s.city}` : (s.city || s.postcode || s.label || "");
-        const show = s.state ? `${base}, ${s.state}` : base;
-        const hl = show.replace(rx, "<strong>$1</strong>");
-        return `<div class="loc-suggest-item" data-idx="${i}" tabindex="-1">${hl}</div>`;
-      }).join("");
-      box.classList.remove("hidden");
-      box.querySelectorAll(".loc-suggest-item").forEach(el => {
-        el.addEventListener("mousedown", (e) => { e.preventDefault(); pick(parseInt(el.dataset.idx, 10)); });
+
+    const rx = new RegExp("(" + escapeReg(q) + ")", "i");
+
+    box.innerHTML = list.map((s, i) => {
+      const base = (s.postcode && s.city)
+        ? `${s.postcode} ${s.city}`
+        : (s.city || s.postcode || s.label || "");
+      const show = s.state ? `${base}, ${s.state}` : base;
+
+      const labelHtml = show.replace(rx, "<strong>$1</strong>");
+
+      return `
+        <button type="button"
+                class="loc-suggest-item"
+                data-idx="${i}">
+          <span class="loc-main">${labelHtml}</span>
+        </button>
+      `;
+    }).join("");
+
+    box.classList.remove("hidden");
+
+    box.querySelectorAll(".loc-suggest-item").forEach(el => {
+      el.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        pick(parseInt(el.dataset.idx, 10));
       });
-      setActive(-1);
-    }
-    async function querySuggestions(q) {
-      const term = String(q || "").trim();
-      if (term.length < 2) { hideBox(); return; }
-      if (geoAbort) geoAbort.abort();
-      geoAbort = new AbortController();
-      try {
-        const limit = term.length <= 3 ? 15 : 8;
-        const r = await fetch(`/api/geosuggest?q=${encodeURIComponent(term)}&limit=${limit}`, {
-          credentials: "omit",
-          signal: geoAbort.signal
-        });
-        if (!r.ok) { hideBox(); return; }
-        const { suggestions = [] } = await r.json();
-        items = suggestions;
-        render(items, term);
-      } catch (err) {
-        if (err?.name !== "AbortError") hideBox();
+    });
+
+    setActive(-1);
+  }
+
+  function searchLocal(term) {
+    if (!plzLoaded || !Array.isArray(plzIndex)) return [];
+
+    const t = term.toLowerCase();
+    const out = [];
+    const MAX = 20;
+
+    for (let i = 0; i < plzIndex.length; i++) {
+      const it = plzIndex[i];
+      const city = String(it.city || "").toLowerCase();
+      const plz  = String(it.postcode || it.plz || "").toLowerCase();
+      const combined = (plz && city) ? `${plz} ${city}` : (city || plz);
+      if (!combined) continue;
+
+      if (
+        combined.startsWith(t) ||
+        city.startsWith(t) ||
+        plz.startsWith(t)
+      ) {
+        out.push(it);
+        if (out.length >= MAX) break;
       }
     }
-    const debouncedSuggest = debounce(() => querySuggestions(locInput.value), 120);
-    locInput.addEventListener("input", debouncedSuggest);
-    locInput.addEventListener("focus", debouncedSuggest);
-    locInput.addEventListener("keydown", (e) => {
-      if (box.classList.contains("hidden")) return;
-      const max = items.length - 1;
-      if (e.key === "ArrowDown") { e.preventDefault(); setActive(activeIndex < max ? activeIndex + 1 : 0); }
-      else if (e.key === "ArrowUp") { e.preventDefault(); setActive(activeIndex > 0 ? activeIndex - 1 : max); }
-      else if (e.key === "Enter") { if (activeIndex >= 0) { e.preventDefault(); pick(activeIndex); } }
-      else if (e.key === "Escape") { hideBox(); }
-    });
-    document.addEventListener("click", (e) => { if (!wrapper.contains(e.target)) hideBox(); });
+
+    return out;
   }
+
+  async function querySuggestions(q) {
+    const term = String(q || "").trim();
+    if (term.length < 2) {
+      hideBox();
+      return;
+    }
+
+    // 1) Lokaler PLZ-Index
+    await ensurePlzIndex();
+
+    if (plzLoaded && Array.isArray(plzIndex)) {
+      const local = searchLocal(term);
+      if (local.length) {
+        items = local;
+        render(items, term);
+        return;
+      }
+    }
+
+    // 2) Fallback: alter /api/geosuggest-Endpoint (z.B. wenn plz-de.json fehlt)
+    if (geoAbort) geoAbort.abort();
+    geoAbort = new AbortController();
+
+    try {
+      const limit = term.length <= 3 ? 15 : 8;
+      const r = await fetch(`/api/geosuggest?q=${encodeURIComponent(term)}&limit=${limit}`, {
+        credentials: "omit",
+        signal: geoAbort.signal
+      });
+      if (!r.ok) {
+        hideBox();
+        return;
+      }
+      const { suggestions = [] } = await r.json();
+      items = suggestions;
+      render(items, term);
+    } catch (err) {
+      if (err?.name !== "AbortError") {
+        hideBox();
+      }
+    }
+  }
+
+  const debouncedSuggest = debounce(() => querySuggestions(locInput.value), 150);
+
+  locInput.addEventListener("input", debouncedSuggest);
+  locInput.addEventListener("focus", debouncedSuggest);
+
+  locInput.addEventListener("keydown", (e) => {
+    if (box.classList.contains("hidden")) return;
+    const max = items.length - 1;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActive(activeIndex < max ? activeIndex + 1 : 0);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive(activeIndex > 0 ? activeIndex - 1 : max);
+    } else if (e.key === "Enter") {
+      if (activeIndex >= 0) {
+        e.preventDefault();
+        pick(activeIndex);
+      }
+    } else if (e.key === "Escape") {
+      hideBox();
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!wrapper.contains(e.target)) hideBox();
+  });
+}
+
 
   // ============================
   // Query-Params bauen
