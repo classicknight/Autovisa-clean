@@ -69,10 +69,7 @@ function driveCanon(raw) {
   if (/(rwd|heck|hinterrad|heckantrieb|rear)/.test(s)) return "heckantrieb";
   return s;
 }
-
-/* === REPLACE fuelCanon + add FUEL_REGEX === */
 function fuelCanon(raw) {
-  // robust gegen Varianten wie "Autogas (LPG)", "Erdgas/CNG", usw.
   const s0 = String(raw || "").toLowerCase();
   const flat = s0
     .normalize("NFD").replace(/\p{Diacritic}/gu, "")
@@ -82,22 +79,26 @@ function fuelCanon(raw) {
 
   if (!flat) return "";
 
-  // Spezifische Synonyme zuerst
+  // 1) Spezifische Synonyme zuerst
   if (flat.includes("autogas") || /\blpg\b/.test(s0)) return "autogas";
-  if (flat.includes("erdgas") || /\bcng\b/.test(s0))  return "cng";
+  if (flat.includes("erdgas") || /\bcng\b/.test(s0)) return "cng";
 
-  // Standards
-  if (/diesel/.test(flat))                                           return "diesel";
+  // 2) WICHTIG: Hybrid _vor_ Diesel/Benzin,
+  // sonst wird "Hybrid (Benzin)" als "benzin" erkannt.
+  if (/(hybrid|plug\s?-?in|plugin|phev|mhev|hev)/.test(flat)) return "hybrid";
+
+  // 3) Standards
+  if (/diesel/.test(flat)) return "diesel";
   if (/(benzin|super|e10|e5|e95|e98|otto|petrol|gasoline)/.test(flat)) return "benzin";
-  if (/(elektro|electric|bev|strom|ev)/.test(flat))                  return "elektrisch";
-  if (/(hybrid|plug\s?-?in|plugin|phev|mhev|hev)/.test(flat))        return "hybrid";
+  if (/(elektro|electric|bev|strom|ev)/.test(flat)) return "elektrisch";
 
-  // Optional erweiterbar:
-  if (/(wasserstoff|hydrogen|h2)/.test(flat))                        return "wasserstoff";
-  if (/(ethanol|e85|flex\s?fuel)/.test(flat))                        return "ethanol";
+  // 4) Optional
+  if (/(wasserstoff|hydrogen|h2)/.test(flat)) return "wasserstoff";
+  if (/(ethanol|e85|flex\s?fuel)/.test(flat)) return "ethanol";
 
   return flat; // Fallback
 }
+
 
 // Regex-Mapping für Rohstrings in der DB (verkauf_kraftstoff / kraftstoff)
 const FUEL_REGEX = {

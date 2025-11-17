@@ -630,14 +630,21 @@ document.addEventListener("DOMContentLoaded", () => {
           });
       }
 
-      // Kraftstoff
-      const kraftstoff = (qs.get("kraftstoff") || "").toLowerCase();
-      if (kraftstoff) {
-        document.querySelectorAll('.fuel-type-grid input[type="checkbox"]').forEach(inp => {
-          const v = (inp.parentElement?.innerText || inp.value || "").toLowerCase();
-          if (kraftstoff && v.includes(kraftstoff)) inp.checked = true;
-        });
-      }
+// Kleine Helper-Funktion lokal:
+const splitCsv = (v) =>
+  v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : [];
+
+// Kraftstoff (Mehrfach; Werte wie "benzin", "diesel", "hybrid-benzin", ...)
+const kraftValues = splitCsv(qs.get("kraftstoff")).map(v => v.toLowerCase());
+if (kraftValues.length) {
+  document
+    .querySelectorAll('.fuel-type-grid input[type="checkbox"]')
+    .forEach(inp => {
+      const val = (inp.value || "").toLowerCase();
+      inp.checked = kraftValues.includes(val);
+    });
+}
+
     })();
   } // ⬅️⬅️ ENDE: GUARD
 

@@ -50,34 +50,40 @@ const DRIVE_LABELS = { frontantrieb: "Frontantrieb", heckantrieb: "Heckantrieb",
 // Canon für Kraftstoff
 function fuelCanon(raw) {
   const s = String(raw || "").trim().toLowerCase();
-
   // vereinheitlichen (Leerzeichen, Sonderzeichen raus für Erkennung)
   const flat = s
+    .normalize("NFD").replace(/\p{Diacritic}/gu, "") // Umlaute entfernen
     .replace(/[()./\\-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-
   if (!flat) return "";
 
-  // Reihenfolge wichtig: spezifische Synonyme zuerst
-  if (/(^|[\s])autogas([\s]|$)/.test(flat)) return "autogas";
-  if (/\blpg\b/i.test(s)) return "autogas";
+  // 1) Spezifische Synonyme zuerst
+  if (/(^|[\s])autogas([\s]|$)/.test(flat) || /\blpg\b/.test(s)) {
+    return "autogas";
+  }
+  if (/(^|[\s])erdgas([\s]|$)/.test(flat) || /\bcng\b/.test(s)) {
+    return "cng";
+  }
 
-  if (/(^|[\s])erdgas([\s]|$)/.test(flat)) return "cng";
-  if (/\bcng\b/i.test(s)) return "cng";
+  // 2) Hybrid _vor_ Benzin/Diesel,
+  // damit "Hybrid (Benzin)" NICHT als "benzin" durchrutscht
+  if (/(hybrid|plug[\s-]?in|phev|mhev|hev)/.test(flat)) {
+    return "hybrid";
+  }
 
-  if (/(^|[\s])benzin|otto|e10|super([\s]|$)/.test(flat)) return "benzin";
+  // 3) Standards
   if (/diesel/.test(flat)) return "diesel";
-
+  if (/(^|[\s])benzin([\s]|$)|otto|e10|super/.test(flat)) return "benzin";
   if (/(elektro|electric|bev|strom)/.test(flat)) return "elektro";
 
-  if (/(hybrid|plug[\s-]?in|phev|mhev|hev)/.test(flat)) return "hybrid";
-
+  // 4) Sonstiges
   if (/(wasserstoff|hydrogen|h2)/.test(flat)) return "wasserstoff";
   if (/(ethanol|e85|flexfuel)/.test(flat)) return "ethanol";
 
   return flat; // Fallback
 }
+
 
 // Schönes Label für Chips/Select
 function fuelNiceLabel(tok) {
@@ -1298,11 +1304,16 @@ const huUntilEff = normalizeYMAny(
       }
     }
 
-    // Ort (reiner Textabgleich, clientseitig)
-    if (sp.get("ort")) {
-      const standort = norm(i.standort || "");
-      if (!standort.includes(norm(sp.get("ort")))) return false;
-    }
+  // Ort: nur clientseitiger Textabgleich, WENN KEIN Umkreis gesetzt ist.
+// Mit Umkreis übernimmt das Backend das komplette Geo-Filtering.
+const ortParam = sp.get("ort") || "";
+const hasRadius = !!sp.get("umkreis");
+
+if (ortParam && !hasRadius) {
+  const standort = norm(i.standort || "");
+  if (!standort.includes(norm(ortParam))) return false;
+}
+
 
     // Verbrauch (max)
     if (Number.isFinite(vMax) && vMax > 0) {

@@ -346,14 +346,23 @@
 <!-- Standort (Land, Ort, Umkreis) -->
 <div class="search-group">
   <label for="land">Land</label>
-  <select id="land">
-    <option>Deutschland</option>
+  <select id="land" name="land">
+    <option value="DE" selected>Deutschland</option>
   </select>
 </div>
 
 <div class="search-group">
   <label for="ort">Ort / PLZ</label>
-  <input type="text" id="ort" placeholder="z. B. 10115 oder Berlin" />
+  <input
+    type="text"
+    id="ort"
+    name="ort"
+    placeholder="z. B. 10115 oder Berlin"
+    autocomplete="off"
+  />
+  <!-- NEU: versteckte Felder für Geokoordinaten, werden vom Autocomplete gesetzt -->
+  <input type="hidden" id="ort-lat" name="ort_lat">
+  <input type="hidden" id="ort-lon" name="ort_lon">
 </div>
 
 <div class="search-group">
