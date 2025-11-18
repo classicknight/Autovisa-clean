@@ -70,26 +70,34 @@ function driveCanon(raw) {
   return s;
 }
 function fuelCanon(raw) {
-  const s0 = String(raw || "").toLowerCase();
-  const flat = s0
+  const s = String(raw || "").trim().toLowerCase();
+
+  const flat = s
     .normalize("NFD").replace(/\p{Diacritic}/gu, "")
-    .replace(/[()./\\\-]/g, " ")
+    .replace(/[()./\\-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
   if (!flat) return "";
 
   // 1) Spezifische Synonyme zuerst
-  if (flat.includes("autogas") || /\blpg\b/.test(s0)) return "autogas";
-  if (flat.includes("erdgas") || /\bcng\b/.test(s0)) return "cng";
+  if (/(^|\s)autogas(\s|$)/.test(flat) || /\blpg\b/.test(s)) return "autogas";
+  if (/(^|\s)erdgas(\s|$)/.test(flat) || /\bcng\b/.test(s)) return "cng";
 
-  // 2) WICHTIG: Hybrid _vor_ Diesel/Benzin,
-  // sonst wird "Hybrid (Benzin)" als "benzin" erkannt.
-  if (/(hybrid|plug\s?-?in|plugin|phev|mhev|hev)/.test(flat)) return "hybrid";
+  const isHybrid = /(hybrid|plug[\s-]?in|plugin|phev|mhev|hev)/.test(flat);
+  const isDiesel = /diesel/.test(flat);
+  const isBenzin = /(benzin|super|e10|e5|e95|e98|otto|petrol|gasoline)/.test(flat);
+
+  // 2) Hybrid mit Unterarten
+  if (isHybrid) {
+    if (isDiesel && !isBenzin) return "hybrid-diesel";
+    if (isBenzin && !isDiesel) return "hybrid-benzin";
+    return "hybrid";
+  }
 
   // 3) Standards
-  if (/diesel/.test(flat)) return "diesel";
-  if (/(benzin|super|e10|e5|e95|e98|otto|petrol|gasoline)/.test(flat)) return "benzin";
+  if (isDiesel) return "diesel";
+  if (isBenzin) return "benzin";
   if (/(elektro|electric|bev|strom|ev)/.test(flat)) return "elektrisch";
 
   // 4) Optional
@@ -100,18 +108,24 @@ function fuelCanon(raw) {
 }
 
 
-// Regex-Mapping für Rohstrings in der DB (verkauf_kraftstoff / kraftstoff)
 const FUEL_REGEX = {
-  benzin:      /benzin|super|e10|e5|e95|e98|otto|petrol|gasoline/i,
-  diesel:      /diesel/i,
-  elektrisch:  /elektro|electric|bev|strom|ev/i,
-  hybrid:      /hybrid|plug[\s-]?in|plugin|phev|mhev|hev/i,
-  autogas:     /autogas|\blpg\b/i,
-  cng:         /erdgas|\bcng\b/i,
-  // optional:
+  benzin: /benzin|super|e10|e5|e95|e98|otto|petrol|gasoline/i,
+  diesel: /diesel/i,
+  elektrisch: /elektro|electric|bev|strom|ev/i,
+
+  // generischer Hybrid (egal ob Benzin/Diesel)
+  hybrid: /hybrid|plug[\s-]?in|plugin|phev|mhev|hev/i,
+
+  // Hybrid-Unterarten – brauchen sowohl "hybrid" als auch Basis-Kraftstoff
+  "hybrid-benzin": /(?=.*(hybrid|plug[\s-]?in|plugin|phev|mhev|hev))(?=.*(benzin|super|e10|e5|e95|e98|otto|petrol|gasoline))/i,
+  "hybrid-diesel": /(?=.*(hybrid|plug[\s-]?in|plugin|phev|mhev|hev))(?=.*diesel)/i,
+
+  autogas: /autogas|\blpg\b/i,
+  cng: /erdgas|\bcng\b/i,
   wasserstoff: /wasserstoff|hydrogen|\bh2\b/i,
-  ethanol:     /ethanol|e85|flex\s*fuel/i
+  ethanol: /ethanol|e85|flex\s*fuel/i
 };
+
 
 /* ------------------------------------------------------------------ */
 /* --- HU: Datumshelfer (YYYY-MM, MM/YYYY, Monatsname YYYY, YYYY) --- */

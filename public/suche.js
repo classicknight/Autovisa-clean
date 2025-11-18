@@ -47,35 +47,38 @@ const FUEL_LABELS = {
   "hybrid-diesel": "Hybrid (Diesel)"
 };
 const DRIVE_LABELS = { frontantrieb: "Frontantrieb", heckantrieb: "Heckantrieb", allrad: "Allrad" };
-// Canon für Kraftstoff
+// Canon für Kraftstoff (mit Hybrid-Unterarten)
 function fuelCanon(raw) {
   const s = String(raw || "").trim().toLowerCase();
+
   // vereinheitlichen (Leerzeichen, Sonderzeichen raus für Erkennung)
   const flat = s
     .normalize("NFD").replace(/\p{Diacritic}/gu, "") // Umlaute entfernen
     .replace(/[()./\\-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+
   if (!flat) return "";
 
   // 1) Spezifische Synonyme zuerst
-  if (/(^|[\s])autogas([\s]|$)/.test(flat) || /\blpg\b/.test(s)) {
-    return "autogas";
-  }
-  if (/(^|[\s])erdgas([\s]|$)/.test(flat) || /\bcng\b/.test(s)) {
-    return "cng";
-  }
+  if (/(^|\s)autogas(\s|$)/.test(flat) || /\blpg\b/.test(s)) return "autogas";
+  if (/(^|\s)erdgas(\s|$)/.test(flat) || /\bcng\b/.test(s)) return "cng";
 
-  // 2) Hybrid _vor_ Benzin/Diesel,
-  // damit "Hybrid (Benzin)" NICHT als "benzin" durchrutscht
-  if (/(hybrid|plug[\s-]?in|phev|mhev|hev)/.test(flat)) {
-    return "hybrid";
+  const isHybrid = /(hybrid|plug[\s-]?in|plugin|phev|mhev|hev)/.test(flat);
+  const isDiesel = /diesel/.test(flat);
+  const isBenzin = /(benzin|super|e10|e5|e95|e98|otto|petrol|gasoline)/.test(flat);
+
+  // 2) Hybrid zuerst auswerten – mit Unterarten
+  if (isHybrid) {
+    if (isDiesel && !isBenzin) return "hybrid-diesel";
+    if (isBenzin && !isDiesel) return "hybrid-benzin";
+    return "hybrid"; // generischer Hybrid (falls nicht eindeutig)
   }
 
   // 3) Standards
-  if (/diesel/.test(flat)) return "diesel";
-  if (/(^|[\s])benzin([\s]|$)|otto|e10|super/.test(flat)) return "benzin";
-  if (/(elektro|electric|bev|strom)/.test(flat)) return "elektro";
+  if (isDiesel) return "diesel";
+  if (isBenzin) return "benzin";
+  if (/(elektro|electric|bev|strom|ev)/.test(flat)) return "elektro";
 
   // 4) Sonstiges
   if (/(wasserstoff|hydrogen|h2)/.test(flat)) return "wasserstoff";
@@ -83,6 +86,8 @@ function fuelCanon(raw) {
 
   return flat; // Fallback
 }
+
+
 
 
 // Schönes Label für Chips/Select
@@ -393,10 +398,10 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
 
   // --- Kraftstoff: Select (erster) + Checkboxen (alle) ---
   (function () {
-    const picked = QP.kraftstoff || [];  // kanonisierte Tokens
+    const picked = QP.kraftstoff || [];  // kanonisierte Tokens, z.B. ["hybrid-benzin"]
     if (!picked.length) return;
 
-    // Select: ersten passenden setzen
+    // Select: ersten passenden setzen (falls es oben noch ein Select gibt)
     if (fuelEl && fuelEl.tagName === "SELECT") {
       const wanted = picked[0];
       const match = [...fuelEl.options].find(o =>
@@ -407,12 +412,22 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
 
     // Checkboxen: alle passenden anhaken
     const set = new Set(picked);
-    const hasHybridAny = set.has("hybrid"); // generisch -> beide Varianten anhaken
+
     document.querySelectorAll('input[name="kraftstoff"]').forEach(cb => {
-      const tok = fuelCanon(cb.value);
-      cb.checked = set.has(tok) || (hasHybridAny && tok.startsWith("hybrid-"));
+      const tok = fuelCanon(cb.value); // z.B. "hybrid-benzin", "hybrid-diesel", "benzin", "diesel"
+
+      if (set.has(tok)) {
+        // exakt dieser Token wurde angefragt (z. B. "hybrid-benzin")
+        cb.checked = true;
+      } else if (tok.startsWith("hybrid-") && set.has("hybrid")) {
+        // generischer Hybrid-Filter -> beide Hybrid-Checkboxen anhaken
+        cb.checked = true;
+      } else {
+        cb.checked = false;
+      }
     });
   })();
+
 
   // --- Getriebe (einfach) ---
   if (gearEl && QP.getriebe) {
