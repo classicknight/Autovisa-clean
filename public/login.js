@@ -143,4 +143,68 @@ document.addEventListener("DOMContentLoaded", () => {
       icon.setAttribute("aria-label", isHidden ? "Passwort verbergen" : "Passwort anzeigen");
     });
   });
+
+    // === "Passwort vergessen?" – Modal & Request ===
+    const forgotLink  = document.getElementById("forgotPasswordLink");
+    const forgotModal = document.getElementById("forgotPasswordModal");
+    const forgotForm  = document.getElementById("forgotPasswordForm");
+    const forgotClose = document.getElementById("forgotClose");
+    const forgotInfo  = document.getElementById("forgotInfo");
+  
+    function openForgot() {
+      if (!forgotModal) return;
+      forgotModal.classList.remove("hidden");
+      forgotModal.setAttribute("aria-hidden", "false");
+      document.getElementById("forgotEmail")?.focus();
+    }
+  
+    function closeForgot() {
+      if (!forgotModal) return;
+      forgotModal.classList.add("hidden");
+      forgotModal.setAttribute("aria-hidden", "true");
+      if (forgotInfo) forgotInfo.textContent = "";
+    }
+  
+    // Öffnen/Schließen
+    forgotLink?.addEventListener("click", openForgot);
+    forgotClose?.addEventListener("click", closeForgot);
+  
+    // Klick außerhalb vom Inner schließt auch
+    forgotModal?.addEventListener("click", (e) => {
+      if (e.target === forgotModal) closeForgot();
+    });
+  
+    // Formular: Reset-Link anfordern
+    if (forgotForm) {
+      forgotForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const email = document.getElementById("forgotEmail").value.trim();
+        if (!email) return;
+  
+        if (forgotInfo) {
+          forgotInfo.textContent = "Einen Moment…";
+        }
+  
+        try {
+          const res = await fetch("/forgot-password", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email })
+          });
+  
+          // Immer dieselbe Meldung – egal ob E-Mail existiert (kein User-Leak)
+          if (forgotInfo) {
+            forgotInfo.textContent =
+              "Wenn die E-Mail bei Autovisa registriert ist, haben wir dir einen Link geschickt.";
+          }
+        } catch (err) {
+          console.error("Forgot password Fehler:", err);
+          if (forgotInfo) {
+            forgotInfo.textContent =
+              "Es ist ein Fehler aufgetreten. Bitte versuch es später noch einmal.";
+          }
+        }
+      });
+    }
+  
 });

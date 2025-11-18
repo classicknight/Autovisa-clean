@@ -961,6 +961,118 @@ app.post("/login", async (req, res) => {
   }
 });
 
+// === Passwort-Zurücksetzen anfordern ===
+app.post("/forgot-password", async (req, res) => {
+  let { email } = req.body;
+  email = (email || "").trim().toLowerCase();
+
+  if (!email) {
+    return res.status(400).json({ error: "E-Mail erforderlich." });
+  }
+
+  try {
+    const nutzerColl = db.collection("nutzer");
+    const user = await nutzerColl.findOne({ email });
+
+    if (user) {
+      const resetToken   = crypto.randomBytes(32).toString("hex");
+      const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 Stunde
+
+      await nutzerColl.updateOne(
+        { _id: user._id },
+        { $set: { resetToken, resetTokenExpires: resetExpires } }
+      );
+
+      const { api, appUrl } = getUrls();
+
+      // WICHTIG: hier deine Datei reset-passwort.html
+      const resetLink = `${appUrl}/reset-passwort.html?token=${resetToken}`;
+      const logoUrl   = `${appUrl}/${encodeURIComponent("AUTOVISA LOGO.PNG")}`;
+      const subject   = "Passwort für Autovisa zurücksetzen";
+      const name      = user.name || user.firma || "";
+
+      const html = buildAutovisaEmail({
+        subject,
+        logoUrl,
+        greeting: name ? `Hallo ${name},` : "",
+        title: "Passwort zurücksetzen",
+        htmlText: "Du hast angefordert, dein Passwort für Autovisa zurückzusetzen. Klicke auf den Button, um ein neues Passwort zu vergeben.",
+        buttonText: "Neues Passwort festlegen",
+        buttonUrl: resetLink,
+        footerNote: "Wenn du diese Anfrage nicht gestellt hast, kannst du diese E-Mail ignorieren."
+      });
+
+      const text =
+        `Hallo ${name || ""},\n\n` +
+        `du kannst dein Autovisa-Passwort über diesen Link zurücksetzen:\n${resetLink}\n\n` +
+        "Wenn du diese Anfrage nicht gestellt hast, ignoriere diese E-Mail.";
+      
+      await transporter.sendMail({
+        from: MAIL_FROM,
+        replyTo: MAIL_REPLY_TO,
+        to: email,
+        subject,
+        html,
+        text,
+      });
+    }
+
+    // Immer gleiche Antwort → kein Info-Leak
+    return res.json({
+      success: true,
+      message:
+        "Wenn die E-Mail bei Autovisa registriert ist, haben wir dir einen Link geschickt.",
+    });
+  } catch (err) {
+    console.error("❌ Fehler bei /forgot-password:", err);
+    return res.status(500).json({ error: "Interner Fehler." });
+  }
+});
+
+// === Neues Passwort setzen (per Reset-Token) ===
+app.post("/reset-password", async (req, res) => {
+  const { token, password } = req.body;
+
+  if (!token || !password) {
+    return res.status(400).json({ error: "Token und neues Passwort erforderlich." });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: "Passwort muss mindestens 8 Zeichen lang sein." });
+  }
+
+  try {
+    const nutzerColl = db.collection("nutzer");
+    const now = new Date();
+
+    const user = await nutzerColl.findOne({
+      resetToken: token,
+      resetTokenExpires: { $gt: now },
+    });
+
+    if (!user) {
+      return res
+        .status(400)
+        .json({ error: "Dieser Link ist ungültig oder abgelaufen." });
+    }
+
+    const hash = await bcrypt.hash(password, 12);
+
+    await nutzerColl.updateOne(
+      { _id: user._id },
+      {
+        $set:   { password: hash },
+        $unset: { resetToken: "", resetTokenExpires: "" },
+      }
+    );
+
+    return res.json({ success: true, message: "Passwort wurde aktualisiert." });
+  } catch (err) {
+    console.error("❌ Fehler bei /reset-password:", err);
+    return res.status(500).json({ error: "Interner Fehler." });
+  }
+});
+
+
 // === Helper: Seller-Fallback für Aggregationen ===
 function projectWithSeller() {
   return [

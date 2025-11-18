@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Passwort zurücksetzen – Autovisa</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Falls du globales CSS hast, hier einbinden -->
+  <link rel="stylesheet" href="login.css">
+  <link rel="stylesheet" href="reset-passwort.css">
+</head>
+<body>
+  <main class="auth-wrapper">
+    <section class="auth-card reset-card">
+      <header class="auth-head">
+        <h1>Neues Passwort festlegen</h1>
+        <p class="auth-subtitle">
+          Wähle ein neues Passwort für deinen Autovisa-Account.<br>
+          Der Link in deiner E-Mail ist aus Sicherheitsgründen zeitlich begrenzt.
+        </p>
+      </header>
+
+      <form id="resetForm" class="auth-form">
+        <!-- Token aus der URL -->
+        <input type="hidden" id="resetToken">
+
+        <div class="field">
+          <label for="resetPassword">Neues Passwort</label>
+          <div class="input-with-icon">
+            <input
+              type="password"
+              id="resetPassword"
+              autocomplete="new-password"
+              required
+              minlength="8"
+              placeholder="Mindestens 8 Zeichen"
+            >
+            <button type="button" class="toggle-password" data-target="resetPassword" aria-label="Passwort anzeigen">
+              <i class="fa-solid fa-eye-slash"></i>
+            </button>
+          </div>
+          <small class="hint">
+            Mindestens 8 Zeichen, empfohlen 12+ inkl. Groß-/Kleinbuchstaben, Zahl & Sonderzeichen.
+          </small>
+        </div>
+
+        <div class="field">
+          <label for="resetPasswordRepeat">Passwort wiederholen</label>
+          <div class="input-with-icon">
+            <input
+              type="password"
+              id="resetPasswordRepeat"
+              autocomplete="new-password"
+              required
+              minlength="8"
+              placeholder="Noch einmal eingeben"
+            >
+            <button type="button" class="toggle-password" data-target="resetPasswordRepeat" aria-label="Passwort anzeigen">
+              <i class="fa-solid fa-eye-slash"></i>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary full-width" id="resetSubmit">
+          Passwort speichern
+        </button>
+
+        <p id="resetMessage" class="info-text"></p>
+      </form>
+
+      <p class="back-link">
+        <a href="login.html">Zurück zum Login</a>
+      </p>
+    </section>
+  </main>
+
+  <!-- Optional: Font Awesome, falls du es eh schon nutzt -->
+  <script src="https://kit.fontawesome.com/9f1b6c1b1b.js" crossorigin="anonymous"></script>
+
+  <script src="reset-passwort.js"></script>
+</body>
+</html>
