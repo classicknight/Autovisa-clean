@@ -38,43 +38,8 @@
         aria-label="Passwort anzeigen"
       ></i>
     </div>
-
-    <!-- Passwort vergessen? – nutzt dein bestehendes .forgot-link a Design -->
-    <p class="forgot-link">
-      <a href="#" id="forgotPasswordLink">
-        Passwort vergessen?
-      </a>
-    </p>
-
-    <!-- Modal für Passwort-Reset-Anfrage -->
-    <div id="forgotPasswordModal" class="forgot-modal hidden" aria-hidden="true">
-      <div class="forgot-modal-inner">
-        <h3>Passwort zurücksetzen</h3>
-        <p>
-          Gib deine E-Mail-Adresse ein. Wenn sie bei Autovisa registriert ist,
-          schicken wir dir einen Link zum Zurücksetzen.
-        </p>
-
-        <form id="forgotPasswordForm">
-          <label for="forgotEmail">E-Mail</label>
-          <input
-            type="email"
-            id="forgotEmail"
-            required
-            placeholder="name@example.de"
-          />
-
-          <div class="actions">
-            <button type="submit" class="btn-primary">Link senden</button>
-            <button type="button" id="forgotClose" class="btn-secondary">
-              Abbrechen
-            </button>
-          </div>
-
-          <p id="forgotInfo" class="info-text"></p>
-        </form>
-      </div>
-    </div>
+    
+    <div class="forgot-link"><a href="#">Passwort vergessen?</a></div>
 
     <button type="submit" class="submit-btn">Einloggen</button>
   </form>
