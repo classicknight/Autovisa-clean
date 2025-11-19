@@ -23,7 +23,6 @@
     <i class="fa-solid fa-user-plus"></i> Registrieren
   </button>
 </div>
-
 <!-- LOGIN -->
 <div class="tab-content" id="login">
   <form id="loginForm">
@@ -33,15 +32,20 @@
     <label for="loginPassword">Passwort</label>
     <div class="password-wrapper">
       <input type="password" id="loginPassword" placeholder="●●●●●●●●" required />
-      <i class="fa-solid fa-eye toggle-password" data-target="loginPassword"></i>
+      <i
+        class="fa-solid fa-eye-slash toggle-password"
+        data-target="loginPassword"
+        aria-label="Passwort anzeigen"
+      ></i>
     </div>
 
-    <p class="form-extra">
-      <button type="button" id="forgotPasswordLink" class="link-muted">
+    <!-- Passwort vergessen? – nutzt dein bestehendes .forgot-link a Design -->
+    <p class="forgot-link">
+      <a href="#" id="forgotPasswordLink">
         Passwort vergessen?
-      </button>
+      </a>
     </p>
-    
+
     <!-- Modal für Passwort-Reset-Anfrage -->
     <div id="forgotPasswordModal" class="forgot-modal hidden" aria-hidden="true">
       <div class="forgot-modal-inner">
@@ -50,24 +54,32 @@
           Gib deine E-Mail-Adresse ein. Wenn sie bei Autovisa registriert ist,
           schicken wir dir einen Link zum Zurücksetzen.
         </p>
-    
+
         <form id="forgotPasswordForm">
           <label for="forgotEmail">E-Mail</label>
-          <input type="email" id="forgotEmail" required placeholder="name@example.de">
-    
+          <input
+            type="email"
+            id="forgotEmail"
+            required
+            placeholder="name@example.de"
+          />
+
           <div class="actions">
             <button type="submit" class="btn-primary">Link senden</button>
-            <button type="button" id="forgotClose" class="btn-secondary">Abbrechen</button>
+            <button type="button" id="forgotClose" class="btn-secondary">
+              Abbrechen
+            </button>
           </div>
-    
+
           <p id="forgotInfo" class="info-text"></p>
         </form>
       </div>
     </div>
-    
+
     <button type="submit" class="submit-btn">Einloggen</button>
   </form>
 </div>
+
 
 <!-- REGISTRIEREN -->
 <div class="tab-content hidden" id="register">
