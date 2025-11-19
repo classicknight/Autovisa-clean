@@ -1367,64 +1367,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-
-
-
-// Smart Hide Navbar: runter = verstecken, rauf = zeigen (robust, mit Hysterese)
+// Navbar bleibt sichtbar, wird beim Scrollen nur kompakter
 (() => {
   const nav = document.querySelector('.navbar');
   if (!nav) return;
 
-  const navLinks = document.getElementById('nav-links'); // fürs Mobile-Menü
-  let lastY = window.scrollY;
-  let hidden = false;
-  const THRESH = 10; // Mindestbewegung in px, um zu togglen
+  const SCROLL_THRESHOLD = 80; // ab ~80px Scroll wird die Navbar kleiner
 
-  const show = () => {
-    if (hidden) {
-      nav.classList.remove('nav--hidden');
-      hidden = false;
-    }
-  };
-  const hide = () => {
-    if (!hidden && window.scrollY > 120) {
-      nav.classList.add('nav--hidden');
-      hidden = true;
+  const handleScroll = () => {
+    if (window.scrollY > SCROLL_THRESHOLD) {
+      nav.classList.add('navbar--scrolled');
+    } else {
+      nav.classList.remove('navbar--scrolled');
     }
   };
 
-  // bei Touch sofort neue Basis setzen (Mobile-Scroll fühlt sich damit natürlicher an)
-  window.addEventListener('touchstart', () => { lastY = window.scrollY; }, { passive:true });
+  // Beim Laden Zustand setzen (falls man z.B. reload weiter unten macht)
+  handleScroll();
 
-  window.addEventListener('scroll', () => {
-    const y = window.scrollY;
-
-    // Wenn Mobile-Menü offen: Navbar immer sichtbar lassen
-    if (navLinks?.classList.contains('active')) {
-      show();
-      lastY = y;
-      return;
-    }
-
-    // ganz oben: immer sichtbar
-    if (y < 60) {
-      show();
-      lastY = y;
-      return;
-    }
-
-    // Richtung erkennen
-    if (y > lastY + THRESH) {
-      // runter
-      hide();
-    } else if (y < lastY - THRESH) {
-      // rauf
-      show();
-    }
-
-    lastY = y;
-  }, { passive:true });
-
-  // Sicherheitsnetz: beim Laden sichtbare Navbar
-  nav.classList.remove('nav--hidden');
+  window.addEventListener('scroll', handleScroll, { passive: true });
 })();
