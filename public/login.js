@@ -7,15 +7,15 @@ document.addEventListener("DOMContentLoaded", () => {
   // === Tabs umschalten ===
   function showTab(tab) {
     if (tab === "login") {
-      loginTab.classList.add("active");
-      registerTab.classList.remove("active");
-      loginContent.classList.remove("hidden");
-      registerContent.classList.add("hidden");
+      loginTab?.classList.add("active");
+      registerTab?.classList.remove("active");
+      loginContent?.classList.remove("hidden");
+      registerContent?.classList.add("hidden");
     } else {
-      registerTab.classList.add("active");
-      loginTab.classList.remove("active");
-      registerContent.classList.remove("hidden");
-      loginContent.classList.add("hidden");
+      registerTab?.classList.add("active");
+      loginTab?.classList.remove("active");
+      registerContent?.classList.remove("hidden");
+      loginContent?.classList.add("hidden");
     }
   }
 
@@ -31,6 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const email = document.getElementById("loginEmail").value.trim();
       const password = document.getElementById("loginPassword").value;
       const loginBtn = loginForm.querySelector("button[type='submit']");
+
       if (loginBtn) loginBtn.disabled = true;
 
       try {
@@ -58,8 +59,10 @@ document.addEventListener("DOMContentLoaded", () => {
             localStorage.removeItem("redirectAfterLogin");
             const lowerRedirect = redirectPage.toLowerCase();
 
-            if ((role === "haendler" && lowerRedirect.includes("privat")) ||
-                (role === "privat" && lowerRedirect.includes("haendler"))) {
+            if (
+              (role === "haendler" && lowerRedirect.includes("privat")) ||
+              (role === "privat" && lowerRedirect.includes("haendler"))
+            ) {
               window.location.href = "index.html";
             } else {
               window.location.href = redirectPage;
@@ -72,10 +75,9 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
           alert("❌ " + (data.error || "Login fehlgeschlagen"));
         }
-
       } catch (err) {
         console.error("Login Fehler:", err);
-        alert("⚠️ Serverfehler. Bitte später versuchen.");
+        alert("⚠️ Serverfehler.\nBitte später versuchen.");
       } finally {
         if (loginBtn) loginBtn.disabled = false;
       }
@@ -97,11 +99,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (password.length < 8) {
         return alert("❌ Das Passwort muss mindestens 8 Zeichen lang sein!");
       }
-
       if (password !== passwordRepeat) {
         return alert("❌ Passwörter stimmen nicht überein!");
       }
-
       if (!agbChecked) {
         return alert("❌ Bitte AGB und Datenschutz akzeptieren.");
       }
@@ -118,13 +118,55 @@ document.addEventListener("DOMContentLoaded", () => {
         if (res.ok && data.success) {
           alert("✅ Registrierung erfolgreich! Bitte bestätige deine E-Mail.");
           registerForm.reset();
-          loginTab?.click(); // Wechsel zum Login
+          // Wechsel zum Login-Tab
+          loginTab?.click();
         } else {
           alert("❌ " + (data.error || "Registrierung fehlgeschlagen"));
         }
       } catch (err) {
         console.error("Registrierung Fehler:", err);
-        alert("⚠️ Serverfehler. Bitte später versuchen.");
+        alert("⚠️ Serverfehler.\nBitte später versuchen.");
+      }
+    });
+  }
+
+  // === PASSWORT VERGESSEN ===
+  const forgotBtn = document.getElementById("forgotPasswordBtn");
+  if (forgotBtn) {
+    forgotBtn.addEventListener("click", async () => {
+      const emailInput = document.getElementById("loginEmail");
+      const email = emailInput?.value.trim().toLowerCase() || "";
+
+      if (!email) {
+        alert("Bitte gib zuerst deine E-Mail-Adresse im Login-Feld ein.");
+        emailInput?.focus();
+        return;
+      }
+
+      forgotBtn.disabled = true;
+
+      try {
+        const res = await fetch("/forgot-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email })
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok && data.success) {
+          alert(
+            data.message ||
+            "Wenn die E-Mail bei Autovisa registriert ist, schicken wir dir einen Link zum Zurücksetzen."
+          );
+        } else {
+          alert(data.error || "Es ist ein Fehler aufgetreten. Bitte versuche es später erneut.");
+        }
+      } catch (err) {
+        console.error("Fehler bei /forgot-password:", err);
+        alert("⚠️ Serverfehler.\nBitte später versuchen.");
+      } finally {
+        forgotBtn.disabled = false;
       }
     });
   }
@@ -138,12 +180,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const isHidden = input.type === "password";
       input.type = isHidden ? "text" : "password";
+
       icon.classList.toggle("fa-eye", !isHidden);
       icon.classList.toggle("fa-eye-slash", isHidden);
-      icon.setAttribute("aria-label", isHidden ? "Passwort verbergen" : "Passwort anzeigen");
+      icon.setAttribute(
+        "aria-label",
+        isHidden ? "Passwort verbergen" : "Passwort anzeigen"
+      );
     });
   });
-
-
-
 });
