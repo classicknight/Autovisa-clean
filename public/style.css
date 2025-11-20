@@ -312,7 +312,7 @@ body {
   padding-left: 20px;
 }
 
-/* ==== CTA ==== */
+/* ==== CTA (Desktop) ==== */
 .highlight-link {
   color: #00ffcc;
   border: 2px solid #00ffcc;
@@ -328,74 +328,41 @@ body {
 
 /* ==== MOBILE: Toggle & Shortcuts (Basis) ==== */
 .hamburger {
-  display: none;              /* wird nur im Media Query aktiv */
-  position: relative;
-  width: 44px;
-  height: 34px;
+  display: none;              /* wird erst im Media Query sichtbar */
+  width: 40px;
+  height: 40px;
   border-radius: 999px;
-  border: 1px solid rgba(0, 184, 169, 0.8);
-  background: radial-gradient(circle at 0% 0%, rgba(0,184,169,0.45), transparent 55%);
-  box-shadow: 0 0 14px rgba(0,184,169,0.45);
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(0,0,0,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 0;
   cursor: pointer;
-  overflow: hidden;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.15s ease;
 }
 
-/* FontAwesome-Icon ausblenden – wir zeichnen unser eigenes */
 .hamburger i {
-  display: none;
+  display: block;
+  font-size: 20px;
+  color: #ffffff;
 }
 
-/* Drei Autovisa-Linien (mittlere + 2 über box-shadow) */
-.hamburger::before {
-  content: "";
-  position: absolute;
-  left: 22%;
-  right: 22%;
-  top: 50%;
-  transform: translateY(-50%);
-  height: 2px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #00b8a9, #66ffe6);
-  box-shadow:
-    0 -7px 0 0 rgba(0, 184, 169, 0.95),
-    0  7px 0 0 rgba(0, 255, 204, 0.9);
+.hamburger:hover {
+  background: rgba(255,255,255,0.06);
+  border-color: #00b8a9;
 }
 
-/* kleine schräge „Speed“-Linie für Autovisa-Vibe */
-.hamburger::after {
-  content: "";
-  position: absolute;
-  right: 10%;
-  top: 18%;
-  width: 12px;
-  height: 2px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(255,255,255,0.85), transparent);
-  transform: rotate(-28deg);
-  opacity: 0.9;
+.hamburger[aria-expanded="true"] {
+  background: rgba(0,184,169,0.22);
+  border-color: #00ffcc;
 }
 
 .hamburger:active {
   transform: scale(0.96);
-  box-shadow: 0 0 10px rgba(0,184,169,0.6);
-}
-
-.hamburger[aria-expanded="true"] {
-  box-shadow: 0 0 18px rgba(0, 255, 204, 0.75);
-}
-
-/* Bei geöffnetem Menü verwandeln wir die Linien in ein „X“ */
-.hamburger[aria-expanded="true"]::before {
-  box-shadow: none;
-  transform: translateY(-50%) rotate(45deg);
-}
-
-.hamburger[aria-expanded="true"]::after {
-  top: 50%;
-  right: 18%;
-  width: 16px;
-  transform: translateY(-50%) rotate(-45deg);
 }
 
 .hamburger:focus-visible {
@@ -483,7 +450,7 @@ body {
   }
 
   .hamburger {
-    display: block;
+    display: flex; /* jetzt sichtbar auf Mobile */
   }
 
   /* Burger-Menü Panel – zentriert, einheitliche Breite */
@@ -543,6 +510,27 @@ body {
 
   .dropdown > a {
     width: 100%; /* volle Klickfläche */
+  }
+
+  /* Speziell: "Auto verkaufen" – mittig mit Icon direkt daneben */
+  .nav-links > li > a.highlight-link {
+    justify-content: center;
+    gap: 8px;
+    border-radius: 999px;
+    border: 1px solid #00ffcc;
+    background: linear-gradient(135deg, #00b8a9, #00e6c3);
+    color: #021b24;
+    font-weight: 600;
+  }
+
+  .nav-links > li > a.highlight-link i {
+    font-size: 17px;
+    margin: 0; /* Icon direkt am Text */
+  }
+
+  .nav-links > li > a.highlight-link:hover {
+    background: linear-gradient(135deg, #00e6c3, #00b8a9);
+    transform: scale(1.02);
   }
 
   /* Mobile-Dropdown: Menüfläche */
@@ -680,115 +668,185 @@ img, video, canvas {
 
 
 
-
-
-  
-/* ===== Autovisa – Basis ===== */
-:root{
-  --bg:#f5f8fc; --text:#1a2a33; --muted:#37444f; --line:#e3e9ef; --accent:#00b8a9;
-  --nav-h:88px;                /* Navbar-Höhe hier anpassen */
+  /* ===== Autovisa – Basis / Layout ===== */
+:root {
+  --bg: #f5f8fc;
+  --text: #1a2a33;
+  --muted: #37444f;
+  --line: #e3e9ef;
+  --accent: #00b8a9;
+  --nav-h: 96px; /* aktuelle Navbar-Höhe */
 }
-html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
 .homepage-main {
   max-width: 1600px;
   margin: 0 auto;
   display: grid;
   grid-auto-rows: min-content;
   gap: clamp(8px, 1.6vw, 24px);
+  padding: 0 16px 32px;
 }
 
-/* 2) Hero: kein Extra-Abstand unten, Linie optional entfernen */
+/* ===== HERO-BEREICH ===== */
 .hero-with-image {
-  margin-top: var(--nav-h);
+  position: relative;               /* wichtig für das absolute Bild */
+  margin-top: clamp(10px, 1.6vw, 20px);
   height: clamp(56vh, 64vh, 72vh);
   min-height: 500px;
   overflow: hidden;
   isolation: isolate;
+  border-radius: 26px;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
 }
 
-/* Bild */
-.hero-background-image{
-  position:absolute; inset:0;
-  width:100%; height:100%;
-  object-fit:cover; object-position:center 40%;
-  transform:scale(1.035);
-  filter:brightness(.72) contrast(1.06) saturate(1.02);
-  will-change:transform;
+/* Hintergrundbild */
+.hero-background-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 40%;
+  transform: scale(1.035);
+  filter: brightness(.72) contrast(1.06) saturate(1.02);
+  will-change: transform;
+  display: block;
 }
 
 /* Gradient – Fokus hinter Text */
-.hero-with-image::after{
-  content:""; position:absolute; inset:0; z-index:1; pointer-events:none;
+.hero-with-image::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
   background:
-    radial-gradient(1200px 420px at 50% 48%, rgba(0,0,0,.55), transparent 70%),
-    linear-gradient(180deg, rgba(18,34,42,.55) 0%, rgba(18,34,42,.35) 60%, rgba(18,34,42,.25) 100%);
+    radial-gradient(1200px 420px at 40% 50%, rgba(0, 0, 0, .60), transparent 70%),
+    linear-gradient(180deg, rgba(18, 34, 42, .55) 0%, rgba(18, 34, 42, .35) 60%, rgba(18, 34, 42, .28) 100%);
 }
 
-/* Inhalt mittig */
-.hero-overlay{
-  position:relative; z-index:2;
-  height:100%; width:100%;
-  display:grid; place-items:center;
-  padding:0 20px;
-  text-align:center;
-  animation:fadeUp .55s ease-out both .1s;
+/* Inhalt – Overlay */
+.hero-overlay {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  padding: 0 20px;
+  text-align: center;
+  animation: fadeUp .55s ease-out both .1s;
 }
 
-/* Glass-Karte (optional, funktioniert auch ohne extra DIV) */
-.hero-overlay > div,
-.hero-overlay .hero-card{
-  background:rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.18);
-  backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
-  border-radius:16px;
-  padding:clamp(16px, 2.8vw, 36px) clamp(18px, 3.2vw, 44px);
-  box-shadow:0 20px 60px rgba(0,0,0,.25);
-  max-width:min(980px,92vw);
+/* Glass-Karte */
+.hero-overlay .hero-card {
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .18);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: 18px;
+  padding: clamp(18px, 2.8vw, 36px) clamp(20px, 3.2vw, 44px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .35);
+  max-width: min(980px, 92vw);
 }
 
 /* Typo */
-.hero-overlay h1{
-  margin:0 0 12px;
-  color:#fff; font-weight:800; line-height:1.12;
-  font-size:clamp(28px,5.2vw,56px);
-  max-width: none;              /* angenehme Zeilenlänge */
-  margin-inline:auto;
-  text-wrap:balance;
-  text-shadow:0 2px 18px rgba(0,0,0,.45);
-}
-.hero-overlay p{
-  margin:8px 0 0; color:#eaf3f6; line-height:1.55;
-  font-size:clamp(14px,1.8vw,20px);
-  max-width:60ch; margin-inline:auto; opacity:.95;
-}
-.hero-overlay h1::after{
-  content:""; display:block; width:72px; height:3px;
-  margin:14px auto 0; border-radius:2px; background:var(--accent); opacity:.95;
+.hero-overlay h1 {
+  margin: 0 0 12px;
+  color: #fff;
+  font-weight: 800;
+  line-height: 1.12;
+  font-size: clamp(28px, 5.2vw, 56px);
+  max-width: none;
+  margin-inline: auto;
+  text-wrap: balance;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, .45);
 }
 
-/* Hover: dezenter Tiefeneffekt */
-@media (hover:hover){
-  .hero-background-image:hover{ transform:scale(1.045); }
+.hero-overlay p {
+  margin: 8px 0 0;
+  color: #eaf3f6;
+  line-height: 1.55;
+  font-size: clamp(14px, 1.8vw, 20px);
+  max-width: 60ch;
+  margin-inline: auto;
+  opacity: .95;
+}
+
+/* kleine Akzentlinie unter H1 */
+.hero-overlay h1::after {
+  content: "";
+  display: block;
+  width: 72px;
+  height: 3px;
+  margin: 14px auto 0;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: .95;
+}
+
+/* ===== Hover-Effekt fürs Bild ===== */
+@media (hover: hover) {
+  .hero-background-image:hover {
+    transform: scale(1.045);
+  }
 }
 
 /* ===== Responsive Feinschliff ===== */
-@media (max-width:1024px){
-  :root{ --nav-h:80px; }               /* iPad Hoch/Quer */
-  .hero-with-image{ min-height:480px; }
-  .hero-background-image{ object-position:center 45%; }
+@media (min-width: 960px) {
+  .hero-overlay {
+    justify-items: flex-start;
+    text-align: left;
+    padding-inline: clamp(32px, 6vw, 80px);
+  }
+
+  .hero-overlay .hero-card {
+    margin-left: clamp(8px, 4vw, 80px);
+  }
 }
-@media (max-width:600px){
-  :root{ --nav-h:72px; }               /* Handy */
-  .hero-with-image{ height:44vh; min-height:380px; }
-  .hero-overlay h1::after{ width:56px; }
+
+@media (max-width: 1024px) {
+  .hero-with-image {
+    min-height: 460px;
+  }
+  .hero-background-image {
+    object-position: center 45%;
+  }
+}
+
+@media (max-width: 600px) {
+  .hero-with-image {
+    height: 44vh;
+    min-height: 380px;
+    border-radius: 18px;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.32);
+  }
+
+  .hero-overlay h1::after {
+    width: 56px;
+  }
 }
 
 /* Animation */
-@keyframes fadeUp{
-  from{opacity:0; transform:translateY(8px);}
-  to{opacity:1; transform:translateY(0);}
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-  
+
   
   
   
