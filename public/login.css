@@ -182,24 +182,43 @@ input:focus {
   background-color: #009d94;
   transform: translateY(-2px);
 }
-
+/* "Passwort vergessen?" – Button im Login */
 .forgot-link {
-  text-align: right;
+  display: block;              /* bekommt eigene Zeile */
   margin-top: -6px;
-}
+  margin-bottom: 8px;
+  margin-left: auto;           /* schiebt den Button nach rechts */
+  padding: 0;
 
-.forgot-link a {
   font-size: 13px;
+  font-family: 'Poppins', sans-serif;
   color: #00b8a9;
-  text-decoration: none;
-  background: none;   /* falls später doch mal ein Button war */
+  background: none;
   border: none;
   cursor: pointer;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+
+  transition:
+    color 0.2s ease,
+    transform 0.15s ease;
 }
 
-.forgot-link a:hover {
+.forgot-link:hover {
+  color: #00ffe0;
   text-decoration: underline;
+  transform: translateY(-1px);
 }
+
+.forgot-link:active {
+  transform: translateY(0);
+}
+
+.forgot-link:focus-visible {
+  outline: 2px solid #00b8a9;
+  outline-offset: 2px;
+}
+
 
 
 
