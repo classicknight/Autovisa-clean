@@ -1,5 +1,3 @@
-
-
 /* ==== Reset & Base ==== */
 * {
   margin: 0;
@@ -10,7 +8,7 @@
 body {
   font-family: 'Poppins', sans-serif;
   background: #f5f8fc;
-  padding-top: 120px;
+  padding-top: 100px; /* an kompakte Navbar angepasst */
 }
 
 /* ==== NAVBAR ==== */
@@ -19,24 +17,17 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  height: 120px;
+  height: 96px; /* kompakter */
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 40px;
+  padding: 0 32px;
   z-index: 1000;
 
   /* Vertikal (oben hell → unten dunkel) + horizontal gespiegelt */
   background: linear-gradient(180deg, #2c5364 0%, #203a43 60%, #0f2027 100%),
               linear-gradient(270deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 100%);
   box-shadow: 0 4px 20px rgba(0,0,0,.35);
-
-  /* weiche Übergänge bei Scroll-Verkleinerung */
-  transition:
-    height 0.25s ease,
-    padding 0.25s ease,
-    box-shadow 0.25s ease,
-    background 0.25s ease;
 }
 
 /* Logo + Linie + Text nebeneinander */
@@ -50,11 +41,8 @@ body {
 
 /* Logo-Größe */
 .logo {
-  height: 120px;
+  height: 95px;   /* etwas kleiner als vorher */
   width: auto;
-  transition:
-    height 0.25s ease,
-    transform 0.25s ease;
 }
 
 /* Container für die Linie */
@@ -356,38 +344,56 @@ body {
 
 @media (max-width: 900px) {
   body {
-    padding-top: 80px;
+    padding-top: 80px; /* kompakte Mobile-Navbar */
   }
 
   .navbar {
-    height: 80px;
-    padding: 0 20px;
+    height: 70px;
+    padding: 0 16px;
   }
 
   .logo {
-    height: 70px;
+    height: 60px;
   }
 
   .logo-container {
-    margin-left: -10px;
+    margin-left: -4px;
     margin-bottom: 0;
-    gap: 10px;
+    gap: 8px;
   }
 
-  .logo-tagline,
+  /* Tagline & Divider auch auf Mobile sichtbar, aber kompakter */
   .logo-divider {
-    display: none;
+    margin-left: -12px;
+    height: 38px;
+  }
+
+  .logo-divider::before {
+    height: 48px;
+    box-shadow: 0 0 6px rgba(0, 184, 169, 0.6);
+  }
+
+  .logo-tagline {
+    margin-left: -4px;
+    margin-bottom: 0;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    line-height: 1.1;
+  }
+
+  .tagline-line2 {
+    margin-left: 6px;
   }
 
   .navbar-right-mobile {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
   }
 
   .mobile-shortcuts {
     display: flex;
-    gap: 12px;
+    gap: 10px;
     align-items: center;
   }
 
@@ -395,12 +401,12 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     background: rgba(0,184,169,.12);
     border-radius: 50%;
     color: #00b8a9;
-    font-size: 18px;
+    font-size: 17px;
     transition:
       transform .2s ease,
       background-color .2s ease,
@@ -410,7 +416,7 @@ body {
   .mobile-shortcuts a:hover {
     background: rgba(0,184,169,.2);
     color: #009e92;
-    transform: scale(1.1);
+    transform: scale(1.08);
   }
 
   .hamburger {
@@ -422,14 +428,14 @@ body {
     display: none;
     flex-direction: column;
     position: absolute;
-    top: 80px;
+    top: 70px;
     left: 0;
     right: 0;
-    background: #1a2733;
-    padding: 20px;
-    gap: 15px;
+    background: #111b24;
+    padding: 14px 14px 18px;
+    gap: 10px;
     border-radius: 0;
-    box-shadow: 0 4px 12px rgba(0,0,0,.2);
+    box-shadow: 0 14px 30px rgba(0,0,0,.35);
     z-index: 999;
   }
 
@@ -437,15 +443,15 @@ body {
     display: flex;
   }
 
-  /* Zentrierte Links (CTA bleibt rund, weil wir gleich nur .dropdown überschreiben) */
-  .nav-links a {
+  /* Top-Level-Links im Panel */
+  .nav-links > li > a {
     font-size: 16px;
-    padding: 14px 16px;
+    padding: 10px 12px;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     gap: 8px;
-    border-radius: 12px;
+    border-radius: 10px;
     background: rgba(255,255,255,.04);
     transition:
       background-color .25s ease,
@@ -453,12 +459,12 @@ body {
       color .25s ease;
   }
 
-  .nav-links a:hover {
+  .nav-links > li > a:hover {
     background: rgba(255,255,255,.08);
-    transform: scale(1.03);
+    transform: scale(1.02);
   }
 
-  .nav-links a:active {
+  .nav-links > li > a:active {
     transform: scale(.97);
     background: rgba(0,184,169,.15);
   }
@@ -467,11 +473,73 @@ body {
     width: 100%; /* volle Klickfläche */
   }
 
-  /* >>> Nur DROPDOWN kantig (Trigger + Menü + Items) <<< */
-  .dropdown > a { border-radius: 0; }
-  .dropdown.open > a { border-radius: 0; }
-  .dropdown-menu { border-radius: 0; }
-  .dropdown-menu a { border-radius: 0; }
+  /* Mobile-Dropdown: Menüfläche */
+  .dropdown-menu {
+    position: static;
+    min-width: unset;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    margin-top: 4px;
+
+    display: block;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+    padding: 0;
+    transform: none;
+    transition:
+      max-height .28s ease,
+      opacity .22s ease,
+      padding .22s ease;
+  }
+
+  .dropdown.open .dropdown-menu {
+    max-height: 1000px;
+    opacity: 1;
+    pointer-events: auto;
+    padding: 4px 0 2px;
+  }
+
+  /* Mobile-Dropdown: Einträge eingerückt & ruhiger */
+  .dropdown-menu a {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    font-size: 15px;
+    color: #dde7f2;
+    padding: 8px 10px 8px 30px;
+    border-radius: 8px;
+    background: transparent;
+    position: relative;
+  }
+
+  .dropdown-menu a::before {
+    content: "";
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 999px;
+    background: #00b8a9;
+    opacity: 0.75;
+  }
+
+  .dropdown-menu a:hover,
+  .dropdown-menu a:focus {
+    background: rgba(255,255,255,.06);
+    color: #00ffcc;
+    padding-left: 32px;
+  }
+
+  /* Mobile: kein Connector unter dem Pill */
+  .dropdown.open > a::after {
+    display: none;
+  }
 
   /* Pfeil näher am Text + Rotation beim Öffnen */
   .nav-arrow {
@@ -491,74 +559,18 @@ body {
   .dropdown > a[aria-expanded="true"] .nav-arrow {
     transform: rotate(90deg); /* nach unten */
   }
-
-  /* Mobile-Dropdown: standardmäßig zu, weich ausfahren */
-  .dropdown-menu {
-    position: static;
-    min-width: unset;
-    border: none;
-    background: #253544;
-    box-shadow: none;
-    margin-top: 8px;
-
-    display: block;
-    max-height: 0;
-    opacity: 0;
-    overflow: hidden;
-    pointer-events: none;
-    padding: 0;
-    transform: none;
-    transition:
-      max-height .28s ease,
-      opacity .22s ease,
-      padding .22s ease;
-  }
-
-  .dropdown.open .dropdown-menu {
-    max-height: 1000px;
-    opacity: 1;
-    pointer-events: auto;
-    padding: 6px 0;
-  }
-
-  /* Mobile: kein Connector unter dem Pill */
-  .dropdown.open > a::after {
-    display: none;
-  }
-}
-
-/* === Kompakte Navbar beim Scrollen === */
-.navbar--scrolled {
-  height: 96px;          /* statt 120px */
-  padding: 0 32px;       /* etwas weniger Rand */
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-}
-
-.navbar--scrolled .logo {
-  height: 95px;          /* Logo leicht kleiner */
-}
-
-@media (max-width: 900px) {
-  .navbar--scrolled {
-    height: 70px;        /* statt 80px */
-    padding: 0 16px;
-  }
-
-  .navbar--scrolled .logo {
-    height: 60px;        /* statt 70px */
-  }
 }
 
 /* sorgt dafür, dass Anker-Ziele unter einer fixen Navbar korrekt einrasten */
 #results-section,
 #search-section {
-  scroll-margin-top: 130px; /* Desktop (Navbar ~120px) */
+  scroll-margin-top: 110px; /* Desktop (Navbar ~96px) */
 }
 
 @media (max-width: 900px) {
   #results-section,
   #search-section {
-    scroll-margin-top: 90px; /* Mobile (Navbar ~80px) */
+    scroll-margin-top: 90px; /* Mobile (Navbar ~70px) */
   }
 }
 
@@ -601,7 +613,6 @@ img, video, canvas {
     overflow-x: hidden;
   }
 }
-
 
 
 

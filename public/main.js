@@ -1366,24 +1366,3 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-
-// Navbar bleibt sichtbar, wird beim Scrollen nur kompakter
-(() => {
-  const nav = document.querySelector('.navbar');
-  if (!nav) return;
-
-  const SCROLL_THRESHOLD = 80; // ab ~80px Scroll wird die Navbar kleiner
-
-  const handleScroll = () => {
-    if (window.scrollY > SCROLL_THRESHOLD) {
-      nav.classList.add('navbar--scrolled');
-    } else {
-      nav.classList.remove('navbar--scrolled');
-    }
-  };
-
-  // Beim Laden Zustand setzen (falls man z.B. reload weiter unten macht)
-  handleScroll();
-
-  window.addEventListener('scroll', handleScroll, { passive: true });
-})();
