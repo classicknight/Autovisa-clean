@@ -326,42 +326,33 @@ body {
   color: #003344;
 }
 
-/* ==== MOBILE: Toggle & Shortcuts (Basis) ==== */
+/* ==== MOBILE: Hamburger-Button – nur Icon, kein Kreis ==== */
+/* ==== MOBILE: Hamburger-Button – nur Icon, kein Kreis ==== */
 .hamburger {
-  display: none;              /* Desktop: versteckt, wird nur im Media Query sichtbar */
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.35);
-  background: rgba(0,0,0,0.25);
+  display: none;              /* Desktop: unsichtbar */
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+
   align-items: center;
   justify-content: center;
-  padding: 0;
-  cursor: pointer;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.15s ease;
 }
 
 .hamburger i {
-  display: block;
-  font-size: 20px;
+  font-size: 25px;            /* vorher 16px → jetzt größer, aber nicht riesig */
   color: #ffffff;
 }
 
-.hamburger:hover {
-  background: rgba(255,255,255,0.06);
-  border-color: #00b8a9;
+.hamburger:hover i {
+  color: #00ffcc;
 }
 
-.hamburger[aria-expanded="true"] {
-  background: rgba(0,184,169,0.22);
-  border-color: #00ffcc;
-}
-
-.hamburger:active {
-  transform: scale(0.96);
+.hamburger[aria-expanded="true"] i {
+  color: #00ffcc;
 }
 
 .hamburger:focus-visible {
