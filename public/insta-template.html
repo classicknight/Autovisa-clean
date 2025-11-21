@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>Autovisa – Instagram Post Template</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Schrift -->
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap">
+
+  <link rel="stylesheet" href="insta-template.css" />
+</head>
+<body>
+  <div class="page">
+    <!-- Linke Seite: Eingaben -->
+    <div class="config-panel">
+      <h1>Instagram Post Generator</h1>
+
+      <div class="field-group">
+        <label for="imageInput">Fahrzeugbild hochladen</label>
+        <input type="file" id="imageInput" accept="image/*" />
+      </div>
+
+      <div class="field-group">
+        <label for="modelInput">Modell</label>
+        <input type="text" id="modelInput" placeholder="Audi Q5 2.0 TDI" />
+      </div>
+
+      <div class="field-row">
+        <div class="field-group">
+          <label for="priceInput">Preis (€)</label>
+          <input type="text" id="priceInput" placeholder="28.990" />
+        </div>
+        <div class="field-group">
+          <label for="yearInput">Baujahr</label>
+          <input type="text" id="yearInput" placeholder="2016" />
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field-group">
+          <label for="powerInput">Leistung (PS)</label>
+          <input type="text" id="powerInput" placeholder="190" />
+        </div>
+        <div class="field-group">
+          <label for="kmInput">Kilometerstand</label>
+          <input type="text" id="kmInput" placeholder="120.000" />
+        </div>
+      </div>
+
+      <p class="hint">
+        Klicke rechts auf „Bild herunterladen“, um den fertigen Post als PNG zu speichern.
+      </p>
+    </div>
+
+    <!-- Rechte Seite: Vorschau / fertiger Post -->
+    <div class="preview-wrapper">
+      <div class="preview-inner">
+        <div class="post-frame">
+          <!-- Beispielbild – durch dein eigenes 1.jpeg ersetzen -->
+          <img src="1.jpeg" id="carImage" alt="Fahrzeugbild" />
+
+          <div class="info-bar">
+            <span class="info-price" id="infoPrice">
+              28.990 €
+            </span>
+            <span class="info-main" id="infoMain">
+              Audi Q5 2.0 TDI
+            </span>
+            <span class="info-sub" id="infoSub">
+              190 PS · 2016 · 120.000 km
+            </span>
+          </div>
+        </div>
+
+        <div class="preview-controls">
+          <button id="downloadBtn">Bild herunterladen</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- html2canvas für Screenshot/Download -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="insta-template.js"></script>
+</body>
+</html>

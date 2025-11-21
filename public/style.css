@@ -674,34 +674,26 @@ img, video, canvas {
 
 
 
-/* ===== Autovisa – Basis ===== */
-:root{
-  --bg:#f5f8fc; --text:#1a2a33; --muted:#37444f; --line:#e3e9ef; --accent:#00b8a9;
-  --nav-h:88px;                /* Navbar-Höhe hier anpassen */
-}
-html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
-.homepage-main {
-  max-width: 1600px;
-  margin: 0 auto;
-  display: grid;
-  grid-auto-rows: min-content;
-  gap: clamp(8px, 1.6vw, 24px);
-}
+/* ===== Hero-Bereich Startseite ===== */
 
-/* 2) Hero: kein Extra-Abstand unten, Linie optional entfernen */
+/* Hero: höher, damit das Bild hinter die Filter „reinläuft“ */
 .hero-with-image {
   margin-top: var(--nav-h);
-  height: clamp(56vh, 64vh, 72vh);
-  min-height: 500px;
+  position: relative;
+  height: clamp(56vh, 64vh, 72vh);  /* großer Hero auf Desktop */
+  min-height: 480px;
   overflow: hidden;
   isolation: isolate;
 }
 
 /* Bild */
 .hero-background-image{
-  position:absolute; inset:0;
-  width:100%; height:100%;
-  object-fit:cover; object-position:center 40%;
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  object-position:center 40%;
   transform:scale(1.035);
   filter:brightness(.72) contrast(1.06) saturate(1.02);
   will-change:transform;
@@ -709,97 +701,192 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
 
 /* Gradient – Fokus hinter Text */
 .hero-with-image::after{
-  content:""; position:absolute; inset:0; z-index:1; pointer-events:none;
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:1;
+  pointer-events:none;
   background:
     radial-gradient(1200px 420px at 50% 48%, rgba(0,0,0,.55), transparent 70%),
     linear-gradient(180deg, rgba(18,34,42,.55) 0%, rgba(18,34,42,.35) 60%, rgba(18,34,42,.25) 100%);
 }
 
-/* Inhalt mittig */
+/* Inhalt */
 .hero-overlay{
-  position:relative; z-index:2;
-  height:100%; width:100%;
-  display:grid; place-items:center;
+  position:relative;
+  z-index:2;
+  height:100%;
+  width:100%;
+  display:grid;
+  place-items:center;       /* horizontal & vertikal zentriert */
   padding:0 20px;
   text-align:center;
   animation:fadeUp .55s ease-out both .1s;
 }
 
-/* Glass-Karte (optional, funktioniert auch ohne extra DIV) */
+/* Glass-Karte – Desktop stark nach oben gezogen */
 .hero-overlay > div,
 .hero-overlay .hero-card{
   background:rgba(255,255,255,.06);
   border:1px solid rgba(255,255,255,.18);
-  backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
   border-radius:16px;
-  padding:clamp(16px, 2.8vw, 36px) clamp(18px, 3.2vw, 44px);
+  padding:clamp(18px, 3vw, 38px) clamp(20px, 3.4vw, 46px);
   box-shadow:0 20px 60px rgba(0,0,0,.25);
   max-width:min(980px,92vw);
+
+  /* Desktop: kräftig hochgezogen, damit es tief in den Hero „reinragt“ */
+  margin-top: -100px;
 }
 
 /* Typo */
 .hero-overlay h1{
   margin:0 0 12px;
-  color:#fff; font-weight:800; line-height:1.12;
-  font-size:clamp(28px,5.2vw,56px);
-  max-width: none;              /* angenehme Zeilenlänge */
+  color:#fff;
+  font-weight:800;
+  line-height:1.12;
+  font-size:clamp(30px,5.2vw,56px);
+  max-width:none;
   margin-inline:auto;
   text-wrap:balance;
   text-shadow:0 2px 18px rgba(0,0,0,.45);
 }
+
 .hero-overlay p{
-  margin:8px 0 0; color:#eaf3f6; line-height:1.55;
+  margin:8px 0 0;
+  color:#eaf3f6;
+  line-height:1.55;
   font-size:clamp(14px,1.8vw,20px);
-  max-width:60ch; margin-inline:auto; opacity:.95;
+  max-width:60ch;
+  margin-inline:auto;
+  opacity:.95;
 }
+
 .hero-overlay h1::after{
-  content:""; display:block; width:72px; height:3px;
-  margin:14px auto 0; border-radius:2px; background:var(--accent); opacity:.95;
+  content:"";
+  display:block;
+  width:72px;
+  height:3px;
+  margin:14px auto 0;
+  border-radius:2px;
+  background:var(--accent);
+  opacity:.95;
 }
 
 /* Hover: dezenter Tiefeneffekt */
 @media (hover:hover){
-  .hero-background-image:hover{ transform:scale(1.045); }
+  .hero-background-image:hover{
+    transform:scale(1.045);
+  }
 }
 
-/* ===== Responsive Feinschliff ===== */
-@media (max-width:1024px){
-  :root{ --nav-h:80px; }               /* iPad Hoch/Quer */
-  .hero-with-image{ min-height:480px; }
-  .hero-background-image{ object-position:center 45%; }
+/* ===== Responsive Feinschliff – iPad (Hoch + Quer, ca. 601–1024px) ===== */
+@media (max-width: 1024px) and (min-width: 601px){
+  :root{ --nav-h:0px; }          /* iPad Navbar etwas kleiner */
+
+  .hero-with-image{
+    height: 52vh;
+    min-height: 420px;
+  }
+
+  .hero-background-image{
+    object-position:center 45%;
+  }
+
+  /* iPad: weniger stark hochgezogen, wirkt ruhiger */
+  .hero-overlay .hero-card{
+    margin-top: -50px;
+  }
 }
+
+/* ===== Responsive – Handy (bis 600px) ===== */
 @media (max-width:600px){
-  :root{ --nav-h:72px; }               /* Handy */
-  .hero-with-image{ height:44vh; min-height:380px; }
-  .hero-overlay h1::after{ width:56px; }
+  :root{ --nav-h:0px; }          /* Mobile Navbar-Höhe */
+
+  .hero-with-image{
+    height: 48vh;
+    min-height: 380px;
+  }
+
+  .hero-overlay h1::after{
+    width:56px;
+  }
+
+  /* Handy: nur leicht anheben, damit es nicht zu weit oben klebt */
+  .hero-overlay .hero-card{
+    margin-top: -80px;
+    padding: 18px 20px 20px;
+  }
+
+  .hero-overlay h1{
+    font-size: clamp(24px, 6vw, 30px);
+  }
+
+  .hero-overlay p{
+    font-size: 14px;
+  }
 }
 
-/* Animation */
-@keyframes fadeUp{
-  from{opacity:0; transform:translateY(8px);}
-  to{opacity:1; transform:translateY(0);}
+
+/* Mobile */
+@media screen and (max-width: 768px) {
+  .search-form {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+  
+  .form-buttons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .btn-search,
+  .btn-advanced {
+    width: 100%;
+  }
+  
+  .form-group {
+    margin-bottom: 18px;
+  }
+
+  .form-group input,
+  .form-group select {
+    padding: 14px 16px;
+    font-size: 16px;
+  }
+
+  /* >>> Wichtig: Abstand zwischen Hero & Search = 0 <<< */
+  .homepage-main{
+    gap: 0;}
+
+  .search-section{
+    margin: -80px 16px 0;   /* Overlap wie zuvor, links/rechts etwas Luft */
+    padding: 22px 16px;
+    border-radius: 14px;
+  }
 }
-  
-  
-  
-  
 
 
 
 
-/* 3) Suchbereich: KEIN Top-Margin mehr – wir steuern über das Grid-Gap */
+
+
+/* 3) Suchbereich – in den Hero „reinziehen“ */
 .search-section{
   background: linear-gradient(135deg, #121c26, #1f2f3d);
-  padding: 48px 56px;
-  margin: 0 auto;               /* statt 60px auto */
+  margin: -80px auto 0;              /* Overlap mit dem Hero */
   max-width: 1200px;
+  padding: 64px 56px 48px;
   border-radius: 18px;
-  box-shadow: 0 12px 35px rgba(0,0,0,.2);
-  border: 1px solid rgba(255,255,255,.05);
+  box-shadow: 0 18px 40px rgba(0,0,0,.28);
+  border: 1px solid rgba(255,255,255,.06);
   color:#fff;
+  position: relative;
+  z-index: 3;
   animation: fadeInUp .6s ease forwards;
   opacity:0;
-  }
+}
   
   @keyframes fadeInUp {
     0% {
@@ -1371,65 +1458,77 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
   
   
   
-  @media screen and (max-width: 600px) {
-    .search-section {
-      
-      padding: 32px 16px; /* weniger Rand – näher am Bildschirmrand */
-      margin: 20px 0;     /* kein extra Rand links/rechts */
-      border-radius: 0px;
-    }
-    
-    .search-section h2 {
-      font-size: 20px;
-      margin-bottom: 24px;
-    }
-    
-    .search-form {
-      grid-template-columns: 1fr;
-      gap: 18px;
-    }
-    
-    .form-group {
-      margin-bottom: 8px;
-    }
-    
-    .form-group label {
-      font-size: 14px;
-      margin-bottom: 6px;
-    }
-    
-    .form-group input,
-    .form-group select {
-      font-size: 15px;
-      padding: 12px 14px;
-      height: 44px;
-    }
-    
-    .dual-input-wrapper {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 8px;
-    }
-    
-    .dual-input-wrapper input[type="number"] {
-      max-width: 100% !important;
-      width: 100% !important;
-    }
-    
-    .form-buttons {
-      flex-direction: column;
-      gap: 12px;
-      margin-top: 30px;
-      align-items: center;
-    }
-    
-    .btn-search,
-    .btn-advanced {
-      width: 100%;
-      font-size: 16px;
-      padding: 14px 18px;
-    }
+/* === Handy: Hero & Suchbereich ohne Lücke === */
+@media screen and (max-width: 600px) {
+
+  /* kein Grid-Abstand zwischen Hero und Search */
+  .homepage-main {
+    gap: 0;
   }
+
+  /* Hero ganz normal, kein extra Bottom-Abstand */
+  .hero-with-image {
+    margin-bottom: 0;
+  }
+
+  /* Suchbereich in den Hero reinziehen, kein weißer Balken */
+  .search-section {
+    margin: -80px 0 0;      /* overlap nach oben, 0 Abstand */
+    padding: 32px 16px;     /* wie vorher */
+    border-radius: 0;       /* volle Breite auf Handy */
+  }
+
+  .search-section h2 {
+    font-size: 20px;
+    margin-bottom: 24px;
+  }
+
+  .search-form {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .form-group {
+    margin-bottom: 8px;
+  }
+
+  .form-group label {
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+
+  .form-group input,
+  .form-group select {
+    font-size: 15px;
+    padding: 12px 14px;
+    height: 44px;
+  }
+
+  .dual-input-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .dual-input-wrapper input[type="number"] {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .form-buttons {
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 30px;
+    align-items: center;
+  }
+
+  .btn-search,
+  .btn-advanced {
+    width: 100%;
+    font-size: 16px;
+    padding: 14px 18px;
+  }
+}
   
   
   
@@ -1907,3 +2006,4 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);}
   right: auto !important;
   transform: translateY(6px) scale(.98) !important; /* X-Übersetzung entfernen */
 }
+
