@@ -1,108 +1,98 @@
 document.addEventListener("DOMContentLoaded", () => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("token") || "";
+    const imageInput  = document.getElementById("imageInput");
+    const carImage    = document.getElementById("carImage");
   
-    const tokenInput   = document.getElementById("resetToken");
-    const form         = document.getElementById("resetForm");
-    const pw1          = document.getElementById("resetPassword");
-    const pw2          = document.getElementById("resetPasswordRepeat");
-    const msgEl        = document.getElementById("resetMessage");
-    const submitBtn    = document.getElementById("resetSubmit");
+    const priceInput  = document.getElementById("priceInput");
+    const modelInput  = document.getElementById("modelInput");
+    const powerInput  = document.getElementById("powerInput");
+    const yearInput   = document.getElementById("yearInput");
+    const kmInput     = document.getElementById("kmInput");
   
-    if (tokenInput) tokenInput.value = token;
+    const infoPrice   = document.getElementById("infoPrice");
+    const infoMain    = document.getElementById("infoMain");
+    const infoSub     = document.getElementById("infoSub");
   
-    // Wenn kein Token da ist → Fehlermeldung & Form deaktivieren
-    if (!token || !form || !pw1 || !pw2) {
-      if (msgEl) {
-        msgEl.textContent = "Dieser Link ist ungültig oder unvollständig.";
-        msgEl.classList.add("error");
-      }
-      if (submitBtn) submitBtn.disabled = true;
-      return;
+    const downloadBtn = document.getElementById("downloadBtn");
+  
+    // ==== Bild hochladen ====
+    if (imageInput) {
+      imageInput.addEventListener("change", (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+  
+        const reader = new FileReader();
+        reader.onload = () => {
+          carImage.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
     }
   
-    // Toggle Passwort-Sichtbarkeit (wie bei login.js)
-    document.querySelectorAll(".toggle-password").forEach(icon => {
-      icon.addEventListener("click", () => {
-        const targetId = icon.getAttribute("data-target");
-        const input = document.getElementById(targetId);
-        if (!input) return;
-        const isHidden = input.type === "password";
-        input.type = isHidden ? "text" : "password";
+    // ==== Text in der Leiste aktualisieren ====
+    function updateOverlay() {
+      const price = priceInput.value.trim();
+      const model = modelInput.value.trim();
+      const power = powerInput.value.trim();
+      const year  = yearInput.value.trim();
+      const km    = kmInput.value.trim();
   
-        const iTag = icon.querySelector("i");
-        if (iTag) {
-          iTag.classList.toggle("fa-eye", !isHidden);
-          iTag.classList.toggle("fa-eye-slash", isHidden);
+      infoPrice.textContent = price ? `${price} €` : "Preis auf Anfrage";
+      infoMain.textContent  = model || "Modell";
+  
+      const subParts = [];
+      if (power) subParts.push(`${power} PS`);
+      if (year)  subParts.push(year);
+      if (km)    subParts.push(`${km} km`);
+  
+      infoSub.textContent = subParts.length
+        ? subParts.join(" · ")
+        : "Leistung · Baujahr · Kilometerstand";
+    }
+  
+    [priceInput, modelInput, powerInput, yearInput, kmInput].forEach((el) => {
+      if (!el) return;
+      el.addEventListener("input", updateOverlay);
+    });
+  
+    // einmal initial
+    updateOverlay();
+  
+    // ==== Bild als PNG direkt herunterladen (kein Popup) ====
+    if (downloadBtn) {
+      downloadBtn.addEventListener("click", async () => {
+        const post = document.querySelector(".post-frame");
+        if (!post || !window.html2canvas) return;
+  
+        try {
+          const canvas = await html2canvas(post, {
+            useCORS: true,
+            backgroundColor: null,
+            scale: 2 // höhere Qualität
+          });
+  
+          // Canvas in Blob umwandeln und als Datei laden
+          canvas.toBlob((blob) => {
+            if (!blob) return;
+  
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+  
+            const model = (modelInput.value || "autovisa-post").replace(/\s+/g, "_");
+            link.href = url;
+            link.download = `${model}.png`;
+  
+            // Link kurz in den DOM hängen, klicken, wieder entfernen
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+  
+            URL.revokeObjectURL(url);
+          }, "image/png");
+        } catch (err) {
+          console.error("Fehler beim Erstellen des Bildes:", err);
+          alert("Das Bild konnte nicht generiert werden. Bitte lade die Seite neu und versuche es erneut.");
         }
-        icon.setAttribute("aria-label", isHidden ? "Passwort verbergen" : "Passwort anzeigen");
       });
-    });
-  
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      if (!tokenInput.value) {
-        msgEl.textContent = "Dieser Link ist ungültig oder abgelaufen.";
-        msgEl.classList.remove("success");
-        msgEl.classList.add("error");
-        return;
-      }
-  
-      const pass1 = pw1.value;
-      const pass2 = pw2.value;
-  
-      if (pass1.length < 8) {
-        msgEl.textContent = "Das Passwort muss mindestens 8 Zeichen lang sein.";
-        msgEl.classList.remove("success");
-        msgEl.classList.add("error");
-        return;
-      }
-      if (pass1 !== pass2) {
-        msgEl.textContent = "Die Passwörter stimmen nicht überein.";
-        msgEl.classList.remove("success");
-        msgEl.classList.add("error");
-        return;
-      }
-  
-      try {
-        submitBtn.disabled = true;
-        msgEl.textContent = "Speichere neues Passwort …";
-        msgEl.classList.remove("error");
-        msgEl.classList.remove("success");
-  
-        const res = await fetch("/reset-password", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            token: tokenInput.value,
-            password: pass1
-          })
-        });
-  
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success) {
-          msgEl.textContent = data.error || "Dieser Link ist ungültig oder abgelaufen.";
-          msgEl.classList.remove("success");
-          msgEl.classList.add("error");
-          submitBtn.disabled = false;
-          return;
-        }
-  
-        msgEl.textContent = "✅ Passwort wurde aktualisiert. Du kannst dich jetzt einloggen.";
-        msgEl.classList.remove("error");
-        msgEl.classList.add("success");
-  
-        // Optional: nach ein paar Sekunden zurück zum Login
-        setTimeout(() => {
-          window.location.href = "login.html";
-        }, 2000);
-      } catch (err) {
-        console.error("Reset-Passwort Fehler:", err);
-        msgEl.textContent = "Es ist ein Fehler aufgetreten. Bitte versuche es später erneut.";
-        msgEl.classList.remove("success");
-        msgEl.classList.add("error");
-        submitBtn.disabled = false;
-      }
-    });
+    }
   });
   
