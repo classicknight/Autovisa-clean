@@ -327,7 +327,6 @@ body {
 }
 
 /* ==== MOBILE: Hamburger-Button – nur Icon, kein Kreis ==== */
-/* ==== MOBILE: Hamburger-Button – nur Icon, kein Kreis ==== */
 .hamburger {
   display: none;              /* Desktop: unsichtbar */
   background: transparent;
@@ -365,25 +364,34 @@ body {
 }
 
 
-/* ==== MOBILE LAYOUT ==== */
 @media (max-width: 900px) {
 
   .navbar {
     height: 70px;
-    padding: 0 16px;
-  }
-
-  .logo {
-    height: 60px;
+    padding: 0 10px;          /* etwas weniger Rand rechts/links */
+    justify-content: flex-start;
   }
 
   .logo-container {
     margin-left: -4px;
     margin-bottom: 0;
     gap: 8px;
+    flex: 1 1 auto;           /* Logo nimmt den Platz dazwischen ein */
   }
 
-  /* Tagline & Divider auch auf Mobile sichtbar, aber kompakter */
+  /* nur EINE Definition! */
+  .navbar-right-mobile {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-left: auto;        /* schiebt Icons + Burger nach rechts */
+    margin-right: 2px;          /* falls woanders was gesetzt wurde */
+  }
+
+  .logo {
+    height: 60px;
+  }
+
   .logo-divider {
     margin-left: -12px;
     height: 38px;
@@ -404,12 +412,6 @@ body {
 
   .tagline-line2 {
     margin-left: 6px;
-  }
-
-  .navbar-right-mobile {
-    display: flex;
-    align-items: center;
-    gap: 10px;
   }
 
   .mobile-shortcuts {
@@ -441,7 +443,7 @@ body {
   }
 
   .hamburger {
-    display: flex; /* jetzt sichtbar auf Mobile */
+    display: flex;
   }
 
   /* Burger-Menü Panel – zentriert, einheitliche Breite */
@@ -453,7 +455,7 @@ body {
     left: 0;
     right: 0;
     width: 100vw;
-    max-width: 420px;          /* wie eine Karte mittig */
+    max-width: 420px;
     margin: 0 auto;
     background: #111b24;
     padding: 14px 14px 18px;
@@ -468,7 +470,6 @@ body {
     display: flex;
   }
 
-  /* Alle Top-Level-Links gleich breit */
   .nav-links > li {
     width: 100%;
   }
@@ -479,7 +480,7 @@ body {
     padding: 10px 12px;
     display: flex;
     align-items: center;
-    justify-content: space-between; /* Text links, Pfeil / Icon rechts */
+    justify-content: space-between;
     gap: 8px;
     border-radius: 10px;
     background: rgba(255,255,255,.04);
@@ -500,10 +501,9 @@ body {
   }
 
   .dropdown > a {
-    width: 100%; /* volle Klickfläche */
+    width: 100%;
   }
 
-  /* Speziell: "Auto verkaufen" – mittig mit Icon direkt daneben */
   .nav-links > li > a.highlight-link {
     justify-content: center;
     gap: 8px;
@@ -516,7 +516,7 @@ body {
 
   .nav-links > li > a.highlight-link i {
     font-size: 17px;
-    margin: 0; /* Icon direkt am Text */
+    margin: 0;
   }
 
   .nav-links > li > a.highlight-link:hover {
@@ -524,7 +524,6 @@ body {
     transform: scale(1.02);
   }
 
-  /* Mobile-Dropdown: Menüfläche */
   .dropdown-menu {
     position: static;
     min-width: unset;
@@ -553,7 +552,6 @@ body {
     padding: 4px 0 2px;
   }
 
-  /* Mobile-Dropdown: Einträge eingerückt & ruhiger */
   .dropdown-menu a {
     display: flex;
     align-items: center;
@@ -587,12 +585,10 @@ body {
     padding-left: 32px;
   }
 
-  /* Mobile: kein Connector unter dem Pill */
   .dropdown.open > a::after {
     display: none;
   }
 
-  /* Pfeil näher am Text + Rotation beim Öffnen (Mobile) */
   .nav-arrow {
     display: inline-block;
     margin-left: 6px;
@@ -608,7 +604,7 @@ body {
   }
 
   .dropdown > a[aria-expanded="true"] .nav-arrow {
-    transform: rotate(90deg); /* nach unten */
+    transform: rotate(90deg);
   }
 }
 
@@ -654,8 +650,14 @@ img, video, canvas {
   display: block;
 }
 
-
-
+/* ==== ULTRA-WIDE SCREENS (z.B. ab 1400px) ==== */
+@media (min-width: 1400px) {
+  .navbar {
+    /* Inhalt auf ~1280px begrenzen und zentrieren */
+    padding-left: calc(50vw - 640px);
+    padding-right: calc(50vw - 640px);
+  }
+}
 
 
 

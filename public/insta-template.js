@@ -14,6 +14,24 @@ document.addEventListener("DOMContentLoaded", () => {
   
     const downloadBtn = document.getElementById("downloadBtn");
   
+  // === Bild-Ausrichtung (Hoch/Quer) setzen ===
+function updateImageFit() {
+    if (!carImage || !carImage.naturalWidth || !carImage.naturalHeight) return;
+  
+    const portrait = carImage.naturalHeight >= carImage.naturalWidth;
+    carImage.classList.toggle("portrait", portrait);
+    carImage.classList.toggle("landscape", !portrait);
+  }
+  
+  // bei initialem Beispielbild
+  if (carImage.complete) {
+    updateImageFit();
+  } else {
+    carImage.addEventListener("load", updateImageFit);
+  }
+  
+  // im FileReader.onload ist nichts weiter nötig – das load-Event triggert updateImageFit
+  
     // ==== Bild hochladen ====
     if (imageInput) {
       imageInput.addEventListener("change", (e) => {
@@ -23,6 +41,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const reader = new FileReader();
         reader.onload = () => {
           carImage.src = reader.result;
+          // wenn neues Bild geladen ist, Ausrichtung prüfen
+          // (load-Event wird erneut ausgelöst und ruft updateImageFit auf)
         };
         reader.readAsDataURL(file);
       });
@@ -57,7 +77,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // einmal initial
     updateOverlay();
   
-    // ==== Bild als JPG direkt herunterladen ====
+    // ==== Bild als PNG direkt herunterladen (mit runden Ecken) ====
     if (downloadBtn) {
       downloadBtn.addEventListener("click", async () => {
         const post = document.querySelector(".post-frame");
@@ -66,11 +86,10 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
           const canvas = await html2canvas(post, {
             useCORS: true,
-            backgroundColor: null,
-            scale: 2 // höhere Qualität
+            backgroundColor: null, // wichtig für transparente Ecken
+            scale: 2               // höhere Qualität
           });
   
-          // Canvas -> Blob -> Download-Link
           canvas.toBlob((blob) => {
             if (!blob) {
               alert("Das Bild konnte nicht erstellt werden.");
@@ -82,14 +101,14 @@ document.addEventListener("DOMContentLoaded", () => {
   
             const modelName = (modelInput.value || "autovisa-post").replace(/\s+/g, "_");
             link.href = url;
-            link.download = `${modelName}.jpg`; // JPG-Datei
+            link.download = `${modelName}.png`; // PNG-Datei mit Transparenz
   
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
   
             URL.revokeObjectURL(url);
-          }, "image/jpeg", 0.92); // JPEG statt PNG
+          }, "image/png");
         } catch (err) {
           console.error("Fehler beim Erstellen des Bildes:", err);
           alert("Das Bild konnte nicht generiert werden. Bitte lade die Seite neu und versuche es erneut.");
@@ -97,4 +116,5 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
   });
+  
   

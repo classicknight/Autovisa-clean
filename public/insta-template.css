@@ -87,23 +87,44 @@
     max-width: 560px;
   }
   
-  /* „Instagram“-Post */
-  .post-frame {
+/* „Instagram“-Post */
+.post-frame {
     position: relative;
     width: 100%;
     max-width: 540px;
     aspect-ratio: 4 / 5; /* IG-Hochformat */
     background: #000;
-    border-radius: 24px;
+    border-radius: 0;
     overflow: hidden;
     box-shadow: 0 22px 55px rgba(0, 0, 0, 0.35);
     margin: 0 auto;
   }
   
+  /* Bild zentriert ohne Verzerrung (statt object-fit: cover) */
   .post-frame img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: none;
+  }
+  
+  /* Querformat: Breite füllt, Höhe automatisch */
+  .post-frame img.landscape {
+    width: 100%;
+    height: auto;
+  }
+  
+  /* Hochformat: Höhe füllt, Breite automatisch */
+  .post-frame img.portrait {
+    width: auto;
+    height: 100%;
+  }
+  
+  /* Fallback, bis JS die Klassen gesetzt hat */
+  .post-frame img:not(.landscape):not(.portrait) {
     width: 100%;
     height: 100%;
-    object-fit: cover;
   }
   
   /* Untere Leiste mit Infos */
