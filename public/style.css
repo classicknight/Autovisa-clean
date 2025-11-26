@@ -659,7 +659,25 @@ img, video, canvas {
   }
 }
 
-
+/* === Sprechblasen-Connector für das Dropdown (Desktop) === */
+@media (min-width: 901px) {
+  .dropdown-menu::before {
+    content: "";
+    position: absolute;
+    top: -9px;                /* sitzt knapp über dem Panel */
+    left: 40px;               /* Abstand von links – an dein Pill anpassen */
+    width: 16px;
+    height: 16px;
+    background: #1b2a37;      /* gleiche Farbe wie .dropdown-menu */
+    transform: rotate(45deg); /* macht aus dem Quadrat ein „Dreieck“ */
+    
+    /* leichte Outline wie das Panel */
+    border-left: 1px solid rgba(255,255,255,.08);
+    border-top: 1px solid rgba(255,255,255,.08);
+    box-shadow: -2px -2px 4px rgba(0,0,0,.25);
+    z-index: -1;              /* zieht sich unter den Panel-Radius */
+  }
+}
 
 
 

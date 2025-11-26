@@ -125,10 +125,109 @@
     <hr class="menu-divider">
   </aside>
 
- <main class="content">
-<h1 class="title"></h1>
+  <main class="content">
+
+    <!-- PROFIL-BEREICH (neu) -->
+    <section class="profile-section" id="profil" aria-labelledby="profil-heading">
+      <div class="profile-card">
+        <!-- Kopfbereich: Logo + Name + Buttons -->
+        <div class="profile-header">
+          <div class="profile-identity">
+            <div class="profile-logo-wrapper">
+              <img src="" alt="" class="profile-logo" />
+              <span class="profile-initials">AV</span>
+            </div>
+            <div class="profile-text">
+              <h2 class="profile-name" id="profil-heading">Dein Autohaus</h2>
+              <p class="profile-location" data-profile-field="location">
+                Ort noch nicht hinterlegt
+              </p>
+              <div class="profile-meta">
+                <span class="profile-badge profile-role" data-profile-field="role">
+                  Konto
+                </span>
+                <span class="profile-badge profile-member" data-profile-field="memberSince">
+                  <!-- Mitglied seit … -->
+                </span>
+              </div>
+            </div>
+          </div>
   
-<section class="car-list">
+          <div class="profile-actions">
+            <a href="händler.html" class="profile-btn secondary">
+              <i class="fas fa-eye"></i> Öffentliches Profil
+            </a>
+            <a href="händlerweb.html" class="profile-btn">
+              <i class="fas fa-pen"></i> Profil bearbeiten
+            </a>
+          </div>
+        </div>
+  
+        <!-- Body: Infos + Öffnungszeiten -->
+        <div class="profile-body">
+          <div class="profile-column">
+            <h3 class="profile-subtitle">
+              <i class="fas fa-id-card"></i> Autohaus-Infos
+            </h3>
+            <dl class="profile-info-list">
+              <div class="profile-info-row">
+                <dt>Adresse</dt>
+                <dd data-profile-field="address">Noch keine Adresse hinterlegt</dd>
+              </div>
+              <div class="profile-info-row">
+                <dt>Telefon</dt>
+                <dd data-profile-field="phone">–</dd>
+              </div>
+              <div class="profile-info-row">
+                <dt>E-Mail</dt>
+                <dd data-profile-field="email">–</dd>
+              </div>
+              <div class="profile-info-row">
+                <dt>Website</dt>
+                <dd data-profile-field="website">–</dd>
+              </div>
+              <div class="profile-info-row">
+                <dt>Gründungsjahr</dt>
+                <dd data-profile-field="founded">–</dd>
+              </div>
+            </dl>
+          </div>
+  
+          <div class="profile-column">
+            <h3 class="profile-subtitle">
+              <i class="fas fa-clock"></i> Öffnungszeiten
+            </h3>
+            <p class="profile-opening-text" data-profile-field="openingHours">
+              Noch keine Öffnungszeiten hinterlegt.
+            </p>
+          </div>
+        </div>
+  
+        <!-- Stats: Aktive Inserate usw. -->
+        <div class="profile-stats">
+          <div class="profile-stat-tile">
+            <span class="stat-label">Aktive Inserate</span>
+            <span class="stat-value" data-stat="active">0</span>
+          </div>
+          <div class="profile-stat-tile">
+            <span class="stat-label">Entwürfe</span>
+            <span class="stat-value" data-stat="drafts">0</span>
+          </div>
+          <div class="profile-stat-tile">
+            <span class="stat-label">Gesamt</span>
+            <span class="stat-value" data-stat="total">0</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  
+    <!-- Titel des aktuellen Tabs -->
+    <h1 class="title"></h1>
+  
+    <!-- Meine Autos -->
+    <section class="car-list">
+      <!-- … dein bestehender Code bleibt … -->
+  
 
     <div class="car-card-wrapper" data-id="inseratID"> <!-- optional: data-id -->
   
@@ -309,53 +408,6 @@
   </main>
 
 
-
-<script src="übersicht.js"></script>
-<script>
-  const body = document.getElementById("main-body");
-  
-  function showSection(sectionName) {
-    const sections = {
-      "car-list": document.querySelector(".car-list"),
-      "messages-list": document.querySelector("#messages-list"),
-      "saved-cars": document.querySelector("#saved-cars"),
-      "sold-cars": document.querySelector("#sold-cars")
-    };
-    
-    Object.values(sections).forEach(section => {
-      if (section) {
-        section.classList.remove("visible");
-        section.classList.add("hidden");
-      }
-    });
-    
-    if (sections[sectionName]) {
-      sections[sectionName].classList.remove("hidden");
-      sections[sectionName].classList.add("visible");
-    }
-    
-    // ✅ Body-Klasse wechseln (steuert Werbung)
-    switch (sectionName) {
-      case "messages-list":
-        body.className = "nachrichten-seite";
-        break;
-      case "saved-cars":
-        body.className = "gespeicherte-autos-seite";
-        break;
-      default:
-        body.className = "meine-autos-seite";
-    }
-  }
-  
-  // Sidebar-Navigation
-  document.querySelectorAll(".sidebar-link").forEach(link => {
-    link.addEventListener("click", () => {
-      const target = link.getAttribute("data-section");
-      showSection(target);
-    });
-  });
-  
-  // Beim Laden: „Meine Autos“ zeigen
-  showSection("car-list");
-</script>
+  <script src="übersicht.js"></script>
 </body>
+</html>

@@ -235,6 +235,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   function showSection(sectionName) {
+    // Inhalte-Tabs umschalten
     Object.values(sections).forEach(section => {
       if (!section) return;
       section.classList.add("hidden");
@@ -244,7 +245,38 @@ document.addEventListener("DOMContentLoaded", () => {
       sections[sectionName].classList.remove("hidden");
       sections[sectionName].classList.add("visible");
     }
+  
+    // Profil-Bereich nur bei "Meine Autos" anzeigen
+    const profileSection = document.querySelector(".profile-section");
+    if (profileSection) {
+      if (sectionName === "car-list") {
+        profileSection.classList.remove("hidden");
+      } else {
+        profileSection.classList.add("hidden");
+      }
+    }
+  
+    // Body-Klasse für evtl. seitenspezifische Styles/Ads
+    const body = document.body;
+    if (body) {
+      body.classList.remove(
+        "meine-autos-seite",
+        "nachrichten-seite",
+        "gespeicherte-autos-seite"
+      );
+      switch (sectionName) {
+        case "messages-list":
+          body.classList.add("nachrichten-seite");
+          break;
+        case "saved-cars":
+          body.classList.add("gespeicherte-autos-seite");
+          break;
+        default:
+          body.classList.add("meine-autos-seite");
+      }
+    }
   }
+  
 
   const chatButton = `
     <a href="chat.html" class="all-chats-btn" style="margin-left:auto;">
@@ -390,7 +422,6 @@ document.querySelectorAll('.remove-saved-btn').forEach(button => {
 
 
 
-
 document.addEventListener("DOMContentLoaded", async () => {
   // Preis hübsch formatieren
   function formatEUR(value) {
@@ -406,25 +437,30 @@ document.addEventListener("DOMContentLoaded", async () => {
     const ini = parts.map(p => p[0]?.toUpperCase() || "").join("");
     return ini || "AV";
   }
+
   // Logo/Name robust bestimmen (mit Fallback auf aktuelles Nutzerlogo)
-function getSellerData(inserat, nutzerData) {
-  const type =
-    inserat?.seller?.type ||
-    (String(inserat?.verkauf_verkaeufer || "").toLowerCase() === "händler" ? "haendler" : "privat");
+  function getSellerData(inserat, nutzerData) {
+    const type =
+      inserat?.seller?.type ||
+      (String(inserat?.verkauf_verkaeufer || "").toLowerCase() === "händler"
+        ? "haendler"
+        : "privat");
 
-  const name =
-    inserat?.seller?.name ||
-    inserat?.verkauf_name ||
-    (type === "haendler" ? (nutzerData?.name || "Händler") : "Privatanbieter");
+    const name =
+      inserat?.seller?.name ||
+      inserat?.verkauf_name ||
+      (type === "haendler" ? (nutzerData?.name || "Händler") : "Privatanbieter");
 
-  // WICHTIG: Fallback für ONLINE-ANZEIGEN auf dein Nutzerlogo,
-  // wenn die Anzeige (z.B. vor Logo-Upload) ohne seller.logoUrl veröffentlicht wurde.
-  const logoUrl =
-    inserat?.seller?.logoUrl ||
-    ((inserat?.verkaeuferId && inserat.verkaeuferId === nutzerData?.nutzerId) ? (nutzerData?.logoUrl || "") : "");
+    // WICHTIG: Fallback für ONLINE-ANZEIGEN auf dein Nutzerlogo,
+    // wenn die Anzeige (z.B. vor Logo-Upload) ohne seller.logoUrl veröffentlicht wurde.
+    const logoUrl =
+      inserat?.seller?.logoUrl ||
+      ((inserat?.verkaeuferId && inserat.verkaeuferId === nutzerData?.nutzerId)
+        ? (nutzerData?.logoUrl || "")
+        : "");
 
-  return { type, name, logoUrl };
-}
+    return { type, name, logoUrl };
+  }
 
   // Echte Mongo-ID aus Dokument ziehen
   function extractMongoId(doc) {
@@ -435,11 +471,155 @@ function getSellerData(inserat, nutzerData) {
     return null;
   }
 
+  // 👉 NEU: Profil-Bereich füllen
+  function renderProfileSection(nutzerData, drafts, online) {
+    const section = document.querySelector(".profile-section");
+    if (!section || !nutzerData) return;
+
+    const displayName = nutzerData.firma || nutzerData.name || "Dein Autohaus";
+    const initials = sellerInitials(displayName);
+
+    const nameEl = section.querySelector(".profile-name");
+    const initialsEl = section.querySelector(".profile-initials");
+    if (nameEl) nameEl.textContent = displayName;
+    if (initialsEl) initialsEl.textContent = initials;
+
+    const logoWrapper = section.querySelector(".profile-logo-wrapper");
+    const logoImg = section.querySelector(".profile-logo");
+    const logoUrl = nutzerData.logoUrl || "";
+
+    if (logoImg && logoWrapper) {
+      if (logoUrl) {
+        logoImg.src = logoUrl;
+        logoImg.alt = displayName + " Logo";
+        logoWrapper.classList.add("has-logo");
+      } else {
+        logoImg.removeAttribute("src");
+        logoWrapper.classList.remove("has-logo");
+      }
+    }
+
+    // Standort
+    const locParts = [];
+    if (nutzerData.plz) locParts.push(nutzerData.plz);
+    if (nutzerData.ort) locParts.push(nutzerData.ort);
+    const location = locParts.join(" ") || nutzerData.standort || "";
+    const locationEl = section.querySelector('[data-profile-field="location"]');
+    if (locationEl) {
+      locationEl.textContent = location || "Ort noch nicht hinterlegt";
+    }
+
+    // Rolle / Kontotyp
+    const roleRaw = (nutzerData.role || nutzerData.rolle || "privat").toLowerCase();
+    const isHaendler =
+      roleRaw.includes("händ") ||
+      roleRaw.includes("haend") ||
+      roleRaw === "haendler" ||
+      roleRaw === "haendlerkonto";
+    const roleEl = section.querySelector('[data-profile-field="role"]');
+    if (roleEl) {
+      roleEl.textContent = isHaendler ? "Händlerkonto" : "Privatkonto";
+    }
+
+    // Mitglied seit
+    const memberEl = section.querySelector('[data-profile-field="memberSince"]');
+    const createdRaw =
+      nutzerData.erstelltAm || nutzerData.createdAt || nutzerData.created || null;
+    if (memberEl && createdRaw) {
+      const d = new Date(createdRaw);
+      if (!isNaN(d.getTime())) {
+        memberEl.textContent = `Mitglied seit ${d.getFullYear()}`;
+      }
+    }
+
+    // Adresse
+    const addressEl = section.querySelector('[data-profile-field="address"]');
+    if (addressEl) {
+      const lines = [];
+      const streetParts = [];
+      if (nutzerData.strasse) streetParts.push(nutzerData.strasse);
+      if (nutzerData.hausnummer) streetParts.push(nutzerData.hausnummer);
+      if (streetParts.length) lines.push(streetParts.join(" "));
+      const plzOrt = [];
+      if (nutzerData.plz) plzOrt.push(nutzerData.plz);
+      if (nutzerData.ort) plzOrt.push(nutzerData.ort);
+      if (plzOrt.length) lines.push(plzOrt.join(" "));
+      addressEl.textContent =
+        lines.length ? lines.join(", ") : "Noch keine Adresse hinterlegt";
+    }
+
+    // Telefon
+    const phoneEl = section.querySelector('[data-profile-field="phone"]');
+    if (phoneEl) {
+      phoneEl.textContent = nutzerData.telefon || "–";
+    }
+
+    // E-Mail
+    const emailEl = section.querySelector('[data-profile-field="email"]');
+    if (emailEl) {
+      const email = nutzerData.email || "";
+      emailEl.textContent = "";
+      if (email) {
+        const a = document.createElement("a");
+        a.href = `mailto:${email}`;
+        a.textContent = email;
+        emailEl.appendChild(a);
+      } else {
+        emailEl.textContent = "–";
+      }
+    }
+
+    // Website
+    const websiteEl = section.querySelector('[data-profile-field="website"]');
+    if (websiteEl) {
+      const url = nutzerData.website || nutzerData.webseite || "";
+      websiteEl.textContent = "";
+      if (url) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = url.replace(/^https?:\/\//i, "");
+        websiteEl.appendChild(a);
+      } else {
+        websiteEl.textContent = "–";
+      }
+    }
+
+    // Gründungsjahr
+    const foundedEl = section.querySelector('[data-profile-field="founded"]');
+    if (foundedEl) {
+      foundedEl.textContent =
+        nutzerData.gruendungsjahr || nutzerData["gründungsjahr"] || "–";
+    }
+
+    // Öffnungszeiten (einfach als Text)
+    const openingEl = section.querySelector('[data-profile-field="openingHours"]');
+    if (openingEl) {
+      const text =
+        nutzerData.oeffnungszeiten || nutzerData["öffnungszeiten"] || "";
+      openingEl.textContent = text || "Noch keine Öffnungszeiten hinterlegt.";
+    }
+
+    // Stats
+    const activeCount = Array.isArray(online) ? online.length : 0;
+    const draftCount = Array.isArray(drafts) ? drafts.length : 0;
+    const totalCount = activeCount + draftCount;
+
+    const activeEl = section.querySelector('[data-stat="active"]');
+    const draftsEl = section.querySelector('[data-stat="drafts"]');
+    const totalEl = section.querySelector('[data-stat="total"]');
+
+    if (activeEl) activeEl.textContent = String(activeCount);
+    if (draftsEl) draftsEl.textContent = String(draftCount);
+    if (totalEl) totalEl.textContent = String(totalCount);
+  }
+
   const carList = document.querySelector(".car-list");
 
   try {
     // Login prüfen
-    const nutzerRes  = await fetch("/getNutzerInfo", { credentials: "include" });
+    const nutzerRes = await fetch("/getNutzerInfo", { credentials: "include" });
     const nutzerData = await nutzerRes.json();
     if (!nutzerData.eingeloggt || !nutzerData.nutzerId) {
       alert("❌ Du bist nicht eingeloggt. Bitte logge dich zuerst ein.");
@@ -449,12 +629,15 @@ function getSellerData(inserat, nutzerData) {
 
     // Beide Quellen parallel laden
     const [draftRes, onlineRes] = await Promise.all([
-      fetch("/getVehicleData",   { credentials: "include" }), // Entwürfe (fahrzeugeEntwurf)
-      fetch("/meine-inserate",   { credentials: "include" })  // Online (inserate)
+      fetch("/getVehicleData", { credentials: "include" }), // Entwürfe (fahrzeugeEntwurf)
+      fetch("/meine-inserate", { credentials: "include" })  // Online (inserate)
     ]);
 
     const drafts = await draftRes.json();   // Array
     const online = await onlineRes.json();  // Array
+
+    // 👉 Profil-Bereich befüllen
+    renderProfileSection(nutzerData, drafts, online);
 
     // Vereinheitlichen + Status mitgeben
     const items = [
@@ -469,35 +652,27 @@ function getSellerData(inserat, nutzerData) {
 
     carList.innerHTML = "";
 
-  
-
-
-
-
-
-
-
     items.forEach((inserat) => {
       const wrapper = document.createElement("div");
       wrapper.className = "car-card-wrapper";
-    
+
       const realId = extractMongoId(inserat);
       wrapper.dataset.id = realId || "";                // echte MongoID
       wrapper.dataset.status = inserat.__status || "";  // "draft" | "online"
-    
+
       const isOnline = wrapper.dataset.status === "online";
       const publishBtnLabel = isOnline ? "Online" : "Veröffentlichen";
       const publishBtnAttrs = isOnline
         ? 'disabled class="publish-btn published"'
         : 'class="publish-btn"';
-    
+
       wrapper.innerHTML = `
         <div class="car-card-actions mobile-only">
           <button ${publishBtnAttrs}><i class="fas fa-globe"></i> ${publishBtnLabel}</button>
           <button class="edit-btn"><i class="fas fa-pen"></i> Bearbeiten</button>
           <button class="remove-saved-btn"><i class="fas fa-trash"></i> Entfernen</button>
         </div>
-    
+
         <div class="car-card horizontal">
           <div class="car-card-media">
             <div class="media-container">
@@ -508,7 +683,7 @@ function getSellerData(inserat, nutzerData) {
               <button class="media-arrow right"><i class="fas fa-chevron-right"></i></button>
             </div>
           </div>
-    
+
           <div class="car-details">
             <div class="car-top-row">
               <h2 class="car-title">${inserat.titel || "Titel fehlt"}</h2>
@@ -519,9 +694,9 @@ function getSellerData(inserat, nutzerData) {
                 "Preis fehlt"
               }</p>
             </div>
-    
+
             <p class="car-subtitle">${inserat.verkauf_kurzbeschreibung || "Besondere Ausstattung"}</p>
-    
+
             <div class="car-info-grid">
               <p><i class="fas fa-road"></i> ${inserat.verkauf_kilometer ?? "—"} km</p>
               <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.verkauf_erstzulassung || "—"}</p>
@@ -530,19 +705,19 @@ function getSellerData(inserat, nutzerData) {
               <p><i class="fas fa-gears"></i> ${inserat.verkauf_getriebe || "—"}</p>
               <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "—"} l/100 km</p>
             </div>
-    
+
             <!-- Verkäuferbereich -->
             <div class="dealer-info"></div>
           </div>
         </div>
-    
+
         <div class="car-card-actions desktop-only">
           <button ${publishBtnAttrs}><i class="fas fa-globe"></i> ${publishBtnLabel}</button>
           <button class="edit-btn"><i class="fas fa-pen"></i> Bearbeiten</button>
           <button class="remove-saved-btn"><i class="fas fa-trash"></i> Entfernen</button>
         </div>
       `;
-    
+
       // Karte klickbar (außer Buttons/Arrows)
       wrapper.addEventListener("click", (e) => {
         const isActionButton = e.target.closest(".car-card-actions button");
@@ -551,95 +726,94 @@ function getSellerData(inserat, nutzerData) {
         localStorage.setItem("ausgewaehltesInserat", JSON.stringify(inserat));
         window.location.href = "anzeige.html";
       });
-    
+
       carList.appendChild(wrapper);
       initializeSlider(wrapper);
-    
-   // --- Verkäuferzeile (Logo + Name + Standort) ---
-const dealerInfoEl = wrapper.querySelector(".dealer-info");
 
-// 1) Typ bestimmen (robust)
-const rawType = String(
-  inserat?.seller?.type ||
-  inserat?.verkauf_verkaeufer ||
-  ""
-).toLowerCase();
+      // --- Verkäuferzeile (Logo + Name + Standort) ---
+      const dealerInfoEl = wrapper.querySelector(".dealer-info");
 
-const isHaendler =
-  rawType === "haendler" ||
-  rawType === "händler" ||
-  rawType.includes("händ") ||
-  rawType.includes("haend");
+      // 1) Typ bestimmen (robust)
+      const rawType = String(
+        inserat?.seller?.type ||
+        inserat?.verkauf_verkaeufer ||
+        ""
+      ).toLowerCase();
 
-// 2) Name
-const sellerName =
-  inserat?.seller?.name ||
-  inserat?.verkauf_name ||
-  nutzerData?.firma ||
-  nutzerData?.name ||
-  (isHaendler ? "Händler" : "Privatanbieter");
+      const isHaendler =
+        rawType === "haendler" ||
+        rawType === "händler" ||
+        rawType.includes("händ") ||
+        rawType.includes("haend");
 
-// 3) Standort
-const sellerLocation =
-  inserat?.standort ||
-  [inserat?.plz, inserat?.ort].filter(Boolean).join(" ") ||
-  "Standort nicht angegeben";
+      // 2) Name
+      const sellerName =
+        inserat?.seller?.name ||
+        inserat?.verkauf_name ||
+        nutzerData?.firma ||
+        nutzerData?.name ||
+        (isHaendler ? "Händler" : "Privatanbieter");
 
-// 4) Fallback-Regel für Logo:
-//    - wenn Inserat einen Seller-Snapshot hat → den nutzen
-//    - sonst, wenn es MEIN Inserat ist → mein Profil-Logo nutzen
-const belongsToMe = String(inserat?.verkaeuferId || "") === String(nutzerData?.nutzerId || "");
-const sellerLogo =
-  (typeof inserat?.seller?.logoUrl === "string" && inserat.seller.logoUrl.trim()) ||
-  (belongsToMe ? (nutzerData?.logoUrl || "") : "");
+      // 3) Standort
+      const sellerLocation =
+        inserat?.standort ||
+        [inserat?.plz, inserat?.ort].filter(Boolean).join(" ") ||
+        "Standort nicht angegeben";
 
-  dealerInfoEl.innerHTML = `
-  <div class="dealer-row">
-    <div class="dealer-avatar">
-      <img alt="${sellerName} Logo" decoding="async" style="display:block">
-      <span class="dealer-initials">${sellerInitials(sellerName)}</span>
-    </div>
-    <div class="dealer-meta">
-      <div class="dealer-name">${sellerName}</div>
-      <div class="dealer-location">${sellerLocation}</div>
-    </div>
-  </div>
-`;
+      // 4) Fallback-Regel für Logo:
+      //    - wenn Inserat einen Seller-Snapshot hat → den nutzen
+      //    - sonst, wenn es MEIN Inserat ist → mein Profil-Logo nutzen
+      const belongsToMe = String(inserat?.verkaeuferId || "") === String(nutzerData?.nutzerId || "");
+      const sellerLogo =
+        (typeof inserat?.seller?.logoUrl === "string" && inserat.seller.logoUrl.trim()) ||
+        (belongsToMe ? (nutzerData?.logoUrl || "") : "");
 
-const avatar = dealerInfoEl.querySelector(".dealer-avatar");
-const img    = dealerInfoEl.querySelector(".dealer-avatar img");
+      dealerInfoEl.innerHTML = `
+        <div class="dealer-row">
+          <div class="dealer-avatar">
+            <img alt="${sellerName} Logo" decoding="async" style="display:block">
+            <span class="dealer-initials">${sellerInitials(sellerName)}</span>
+          </div>
+          <div class="dealer-meta">
+            <div class="dealer-name">${sellerName}</div>
+            <div class="dealer-location">${sellerLocation}</div>
+          </div>
+        </div>
+      `;
 
-// Default: Initialen
-avatar.classList.remove("has-logo");
-img.removeAttribute("src");
+      const avatar = dealerInfoEl.querySelector(".dealer-avatar");
+      const img    = dealerInfoEl.querySelector(".dealer-avatar img");
 
-// Debug
-console.debug("INSERAT", extractMongoId(inserat), {
-  sellerName, sellerLogo, sellerLocation, snapshot: inserat?.seller, nutzerLogo: nutzerData?.logoUrl
-});
+      // Default: Initialen
+      avatar.classList.remove("has-logo");
+      img.removeAttribute("src");
 
-if (sellerLogo) {
-  // Falls Browser lazy blockt, lade „eager“
-  try { img.loading = "eager"; } catch {}
+      // Debug
+      console.debug("INSERAT", extractMongoId(inserat), {
+        sellerName, sellerLogo, sellerLocation, snapshot: inserat?.seller, nutzerLogo: nutzerData?.logoUrl
+      });
 
-  img.addEventListener("load", () => {
-    if (img.naturalWidth > 0) avatar.classList.add("has-logo");
-  }, { once: true });
+      if (sellerLogo) {
+        // Falls Browser lazy blockt, lade „eager“
+        try { img.loading = "eager"; } catch {}
 
-  img.addEventListener("error", () => {
-    avatar.classList.remove("has-logo");
-    img.removeAttribute("src");
-    console.warn("Logo konnte nicht geladen werden:", sellerLogo);
-  }, { once: true });
+        img.addEventListener("load", () => {
+          if (img.naturalWidth > 0) avatar.classList.add("has-logo");
+        }, { once: true });
 
-  img.src = sellerLogo;
+        img.addEventListener("error", () => {
+          avatar.classList.remove("has-logo");
+          img.removeAttribute("src");
+          console.warn("Logo konnte nicht geladen werden:", sellerLogo);
+        }, { once: true });
 
-  // Cache-Sofortfall
-  if (img.complete && img.naturalWidth > 0) {
-    avatar.classList.add("has-logo");
-  }
-}
+        img.src = sellerLogo;
 
+        // Cache-Sofortfall
+        if (img.complete && img.naturalWidth > 0) {
+          avatar.classList.add("has-logo");
+        }
+      }
 
       // Hochformat-Erkennung
       wrapper.querySelectorAll(".slide").forEach((media) => {
@@ -653,7 +827,7 @@ if (sellerLogo) {
           });
         }
       });
-    
+
       // Entfernen (nur UI)
       wrapper.querySelectorAll(".remove-saved-btn").forEach((btn) => {
         btn.addEventListener("click", (e) => {
@@ -662,13 +836,12 @@ if (sellerLogo) {
         });
       });
     });
-    
-    
-    
-    } catch (error) {
-      console.error("Fehler beim Laden der Inserate:", error);
-    }
-  });
+
+  } catch (error) {
+    console.error("Fehler beim Laden der Inserate:", error);
+  }
+});
+
 
 // Slides erstellen (Bilder + Video)
 function generateSlides(inserat) {
