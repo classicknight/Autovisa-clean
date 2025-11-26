@@ -1736,3 +1736,41 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
     justify-content: flex-start;
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+.profile-info-row.is-editable dd,
+.profile-opening-wrapper.is-editable {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-edit-inline {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #6c7a86;
+  padding: 2px;
+}
+
+.profile-edit-inline i {
+  font-size: 14px;
+}
+
+.profile-info-row.is-editing .profile-info-value[contenteditable="true"],
+.profile-opening-wrapper.is-editing .profile-opening-text[contenteditable="true"] {
+  outline: 2px solid #00b8a9;
+  border-radius: 6px;
+  padding: 2px 4px;
+  background: rgba(0, 184, 169, 0.04);
+}

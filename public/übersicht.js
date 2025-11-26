@@ -349,6 +349,102 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("hashchange", applyHash);
   applyHash(); // initial
 
+
+    /* =========================
+     Profil: Inline bearbeiten
+     ========================= */
+     function enableProfileInlineEditing() {
+      const editableGroups = document.querySelectorAll(
+        ".profile-info-row.is-editable, .profile-opening-wrapper.is-editable"
+      );
+  
+      editableGroups.forEach((group) => {
+        const valueEl =
+          group.querySelector(".profile-info-value") ||
+          group.querySelector(".profile-opening-text");
+        const btn = group.querySelector(".profile-edit-inline");
+        if (!valueEl || !btn) return;
+  
+        const fieldKey = valueEl.dataset.profileField; // z.B. "address", "phone", "website", "openingHours"
+        if (!fieldKey) return;
+  
+        function enterEditMode() {
+          group.classList.add("is-editing");
+          valueEl.setAttribute("contenteditable", "true");
+  
+          // Cursor ans Ende setzen
+          const range = document.createRange();
+          range.selectNodeContents(valueEl);
+          range.collapse(false);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+  
+          valueEl.focus();
+        }
+  
+        function exitEditMode(save) {
+          group.classList.remove("is-editing");
+          valueEl.setAttribute("contenteditable", "false");
+          if (save) {
+            const newValue = valueEl.textContent.trim();
+            saveProfileField(fieldKey, newValue);
+          }
+        }
+  
+        // Stift-Button
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const isEditing = group.classList.contains("is-editing");
+          if (!isEditing) {
+            enterEditMode();
+          } else {
+            exitEditMode(true);
+          }
+        });
+  
+        // Enter = speichern, Esc = abbrechen
+        valueEl.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            exitEditMode(true);
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            exitEditMode(false);
+          }
+        });
+  
+        // Blur = speichern
+        valueEl.addEventListener("blur", () => {
+          if (group.classList.contains("is-editing")) {
+            exitEditMode(true);
+          }
+        });
+      });
+    }
+  
+    async function saveProfileField(field, value) {
+      // TODO: Backend-Route anpassen, wenn du es wirklich in der DB speichern willst
+      try {
+        const res = await fetch("/profil/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ field, value }),
+        });
+  
+        if (!res.ok) {
+          const msg = await res.text();
+          console.error("Profil-Update fehlgeschlagen:", msg);
+        }
+      } catch (err) {
+        console.error("Netzwerkfehler beim Profil-Update:", err);
+      }
+    }
+  
+    // direkt beim Laden aktivieren
+    enableProfileInlineEditing();
+  
   /* =========================
      Kleinkram
      ========================= */
@@ -470,150 +566,165 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (typeof doc.id === "string") return doc.id;
     return null;
   }
+// 👉 Profil-Bereich füllen
+function renderProfileSection(nutzerData, drafts, online) {
+  const section = document.querySelector(".profile-section");
+  if (!section || !nutzerData) return;
 
-  // 👉 NEU: Profil-Bereich füllen
-  function renderProfileSection(nutzerData, drafts, online) {
-    const section = document.querySelector(".profile-section");
-    if (!section || !nutzerData) return;
+  const displayName = nutzerData.firma || nutzerData.name || "Dein Autohaus";
+  const initials = sellerInitials(displayName);
 
-    const displayName = nutzerData.firma || nutzerData.name || "Dein Autohaus";
-    const initials = sellerInitials(displayName);
+  const nameEl = section.querySelector(".profile-name");
+  const initialsEl = section.querySelector(".profile-initials");
+  if (nameEl) nameEl.textContent = displayName;
+  if (initialsEl) initialsEl.textContent = initials;
 
-    const nameEl = section.querySelector(".profile-name");
-    const initialsEl = section.querySelector(".profile-initials");
-    if (nameEl) nameEl.textContent = displayName;
-    if (initialsEl) initialsEl.textContent = initials;
+  const logoWrapper = section.querySelector(".profile-logo-wrapper");
+  const logoImg = section.querySelector(".profile-logo");
+  const logoUrl = nutzerData.logoUrl || "";
 
-    const logoWrapper = section.querySelector(".profile-logo-wrapper");
-    const logoImg = section.querySelector(".profile-logo");
-    const logoUrl = nutzerData.logoUrl || "";
-
-    if (logoImg && logoWrapper) {
-      if (logoUrl) {
-        logoImg.src = logoUrl;
-        logoImg.alt = displayName + " Logo";
-        logoWrapper.classList.add("has-logo");
-      } else {
-        logoImg.removeAttribute("src");
-        logoWrapper.classList.remove("has-logo");
-      }
+  if (logoImg && logoWrapper) {
+    if (logoUrl) {
+      logoImg.src = logoUrl;
+      logoImg.alt = displayName + " Logo";
+      logoWrapper.classList.add("has-logo");
+    } else {
+      logoImg.removeAttribute("src");
+      logoWrapper.classList.remove("has-logo");
     }
-
-    // Standort
-    const locParts = [];
-    if (nutzerData.plz) locParts.push(nutzerData.plz);
-    if (nutzerData.ort) locParts.push(nutzerData.ort);
-    const location = locParts.join(" ") || nutzerData.standort || "";
-    const locationEl = section.querySelector('[data-profile-field="location"]');
-    if (locationEl) {
-      locationEl.textContent = location || "Ort noch nicht hinterlegt";
-    }
-
-    // Rolle / Kontotyp
-    const roleRaw = (nutzerData.role || nutzerData.rolle || "privat").toLowerCase();
-    const isHaendler =
-      roleRaw.includes("händ") ||
-      roleRaw.includes("haend") ||
-      roleRaw === "haendler" ||
-      roleRaw === "haendlerkonto";
-    const roleEl = section.querySelector('[data-profile-field="role"]');
-    if (roleEl) {
-      roleEl.textContent = isHaendler ? "Händlerkonto" : "Privatkonto";
-    }
-
-    // Mitglied seit
-    const memberEl = section.querySelector('[data-profile-field="memberSince"]');
-    const createdRaw =
-      nutzerData.erstelltAm || nutzerData.createdAt || nutzerData.created || null;
-    if (memberEl && createdRaw) {
-      const d = new Date(createdRaw);
-      if (!isNaN(d.getTime())) {
-        memberEl.textContent = `Mitglied seit ${d.getFullYear()}`;
-      }
-    }
-
-    // Adresse
-    const addressEl = section.querySelector('[data-profile-field="address"]');
-    if (addressEl) {
-      const lines = [];
-      const streetParts = [];
-      if (nutzerData.strasse) streetParts.push(nutzerData.strasse);
-      if (nutzerData.hausnummer) streetParts.push(nutzerData.hausnummer);
-      if (streetParts.length) lines.push(streetParts.join(" "));
-      const plzOrt = [];
-      if (nutzerData.plz) plzOrt.push(nutzerData.plz);
-      if (nutzerData.ort) plzOrt.push(nutzerData.ort);
-      if (plzOrt.length) lines.push(plzOrt.join(" "));
-      addressEl.textContent =
-        lines.length ? lines.join(", ") : "Noch keine Adresse hinterlegt";
-    }
-
-    // Telefon
-    const phoneEl = section.querySelector('[data-profile-field="phone"]');
-    if (phoneEl) {
-      phoneEl.textContent = nutzerData.telefon || "–";
-    }
-
-    // E-Mail
-    const emailEl = section.querySelector('[data-profile-field="email"]');
-    if (emailEl) {
-      const email = nutzerData.email || "";
-      emailEl.textContent = "";
-      if (email) {
-        const a = document.createElement("a");
-        a.href = `mailto:${email}`;
-        a.textContent = email;
-        emailEl.appendChild(a);
-      } else {
-        emailEl.textContent = "–";
-      }
-    }
-
-    // Website
-    const websiteEl = section.querySelector('[data-profile-field="website"]');
-    if (websiteEl) {
-      const url = nutzerData.website || nutzerData.webseite || "";
-      websiteEl.textContent = "";
-      if (url) {
-        const a = document.createElement("a");
-        a.href = url;
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        a.textContent = url.replace(/^https?:\/\//i, "");
-        websiteEl.appendChild(a);
-      } else {
-        websiteEl.textContent = "–";
-      }
-    }
-
-    // Gründungsjahr
-    const foundedEl = section.querySelector('[data-profile-field="founded"]');
-    if (foundedEl) {
-      foundedEl.textContent =
-        nutzerData.gruendungsjahr || nutzerData["gründungsjahr"] || "–";
-    }
-
-    // Öffnungszeiten (einfach als Text)
-    const openingEl = section.querySelector('[data-profile-field="openingHours"]');
-    if (openingEl) {
-      const text =
-        nutzerData.oeffnungszeiten || nutzerData["öffnungszeiten"] || "";
-      openingEl.textContent = text || "Noch keine Öffnungszeiten hinterlegt.";
-    }
-
-    // Stats
-    const activeCount = Array.isArray(online) ? online.length : 0;
-    const draftCount = Array.isArray(drafts) ? drafts.length : 0;
-    const totalCount = activeCount + draftCount;
-
-    const activeEl = section.querySelector('[data-stat="active"]');
-    const draftsEl = section.querySelector('[data-stat="drafts"]');
-    const totalEl = section.querySelector('[data-stat="total"]');
-
-    if (activeEl) activeEl.textContent = String(activeCount);
-    if (draftsEl) draftsEl.textContent = String(draftCount);
-    if (totalEl) totalEl.textContent = String(totalCount);
   }
+
+  // Standort (kleiner Text unter dem Namen)
+  const locParts = [];
+  if (nutzerData.plz) locParts.push(nutzerData.plz);
+  if (nutzerData.ort) locParts.push(nutzerData.ort);
+  const location = locParts.join(" ") || nutzerData.standort || "";
+  const locationEl = section.querySelector('[data-profile-field="location"]');
+  if (locationEl) {
+    locationEl.textContent = location || "Ort noch nicht hinterlegt";
+  }
+
+  // Rolle / Kontotyp
+  const roleRaw = (nutzerData.role || nutzerData.rolle || "privat").toLowerCase();
+  const isHaendler =
+    roleRaw.includes("händ") ||
+    roleRaw.includes("haend") ||
+    roleRaw === "haendler" ||
+    roleRaw === "haendlerkonto";
+  const roleEl = section.querySelector('[data-profile-field="role"]');
+  if (roleEl) {
+    roleEl.textContent = isHaendler ? "Händlerkonto" : "Privatkonto";
+  }
+
+// Mitglied seit → „Bei Autovisa seit MM/JJJJ“
+const memberEl = section.querySelector('[data-profile-field="memberSince"]');
+const createdRaw =
+  nutzerData.erstelltAm || nutzerData.createdAt || nutzerData.created || null;
+
+if (memberEl && createdRaw) {
+  const d = new Date(createdRaw);
+  if (!isNaN(d.getTime())) {
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year  = d.getFullYear();
+    memberEl.textContent = `Bei Autovisa seit ${month}/${year}`;
+  } else {
+    memberEl.textContent = "";
+  }
+}
+
+
+
+  // Adresse (Straße, PLZ/Ort, Fallback auf "adresse")
+  const addressEl = section.querySelector('[data-profile-field="address"]');
+  if (addressEl) {
+    const lines = [];
+    const streetParts = [];
+    if (nutzerData.strasse) streetParts.push(nutzerData.strasse);
+    if (nutzerData.hausnummer) streetParts.push(nutzerData.hausnummer);
+    if (streetParts.length) lines.push(streetParts.join(" "));
+    const plzOrt = [];
+    if (nutzerData.plz) plzOrt.push(nutzerData.plz);
+    if (nutzerData.ort) plzOrt.push(nutzerData.ort);
+    if (plzOrt.length) lines.push(plzOrt.join(" "));
+    if (!lines.length && nutzerData.adresse) lines.push(nutzerData.adresse);
+
+    addressEl.textContent =
+      lines.length ? lines.join(", ") : "Noch keine Adresse hinterlegt";
+  }
+
+  // Telefon (etwas toleranter bei Feldnamen)
+  const phoneEl = section.querySelector('[data-profile-field="phone"]');
+  if (phoneEl) {
+    const phone =
+      nutzerData.telefon ||
+      nutzerData.phone ||
+      nutzerData.tel ||
+      nutzerData.telefonnummer ||
+      "";
+    phoneEl.textContent = phone || "–";
+  }
+
+  // E-Mail
+  const emailEl = section.querySelector('[data-profile-field="email"]');
+  if (emailEl) {
+    const email = nutzerData.email || nutzerData.mail || "";
+    emailEl.textContent = "";
+    if (email) {
+      const a = document.createElement("a");
+      a.href = `mailto:${email}`;
+      a.textContent = email;
+      emailEl.appendChild(a);
+    } else {
+      emailEl.textContent = "–";
+    }
+  }
+
+  // Website
+  const websiteEl = section.querySelector('[data-profile-field="website"]');
+  if (websiteEl) {
+    const url =
+      nutzerData.website ||
+      nutzerData.webseite ||
+      nutzerData.homepage ||
+      nutzerData.url ||
+      "";
+    websiteEl.textContent = "";
+    if (url) {
+      const a = document.createElement("a");
+      a.href = url.startsWith("http") ? url : `https://${url}`;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.textContent = url.replace(/^https?:\/\//i, "");
+      websiteEl.appendChild(a);
+    } else {
+      websiteEl.textContent = "–";
+    }
+  }
+
+  // Öffnungszeiten (einfach als Text)
+  const openingEl = section.querySelector('[data-profile-field="openingHours"]');
+  if (openingEl) {
+    const text =
+      nutzerData.oeffnungszeiten ||
+      nutzerData["öffnungszeiten"] ||
+      "";
+    openingEl.textContent =
+      text || "Noch keine Öffnungszeiten hinterlegt.";
+  }
+
+  // Stats
+  const activeCount = Array.isArray(online) ? online.length : 0;
+  const draftCount  = Array.isArray(drafts) ? drafts.length : 0;
+  const totalCount  = activeCount + draftCount;
+
+  const activeEl = section.querySelector('[data-stat="active"]');
+  const draftsEl = section.querySelector('[data-stat="drafts"]');
+  const totalEl  = section.querySelector('[data-stat="total"]');
+
+  if (activeEl) activeEl.textContent = String(activeCount);
+  if (draftsEl) draftsEl.textContent = String(draftCount);
+  if (totalEl)  totalEl.textContent  = String(totalCount);
+}
 
   const carList = document.querySelector(".car-list");
 

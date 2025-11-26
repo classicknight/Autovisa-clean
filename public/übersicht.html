@@ -157,51 +157,93 @@
             <a href="händler.html" class="profile-btn secondary">
               <i class="fas fa-eye"></i> Öffentliches Profil
             </a>
-            <a href="händlerweb.html" class="profile-btn">
+            <a href="#profil-infos" class="profile-btn">
               <i class="fas fa-pen"></i> Profil bearbeiten
             </a>
           </div>
-        </div>
+          
   
-        <!-- Body: Infos + Öffnungszeiten -->
-        <div class="profile-body">
-          <div class="profile-column">
-            <h3 class="profile-subtitle">
-              <i class="fas fa-id-card"></i> Autohaus-Infos
-            </h3>
-            <dl class="profile-info-list">
-              <div class="profile-info-row">
-                <dt>Adresse</dt>
-                <dd data-profile-field="address">Noch keine Adresse hinterlegt</dd>
-              </div>
-              <div class="profile-info-row">
-                <dt>Telefon</dt>
-                <dd data-profile-field="phone">–</dd>
-              </div>
-              <div class="profile-info-row">
-                <dt>E-Mail</dt>
-                <dd data-profile-field="email">–</dd>
-              </div>
-              <div class="profile-info-row">
-                <dt>Website</dt>
-                <dd data-profile-field="website">–</dd>
-              </div>
-              <div class="profile-info-row">
-                <dt>Gründungsjahr</dt>
-                <dd data-profile-field="founded">–</dd>
-              </div>
-            </dl>
-          </div>
-  
-          <div class="profile-column">
-            <h3 class="profile-subtitle">
-              <i class="fas fa-clock"></i> Öffnungszeiten
-            </h3>
-            <p class="profile-opening-text" data-profile-field="openingHours">
-              Noch keine Öffnungszeiten hinterlegt.
-            </p>
-          </div>
-        </div>
+     <!-- Body: Infos + Öffnungszeiten -->
+<div class="profile-body">
+  <div class="profile-column">
+    <h3 class="profile-subtitle">
+      <i class="fas fa-id-card"></i> Autohaus-Infos
+    </h3>
+    <dl class="profile-info-list">
+      <!-- Adresse -->
+      <div class="profile-info-row is-editable">
+        <dt>Adresse</dt>
+        <dd>
+          <span class="profile-info-value"
+                data-profile-field="address">
+            Noch keine Adresse hinterlegt
+          </span>
+          <button type="button"
+                  class="profile-edit-inline"
+                  aria-label="Adresse bearbeiten">
+            <i class="fas fa-pen"></i>
+          </button>
+        </dd>
+      </div>
+
+      <!-- Telefon -->
+      <div class="profile-info-row is-editable">
+        <dt>Telefon</dt>
+        <dd>
+          <span class="profile-info-value"
+                data-profile-field="phone">–</span>
+          <button type="button"
+                  class="profile-edit-inline"
+                  aria-label="Telefon bearbeiten">
+            <i class="fas fa-pen"></i>
+          </button>
+        </dd>
+      </div>
+
+      <!-- E-Mail (nur anzeigen, nicht bearbeiten) -->
+      <div class="profile-info-row">
+        <dt>E-Mail</dt>
+        <dd>
+          <span class="profile-info-value"
+                data-profile-field="email">–</span>
+          <!-- kein Bearbeiten-Button, wie gewünscht -->
+        </dd>
+      </div>
+
+      <!-- Website -->
+      <div class="profile-info-row is-editable">
+        <dt>Website</dt>
+        <dd>
+          <span class="profile-info-value"
+                data-profile-field="website">–</span>
+          <button type="button"
+                  class="profile-edit-inline"
+                  aria-label="Website bearbeiten">
+            <i class="fas fa-pen"></i>
+          </button>
+        </dd>
+      </div>
+    </dl>
+  </div>
+
+  <div class="profile-column">
+    <h3 class="profile-subtitle">
+      <i class="fas fa-clock"></i> Öffnungszeiten
+    </h3>
+    <div class="profile-opening-wrapper is-editable">
+      <p class="profile-opening-text"
+         data-profile-field="openingHours">
+        Noch keine Öffnungszeiten hinterlegt.
+      </p>
+      <button type="button"
+              class="profile-edit-inline"
+              aria-label="Öffnungszeiten bearbeiten">
+        <i class="fas fa-pen"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
   
         <!-- Stats: Aktive Inserate usw. -->
         <div class="profile-stats">
