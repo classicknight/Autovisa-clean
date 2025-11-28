@@ -1243,6 +1243,56 @@ app.get("/getNutzerInfo", async (req, res) => {
 });
 
 
+// Profil-Felder (Adresse, Telefon, Website, Öffnungszeiten) speichern
+app.post("/profil/update", async (req, res) => {
+  try {
+    const sess = decodeSession(req.cookies.session);
+    if (!sess?.id) {
+      return res.status(401).json({ error: "Nicht eingeloggt." });
+    }
+
+    const { field, value } = req.body || {};
+    if (!field) {
+      return res.status(400).json({ error: "Kein Feld angegeben." });
+    }
+
+    const v = (value ?? "").toString().trim();
+    const update = {};
+
+    switch (field) {
+      case "address":
+        // freie Textadresse – getrennte Felder bleiben unangetastet
+        update.adresse = v;
+        break;
+      case "phone":
+        update.telefon = v;
+        break;
+      case "website":
+        update.website = v;
+        break;
+      case "openingHours":
+        // genau hier landen die bearbeiteten Öffnungszeiten (inkl. Mo–So-Template)
+        update.oeffnungszeiten = v;
+        break;
+      default:
+        return res
+          .status(400)
+          .json({ error: "Dieses Feld darf nicht aktualisiert werden." });
+    }
+
+    await db.collection("nutzer").updateOne(
+      { id: sess.id },
+      { $set: update }
+    );
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Fehler bei /profil/update:", err);
+    return res.status(500).json({ error: "Interner Serverfehler." });
+  }
+});
+
+
 
 
 const uploadLogo = multer({

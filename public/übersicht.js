@@ -714,16 +714,27 @@ function renderProfileSection(nutzerData, drafts, online) {
     }
   }
 
-  // Öffnungszeiten (nur sinnvoll für Händler, aber Feld kann leer sein)
-  const openingEl = section.querySelector('[data-profile-field="openingHours"]');
-  if (openingEl) {
-    const text =
-      nutzerData.oeffnungszeiten ||
-      nutzerData["öffnungszeiten"] ||
-      "";
-    openingEl.textContent =
-      text || "Noch keine Öffnungszeiten hinterlegt.";
-  }
+// Öffnungszeiten (nur sinnvoll für Händler, aber Feld kann leer sein)
+const openingEl = section.querySelector('[data-profile-field="openingHours"]');
+if (openingEl) {
+  const text =
+    nutzerData.oeffnungszeiten ||
+    nutzerData["öffnungszeiten"] ||
+    "";
+
+  // Standard-Template, wenn noch nichts in der DB steht
+  const template =
+    "Montag: \n" +
+    "Dienstag: \n" +
+    "Mittwoch: \n" +
+    "Donnerstag: \n" +
+    "Freitag: \n" +
+    "Samstag: \n" +
+    "Sonntag: ";
+
+  openingEl.textContent = text || template;
+}
+
 
   // Profil-Body: für Privat optional ausblenden
   const profileBody = section.querySelector(".profile-body");
