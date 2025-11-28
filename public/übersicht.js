@@ -571,14 +571,17 @@ function renderProfileSection(nutzerData, drafts, online) {
   const section = document.querySelector(".profile-section");
   if (!section || !nutzerData) return;
 
-  // Rolle erkennen
+  // Rolle erkennen (Server liefert "rolle" + optional isHaendler)
   const roleRaw = (nutzerData.role || nutzerData.rolle || "privat").toLowerCase();
   const isHaendler =
-    roleRaw.includes("händ") ||
-    roleRaw.includes("haend") ||
-    roleRaw === "haendler" ||
-    roleRaw === "haendlerkonto";
+    typeof nutzerData.isHaendler === "boolean"
+      ? nutzerData.isHaendler
+      : roleRaw === "haendler" ||
+        roleRaw === "händler" ||
+        roleRaw.includes("haend") ||
+        roleRaw.includes("händ");
 
+  // CSS-Varianten setzen (steuert .haendler-only)
   section.classList.toggle("profile--haendler", isHaendler);
   section.classList.toggle("profile--privat", !isHaendler);
 
@@ -629,17 +632,19 @@ function renderProfileSection(nutzerData, drafts, online) {
   const createdRaw =
     nutzerData.erstelltAm || nutzerData.createdAt || nutzerData.created || null;
 
-  if (memberEl && createdRaw) {
-    const d = new Date(createdRaw);
-    if (!isNaN(d.getTime())) {
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const year = d.getFullYear();
-      memberEl.textContent = `Bei Autovisa seit ${month}/${year}`;
+  if (memberEl) {
+    if (createdRaw) {
+      const d = new Date(createdRaw);
+      if (!isNaN(d.getTime())) {
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const year  = d.getFullYear();
+        memberEl.textContent = `Bei Autovisa seit ${month}/${year}`;
+      } else {
+        memberEl.textContent = "";
+      }
     } else {
       memberEl.textContent = "";
     }
-  } else if (memberEl) {
-    memberEl.textContent = "";
   }
 
   // Händler-spezifische Felder: Adresse
@@ -709,7 +714,7 @@ function renderProfileSection(nutzerData, drafts, online) {
     }
   }
 
-  // Öffnungszeiten (Text)
+  // Öffnungszeiten (nur sinnvoll für Händler, aber Feld kann leer sein)
   const openingEl = section.querySelector('[data-profile-field="openingHours"]');
   if (openingEl) {
     const text =
@@ -720,12 +725,7 @@ function renderProfileSection(nutzerData, drafts, online) {
       text || "Noch keine Öffnungszeiten hinterlegt.";
   }
 
-  // Händler-spezifische Elemente ein-/ausblenden
-  section.querySelectorAll(".haendler-only").forEach(el => {
-    el.style.display = isHaendler ? "" : "none";
-  });
-
-  // Wenn Privat: kompletten Body ggf. simpler halten
+  // Profil-Body: für Privat optional ausblenden
   const profileBody = section.querySelector(".profile-body");
   if (profileBody) {
     profileBody.style.display = isHaendler ? "" : "none";
@@ -744,6 +744,7 @@ function renderProfileSection(nutzerData, drafts, online) {
   if (draftsEl) draftsEl.textContent = String(draftCount);
   if (totalEl)  totalEl.textContent  = String(totalCount);
 }
+
 
   const carList = document.querySelector(".car-list");
 

@@ -103,7 +103,6 @@
   </ul>
 </nav>
   
-
 <!-- Container -->
 <div class="container">
   <aside class="sidebar">
@@ -124,6 +123,7 @@
     </ul>
     <hr class="menu-divider">
   </aside>
+
   <main class="content">
 
     <!-- PROFIL-BEREICH (gemeinsam für Händler & Privat) -->
@@ -138,18 +138,18 @@
             </div>
             <div class="profile-text">
               <h2 class="profile-name" id="profil-heading">Dein Profil</h2>
-  
+
               <p class="profile-location" data-profile-field="location">
                 Ort noch nicht hinterlegt
               </p>
-  
+
               <div class="profile-meta">
                 <span class="profile-badge profile-role"
                       data-profile-field="role">
                   Konto
                 </span>
               </div>
-  
+
               <!-- eigene Zeile für „Bei Autovisa seit …“ -->
               <p class="profile-member-since"
                  data-profile-field="memberSince">
@@ -157,7 +157,7 @@
               </p>
             </div>
           </div>
-  
+
           <div class="profile-actions">
             <a href="händler.html" class="profile-btn secondary haendler-only">
               <i class="fas fa-eye"></i> Öffentliches Profil
@@ -167,7 +167,7 @@
             </a>
           </div>
         </div>
-  
+
         <!-- Body: Infos + Öffnungszeiten (nur für Händler sinnvoll) -->
         <div class="profile-body">
           <!-- Ziel-Anker für „Profil bearbeiten“ -->
@@ -192,7 +192,7 @@
                   </button>
                 </dd>
               </div>
-  
+
               <!-- Telefon -->
               <div class="profile-info-row is-editable">
                 <dt>Telefon</dt>
@@ -207,7 +207,7 @@
                   </button>
                 </dd>
               </div>
-  
+
               <!-- E-Mail (nur anzeigen) -->
               <div class="profile-info-row">
                 <dt>E-Mail</dt>
@@ -216,7 +216,7 @@
                         data-profile-field="email">–</span>
                 </dd>
               </div>
-  
+
               <!-- Website -->
               <div class="profile-info-row is-editable">
                 <dt>Website</dt>
@@ -233,7 +233,8 @@
               </div>
             </dl>
           </div>
-  
+
+          <!-- Öffnungszeiten nur für Händler sichtbar -->
           <div class="profile-column haendler-only">
             <h3 class="profile-subtitle">
               <i class="fas fa-clock"></i> Öffnungszeiten
@@ -252,7 +253,7 @@
             </div>
           </div>
         </div>
-  
+
         <!-- Stats: Aktive Inserate usw. -->
         <div class="profile-stats">
           <div class="profile-stat-tile">
@@ -270,197 +271,186 @@
         </div>
       </div>
     </section>
-  
-    <!-- danach kommt wie gehabt: Title + Tabs + car-list etc. -->
-  
-  </main>
-  
-  
+
     <!-- Titel des aktuellen Tabs -->
     <h1 class="title"></h1>
-  
+
     <!-- Meine Autos -->
-    <section class="car-list">
-      <!-- … dein bestehender Code bleibt … -->
-  
+    <section class="car-list" id="car-list">
+      <!-- … dein bestehender Code / JS-Output … -->
 
-    <div class="car-card-wrapper" data-id="inseratID"> <!-- optional: data-id -->
-  
-      <!-- Mobile-Ansicht: Buttons oben -->
-      <div class="car-card-actions mobile-only">
-        <button class="publish-btn"><i class="fas fa-globe"></i> Veröffentlichen</button>
-        <button class="edit-btn"><i class="fas fa-pen"></i> Bearbeiten</button>
-      </div>
-  
-      <!-- Hauptkarte -->
-      <div class="car-card horizontal">
-        <div class="car-card-media">
-          <div class="media-container">
-            <div class="slides">
-              <!-- JS fügt hier Bilder/Videos ein -->
+      <div class="car-card-wrapper" data-id="inseratID">
+        <!-- Mobile-Ansicht: Buttons oben -->
+        <div class="car-card-actions mobile-only">
+          <button class="publish-btn"><i class="fas fa-globe"></i> Veröffentlichen</button>
+          <button class="edit-btn"><i class="fas fa-pen"></i> Bearbeiten</button>
+        </div>
+
+        <!-- Hauptkarte -->
+        <div class="car-card horizontal">
+          <div class="car-card-media">
+            <div class="media-container">
+              <div class="slides">
+                <!-- JS fügt hier Bilder/Videos ein -->
+              </div>
+              <button class="media-arrow left"><i class="fas fa-chevron-left"></i></button>
+              <button class="media-arrow right"><i class="fas fa-chevron-right"></i></button>
             </div>
-            <button class="media-arrow left"><i class="fas fa-chevron-left"></i></button>
-            <button class="media-arrow right"><i class="fas fa-chevron-right"></i></button>
           </div>
-        </div>
-        <div class="car-details">
-          <div class="car-top-row">
-            <h2 class="car-title" id="car-title">Titel</h2>
-            <p class="car-price" id="car-price">Preis</p>
-          </div>
-          <p class="car-subtitle" id="car-subtitle">Untertitel</p>
-          <div class="car-info-grid">
-            <p><i class="fas fa-road"></i> <span id="car-km">KM</span></p>
-            <p><i class="fas fa-calendar-alt"></i> <span id="car-ez">EZ</span></p>
-            <p><i class="fas fa-gas-pump"></i> <span id="car-kraftstoff">Kraftstoff</span></p>
-            <p><i class="fas fa-gauge-high"></i> <span id="car-ps">Leistung</span></p>
-            <p><i class="fas fa-gears"></i> <span id="car-getriebe">Getriebe</span></p>
-            <p><i class="fas fa-tint"></i> <span id="car-verbrauch">Verbrauch</span></p>
-          </div>
-          <div class="dealer-info" id="dealer-info">
-            <!-- Verkäufername / Ort -->
-          </div>
-        </div>
-      </div>
-  
-      <!-- Desktop-Ansicht: Buttons rechts neben dem Inserat -->
-      <div class="car-card-actions desktop-only">
-        <button class="publish-btn"><i class="fas fa-globe"></i> Veröffentlichen</button>
-        <button class="edit-btn"><i class="fas fa-pen"></i> Bearbeiten</button>
-      </div>
-  
-    </div>
-  
-  </section>
-  
-<!-- Nachrichten (wird von übersicht.js befüllt) -->
-<section class="messages-list hidden" id="messages-list" aria-labelledby="messages-title">
-  <h2 id="messages-title" class="sr-only">Nachrichten</h2>
-
-  <!-- optional: kleiner Platzhalter bis die API geladen ist -->
-  <div class="loading" data-loading>
-    <i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i>
-    Nachrichten werden geladen …
-  </div>
-
-  <noscript>
-    <p>Zum Anzeigen der Nachrichten bitte JavaScript aktivieren.</p>
-  </noscript>
-</section>
-
-    
-  
-  
-  <section class="saved-cars hidden" id="saved-cars">
-    <div class="car-card-wrapper">
-      
-      <!-- Mobile: Buttons über dem Inserat -->
-      <div class="car-card-actions mobile-only">
-        <a href="chat.html?auto=123" class="contact-btn">
-          <i class="fas fa-comments"></i> Kontakt aufnehmen
-        </a>
-        <button class="remove-saved-btn">
-          <i class="fas fa-heart-broken"></i> Entfernen
-        </button>
-      </div>
-      
-      <!-- Fahrzeugkarte -->
-      <div class="car-card horizontal">
-        <div class="car-card-media">
-          <div class="media-container">
-            <div class="slides">
-              <img src="1.jpeg" alt="Bild" class="slide active" />
+          <div class="car-details">
+            <div class="car-top-row">
+              <h2 class="car-title" id="car-title">Titel</h2>
+              <p class="car-price" id="car-price">Preis</p>
+            </div>
+            <p class="car-subtitle" id="car-subtitle">Untertitel</p>
+            <div class="car-info-grid">
+              <p><i class="fas fa-road"></i> <span id="car-km">KM</span></p>
+              <p><i class="fas fa-calendar-alt"></i> <span id="car-ez">EZ</span></p>
+              <p><i class="fas fa-gas-pump"></i> <span id="car-kraftstoff">Kraftstoff</span></p>
+              <p><i class="fas fa-gauge-high"></i> <span id="car-ps">Leistung</span></p>
+              <p><i class="fas fa-gears"></i> <span id="car-getriebe">Getriebe</span></p>
+              <p><i class="fas fa-tint"></i> <span id="car-verbrauch">Verbrauch</span></p>
+            </div>
+            <div class="dealer-info" id="dealer-info">
+              <!-- Verkäufername / Ort -->
             </div>
           </div>
         </div>
-        <div class="car-details">
-          <div class="car-top-row">
-            <h2 class="car-title">Volvo V40 Momentum</h2>
-            <p class="car-price">7.990 €</p>
-          </div>
-          <p class="car-subtitle">Euro 5 • Klimaautomatik • Navi</p>
-          <div class="car-info-grid">
-            <p><i class="fas fa-road"></i> 123.885 km</p>
-            <p><i class="fas fa-calendar-alt"></i> EZ 07/2013</p>
-            <p><i class="fas fa-gas-pump"></i> Diesel</p>
-            <p><i class="fas fa-gauge-high"></i> 114 PS</p>
-            <p><i class="fas fa-gears"></i> Schaltgetriebe</p>
-            <p><i class="fas fa-tint"></i> 3,8 l/100 km</p>
-          </div>
-          <div class="dealer-info">
-            <strong>Autohaus Diker GbR</strong><br>
-            Bünyamin Diker • Hückelhoven
-          </div>
+
+        <!-- Desktop-Ansicht: Buttons rechts neben dem Inserat -->
+        <div class="car-card-actions desktop-only">
+          <button class="publish-btn"><i class="fas fa-globe"></i> Veröffentlichen</button>
+          <button class="edit-btn"><i class="fas fa-pen"></i> Bearbeiten</button>
         </div>
       </div>
-      
-      <!-- Desktop: Buttons rechts neben dem Inserat -->
-      <div class="car-card-actions desktop-only">
-        <a href="chat.html?auto=123" class="contact-btn">
-          <i class="fas fa-comments"></i> Kontakt aufnehmen
-        </a>
-        <button class="remove-saved-btn">
-          <i class="fas fa-heart-broken"></i> Entfernen
-        </button>
+    </section>
+
+    <!-- Nachrichten (wird von übersicht.js befüllt) -->
+    <section class="messages-list hidden" id="messages-list" aria-labelledby="messages-title">
+      <h2 id="messages-title" class="sr-only">Nachrichten</h2>
+
+      <div class="loading" data-loading>
+        <i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i>
+        Nachrichten werden geladen …
       </div>
-      
-    </div>
-  </section>
-  <section class="sold-cars hidden" id="sold-cars">
-    <div class="car-card-wrapper">
-      
-      <!-- Mobile: Buttons über dem Inserat -->
-      <div class="car-card-actions mobile-only">
-        <button class="relist-btn">
-          <i class="fas fa-undo"></i> Wieder online stellen
-        </button>
-        <button class="archive-btn">
-          <i class="fas fa-box-archive"></i> Archivieren
-        </button>
-      </div>
-      
-      <!-- Fahrzeugkarte -->
-      <div class="car-card horizontal">
-        <div class="car-card-media">
-          <div class="media-container">
-            <div class="slides">
-              <img src="6.jpeg" alt="Bild" class="slide active" />
+
+      <noscript>
+        <p>Zum Anzeigen der Nachrichten bitte JavaScript aktivieren.</p>
+      </noscript>
+    </section>
+
+    <!-- Gespeicherte Autos -->
+    <section class="saved-cars hidden" id="saved-cars">
+      <div class="car-card-wrapper">
+        <!-- Mobile: Buttons über dem Inserat -->
+        <div class="car-card-actions mobile-only">
+          <a href="chat.html?auto=123" class="contact-btn">
+            <i class="fas fa-comments"></i> Kontakt aufnehmen
+          </a>
+          <button class="remove-saved-btn">
+            <i class="fas fa-heart-broken"></i> Entfernen
+          </button>
+        </div>
+
+        <!-- Fahrzeugkarte -->
+        <div class="car-card horizontal">
+          <div class="car-card-media">
+            <div class="media-container">
+              <div class="slides">
+                <img src="1.jpeg" alt="Bild" class="slide active" />
+              </div>
+            </div>
+          </div>
+          <div class="car-details">
+            <div class="car-top-row">
+              <h2 class="car-title">Volvo V40 Momentum</h2>
+              <p class="car-price">7.990 €</p>
+            </div>
+            <p class="car-subtitle">Euro 5 • Klimaautomatik • Navi</p>
+            <div class="car-info-grid">
+              <p><i class="fas fa-road"></i> 123.885 km</p>
+              <p><i class="fas fa-calendar-alt"></i> EZ 07/2013</p>
+              <p><i class="fas fa-gas-pump"></i> Diesel</p>
+              <p><i class="fas fa-gauge-high"></i> 114 PS</p>
+              <p><i class="fas fa-gears"></i> Schaltgetriebe</p>
+              <p><i class="fas fa-tint"></i> 3,8 l/100 km</p>
+            </div>
+            <div class="dealer-info">
+              <strong>Autohaus Diker GbR</strong><br>
+              Bünyamin Diker • Hückelhoven
             </div>
           </div>
         </div>
-        <div class="car-details">
-          <div class="car-top-row">
-            <h2 class="car-title">Opel Astra Sports Tourer</h2>
-            <p class="car-price">8.990 €</p>
-          </div>
-          <p class="car-subtitle">Euro 6 • Navi • LED</p>
-          <div class="car-info-grid">
-            <p><i class="fas fa-road"></i> 110.000 km</p>
-            <p><i class="fas fa-calendar-alt"></i> EZ 06/2016</p>
-            <p><i class="fas fa-gas-pump"></i> Benzin</p>
-            <p><i class="fas fa-gauge-high"></i> 125 PS</p>
-            <p><i class="fas fa-gears"></i> Schaltgetriebe</p>
-          </div>
-          <div class="dealer-info">
-            <strong>Autohaus Schneider</strong><br>
-            Jens Schneider • Leipzig
-          </div>
+
+        <!-- Desktop: Buttons rechts neben dem Inserat -->
+        <div class="car-card-actions desktop-only">
+          <a href="chat.html?auto=123" class="contact-btn">
+            <i class="fas fa-comments"></i> Kontakt aufnehmen
+          </a>
+          <button class="remove-saved-btn">
+            <i class="fas fa-heart-broken"></i> Entfernen
+          </button>
         </div>
       </div>
-      
-      <!-- Desktop: Buttons rechts neben dem Inserat -->
-      <div class="car-card-actions desktop-only">
-        <button class="relist-btn">
-          <i class="fas fa-undo"></i> Wieder online stellen
-        </button>
-        <button class="archive-btn">
-          <i class="fas fa-box-archive"></i> Archivieren
-        </button>
+    </section>
+
+    <!-- Verkaufte Autos -->
+    <section class="sold-cars hidden" id="sold-cars">
+      <div class="car-card-wrapper">
+
+        <!-- Mobile: Buttons über dem Inserat -->
+        <div class="car-card-actions mobile-only">
+          <button class="relist-btn">
+            <i class="fas fa-undo"></i> Wieder online stellen
+          </button>
+          <button class="archive-btn">
+            <i class="fas fa-box-archive"></i> Archivieren
+          </button>
+        </div>
+
+        <!-- Fahrzeugkarte -->
+        <div class="car-card horizontal">
+          <div class="car-card-media">
+            <div class="media-container">
+              <div class="slides">
+                <img src="6.jpeg" alt="Bild" class="slide active" />
+              </div>
+            </div>
+          </div>
+          <div class="car-details">
+            <div class="car-top-row">
+              <h2 class="car-title">Opel Astra Sports Tourer</h2>
+              <p class="car-price">8.990 €</p>
+            </div>
+            <p class="car-subtitle">Euro 6 • Navi • LED</p>
+            <div class="car-info-grid">
+              <p><i class="fas fa-road"></i> 110.000 km</p>
+              <p><i class="fas fa-calendar-alt"></i> EZ 06/2016</p>
+              <p><i class="fas fa-gas-pump"></i> Benzin</p>
+              <p><i class="fas fa-gauge-high"></i> 125 PS</p>
+              <p><i class="fas fa-gears"></i> Schaltgetriebe</p>
+            </div>
+            <div class="dealer-info">
+              <strong>Autohaus Schneider</strong><br>
+              Jens Schneider • Leipzig
+            </div>
+          </div>
+        </div>
+
+        <!-- Desktop: Buttons rechts neben dem Inserat -->
+        <div class="car-card-actions desktop-only">
+          <button class="relist-btn">
+            <i class="fas fa-undo"></i> Wieder online stellen
+          </button>
+          <button class="archive-btn">
+            <i class="fas fa-box-archive"></i> Archivieren
+          </button>
+        </div>
       </div>
-      
-    </div>
-  </section>
+    </section>
+
   </main>
+</div>
 
 
   <script src="übersicht.js"></script>
