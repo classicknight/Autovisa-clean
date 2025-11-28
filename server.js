@@ -1134,28 +1134,99 @@ app.get("/meine-inserate", checkLogin, async (req, res) => {
 });
 
 
-// === Nutzer-Info aus Session (sicher) ===
+// === Nutzer-Info aus Session (Privat + Händler) ===
 app.get("/getNutzerInfo", async (req, res) => {
   try {
-    const sess = decodeSession(req.cookies.session);
-    if (!sess?.id) return res.json({ eingeloggt: false });
+    const token = req.cookies.session;
+    const sess  = decodeSession(token);
 
-    const user = await db.collection("nutzer").findOne(
+    if (!sess?.id) {
+      return res.json({ eingeloggt: false });
+    }
+
+    const nutzer = await db.collection("nutzer").findOne(
       { id: sess.id },
-      { projection: { id: 1, role: 1, name: 1, firma: 1, logoUrl: 1 } }
+      {
+        projection: {
+          id: 1,
+          role: 1,
+          name: 1,
+          firma: 1,
+          logoUrl: 1,
+          createdAt: 1,
+
+          // Adresse / Kontakt – v.a. für Händler
+          strasse: 1,
+          hausnummer: 1,
+          plz: 1,
+          ort: 1,
+          land: 1,
+          adresse: 1,
+          telefon: 1,
+          telefon2: 1,
+          email: 1,
+
+          // Website / Profil
+          website: 1,
+          webseite: 1,
+          homepage: 1,
+
+          // Öffnungszeiten (wirst du über Profil-Editing speichern)
+          oeffnungszeiten: 1,
+          "öffnungszeiten": 1,
+        }
+      }
     );
-    if (!user) return res.json({ eingeloggt: false });
+
+    if (!nutzer) {
+      return res.json({ eingeloggt: false });
+    }
+
+    const rolleRaw = (nutzer.role || "privat").toLowerCase();
+    const isHaendler =
+      rolleRaw === "haendler" ||
+      rolleRaw === "händler" ||
+      rolleRaw.includes("haend") ||
+      rolleRaw.includes("händ");
 
     return res.json({
       eingeloggt: true,
-      nutzerId: user.id,
-      rolle: user.role || "privat",
-      name: user.name || user.firma || "Unbekannt",
-      logoUrl: user.logoUrl || ""
+      nutzerId: nutzer.id,
+      rolle: rolleRaw,
+      isHaendler,
+
+      // Anzeigename
+      name: nutzer.name || "",
+      firma: nutzer.firma || "",
+      anzeigeName: nutzer.firma || nutzer.name || "Unbekannt",
+
+      // Logo + Mitglied seit
+      logoUrl: nutzer.logoUrl || "",
+      createdAt: nutzer.createdAt || null,
+
+      // Adresse
+      strasse: nutzer.strasse || "",
+      hausnummer: nutzer.hausnummer || "",
+      plz: nutzer.plz || "",
+      ort: nutzer.ort || "",
+      land: nutzer.land || "",
+      adresse: nutzer.adresse || "",
+
+      // Kontakt
+      telefon: nutzer.telefon || nutzer.telefon2 || "",
+      email: nutzer.email || "",
+
+      // Website
+      website: nutzer.website || nutzer.webseite || nutzer.homepage || "",
+
+      // Öffnungszeiten (kann bei Privat leer sein)
+      oeffnungszeiten: nutzer.oeffnungszeiten || nutzer["öffnungszeiten"] || "",
     });
   } catch (err) {
-    console.error("❌ Fehler bei getNutzerInfo:", err);
-    return res.status(500).json({ error: "Interner Serverfehler." });
+    console.error("❌ Fehler bei /getNutzerInfo:", err);
+    return res
+      .status(500)
+      .json({ eingeloggt: false, error: "Interner Serverfehler." });
   }
 });
 
