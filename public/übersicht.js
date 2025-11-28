@@ -571,30 +571,27 @@ function renderProfileSection(nutzerData, drafts, online) {
   const section = document.querySelector(".profile-section");
   if (!section || !nutzerData) return;
 
-  // Rolle ermitteln
+  // Rolle erkennen
   const roleRaw = (nutzerData.role || nutzerData.rolle || "privat").toLowerCase();
   const isHaendler =
-    nutzerData.isHaendler === true ||
-    roleRaw === "haendler" ||
-    roleRaw === "händler" ||
+    roleRaw.includes("händ") ||
     roleRaw.includes("haend") ||
-    roleRaw.includes("händ");
+    roleRaw === "haendler" ||
+    roleRaw === "haendlerkonto";
 
-  // Händler-Only Bereiche ein-/ausblenden
-  section.querySelectorAll("[data-role='haendler-only']").forEach((el) => {
-    el.classList.toggle("hidden", !isHaendler);
-  });
+  section.classList.toggle("profile--haendler", isHaendler);
+  section.classList.toggle("profile--privat", !isHaendler);
 
-  // 1) Name / Titel
+  // Name (Autohaus vs. Privat)
   const displayName = isHaendler
     ? (nutzerData.firma || nutzerData.name || "Dein Autohaus")
-    : (nutzerData.name || nutzerData.firma || "Dein Profil");
+    : (nutzerData.name || "Dein Profil");
+  const initials = sellerInitials(displayName);
 
   const nameEl = section.querySelector(".profile-name");
-  if (nameEl) nameEl.textContent = displayName;
-
   const initialsEl = section.querySelector(".profile-initials");
-  if (initialsEl) initialsEl.textContent = sellerInitials(displayName);
+  if (nameEl) nameEl.textContent = displayName;
+  if (initialsEl) initialsEl.textContent = initials;
 
   // Logo
   const logoWrapper = section.querySelector(".profile-logo-wrapper");
@@ -611,15 +608,7 @@ function renderProfileSection(nutzerData, drafts, online) {
     }
   }
 
-  // Titel der Info-Spalte (Autohaus-Infos vs Profil-Infos)
-  const infoTitleEl = section.querySelector("[data-role-title]");
-  if (infoTitleEl) {
-    infoTitleEl.innerHTML = isHaendler
-      ? '<i class="fas fa-id-card"></i> Autohaus-Infos'
-      : '<i class="fas fa-id-card"></i> Profil-Infos';
-  }
-
-  // 2) Standort
+  // Standort
   const locParts = [];
   if (nutzerData.plz) locParts.push(nutzerData.plz);
   if (nutzerData.ort) locParts.push(nutzerData.ort);
@@ -629,33 +618,31 @@ function renderProfileSection(nutzerData, drafts, online) {
     locationEl.textContent = location || "Ort noch nicht hinterlegt";
   }
 
-  // 3) Rolle / Kontotyp
+  // Rolle-Label
   const roleEl = section.querySelector('[data-profile-field="role"]');
   if (roleEl) {
     roleEl.textContent = isHaendler ? "Händlerkonto" : "Privatkonto";
   }
 
-  // 4) „Bei Autovisa seit MM/JJJJ“
+  // Mitglied seit → „Bei Autovisa seit MM/JJJJ“
   const memberEl = section.querySelector('[data-profile-field="memberSince"]');
   const createdRaw =
     nutzerData.erstelltAm || nutzerData.createdAt || nutzerData.created || null;
 
-  if (memberEl) {
-    if (createdRaw) {
-      const d = new Date(createdRaw);
-      if (!isNaN(d.getTime())) {
-        const month = String(d.getMonth() + 1).padStart(2, "0");
-        const year = d.getFullYear();
-        memberEl.textContent = `Bei Autovisa seit ${month}/${year}`;
-      } else {
-        memberEl.textContent = "";
-      }
+  if (memberEl && createdRaw) {
+    const d = new Date(createdRaw);
+    if (!isNaN(d.getTime())) {
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      memberEl.textContent = `Bei Autovisa seit ${month}/${year}`;
     } else {
       memberEl.textContent = "";
     }
+  } else if (memberEl) {
+    memberEl.textContent = "";
   }
 
-  // 5) Adresse
+  // Händler-spezifische Felder: Adresse
   const addressEl = section.querySelector('[data-profile-field="address"]');
   if (addressEl) {
     const lines = [];
@@ -673,7 +660,7 @@ function renderProfileSection(nutzerData, drafts, online) {
       lines.length ? lines.join(", ") : "Noch keine Adresse hinterlegt";
   }
 
-  // 6) Telefon
+  // Telefon
   const phoneEl = section.querySelector('[data-profile-field="phone"]');
   if (phoneEl) {
     const phone =
@@ -685,7 +672,7 @@ function renderProfileSection(nutzerData, drafts, online) {
     phoneEl.textContent = phone || "–";
   }
 
-  // 7) E-Mail
+  // E-Mail
   const emailEl = section.querySelector('[data-profile-field="email"]');
   if (emailEl) {
     const email = nutzerData.email || nutzerData.mail || "";
@@ -700,7 +687,7 @@ function renderProfileSection(nutzerData, drafts, online) {
     }
   }
 
-  // 8) Website
+  // Website
   const websiteEl = section.querySelector('[data-profile-field="website"]');
   if (websiteEl) {
     const url =
@@ -722,22 +709,29 @@ function renderProfileSection(nutzerData, drafts, online) {
     }
   }
 
-  // 9) Öffnungszeiten (nur sinnvoll für Händler)
+  // Öffnungszeiten (Text)
   const openingEl = section.querySelector('[data-profile-field="openingHours"]');
   if (openingEl) {
-    if (isHaendler) {
-      const text =
-        nutzerData.oeffnungszeiten ||
-        nutzerData["öffnungszeiten"] ||
-        "";
-      openingEl.textContent =
-        text || "Noch keine Öffnungszeiten hinterlegt.";
-    } else {
-      openingEl.textContent = "";
-    }
+    const text =
+      nutzerData.oeffnungszeiten ||
+      nutzerData["öffnungszeiten"] ||
+      "";
+    openingEl.textContent =
+      text || "Noch keine Öffnungszeiten hinterlegt.";
   }
 
-  // 10) Stats
+  // Händler-spezifische Elemente ein-/ausblenden
+  section.querySelectorAll(".haendler-only").forEach(el => {
+    el.style.display = isHaendler ? "" : "none";
+  });
+
+  // Wenn Privat: kompletten Body ggf. simpler halten
+  const profileBody = section.querySelector(".profile-body");
+  if (profileBody) {
+    profileBody.style.display = isHaendler ? "" : "none";
+  }
+
+  // Stats
   const activeCount = Array.isArray(online) ? online.length : 0;
   const draftCount  = Array.isArray(drafts) ? drafts.length : 0;
   const totalCount  = activeCount + draftCount;

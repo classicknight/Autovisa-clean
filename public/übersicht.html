@@ -126,7 +126,7 @@
   </aside>
   <main class="content">
 
-    <!-- PROFIL-BEREICH (neu) -->
+    <!-- PROFIL-BEREICH (gemeinsam für Händler & Privat) -->
     <section class="profile-section" id="profil" aria-labelledby="profil-heading">
       <div class="profile-card">
         <!-- Kopfbereich: Logo + Name + Buttons -->
@@ -137,44 +137,43 @@
               <span class="profile-initials">AV</span>
             </div>
             <div class="profile-text">
-              <!-- Text wird per JS auf Händler/Privat angepasst -->
               <h2 class="profile-name" id="profil-heading">Dein Profil</h2>
+  
               <p class="profile-location" data-profile-field="location">
                 Ort noch nicht hinterlegt
               </p>
+  
               <div class="profile-meta">
-                <span class="profile-badge profile-role" data-profile-field="role">
+                <span class="profile-badge profile-role"
+                      data-profile-field="role">
                   Konto
                 </span>
-                <span class="profile-badge profile-member" data-profile-field="memberSince">
-                  <!-- Bei Autovisa seit … -->
-                </span>
               </div>
+  
+              <!-- eigene Zeile für „Bei Autovisa seit …“ -->
+              <p class="profile-member-since"
+                 data-profile-field="memberSince">
+                <!-- wird per JS gesetzt -->
+              </p>
             </div>
           </div>
   
           <div class="profile-actions">
-            <!-- nur für Händler sichtbar -->
-            <a href="händler.html"
-               class="profile-btn secondary"
-               data-role="haendler-only">
+            <a href="händler.html" class="profile-btn secondary haendler-only">
               <i class="fas fa-eye"></i> Öffentliches Profil
             </a>
-  
-            <!-- bleibt für alle -->
             <a href="#profil-infos" class="profile-btn">
               <i class="fas fa-pen"></i> Profil bearbeiten
             </a>
           </div>
         </div>
   
-        <!-- Body: Infos + Öffnungszeiten -->
+        <!-- Body: Infos + Öffnungszeiten (nur für Händler sinnvoll) -->
         <div class="profile-body">
-          <!-- Basis-Infos (für alle) -->
+          <!-- Ziel-Anker für „Profil bearbeiten“ -->
           <div class="profile-column" id="profil-infos">
-            <h3 class="profile-subtitle" data-role-title>
-              <!-- Text wird per JS auf Autohaus-Infos / Profil-Infos gestellt -->
-              <i class="fas fa-id-card"></i> Profil-Infos
+            <h3 class="profile-subtitle">
+              <i class="fas fa-id-card"></i> Autohaus-Infos
             </h3>
             <dl class="profile-info-list">
               <!-- Adresse -->
@@ -209,7 +208,7 @@
                 </dd>
               </div>
   
-              <!-- E-Mail (nur anzeigen, nicht bearbeiten) -->
+              <!-- E-Mail (nur anzeigen) -->
               <div class="profile-info-row">
                 <dt>E-Mail</dt>
                 <dd>
@@ -235,8 +234,7 @@
             </dl>
           </div>
   
-          <!-- Öffnungszeiten: nur Händler -->
-          <div class="profile-column" data-role="haendler-only">
+          <div class="profile-column haendler-only">
             <h3 class="profile-subtitle">
               <i class="fas fa-clock"></i> Öffnungszeiten
             </h3>
@@ -272,6 +270,9 @@
         </div>
       </div>
     </section>
+  
+    <!-- danach kommt wie gehabt: Title + Tabs + car-list etc. -->
+  
   </main>
   
   

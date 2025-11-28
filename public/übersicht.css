@@ -1774,3 +1774,39 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   padding: 2px 4px;
   background: rgba(0, 184, 169, 0.04);
 }
+
+
+
+
+
+
+
+
+/* Profilkarte – Layout-Finetuning */
+.profile-section {
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.profile-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* „Bei Autovisa seit …“ als eigene Zeile, etwas dezenter */
+.profile-member-since {
+  font-size: 0.85rem;
+  color: #9fb3c8;
+}
+
+/* Optional: Profile-Varianten */
+.profile-section.profile--privat .profile-subtitle i {
+  /* falls du bei Privat das „Autohaus-Infos“-Icon nicht möchtest, wird eh ausgeblendet */
+}

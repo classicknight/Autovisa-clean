@@ -1137,9 +1137,7 @@ app.get("/meine-inserate", checkLogin, async (req, res) => {
 // === Nutzer-Info aus Session (Privat + Händler) ===
 app.get("/getNutzerInfo", async (req, res) => {
   try {
-    const token = req.cookies.session;
-    const sess  = decodeSession(token);
-
+    const sess = decodeSession(req.cookies.session);
     if (!sess?.id) {
       return res.json({ eingeloggt: false });
     }
@@ -1154,14 +1152,18 @@ app.get("/getNutzerInfo", async (req, res) => {
           firma: 1,
           logoUrl: 1,
           createdAt: 1,
+          erstelltAm: 1,
 
-          // Adresse / Kontakt – v.a. für Händler
+          // Adresse / Standort
           strasse: 1,
           hausnummer: 1,
           plz: 1,
           ort: 1,
           land: 1,
           adresse: 1,
+          standort: 1,
+
+          // Kontakt
           telefon: 1,
           telefon2: 1,
           email: 1,
@@ -1171,9 +1173,9 @@ app.get("/getNutzerInfo", async (req, res) => {
           webseite: 1,
           homepage: 1,
 
-          // Öffnungszeiten (wirst du über Profil-Editing speichern)
+          // Öffnungszeiten
           oeffnungszeiten: 1,
-          "öffnungszeiten": 1,
+          "öffnungszeiten": 1
         }
       }
     );
@@ -1189,10 +1191,19 @@ app.get("/getNutzerInfo", async (req, res) => {
       rolleRaw.includes("haend") ||
       rolleRaw.includes("händ");
 
+    // Einheitliche created-Info für "Bei Autovisa seit …"
+    const created = nutzer.erstelltAm || nutzer.createdAt || null;
+
+    // Website vereinheitlichen
+    const website =
+      nutzer.website || nutzer.webseite || nutzer.homepage || "";
+
     return res.json({
       eingeloggt: true,
       nutzerId: nutzer.id,
-      rolle: rolleRaw,
+
+      rolle: rolleRaw,                 // für dein Frontend
+      role: nutzer.role || "privat",   // falls du irgendwo "role" verwendest
       isHaendler,
 
       // Anzeigename
@@ -1202,25 +1213,26 @@ app.get("/getNutzerInfo", async (req, res) => {
 
       // Logo + Mitglied seit
       logoUrl: nutzer.logoUrl || "",
-      createdAt: nutzer.createdAt || null,
+      createdAt: created,
 
-      // Adresse
+      // Adresse / Standort
       strasse: nutzer.strasse || "",
       hausnummer: nutzer.hausnummer || "",
       plz: nutzer.plz || "",
       ort: nutzer.ort || "",
       land: nutzer.land || "",
       adresse: nutzer.adresse || "",
+      standort: nutzer.standort || "",
 
       // Kontakt
       telefon: nutzer.telefon || nutzer.telefon2 || "",
       email: nutzer.email || "",
 
       // Website
-      website: nutzer.website || nutzer.webseite || nutzer.homepage || "",
+      website,
 
-      // Öffnungszeiten (kann bei Privat leer sein)
-      oeffnungszeiten: nutzer.oeffnungszeiten || nutzer["öffnungszeiten"] || "",
+      // Öffnungszeiten (bei Privat meistens leer)
+      oeffnungszeiten: nutzer.oeffnungszeiten || nutzer["öffnungszeiten"] || ""
     });
   } catch (err) {
     console.error("❌ Fehler bei /getNutzerInfo:", err);
@@ -1229,7 +1241,6 @@ app.get("/getNutzerInfo", async (req, res) => {
       .json({ eingeloggt: false, error: "Interner Serverfehler." });
   }
 });
-
 
 
 
