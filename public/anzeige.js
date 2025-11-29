@@ -50,17 +50,13 @@ const PS2KW = (ps) => Math.round(Number(ps) * 0.7355);
 const escapeHTML = (str = "") =>
   String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const renderMultilineToHTML = (text = "") => {
+  // Text sicher machen + Windows-Umbrüche vereinheitlichen
   const safe = escapeHTML(String(text || "")).replace(/\r\n/g, "\n");
-  // 1) Trim Ränder
-  let s = safe.trim();
-  // 2) 3+ Leerzeilen -> exakt 2 (Absatztrenner)
-  s = s.replace(/\n{3,}/g, "\n\n");
-  // 3) In Absätze splitten
-  const blocks = s.split(/\n{2}/).map((b) => {
-    // innerhalb eines Absatzes mehrere \n -> genau ein <br>
-    return b.replace(/\n+/g, "<br>");
-  });
-  return blocks.length ? `<p>${blocks.join("</p><p>")}</p>` : "";
+
+  if (!safe) return "";
+
+  // Jeder Zeilenumbruch im Original-Text wird direkt zu <br>
+  return safe.replace(/\n/g, "<br>");
 };
 
 const sanitizePhone = (p) => String(p || "").replace(/[^\d+]/g, "");
