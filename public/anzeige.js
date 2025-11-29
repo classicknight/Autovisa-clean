@@ -1657,13 +1657,10 @@ function initSaveButton(inserat) {
   updateSaveButtonUI(btn, initialSaved);
 }
 
-async function toggleSave(btn) {
-  if (!btn) return;
-
-  const inseratId = btn.dataset.inseratId;
+async function toggleSave(btn, inseratId) {
   if (!inseratId) return;
 
-  const wasSaved   = btn.dataset.saved === "1";
+  const wasSaved = btn.dataset.saved === "1";
   const willBeSaved = !wasSaved;
 
   // Optimistic UI
@@ -1671,15 +1668,19 @@ async function toggleSave(btn) {
   btn.disabled = true;
 
   try {
-    const res = await fetch(api(willBeSaved ? "/saved/add" : "/saved/remove"), {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ inseratId }),
-    });
+    // ❗ HIER: richtige Routes + Feldname
+    const res = await fetch(
+      api(willBeSaved ? "/inserat/save" : "/inserat/unsave"),
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fahrzeugId: inseratId }), // nicht "inseratId"
+      }
+    );
 
     if (res.status === 401) {
-      // nicht eingeloggt → Zustand zurück und auf Login
+      // nicht eingeloggt → Zustand zurückdrehen + Login
       updateSaveButtonUI(btn, wasSaved);
       window.location.href = "login.html";
       return;
@@ -1695,7 +1696,6 @@ async function toggleSave(btn) {
     const data = await res.json().catch(() => null);
     const finalSaved =
       typeof data?.saved === "boolean" ? data.saved : willBeSaved;
-
     updateSaveButtonUI(btn, finalSaved);
   } catch (err) {
     updateSaveButtonUI(btn, wasSaved);
