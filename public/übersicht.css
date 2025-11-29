@@ -1483,16 +1483,16 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
     align-items: center;
     gap: 16px;
   }
-  
   .profile-logo-wrapper {
     position: relative;
     width: 64px;
     height: 64px;
+    flex: 0 0 64px;                  /* fester Kreis, wird nicht gestreckt */
     border-radius: 999px;
     background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
     display: flex;
-    align-items: center;
-    justify-content: center;
+    align-items: center;             /* vertikal zentriert */
+    justify-content: center;         /* horizontal zentriert */
     overflow: hidden;
     color: #ffffff;
     font-weight: 600;
@@ -1501,12 +1501,17 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
   }
   
   .profile-logo {
-    width: 100%;
-    height: 100%;
+    display: block;
+    max-width: 80%;                  /* etwas kleiner als der Kreis */
+    max-height: 80%;
+    width: auto;
+    height: auto;
     object-fit: contain;
+    object-position: center center;  /* Bildinhalt zentrieren */
     opacity: 0;
     transition: opacity 0.2s ease;
   }
+  
   
   .profile-logo-wrapper.has-logo .profile-logo {
     opacity: 1;
@@ -1779,3 +1784,69 @@ body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
     }
   }
   
+
+
+
+
+/* ===== Bewertungen im Profil-Header (nur Händler) ===== */
+
+.profile-rating {
+  min-width: 190px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #f5f8fc;
+  border: 1px solid #e3e9ef;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+  text-align: right;
+  margin-left: auto;            /* schiebt den Block im Header nach rechts */
+}
+
+.profile-rating-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-rating-score {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #1a2733;
+}
+
+.profile-rating-stars {
+  display: flex;
+  gap: 2px;
+  font-size: 0.95rem;
+}
+
+.profile-rating-stars i {
+  color: #ffc107;               /* typische Sternefarbe */
+}
+
+.profile-rating-count {
+  font-size: 0.8rem;
+  color: #6c7a89;
+}
+
+.profile-rating-link {
+  font-size: 0.8rem;
+  color: #00b8a9;
+  text-decoration: none;
+}
+
+.profile-rating-link:hover {
+  text-decoration: underline;
+}
+
+/* Mobile: Bewertungen unter dem Profil, linksbündig */
+@media (max-width: 900px) {
+  .profile-rating {
+    align-items: flex-start;
+    text-align: left;
+    width: 100%;
+    margin-top: 8px;
+  }
+}

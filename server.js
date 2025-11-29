@@ -1198,12 +1198,48 @@ app.get("/getNutzerInfo", async (req, res) => {
     const website =
       nutzer.website || nutzer.webseite || nutzer.homepage || "";
 
+    // --- Händler-Bewertungen (Durchschnitt + Anzahl) ---
+    let ratingAvg = null;
+    let ratingCount = 0;
+
+    if (isHaendler) {
+      try {
+        const agg = await db.collection("bewertungen")
+          .aggregate([
+            {
+              $match: {
+                $or: [
+                  { haendlerId: nutzer.id },
+                  { sellerId: nutzer.id }
+                ],
+                rating: { $gt: 0 } // nur sinnvolle Bewertungen
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                avg: { $avg: "$rating" },
+                count: { $sum: 1 }
+              }
+            }
+          ])
+          .toArray();
+
+        if (agg.length > 0) {
+          ratingAvg = agg[0].avg;    // z.B. 4.3
+          ratingCount = agg[0].count; // z.B. 12
+        }
+      } catch (ratingErr) {
+        console.error("Fehler beim Laden der Händler-Bewertungen:", ratingErr);
+      }
+    }
+
     return res.json({
       eingeloggt: true,
       nutzerId: nutzer.id,
 
-      rolle: rolleRaw,                 // für dein Frontend
-      role: nutzer.role || "privat",   // falls du irgendwo "role" verwendest
+      rolle: rolleRaw,               // fürs Frontend
+      role: nutzer.role || "privat", // falls irgendwo noch "role" genutzt wird
       isHaendler,
 
       // Anzeigename
@@ -1232,7 +1268,12 @@ app.get("/getNutzerInfo", async (req, res) => {
       website,
 
       // Öffnungszeiten (bei Privat meistens leer)
-      oeffnungszeiten: nutzer.oeffnungszeiten || nutzer["öffnungszeiten"] || ""
+      oeffnungszeiten:
+        nutzer.oeffnungszeiten || nutzer["öffnungszeiten"] || "",
+
+      // Bewertungen (nur bei Händlern wirklich > 0)
+      ratingAvg,    // z.B. 4.3 oder null
+      ratingCount   // z.B. 12 oder 0
     });
   } catch (err) {
     console.error("❌ Fehler bei /getNutzerInfo:", err);
