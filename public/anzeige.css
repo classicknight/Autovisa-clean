@@ -2689,25 +2689,31 @@ img, video, canvas {
 
 
 
-/* === FIX: Medienbilder auf Handy wie auf Desktop darstellen === */
-
-@media (max-width: 768px) {
-  /* Hauptbild-Bereich */
-  .media-main img,
-  .media-main video,
-  .media-display img,
-  .media-display video {
-    width: 100% !important;
-    height: auto !important;
-    max-height: 60vh;
-    object-fit: contain !important; /* nicht hineinzoomen */
-    transform: none !important;     /* evtl. scale() überschreiben */
+@media (max-width: 600px) {
+  .media-detail-container {
+    border-radius: 0;
+    padding: 0;
+    margin: 0;
+    max-width: 100%;
+    box-shadow: none;
+    background: transparent;
   }
 
-  /* Optional: Container nicht strecken */
-  .media-main,
-  .media-display {
-    max-height: 60vh;
-    overflow: hidden;
+  .media-detail-wrapper {
+    height: auto;          /* nicht mehr fixe 500px */
+    aspect-ratio: 4 / 3;   /* fester Bildausschnitt wie auf Desktop */
+    border-radius: 0;
+  }
+
+  .media-detail-main,
+  .media-slide-wrapper,
+  .media-slide {
+    border-radius: 0;
+  }
+
+  .media-prev,
+  .media-next {
+    top: 50%;
+    background: rgba(0, 0, 0, 0.4);
   }
 }
