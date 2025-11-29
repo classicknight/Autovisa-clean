@@ -1770,6 +1770,7 @@ app.post("/nachricht-senden", checkLogin, async (req, res) => {
 
 
 
+// === Inserat-Details (inkl. "isSaved" für aktuellen Nutzer) ===
 app.get("/inserat-details/:id", checkLogin, async (req, res) => {
   try {
     const oid = new ObjectId(String(req.params.id));
@@ -1777,7 +1778,19 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
     const doc = await coll.findOne({ _id: oid });
     if (!doc) return res.status(404).json({ error: "Nicht gefunden" });
 
+    // Prüfen, ob dieses Inserat vom aktuellen Nutzer gespeichert wurde
+    let isSaved = false;
+    try {
+      const savedDoc = await db
+        .collection("savedInserate")
+        .findOne({ nutzerId: req.nutzer.id, inseratId: oid });
+      isSaved = !!savedDoc;
+    } catch (e) {
+      console.warn("Fehler beim Prüfen von savedInserate:", e?.message || e);
+    }
+
     res.json({
+      id: doc._id?.toString?.() || String(doc._id || ""),
       titel: doc.titel || "",
       preis: doc.verkauf_brutto ?? doc.verkauf_preis ?? doc.preis ?? null,
       images: Array.isArray(doc.images) ? doc.images : [],
@@ -1791,19 +1804,84 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
       verkauf_verkaeufer: doc.verkauf_verkaeufer || "",
       verkauf_name: doc.verkauf_name || "",
       standort: doc.standort || "",
-      // ⬇️ NEU: Verkäufer-Snapshot inkl. Logo
       seller: {
-        type: doc.seller?.type || (doc.verkauf_verkaeufer?.toLowerCase() === "händler" ? "haendler" : "privat"),
+        type:
+          doc.seller?.type ||
+          (doc.verkauf_verkaeufer?.toLowerCase() === "händler"
+            ? "haendler"
+            : "privat"),
         id: doc.seller?.id || doc.verkaeuferId || "",
         name: doc.seller?.name || doc.verkauf_name || "",
         logoUrl: doc.seller?.logoUrl || ""
-      }
+      },
+      isSaved // ⬅️ wichtig für die Detailseite
     });
   } catch (e) {
     res.status(400).json({ error: "Ungültige ID" });
   }
 });
 
+
+
+// === Inserat speichern ===
+app.post("/inserat/save", checkLogin, async (req, res) => {
+  const { fahrzeugId } = req.body || {};
+  if (!fahrzeugId) {
+    return res.status(400).json({ error: "Fahrzeug-ID fehlt." });
+  }
+
+  let oid;
+  try {
+    oid = new ObjectId(String(fahrzeugId));
+  } catch {
+    return res.status(400).json({ error: "Ungültige Fahrzeug-ID." });
+  }
+
+  try {
+    const coll = db.collection("savedInserate");
+    await coll.updateOne(
+      { nutzerId: req.nutzer.id, inseratId: oid },
+      {
+        $set: {
+          nutzerId: req.nutzer.id,
+          inseratId: oid,
+          createdAt: new Date()
+        }
+      },
+      { upsert: true }
+    );
+
+    return res.json({ success: true, saved: true });
+  } catch (err) {
+    console.error("❌ Fehler /inserat/save:", err);
+    return res.status(500).json({ error: "Speichern fehlgeschlagen." });
+  }
+});
+
+// === Inserat aus gespeicherten entfernen ===
+app.post("/inserat/unsave", checkLogin, async (req, res) => {
+  const { fahrzeugId } = req.body || {};
+  if (!fahrzeugId) {
+    return res.status(400).json({ error: "Fahrzeug-ID fehlt." });
+  }
+
+  let oid;
+  try {
+    oid = new ObjectId(String(fahrzeugId));
+  } catch {
+    return res.status(400).json({ error: "Ungültige Fahrzeug-ID." });
+  }
+
+  try {
+    const coll = db.collection("savedInserate");
+    await coll.deleteOne({ nutzerId: req.nutzer.id, inseratId: oid });
+
+    return res.json({ success: true, saved: false });
+  } catch (err) {
+    console.error("❌ Fehler /inserat/unsave:", err);
+    return res.status(500).json({ error: "Löschen fehlgeschlagen." });
+  }
+});
 
 
 // === Nachrichten für Empfänger abrufen ===

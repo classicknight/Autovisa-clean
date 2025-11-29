@@ -1537,13 +1537,39 @@ function toggleRatingPanel() {
   const panel = document.getElementById("ratingPanel");
   panel?.classList.toggle("show");
 }
-
 /* ------------------------ Boot ------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
   setupAuthLink();
   setupNavbarShortcuts();
   setupMessageForm();
   setupRatingPanel();
+
+  // 🔽 "Nachricht schreiben" scrollt zum Formular
+  const scrollMsgBtn = document.getElementById("scrollToMessageBtn");
+  if (scrollMsgBtn) {
+    scrollMsgBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+
+      const form = document.getElementById("messageForm");
+      if (!form) return;
+
+      // ggf. anpassen, falls oben etwas verdeckt
+      const offset = 100;
+      const rect = form.getBoundingClientRect();
+      const targetY = rect.top + window.pageYOffset - offset;
+
+      window.scrollTo({
+        top: targetY,
+        behavior: "smooth",
+      });
+
+      const firstField = form.querySelector("textarea, input, select");
+      if (firstField) {
+        setTimeout(() => firstField.focus(), 400);
+      }
+    });
+  }
+  // 🔼 Ende Scroll-Logik
 
   try {
     if (typeof window.setupNavbar === "function") window.setupNavbar();
@@ -1561,6 +1587,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   renderSeller();
 
+  // 🔽 NEU: Save-Button initialisieren
+  initSaveButton(inserat);
+  // 🔼
+
   // Tastatursteuerung (Slider / Lightbox)
   document.addEventListener("keydown", (e) => {
     const overlay = document.getElementById("lightbox-overlay");
@@ -1575,12 +1605,107 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Smooth scroll (optional)
-  document.querySelector('a[href="#search-section"]')?.addEventListener("click", (e) => {
-    e.preventDefault();
-    document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
-  });
+  // Smooth scroll (optional) für Link auf die Suchsektion
+  document
+    .querySelector('a[href="#search-section"]')
+    ?.addEventListener("click", (e) => {
+      e.preventDefault();
+      document
+        .querySelector("#search-section")
+        ?.scrollIntoView({ behavior: "smooth" });
+    });
 });
+
+
+
+
+function getInseratId(inserat) {
+  if (!inserat) return null;
+  return inserat._id || inserat.id || inserat.inseratId || null;
+}
+
+function updateSaveButtonUI(btn, saved) {
+  const icon = btn.querySelector("i");
+  const label = btn.querySelector(".label");
+
+  btn.classList.toggle("is-saved", saved);
+  btn.setAttribute("aria-pressed", saved ? "true" : "false");
+  btn.dataset.saved = saved ? "1" : "0";
+
+  if (icon) {
+    icon.classList.toggle("far", !saved);
+    icon.classList.toggle("fas", saved);
+  }
+  if (label) {
+    label.textContent = saved ? "Gespeichert" : "Speichern";
+  }
+}
+
+/**
+ * Wird im Boot-Block aufgerufen
+ */
+function initSaveButton(inserat) {
+  const btn = document.querySelector(".save-cta");
+  if (!btn) return;
+
+  const inseratId = getInseratId(inserat);
+  if (!inseratId) return;
+
+  // Initial-Status aus den Inserat-Daten (wenn vom Server mitgeliefert)
+  const initialSaved =
+    inserat.isSaved === true || inserat.gespeichert === true;
+  updateSaveButtonUI(btn, initialSaved);
+
+  btn.addEventListener("click", () => toggleSave(btn, inseratId));
+}
+
+async function toggleSave(btn, inseratId) {
+  if (!inseratId) return;
+
+  const wasSaved = btn.dataset.saved === "1";
+  const willBeSaved = !wasSaved;
+
+  // Optimistic UI
+  updateSaveButtonUI(btn, willBeSaved);
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(
+      api(willBeSaved ? "/saved/add" : "/saved/remove"),
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inseratId }),
+      }
+    );
+
+    if (res.status === 401) {
+      // nicht eingeloggt → wieder zurückdrehen und auf Login schicken
+      updateSaveButtonUI(btn, wasSaved);
+      window.location.href = "/login.html";
+      return;
+    }
+
+    if (!res.ok) {
+      updateSaveButtonUI(btn, wasSaved);
+      const data = await res.json().catch(() => null);
+      alert(data?.error || "Speichern konnte nicht aktualisiert werden.");
+      return;
+    }
+
+    const data = await res.json().catch(() => null);
+    const finalSaved =
+      typeof data?.saved === "boolean" ? data.saved : willBeSaved;
+    updateSaveButtonUI(btn, finalSaved);
+  } catch (err) {
+    updateSaveButtonUI(btn, wasSaved);
+    alert("Netzwerkfehler – bitte später nochmal versuchen.");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 
 /* ------------------------ Global Exports (HTML inline handlers) ------------------------ */
 window.toggleSave = toggleSave;
