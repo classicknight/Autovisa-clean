@@ -1606,19 +1606,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
 
-
 /* ------------------------ Save-Button (Server-basiert) ------------------------ */
 
 function getInseratId(inserat) {
   if (!inserat) return null;
 
-  // Falls Mongo-Objekt:
+  // Mongo-Objekt (_id.$oid)
   if (inserat._id && typeof inserat._id === "object" && typeof inserat._id.$oid === "string") {
     return inserat._id.$oid;
   }
+  // normaler String
+  if (typeof inserat._id === "string") return inserat._id;
+  if (typeof inserat.id === "string") return inserat.id;
 
-  // Normal:
-  return inserat._id || inserat.id || inserat.inseratId || null;
+  return null;
 }
 
 function updateSaveButtonUI(btn, saved) {
@@ -1638,29 +1639,49 @@ function updateSaveButtonUI(btn, saved) {
   }
 }
 
-/**
- * Wird im Boot-Block aufgerufen (nach loadInseratData()).
- * Übergibt uns das aktuelle Inserat, damit wir die ID kennen.
- */
-function initSaveButton(inserat) {
+// wird im Boot-Block nach loadInseratData(inserat) aufgerufen
+async function initSaveButton(inserat) {
   const btn = document.querySelector(".save-cta");
-  if (!btn) return;
+  if (!btn || !inserat) return;
 
   const inseratId = getInseratId(inserat);
   if (!inseratId) return;
 
-  // ID am Button speichern, damit toggleSave() sie lesen kann
+  // ID am Button merken, damit toggleSave darauf zugreifen kann
   btn.dataset.inseratId = inseratId;
 
-  // Initialzustand (falls vom Server mitgeliefelt, z.B. inserat.isSaved)
-  const initialSaved = inserat.isSaved === true || inserat.gespeichert === true;
-  updateSaveButtonUI(btn, initialSaved);
+  // --- Initialen Status holen ---
+  let saved = false;
+
+  if (typeof inserat.isSaved === "boolean") {
+    // falls der Server isSaved schon mitliefert
+    saved = inserat.isSaved;
+  } else {
+    // sonst extra Status-Request
+    try {
+      const res = await fetch(api(`/saved/status/${encodeURIComponent(inseratId)}`), {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        saved = !!data.saved;
+      }
+    } catch (e) {
+      // ignorieren, default bleibt false
+    }
+  }
+
+  updateSaveButtonUI(btn, saved);
+
+  // Klick-Handler
+  btn.addEventListener("click", () => toggleSave(btn));
 }
 
-async function toggleSave(btn, inseratId) {
+async function toggleSave(btn) {
+  const inseratId = btn.dataset.inseratId;
   if (!inseratId) return;
 
-  const wasSaved = btn.dataset.saved === "1";
+  const wasSaved    = btn.dataset.saved === "1";
   const willBeSaved = !wasSaved;
 
   // Optimistic UI
@@ -1668,19 +1689,15 @@ async function toggleSave(btn, inseratId) {
   btn.disabled = true;
 
   try {
-    // ❗ HIER: richtige Routes + Feldname
-    const res = await fetch(
-      api(willBeSaved ? "/inserat/save" : "/inserat/unsave"),
-      {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fahrzeugId: inseratId }), // nicht "inseratId"
-      }
-    );
+    const res = await fetch(api("/saved/toggle"), {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fahrzeugId: inseratId }),
+    });
 
     if (res.status === 401) {
-      // nicht eingeloggt → Zustand zurückdrehen + Login
+      // nicht eingeloggt → zurückdrehen + Login
       updateSaveButtonUI(btn, wasSaved);
       window.location.href = "login.html";
       return;
@@ -1694,8 +1711,7 @@ async function toggleSave(btn, inseratId) {
     }
 
     const data = await res.json().catch(() => null);
-    const finalSaved =
-      typeof data?.saved === "boolean" ? data.saved : willBeSaved;
+    const finalSaved = typeof data?.saved === "boolean" ? data.saved : willBeSaved;
     updateSaveButtonUI(btn, finalSaved);
   } catch (err) {
     updateSaveButtonUI(btn, wasSaved);
@@ -1704,6 +1720,10 @@ async function toggleSave(btn, inseratId) {
     btn.disabled = false;
   }
 }
+
+// falls du es irgendwo inline brauchst:
+window.toggleSave = toggleSave;
+
 
 
 
@@ -1785,6 +1805,10 @@ function setupNavbar() {
     }
   });
 }
+
+
+
+
 
 
 
