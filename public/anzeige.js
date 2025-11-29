@@ -875,19 +875,7 @@ function closeLightbox() {
 }
 
 
-/* ------------------------ Save-Button ------------------------ */
-function toggleSave(button) {
-  if (!button) return;
-  const saved = !button.classList.contains("saved");
-  button.classList.toggle("saved", saved);
-  button.setAttribute("aria-pressed", saved ? "true" : "false");
 
-  const labelSave = button.dataset.labelSave || "Speichern";
-  const labelSaved = button.dataset.labelSaved || "Gespeichert";
-  const iconClass = saved ? "fas" : "far";
-
-  button.innerHTML = `<i class="${iconClass} fa-heart"></i> ${saved ? labelSaved : labelSave}`;
-}
 
 /* ------------------------ Kontakt-Panel & Telefon ------------------------ */
 function toggleContactPanel() {
@@ -1619,13 +1607,22 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
 
+/* ------------------------ Save-Button (Server-basiert) ------------------------ */
+
 function getInseratId(inserat) {
   if (!inserat) return null;
+
+  // Falls Mongo-Objekt:
+  if (inserat._id && typeof inserat._id === "object" && typeof inserat._id.$oid === "string") {
+    return inserat._id.$oid;
+  }
+
+  // Normal:
   return inserat._id || inserat.id || inserat.inseratId || null;
 }
 
 function updateSaveButtonUI(btn, saved) {
-  const icon = btn.querySelector("i");
+  const icon  = btn.querySelector("i");
   const label = btn.querySelector(".label");
 
   btn.classList.toggle("is-saved", saved);
@@ -1642,7 +1639,8 @@ function updateSaveButtonUI(btn, saved) {
 }
 
 /**
- * Wird im Boot-Block aufgerufen
+ * Wird im Boot-Block aufgerufen (nach loadInseratData()).
+ * Übergibt uns das aktuelle Inserat, damit wir die ID kennen.
  */
 function initSaveButton(inserat) {
   const btn = document.querySelector(".save-cta");
@@ -1651,18 +1649,21 @@ function initSaveButton(inserat) {
   const inseratId = getInseratId(inserat);
   if (!inseratId) return;
 
-  // Initial-Status aus den Inserat-Daten (wenn vom Server mitgeliefert)
-  const initialSaved =
-    inserat.isSaved === true || inserat.gespeichert === true;
-  updateSaveButtonUI(btn, initialSaved);
+  // ID am Button speichern, damit toggleSave() sie lesen kann
+  btn.dataset.inseratId = inseratId;
 
-  btn.addEventListener("click", () => toggleSave(btn, inseratId));
+  // Initialzustand (falls vom Server mitgeliefelt, z.B. inserat.isSaved)
+  const initialSaved = inserat.isSaved === true || inserat.gespeichert === true;
+  updateSaveButtonUI(btn, initialSaved);
 }
 
-async function toggleSave(btn, inseratId) {
+async function toggleSave(btn) {
+  if (!btn) return;
+
+  const inseratId = btn.dataset.inseratId;
   if (!inseratId) return;
 
-  const wasSaved = btn.dataset.saved === "1";
+  const wasSaved   = btn.dataset.saved === "1";
   const willBeSaved = !wasSaved;
 
   // Optimistic UI
@@ -1670,20 +1671,17 @@ async function toggleSave(btn, inseratId) {
   btn.disabled = true;
 
   try {
-    const res = await fetch(
-      api(willBeSaved ? "/saved/add" : "/saved/remove"),
-      {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inseratId }),
-      }
-    );
+    const res = await fetch(api(willBeSaved ? "/saved/add" : "/saved/remove"), {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inseratId }),
+    });
 
     if (res.status === 401) {
-      // nicht eingeloggt → wieder zurückdrehen und auf Login schicken
+      // nicht eingeloggt → Zustand zurück und auf Login
       updateSaveButtonUI(btn, wasSaved);
-      window.location.href = "/login.html";
+      window.location.href = "login.html";
       return;
     }
 
@@ -1697,6 +1695,7 @@ async function toggleSave(btn, inseratId) {
     const data = await res.json().catch(() => null);
     const finalSaved =
       typeof data?.saved === "boolean" ? data.saved : willBeSaved;
+
     updateSaveButtonUI(btn, finalSaved);
   } catch (err) {
     updateSaveButtonUI(btn, wasSaved);
@@ -1705,6 +1704,7 @@ async function toggleSave(btn, inseratId) {
     btn.disabled = false;
   }
 }
+
 
 
 /* ------------------------ Global Exports (HTML inline handlers) ------------------------ */

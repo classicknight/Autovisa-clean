@@ -202,7 +202,11 @@ client.connect()
 
     await db.collection("inserate").createIndex({ standortCoords: "2dsphere" });
     await db.collection("geocache").createIndex({ key: 1 }, { unique: true });
-
+    await db.collection("savedInserate").createIndex(
+      { userId: 1, fahrzeugId: 1 },
+      { unique: true }
+    );
+    
     await db.collection("geosuggest").createIndex({ key: 1 }, { unique: true });
     await db.collection("geosuggest").createIndex(
       { updatedAt: 1 },
@@ -1133,6 +1137,90 @@ app.get("/meine-inserate", checkLogin, async (req, res) => {
   }
 });
 
+// === Gespeicherte Inserate (Speichern / Status / Liste) ===
+
+// Toggle: speichern / entfernen
+app.post("/saved/toggle", checkLogin, async (req, res) => {
+  try {
+    const userId = req.nutzer.id;
+    const fahrzeugId = String(req.body.fahrzeugId || "").trim();
+
+    if (!fahrzeugId) {
+      return res.status(400).json({ error: "fahrzeugId fehlt." });
+    }
+
+    const coll = db.collection("savedInserate");
+    const existing = await coll.findOne({ userId, fahrzeugId });
+
+    if (existing) {
+      await coll.deleteOne({ _id: existing._id });
+      return res.json({ saved: false });
+    } else {
+      await coll.insertOne({
+        userId,
+        fahrzeugId,
+        createdAt: new Date(),
+      });
+      return res.json({ saved: true });
+    }
+  } catch (err) {
+    console.error("❌ Fehler bei /saved/toggle:", err);
+    res.status(500).json({ error: "Serverfehler beim Speichern." });
+  }
+});
+
+// Status für ein Inserat
+app.get("/saved/status/:fahrzeugId", checkLogin, async (req, res) => {
+  try {
+    const userId = req.nutzer.id;
+    const fahrzeugId = String(req.params.fahrzeugId || "").trim();
+    if (!fahrzeugId) {
+      return res.status(400).json({ error: "ID fehlt." });
+    }
+
+    const coll = db.collection("savedInserate");
+    const existing = await coll.findOne({ userId, fahrzeugId });
+
+    res.json({ saved: !!existing });
+  } catch (err) {
+    console.error("❌ Fehler bei /saved/status:", err);
+    res.status(500).json({ error: "Serverfehler beim Status." });
+  }
+});
+
+// (optional) komplette Liste der gespeicherten Inserate des Nutzers
+app.get("/saved/list", checkLogin, async (req, res) => {
+  try {
+    const userId = req.nutzer.id;
+    const coll = db.collection("savedInserate");
+
+    const saved = await coll
+      .find({ userId })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    const ids = [];
+    for (const s of saved) {
+      try {
+        ids.push(new ObjectId(String(s.fahrzeugId)));
+      } catch {}
+    }
+
+    if (!ids.length) {
+      return res.json([]);
+    }
+
+    const inserateColl = db.collection("inserate");
+    const inserate = await inserateColl
+      .find({ _id: { $in: ids }, status: "online" })
+      .toArray();
+
+    res.json(inserate);
+  } catch (err) {
+    console.error("❌ Fehler bei /saved/list:", err);
+    res.status(500).json({ error: "Fehler beim Laden der gespeicherten Inserate." });
+  }
+});
 
 // === Nutzer-Info aus Session (Privat + Händler) ===
 app.get("/getNutzerInfo", async (req, res) => {
@@ -3323,3 +3411,11 @@ app.get("/api/search", async (req, res) => {
     res.status(500).json({ error: "Interner Fehler bei der Suche." });
   }
 });
+
+
+
+
+
+
+
+
