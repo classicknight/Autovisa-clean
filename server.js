@@ -1150,24 +1150,43 @@ app.post("/saved/toggle", checkLogin, async (req, res) => {
     }
 
     const coll = db.collection("savedInserate");
+
+    // Existiert schon?
     const existing = await coll.findOne({ userId, fahrzeugId });
 
     if (existing) {
+      // => wieder entfernen
       await coll.deleteOne({ _id: existing._id });
       return res.json({ saved: false });
-    } else {
+    }
+
+    // => neu speichern
+    try {
       await coll.insertOne({
         userId,
         fahrzeugId,
         createdAt: new Date(),
       });
       return res.json({ saved: true });
+    } catch (err) {
+      // Falls der unique-Index zuschlägt (parallel geklickt / Alt-Daten):
+      if (err && err.code === 11000) {
+        // Ist faktisch "gespeichert", also kein Fehler für den Nutzer
+        return res.json({ saved: true });
+      }
+      throw err;
     }
   } catch (err) {
     console.error("❌ Fehler bei /saved/toggle:", err);
-    res.status(500).json({ error: "Serverfehler beim Speichern." });
+    return res.status(500).json({
+      error:
+        "Serverfehler beim Speichern (" +
+        (err.code || err.message || "Unbekannter Fehler") +
+        ")",
+    });
   }
 });
+
 
 // Status für ein Inserat
 app.get("/saved/status/:fahrzeugId", checkLogin, async (req, res) => {

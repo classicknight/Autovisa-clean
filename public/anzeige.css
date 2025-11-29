@@ -2683,3 +2683,31 @@ img, video, canvas {
     white-space: nowrap;
   }
 }
+
+
+
+
+
+
+/* === FIX: Medienbilder auf Handy wie auf Desktop darstellen === */
+
+@media (max-width: 768px) {
+  /* Hauptbild-Bereich */
+  .media-main img,
+  .media-main video,
+  .media-display img,
+  .media-display video {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 60vh;
+    object-fit: contain !important; /* nicht hineinzoomen */
+    transform: none !important;     /* evtl. scale() überschreiben */
+  }
+
+  /* Optional: Container nicht strecken */
+  .media-main,
+  .media-display {
+    max-height: 60vh;
+    overflow: hidden;
+  }
+}
