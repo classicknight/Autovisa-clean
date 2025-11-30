@@ -2805,10 +2805,6 @@ img, video, canvas {
 
 
 
-
-
-
-
 /* === Mobile: Galerie kompakt, ohne große Flächen oben/unten === */
 @media (max-width: 600px) {
   .media-detail-container {
@@ -2822,7 +2818,7 @@ img, video, canvas {
 
   .media-detail-wrapper {
     height: auto;          /* keine fixe Höhe */
-    aspect-ratio: 4 / 3;   /* kompakte Höhe (wie klassische Foto-Ansicht) */
+    aspect-ratio: 4 / 3;   /* kompakte, stabile Höhe */
     border-radius: 0;
   }
 
@@ -2837,23 +2833,21 @@ img, video, canvas {
     height: 100%;
   }
 
-  /* WICHTIG: wieder cover, damit kein Leerraum oben/unten entsteht */
+  /* Handy: NICHT reinzoomen → komplettes Auto sichtbar */
   .media-slider img,
   .media-slider video {
     width: 100%;
     height: 100%;
-    object-fit: cover;        /* leichtes Cropping, aber kein fetter Balken */
+    object-fit: contain;        /* ← vorher cover */
     background-color: #1f2a33;
   }
 
-  /* Pfeile etwas dezenter, aber optional */
   .media-prev,
   .media-next {
     top: 50%;
     background: rgba(0, 0, 0, 0.4);
   }
 
-  /* Lightbox auf Handy: Vollbild ohne extra Schatten etc. */
   .lightbox-overlay {
     padding: 0;
     background: #000;
@@ -2897,3 +2891,6 @@ img, video, canvas {
     display: none; /* auf Handy swipen reicht */
   }
 }
+
+
+

@@ -303,7 +303,6 @@ function fillTop(inserat) {
 }
 
 
-
 function initStickySummary(inserat) {
   const bar    = document.getElementById("sticky-summary");
   if (!bar) return;
@@ -316,7 +315,6 @@ function initStickySummary(inserat) {
 
   // --- Titel ---
   if (titleEl) {
-    // gleiche Logik wie oben im Header
     if (typeof buildTitle === "function") {
       titleEl.textContent = buildTitle(inserat);
     } else {
@@ -386,7 +384,6 @@ function initStickySummary(inserat) {
 
   // --- Vorschaubild aus der Galerie holen ---
   if (imgEl) {
-    // Nimmt das erste Bild aus dem Slider, falls vorhanden
     const firstMedia =
       document.querySelector(".media-slider img") ||
       document.querySelector(".media-slider video");
@@ -1662,6 +1659,7 @@ function toggleRatingPanel() {
 }
 /* ------------------------ Boot ------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
+  // Navbar / Auth / Panels
   setupAuthLink();
   setupNavbarShortcuts();
   setupMessageForm();
@@ -1676,8 +1674,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const form = document.getElementById("messageForm");
       if (!form) return;
 
-      // ggf. anpassen, falls oben etwas verdeckt
-      const offset = 100;
+      const offset = 100; // kleiner Abstand zur Navbar
       const rect = form.getBoundingClientRect();
       const targetY = rect.top + window.pageYOffset - offset;
 
@@ -1694,25 +1691,32 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   // 🔼 Ende Scroll-Logik
 
+  // Navbar-Setup (falls globale Funktion existiert)
   try {
     if (typeof window.setupNavbar === "function") window.setupNavbar();
   } catch {}
 
+  // Inserat laden
   const inserat = await loadInseratData();
-  if (!inserat) return;
+  if (!inserat) {
+    console.error("Kein Inserat gefunden.");
+    return;
+  }
 
-  fillTop(inserat);
-  fillTechnical(inserat);
-  fillAusstattung(inserat);
-  fillSellerCard(inserat);
-  fillDescription(inserat);
-  fillMedia(inserat);
+  // Obere Bereiche füllen
+  fillTop(inserat);          // Titel + Preis + 6 Hauptinfos
+  fillMedia(inserat);        // Galerie / Slider
+  fillTechnical(inserat);    // Technische Daten
+  fillAusstattung(inserat);  // Ausstattung
+  fillSellerCard(inserat);   // Verkäufer-Box
+  fillDescription(inserat);  // Fahrzeugbeschreibung mit Mehr-anzeigen
+  renderSeller();            // ggf. zusätzliche Seller-Infos
 
-  renderSeller();
-
-  // 🔽 NEU: Save-Button initialisieren
+  // Save-Button (Herz) initialisieren
   initSaveButton(inserat);
-  // 🔼
+
+  // 👉 NEU: Sticky Summary-Balken oben nach den 6 Hauptinfos
+  initStickySummary(inserat);
 
   // Tastatursteuerung (Slider / Lightbox)
   document.addEventListener("keydown", (e) => {
@@ -1720,15 +1724,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     const lightboxOpen = overlay?.classList.contains("show");
     if (lightboxOpen) {
       if (e.key === "ArrowRight") navigateLightbox(1);
-      if (e.key === "ArrowLeft") navigateLightbox(-1);
-      if (e.key === "Escape") closeLightbox();
+      if (e.key === "ArrowLeft")  navigateLightbox(-1);
+      if (e.key === "Escape")     closeLightbox();
     } else {
       if (e.key === "ArrowRight") nextMedia();
-      if (e.key === "ArrowLeft") prevMedia();
+      if (e.key === "ArrowLeft")  prevMedia();
     }
   });
 
-  // Smooth scroll (optional) für Link auf die Suchsektion
+  // Smooth Scroll (optional) für Link auf die Suchsektion
   document
     .querySelector('a[href="#search-section"]')
     ?.addEventListener("click", (e) => {
@@ -1738,7 +1742,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         ?.scrollIntoView({ behavior: "smooth" });
     });
 });
-
 
 
 /* ------------------------ Save-Button (Server-basiert) ------------------------ */
