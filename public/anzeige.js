@@ -301,6 +301,123 @@ function fillTop(inserat) {
     mapRoleToLabel(inserat?.seller?.type) || mapRoleToLabel(inserat?.verkauf_verkaeufer);
   if (sellerTypeEl) sellerTypeEl.textContent = sellerLabel;
 }
+
+
+
+function initStickySummary(inserat) {
+  const bar    = document.getElementById("sticky-summary");
+  if (!bar) return;
+
+  const titleEl = document.getElementById("sticky-summary-title");
+  const priceEl = document.getElementById("sticky-summary-price");
+  const kmEl    = document.getElementById("sticky-summary-km");
+  const ezEl    = document.getElementById("sticky-summary-ez");
+  const imgEl   = document.getElementById("sticky-summary-image");
+
+  // --- Titel ---
+  if (titleEl) {
+    // gleiche Logik wie oben im Header
+    if (typeof buildTitle === "function") {
+      titleEl.textContent = buildTitle(inserat);
+    } else {
+      titleEl.textContent =
+        inserat.titel ||
+        inserat.verkauf_modell ||
+        inserat.modell ||
+        "Fahrzeug";
+    }
+  }
+
+  // --- Preis ---
+  if (priceEl) {
+    const rawPrice =
+      inserat.preisBrutto ??
+      inserat.preis_brutto ??
+      inserat.preis ??
+      inserat.price ??
+      null;
+
+    if (rawPrice != null && typeof formatPrice === "function") {
+      priceEl.textContent = formatPrice(rawPrice);
+    } else if (rawPrice != null) {
+      const n = Number(rawPrice);
+      priceEl.textContent = Number.isFinite(n)
+        ? n.toLocaleString("de-DE") + " €"
+        : rawPrice + " €";
+    } else {
+      priceEl.textContent = "Preis auf Anfrage";
+    }
+  }
+
+  // --- Kilometer ---
+  if (kmEl) {
+    const kmRaw =
+      inserat.verkauf_kilometer ??
+      inserat.kilometer ??
+      inserat.laufleistung ??
+      null;
+
+    if (kmRaw != null && kmRaw !== "") {
+      const n = Number(kmRaw);
+      kmEl.textContent = Number.isFinite(n)
+        ? n.toLocaleString("de-DE") + " km"
+        : kmRaw + " km";
+      kmEl.style.display = "";
+    } else {
+      kmEl.style.display = "none";
+    }
+  }
+
+  // --- Erstzulassung ---
+  if (ezEl) {
+    const ez =
+      inserat.verkauf_erstzulassung ||
+      inserat.erstzulassung ||
+      inserat.ez ||
+      "";
+
+    if (ez) {
+      ezEl.textContent = ez;
+      ezEl.style.display = "";
+    } else {
+      ezEl.style.display = "none";
+    }
+  }
+
+  // --- Vorschaubild aus der Galerie holen ---
+  if (imgEl) {
+    // Nimmt das erste Bild aus dem Slider, falls vorhanden
+    const firstMedia =
+      document.querySelector(".media-slider img") ||
+      document.querySelector(".media-slider video");
+
+    if (firstMedia) {
+      if (firstMedia.tagName === "VIDEO") {
+        imgEl.src = firstMedia.poster || firstMedia.currentSrc || firstMedia.src;
+      } else {
+        imgEl.src = firstMedia.currentSrc || firstMedia.src;
+      }
+    }
+  }
+
+  // --- Sichtbarkeit beim Scrollen steuern ---
+  const infoBox = document.querySelector(".car-info-box");
+
+  function updateVisibility() {
+    if (!infoBox) return;
+
+    const rect = infoBox.getBoundingClientRect();
+    const navOffset = window.innerWidth <= 600 ? 72 : 96;
+
+    // Sobald man an den 6 Hauptinfos vorbeigerollt ist, Balken zeigen
+    const hasPassed = rect.bottom < navOffset + 10;
+    bar.classList.toggle("visible", hasPassed);
+  }
+
+  window.addEventListener("scroll", updateVisibility, { passive: true });
+  updateVisibility();
+}
+
 function fillTechnical(inserat) {
   // einfache Textfelder (direkte Strings)
   const simpleMap = [

@@ -2687,7 +2687,129 @@ img, video, canvas {
 
 
 
-/* === Mobile: Galerie-Bilder nicht reinzoomen, sondern vollständig anzeigen === */
+/* ================== Sticky Mini Header unterhalb der Hauptinfos ================== */
+
+.sticky-summary {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 96px; /* Desktop: unter der Navbar */
+  transform: translateY(-120%);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+  z-index: 800;
+}
+
+.sticky-summary.visible {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sticky-summary-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: rgba(245, 248, 252, 0.96);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(15, 32, 39, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* kleines Vorschaubild links */
+.sticky-summary-media {
+  flex: 0 0 72px;
+  height: 48px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #1f2a33;
+}
+
+.sticky-summary-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Textbereich */
+.sticky-summary-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sticky-summary-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a2733;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sticky-summary-meta {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.sticky-summary-price {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f2027;
+}
+
+.sticky-summary-chip {
+  font-size: 12px;
+  color: #4b5a67;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(15, 32, 39, 0.04);
+}
+
+/* Mobile Anpassung */
+@media (max-width: 600px) {
+  .sticky-summary {
+    top: 72px; /* mobile Navbar ist niedriger */
+  }
+
+  .sticky-summary-inner {
+    max-width: 100%;
+    border-radius: 0;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  }
+
+  .sticky-summary-media {
+    flex-basis: 64px;
+    height: 44px;
+  }
+
+  .sticky-summary-title {
+    font-size: 13px;
+  }
+
+  .sticky-summary-price {
+    font-size: 14px;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+/* === Mobile: Galerie kompakt, ohne große Flächen oben/unten === */
 @media (max-width: 600px) {
   .media-detail-container {
     border-radius: 0;
@@ -2699,29 +2821,29 @@ img, video, canvas {
   }
 
   .media-detail-wrapper {
-    height: auto;        /* feste Höhe weg */
-    aspect-ratio: auto;  /* kein 4:3-Zwang mehr */
+    height: auto;          /* keine fixe Höhe */
+    aspect-ratio: 4 / 3;   /* kompakte Höhe (wie klassische Foto-Ansicht) */
     border-radius: 0;
   }
 
-  /* WICHTIG: die inneren Container sollen sich an der Bildhöhe orientieren */
   .media-detail-main,
-  .media-slider,
   .media-slide-wrapper,
   .media-slide {
-    height: auto;
     border-radius: 0;
+    height: 100%;
   }
 
-  /* Auf Handy nicht cover, sondern contain – und Höhe vom Bild selbst */
+  .media-slider {
+    height: 100%;
+  }
+
+  /* WICHTIG: wieder cover, damit kein Leerraum oben/unten entsteht */
   .media-slider img,
   .media-slider video {
     width: 100%;
-    height: auto;                         /* statt 100% */
-    max-height: calc(100vh - 220px);      /* optional: nicht größer als der Screen */
-    object-fit: contain;                  /* kein Zoom, komplettes Auto sichtbar */
-    background-color: #1f2a33;            /* dezenter Hintergrund für Ränder */
-    display: block;
+    height: 100%;
+    object-fit: cover;        /* leichtes Cropping, aber kein fetter Balken */
+    background-color: #1f2a33;
   }
 
   /* Pfeile etwas dezenter, aber optional */
@@ -2775,4 +2897,3 @@ img, video, canvas {
     display: none; /* auf Handy swipen reicht */
   }
 }
-
