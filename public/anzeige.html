@@ -485,15 +485,17 @@
 </div>
 <!-- Anbieter / Händler -->
 <!-- Anbieter -->
-<section class="seller-card" id="sellerCard">
+<section class="seller-card" id="anbieter">
   <h2 class="seller-heading">Anbieter</h2>
 
+  <!-- obere Zeile: Avatar, Name, Typ, Bewertung -->
   <div class="seller-top">
     <div class="seller-id">
-      <div class="dealer-avatar">
-        <img id="sellerLogo" alt="Logo">
+      <div class="dealer-avatar" id="sellerAvatar">
+        <img id="sellerLogo" alt="Logo des Anbieters" />
         <span class="dealer-initials" id="sellerInitials">AV</span>
       </div>
+
       <div class="seller-meta">
         <div class="seller-name" id="sellerName">—</div>
         <div class="seller-type-pill" id="sellerType">Privatanbieter</div>
@@ -502,16 +504,91 @@
     </div>
 
     <div class="seller-rating-wrap">
-      <div class="stars"><div class="stars-fill" id="starsFill" style="width:0%"></div></div>
-      <div class="rating-text"><span id="ratingValue">–</span> / 5 <span class="rating-count" id="ratingCount"></span></div>
-      <button class="btn-soft" id="btnRate"><i class="fas fa-star"></i> Bewerten</button>
+      <div class="stars">
+        <div class="stars-fill" id="sellerRatingFill"></div>
+      </div>
+      <div class="rating-text">
+        <span id="sellerRatingValue">– / 5</span>
+        <span class="rating-count" id="sellerRatingCount"></span>
+      </div>
+      <button type="button" class="btn-soft" id="openRatingPanel">
+        <i class="fas fa-star"></i>
+        Händler bewerten
+      </button>
     </div>
   </div>
 
-  <div class="seller-contact">
-    <a class="btn-primary" id="callBtn" href="#"><i class="fas fa-phone"></i> Anrufen</a>
-    <a class="btn-primary ghost" id="mailBtn" href="#"><i class="fas fa-envelope"></i> E-Mail</a>
-    <button class="btn-primary ghost" id="msgBtn" type="button"><i class="fas fa-comment"></i> Nachricht</button>
+  <div class="seller-body">
+    <div class="seller-columns">
+      <!-- SPALTE 1: Kontakt & Basisinfos -->
+      <div class="seller-column">
+        <h3 class="seller-subheading">Kontakt</h3>
+
+        <ul class="kv">
+          <li>
+            <span><i class="fas fa-phone"></i> Telefon</span>
+            <strong id="sellerPhoneDisplay">–</strong>
+          </li>
+          <li>
+            <span><i class="fas fa-envelope"></i> E-Mail</span>
+            <strong id="sellerMailDisplay">–</strong>
+          </li>
+          <li id="sellerWebsiteRow">
+            <span><i class="fas fa-globe"></i> Website</span>
+            <strong>
+              <a id="sellerWebsiteLink" href="#" target="_blank" rel="noopener">–</a>
+            </strong>
+          </li>
+          <li id="sellerLanguageRow">
+            <span><i class="fas fa-language"></i> Sprachen</span>
+            <strong id="sellerLanguages">–</strong>
+          </li>
+          <li id="sellerMemberSinceRow">
+            <span><i class="fas fa-clock"></i> Bei Autovisa seit</span>
+            <strong id="sellerMemberSince">–</strong>
+          </li>
+        </ul>
+
+        <div class="seller-contact">
+          <a href="#" class="btn-primary" id="callBtn">
+            <i class="fas fa-phone-alt"></i>
+            Anrufen
+          </a>
+          <a href="#" class="btn-primary ghost" id="mailBtn">
+            <i class="fas fa-envelope"></i>
+            E-Mail
+          </a>
+          <button type="button" class="btn-soft" id="msgBtn">
+            <i class="fas fa-comment-dots"></i>
+            Nachricht
+          </button>
+        </div>
+      </div>
+
+      <!-- SPALTE 2: Öffnungszeiten -->
+      <div class="seller-column" id="sellerHoursBox">
+        <h3 class="seller-subheading">Öffnungszeiten</h3>
+        <ul class="hours" id="sellerHours">
+          <!-- wird per JS befüllt -->
+        </ul>
+      </div>
+    </div>
+
+    <!-- STANDORT / KARTE -->
+    <div class="seller-map-row" id="sellerMapBox">
+      <h3 class="seller-subheading">Standort</h3>
+      <p class="seller-map-note" id="sellerMapNote"></p>
+
+      <div class="seller-map-embed">
+        <iframe
+          id="sellerMapFrame"
+          src=""
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+          allowfullscreen
+        ></iframe>
+      </div>
+    </div>
   </div>
 </section>
 

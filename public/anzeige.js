@@ -635,47 +635,351 @@ function fillAusstattung(inserat) {
   if (any && block) block.style.display = "block";
 }
 
-/* ------------------------ Verkäuferkarte (Basis) ------------------------ */
 function fillSellerCard(inserat) {
-  const nameEl = document.getElementById("sellerName");
-  const typeEl = document.getElementById("sellerType");
-  const addrEl = document.getElementById("sellerAddress");
-  const logoEl = document.getElementById("sellerLogo");
-  const initEl = document.getElementById("sellerInitials");
+  const nameEl  = document.getElementById("sellerName");
+  const typeEl  = document.getElementById("sellerType");
+  const addrEl  = document.getElementById("sellerAddress");
+  const logoImg = document.getElementById("sellerLogo");
+  const initEl  = document.getElementById("sellerInitials");
+  const avatar  = document.getElementById("sellerAvatar");
+
+  const phoneDisplay = document.getElementById("sellerPhoneDisplay");
+  const mailDisplay  = document.getElementById("sellerMailDisplay");
+  const websiteRow   = document.getElementById("sellerWebsiteRow");
+  const websiteLink  = document.getElementById("sellerWebsiteLink");
+  const languageRow  = document.getElementById("sellerLanguageRow");
+  const languageEl   = document.getElementById("sellerLanguages");
+  const memberRow    = document.getElementById("sellerMemberSinceRow");
+  const memberEl     = document.getElementById("sellerMemberSince");
+
   const callBtn = document.getElementById("callBtn");
   const mailBtn = document.getElementById("mailBtn");
-  const msgBtn = document.getElementById("msgBtn");
+  const msgBtn  = document.getElementById("msgBtn");
 
   const seller = inserat.seller || {};
-  const sellerName = inserat.verkauf_name || seller.name || "—";
-  const sellerType = mapRoleToLabel(seller.type || inserat.verkauf_verkaeufer);
-  const sellerAddr = inserat.standort || "—";
-  const logoUrl = seller.logoUrl || "";
+
+  const sellerName =
+    inserat.verkauf_name ||
+    seller.name ||
+    "—";
+
+  const sellerTypeLabel =
+    mapRoleToLabel(seller.type || inserat.verkauf_verkaeufer) ||
+    "Privatanbieter";
+
+  let sellerAddr =
+    inserat.standort ||
+    [seller.strasse, seller.hausnummer, seller.plz, seller.ort]
+      .filter(Boolean)
+      .join(" ") ||
+    "—";
+
+  // Privatanbieter: nur Stadt anzeigen
+  const isDealer = /händler|autohaus|betrieb|gewerb/i.test(sellerTypeLabel);
+  if (!isDealer) {
+    const city = inserat.ort || seller.ort || guessCityFromStandort(sellerAddr);
+    if (city) sellerAddr = city;
+  }
+
+  const logoUrl =
+    seller.logoUrl ||
+    inserat.sellerLogo ||
+    "";
 
   if (nameEl) nameEl.textContent = sellerName;
-  if (typeEl) typeEl.textContent = sellerType;
+  if (typeEl) typeEl.textContent = sellerTypeLabel;
   if (addrEl) addrEl.textContent = sellerAddr;
 
-  if (logoEl) {
+  if (logoImg && avatar) {
     if (logoUrl) {
-      logoEl.src = logoUrl;
-      logoEl.alt = "Logo";
-      logoEl.style.display = "block";
+      logoImg.src = logoUrl;
+      logoImg.alt = sellerName || "Logo";
+      avatar.classList.add("has-logo");
     } else {
-      logoEl.style.display = "none";
+      logoImg.removeAttribute("src");
+      avatar.classList.remove("has-logo");
     }
   }
+
   if (initEl) {
-    const initials = (sellerName.match(/\b\p{L}/gu) || []).slice(0, 2).join("").toUpperCase() || "AV";
+    const initials =
+      (sellerName.match(/\b\p{L}/gu) || [])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase() || "AV";
     initEl.textContent = initials;
-    initEl.style.display = logoUrl ? "none" : "inline-flex";
   }
 
-  if (callBtn) callBtn.href = inserat.telefon ? `tel:${sanitizePhone(inserat.telefon)}` : "#";
-  if (mailBtn) mailBtn.href = inserat.email ? `mailto:${inserat.email}` : "#";
+  // Telefon
+  const rawPhone =
+    inserat.telefon ||
+    seller.telefon ||
+    seller.telefon2 ||
+    "";
+
+  if (phoneDisplay) {
+    phoneDisplay.textContent = rawPhone || "–";
+  }
+  if (callBtn) {
+    callBtn.href = rawPhone ? `tel:${sanitizePhone(rawPhone)}` : "#";
+    callBtn.setAttribute("aria-disabled", rawPhone ? "false" : "true");
+  }
+
+  // E-Mail
+  const rawMail =
+    inserat.email ||
+    seller.email ||
+    "";
+
+  if (mailDisplay) {
+    mailDisplay.textContent = rawMail || "–";
+  }
+  if (mailBtn) {
+    mailBtn.href = rawMail ? `mailto:${rawMail}` : "#";
+    mailBtn.setAttribute("aria-disabled", rawMail ? "false" : "true");
+  }
+
+  // Website
+  const rawWebsite =
+    seller.website ||
+    seller.webseite ||
+    inserat.website ||
+    inserat.webseite ||
+    "";
+
+  if (websiteRow && websiteLink) {
+    if (rawWebsite) {
+      const url = ensureHttpUrl(rawWebsite);
+      websiteLink.href = url;
+      websiteLink.textContent = rawWebsite.replace(/^https?:\/\//i, "");
+      websiteRow.style.display = "";
+    } else {
+      websiteRow.style.display = "none";
+    }
+  }
+
+  // Sprachen
+  const langs =
+    seller.sprachen ||
+    seller.languages ||
+    inserat.seller_sprachen ||
+    null;
+
+  if (languageRow && languageEl) {
+    let text = "";
+    if (Array.isArray(langs)) {
+      text = langs.join(", ");
+    } else if (typeof langs === "string") {
+      text = langs;
+    }
+
+    if (text.trim()) {
+      languageEl.textContent = text;
+      languageRow.style.display = "";
+    } else {
+      languageRow.style.display = "none";
+    }
+  }
+
+  // Mitglied seit
+  const createdRaw =
+    seller.createdAt ||
+    seller.erstelltAm ||
+    inserat.sellerCreatedAt ||
+    null;
+
+  if (memberRow && memberEl) {
+    let year = "";
+    if (createdRaw) {
+      const d = new Date(createdRaw);
+      if (!Number.isNaN(d.getTime())) {
+        year = String(d.getFullYear());
+      }
+    }
+    if (year) {
+      memberEl.textContent = `seit ${year}`;
+      memberRow.style.display = "";
+    } else {
+      memberRow.style.display = "none";
+    }
+  }
+
+  // Öffnungszeiten & Karte
+  fillOpeningHours(seller, inserat, isDealer);
+  renderSellerMap(inserat, sellerName, sellerTypeLabel, sellerAddr, isDealer);
+
+  // Nachricht-Button scrollt zum Formular
   msgBtn?.addEventListener("click", () => {
-    document.querySelector(".message-box")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    document
+      .querySelector(".message-box")
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
   });
+}
+
+
+
+// Stadt aus Freitext-Standort grob herausziehen (für Privatanbieter)
+function guessCityFromStandort(text) {
+  if (!text) return "";
+  const parts = text.split(/[,]/).map((s) => s.trim()).filter(Boolean);
+  if (!parts.length) return "";
+  const last = parts[parts.length - 1];
+  const tokens = last.split(/\s+/);
+  const maybeCity = tokens.filter((t) => !/^\d{4,5}$/.test(t)).join(" ");
+  return maybeCity || last;
+}
+
+// Website-URL ggf. mit https:// ergänzen
+function ensureHttpUrl(url) {
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  return "https://" + url.replace(/^\/+/, "");
+}
+
+// Öffnungszeiten füllen – robust für verschiedene Formate
+function fillOpeningHours(seller, inserat, isDealer) {
+  const box  = document.getElementById("sellerHoursBox");
+  const list = document.getElementById("sellerHours");
+  if (!box || !list) return;
+
+  // Privatanbieter: gar keine Öffnungszeiten anzeigen
+  if (!isDealer) {
+    box.style.display = "none";
+    return;
+  }
+
+  list.innerHTML = "";
+
+  const src =
+    seller.oeffnungszeiten ||
+    inserat.oeffnungszeiten ||
+    seller.openingHours ||
+    inserat.openingHours ||
+    null;
+
+  const rows = [];
+
+  if (Array.isArray(src)) {
+    src.forEach((row) => {
+      if (!row) return;
+      if (typeof row === "string") {
+        const m = row.split(/[:\-–]/);
+        if (m.length >= 2) {
+          rows.push({
+            day: m[0].trim(),
+            time: m.slice(1).join("–").trim(),
+          });
+        } else {
+          rows.push({ day: "", time: row.trim() });
+        }
+      } else if (typeof row === "object") {
+        const day  = row.day || row.label || "";
+        const from = row.from || row.von || row.open || "";
+        const to   = row.to   || row.bis || row.close || "";
+        const time = [from, to].filter(Boolean).join(" – ");
+        if (day && time) rows.push({ day, time });
+      }
+    });
+  } else if (src && typeof src === "object") {
+    // z. B. { mo: "09–18", di: "09–18", ... }
+    const order = [
+      ["mo", "Mo."],
+      ["di", "Di."],
+      ["mi", "Mi."],
+      ["do", "Do."],
+      ["fr", "Fr."],
+      ["sa", "Sa."],
+      ["so", "So."],
+    ];
+    order.forEach(([key, label]) => {
+      const val = src[key] || src[key.toUpperCase()];
+      if (!val) return;
+      rows.push({ day: label, time: String(val).trim() });
+    });
+  } else if (typeof src === "string") {
+    src
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .forEach((line) => {
+        const m = line.split(/[:\-–]/);
+        if (m.length >= 2) {
+          rows.push({
+            day: m[0].trim(),
+            time: m.slice(1).join("–").trim(),
+          });
+        } else {
+          rows.push({ day: "", time: line });
+        }
+      });
+  }
+
+  if (!rows.length) {
+    box.style.display = "none";
+    return;
+  }
+
+  rows.forEach((row) => {
+    const li  = document.createElement("li");
+    const dEl = document.createElement("span");
+    const tEl = document.createElement("strong");
+    dEl.textContent = row.day || "";
+    tEl.textContent = row.time || "";
+    li.appendChild(dEl);
+    li.appendChild(tEl);
+    list.appendChild(li);
+  });
+
+  box.style.display = "";
+}
+
+// Google-Maps Karte für Händler, nur Stadt-Text bei Privat
+function renderSellerMap(inserat, sellerName, sellerTypeLabel, sellerAddr, isDealer) {
+  const box   = document.getElementById("sellerMapBox");
+  const frame = document.getElementById("sellerMapFrame");
+  const note  = document.getElementById("sellerMapNote");
+  if (!box || !frame || !note) return;
+
+  const city = inserat.ort || guessCityFromStandort(sellerAddr);
+
+  if (!isDealer) {
+    // Privatanbieter → nur Info-Text, keine Karte
+    box.classList.add("seller-map-box--no-map");
+    note.textContent = city
+      ? `Privater Anbieter in ${city}`
+      : "Privater Anbieter";
+    frame.src = "";
+    return;
+  }
+
+  box.classList.remove("seller-map-box--no-map");
+  const label = city ? `${sellerName} · ${city}` : sellerName;
+  note.textContent = label;
+
+  // Versuche Koordinaten aus dem Inserat
+  let lat = null;
+  let lon = null;
+  const coords = inserat.standortCoords && inserat.standortCoords.coordinates;
+  if (Array.isArray(coords) && coords.length === 2) {
+    lon = coords[0];
+    lat = coords[1];
+  }
+
+  let url = "";
+  if (lat != null && lon != null) {
+    url = `https://www.google.com/maps?q=${lat},${lon}&hl=de&z=14&output=embed`;
+  } else if (sellerAddr && sellerAddr !== "—") {
+    const q = encodeURIComponent(sellerAddr);
+    url = `https://www.google.com/maps?q=${q}&hl=de&z=14&output=embed`;
+  }
+
+  if (!url) {
+    box.style.display = "none";
+    return;
+  }
+
+  box.style.display = "";
+  frame.src = url;
 }
 
 /* ------------------------ Beschreibung ------------------------ */
