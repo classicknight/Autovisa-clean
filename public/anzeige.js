@@ -568,18 +568,29 @@ function fillSellerCard(inserat) {
 function fillDescription(inserat) {
   const descEl = document.getElementById("car-description");
   const btn = document.getElementById("toggle-description-btn");
-  if (descEl) descEl.innerHTML = renderMultilineToHTML(inserat.fahrzeugbeschreibung || "");
 
-  if (btn && descEl) {
-    requestAnimationFrame(() => {
-      const needs = descEl.scrollHeight > descEl.clientHeight;
-      btn.style.display = needs ? "inline-block" : "none";
-      btn.onclick = () => {
-        descEl.classList.toggle("expanded");
-        btn.textContent = descEl.classList.contains("expanded") ? "Weniger anzeigen" : "Mehr anzeigen";
-      };
-    });
+  // Text mit Zeilenumbrüchen einsetzen
+  if (descEl) {
+    descEl.innerHTML = renderMultilineToHTML(inserat.fahrzeugbeschreibung || "");
   }
+
+  if (!descEl || !btn) return;
+
+  // Die umgebende Box (für die CSS-Klasse .car-description-box.expanded)
+  const box = descEl.closest(".car-description-box");
+  if (!box) return;
+
+  // Prüfen, ob überhaupt genug Text für "Mehr anzeigen" da ist
+  requestAnimationFrame(() => {
+    const needsMore = descEl.scrollHeight > descEl.clientHeight + 1;
+    btn.style.display = needsMore ? "inline-block" : "none";
+
+    btn.onclick = () => {
+      box.classList.toggle("expanded");
+      const expanded = box.classList.contains("expanded");
+      btn.textContent = expanded ? "Weniger anzeigen" : "Mehr anzeigen";
+    };
+  });
 }
 
 /* ------------------------ Medien + Slider ------------------------ */
@@ -593,12 +604,18 @@ let animationID;
 let slider;
 let container;
 
+
 function fillMedia(inserat) {
   mediaItems = [];
-  if (Array.isArray(inserat.images)) inserat.images.forEach((src) => mediaItems.push({ type: "img", src }));
-  if (inserat.video && String(inserat.video).trim() !== "") mediaItems.push({ type: "video", src: inserat.video });
 
-  slider = document.getElementById("media-slider");
+  if (Array.isArray(inserat.images)) {
+    inserat.images.forEach((src) => mediaItems.push({ type: "img", src }));
+  }
+  if (inserat.video && String(inserat.video).trim() !== "") {
+    mediaItems.push({ type: "video", src: inserat.video });
+  }
+
+  slider    = document.getElementById("media-slider");
   container = document.getElementById("media-display");
   const thumbs = document.getElementById("thumbnail-track");
   if (!slider || !container) return;
@@ -614,19 +631,25 @@ function fillMedia(inserat) {
     el.draggable = false;
 
     if (item.type === "video") {
-      el.controls = true;
+      // Video: ganz normal im Slider abspielen, NICHT automatisch in die Lightbox springen
+      el.controls   = true;
       el.playsInline = true;
-      el.preload = "metadata";
-      el.tabIndex = -1;
+      el.preload    = "metadata";
+      el.tabIndex   = -1;
+      // kein openFullscreen-Click-Handler hier
     } else {
+      // Bild: Portrait-Erkennung + Klick öffnet Lightbox
       el.addEventListener("load", () => {
-        if (el.naturalHeight > el.naturalWidth) el.classList.add("portrait");
+        if (el.naturalHeight > el.naturalWidth) {
+          el.classList.add("portrait");
+        }
       });
+      el.addEventListener("click", () => openFullscreen(el));
     }
 
-    el.addEventListener("click", () => openFullscreen(el));
     slider.appendChild(el);
 
+    // Thumbnails – Verhalten bleibt wie gehabt (Video-Thumbnail wechselt nur auf den Slide)
     if (thumbs) {
       if (item.type === "video") {
         const th = document.createElement("video");
@@ -637,7 +660,6 @@ function fillMedia(inserat) {
         th.onclick = () => setMedia(idx);
         thumbs.appendChild(th);
       } else {
-
         const th = document.createElement("img");
         th.className = "media-thumb";
         th.src = item.src;
@@ -645,7 +667,6 @@ function fillMedia(inserat) {
         thumbs.appendChild(th);
       }
     }
-    
   });
 
   // Start auf Slide 0
@@ -654,14 +675,15 @@ function fillMedia(inserat) {
     updateSlider();
   }, 0);
 
-  // Gesten – Logik bleibt, keine Optik
+  // Gesten – bleiben wie vorher
   container.addEventListener("pointerdown", dragStart, { passive: false });
   container.addEventListener("pointermove", dragMove, { passive: false });
-  container.addEventListener("pointerup", dragEnd);
-  container.addEventListener("pointerleave", dragEnd);
+  container.addEventListener("pointerup",   dragEnd);
+  container.addEventListener("pointerleave",dragEnd);
   container.addEventListener("pointercancel", dragEnd);
   container.addEventListener("dblclick", () => nextMedia());
 }
+
 
 function dragStart(e) {
   isDragging = true;

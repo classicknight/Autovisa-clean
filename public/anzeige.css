@@ -2687,8 +2687,6 @@ img, video, canvas {
 
 
 
-
-
 /* === Mobile: Galerie-Bilder nicht reinzoomen, sondern vollständig anzeigen === */
 @media (max-width: 600px) {
   .media-detail-container {
@@ -2701,24 +2699,29 @@ img, video, canvas {
   }
 
   .media-detail-wrapper {
-    height: auto;           /* feste Höhe weg */
-    aspect-ratio: auto;     /* kein 4:3-Zwang mehr */
+    height: auto;        /* feste Höhe weg */
+    aspect-ratio: auto;  /* kein 4:3-Zwang mehr */
     border-radius: 0;
   }
 
+  /* WICHTIG: die inneren Container sollen sich an der Bildhöhe orientieren */
   .media-detail-main,
+  .media-slider,
   .media-slide-wrapper,
   .media-slide {
+    height: auto;
     border-radius: 0;
   }
 
-  /* WICHTIG: Auf Handy nicht cover, sondern contain */
+  /* Auf Handy nicht cover, sondern contain – und Höhe vom Bild selbst */
   .media-slider img,
   .media-slider video {
     width: 100%;
-    height: 100%;
-    object-fit: contain;        /* kein Zoom, komplettes Auto sichtbar */
-    background-color: #1f2a33;  /* dezenter Hintergrund für Ränder */
+    height: auto;                         /* statt 100% */
+    max-height: calc(100vh - 220px);      /* optional: nicht größer als der Screen */
+    object-fit: contain;                  /* kein Zoom, komplettes Auto sichtbar */
+    background-color: #1f2a33;            /* dezenter Hintergrund für Ränder */
+    display: block;
   }
 
   /* Pfeile etwas dezenter, aber optional */
@@ -2772,3 +2775,4 @@ img, video, canvas {
     display: none; /* auf Handy swipen reicht */
   }
 }
+
