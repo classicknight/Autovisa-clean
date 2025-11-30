@@ -302,118 +302,125 @@ function fillTop(inserat) {
   if (sellerTypeEl) sellerTypeEl.textContent = sellerLabel;
 }
 
-
 function initStickySummary(inserat) {
-  const bar    = document.getElementById("sticky-summary");
+  const bar = document.getElementById("sticky-summary");
   if (!bar) return;
 
-  const titleEl = document.getElementById("sticky-summary-title");
-  const priceEl = document.getElementById("sticky-summary-price");
-  const kmEl    = document.getElementById("sticky-summary-km");
-  const ezEl    = document.getElementById("sticky-summary-ez");
-  const imgEl   = document.getElementById("sticky-summary-image");
-
-  // --- Titel ---
-  if (titleEl) {
-    if (typeof buildTitle === "function") {
-      titleEl.textContent = buildTitle(inserat);
-    } else {
-      titleEl.textContent =
-        inserat.titel ||
-        inserat.verkauf_modell ||
-        inserat.modell ||
-        "Fahrzeug";
+  // --- Helfer zum Formatieren ---
+  function formatPrice(value) {
+    if (value == null) return "Preis auf Anfrage";
+    try {
+      return new Intl.NumberFormat("de-DE", {
+        style: "currency",
+        currency: "EUR",
+        maximumFractionDigits: 0,
+      }).format(value);
+    } catch {
+      return value + " €";
     }
   }
 
-  // --- Preis ---
-  if (priceEl) {
-    const rawPrice =
-      inserat.preisBrutto ??
-      inserat.preis_brutto ??
-      inserat.preis ??
-      inserat.price ??
-      null;
-
-    if (rawPrice != null && typeof formatPrice === "function") {
-      priceEl.textContent = formatPrice(rawPrice);
-    } else if (rawPrice != null) {
-      const n = Number(rawPrice);
-      priceEl.textContent = Number.isFinite(n)
-        ? n.toLocaleString("de-DE") + " €"
-        : rawPrice + " €";
-    } else {
-      priceEl.textContent = "Preis auf Anfrage";
+  function formatEZ(ez) {
+    if (!ez) return "EZ –";
+    // String "YYYY-MM" aus DB?
+    if (typeof ez === "string" && ez.length >= 7) {
+      const year = ez.slice(0, 4);
+      const month = ez.slice(5, 7);
+      return `EZ ${month}/${year}`;
     }
+    // Objekt { jahr, monat }?
+    if (typeof ez === "object" && ez.jahr && ez.monat) {
+      const m = String(ez.monat).padStart(2, "0");
+      return `EZ ${m}/${ez.jahr}`;
+    }
+    return "EZ –";
   }
 
-  // --- Kilometer ---
+  // --- Elemente holen ---
+  const titleEl = bar.querySelector("[data-field='title']");
+  const priceEl = bar.querySelector("[data-field='price']");
+  const kmEl = bar.querySelector("[data-field='km']");
+  const ezEl = bar.querySelector("[data-field='ez']");
+  const imgEl = bar.querySelector("[data-field='image']");
+
+  // --- Inhalte füllen ---
+  const titel =
+    inserat.titel ||
+    [inserat.marke, inserat.modell].filter(Boolean).join(" ") ||
+    "Fahrzeug";
+
+  titleEl.textContent = titel;
+  priceEl.textContent = formatPrice(inserat.preisBrutto);
+
   if (kmEl) {
-    const kmRaw =
-      inserat.verkauf_kilometer ??
-      inserat.kilometer ??
-      inserat.laufleistung ??
-      null;
-
-    if (kmRaw != null && kmRaw !== "") {
-      const n = Number(kmRaw);
-      kmEl.textContent = Number.isFinite(n)
-        ? n.toLocaleString("de-DE") + " km"
-        : kmRaw + " km";
-      kmEl.style.display = "";
+    if (typeof inserat.kilometer === "number") {
+      kmEl.textContent =
+        new Intl.NumberFormat("de-DE").format(inserat.kilometer) + " km";
     } else {
-      kmEl.style.display = "none";
+      kmEl.textContent = "– km";
     }
   }
 
-  // --- Erstzulassung ---
   if (ezEl) {
-    const ez =
-      inserat.verkauf_erstzulassung ||
-      inserat.erstzulassung ||
-      inserat.ez ||
-      "";
-
-    if (ez) {
-      ezEl.textContent = ez;
-      ezEl.style.display = "";
-    } else {
-      ezEl.style.display = "none";
-    }
+    ezEl.textContent = formatEZ(inserat.erstzulassung);
   }
 
-  // --- Vorschaubild aus der Galerie holen ---
   if (imgEl) {
-    const firstMedia =
-      document.querySelector(".media-slider img") ||
-      document.querySelector(".media-slider video");
-
-    if (firstMedia) {
-      if (firstMedia.tagName === "VIDEO") {
-        imgEl.src = firstMedia.poster || firstMedia.currentSrc || firstMedia.src;
-      } else {
-        imgEl.src = firstMedia.currentSrc || firstMedia.src;
-      }
+    const firstMedia = (inserat.medien && inserat.medien[0]) || null;
+    if (firstMedia && firstMedia.url) {
+      imgEl.src = firstMedia.url;
+      imgEl.alt = titel;
+    } else {
+      imgEl.src = "";
     }
   }
 
-  // --- Sichtbarkeit beim Scrollen steuern ---
-  const infoBox = document.querySelector(".car-info-box");
+  // --- Sichtbarkeit abhängig von Scrollposition ---
+  const anchor = document.querySelector(".car-price-title-wrapper");
+  if (!anchor) return;
+
+  let visible = false;
 
   function updateVisibility() {
-    if (!infoBox) return;
+    const rect = anchor.getBoundingClientRect();
+    const shouldShow = rect.bottom < 0; // Preisbox komplett aus dem Viewport oben raus
 
-    const rect = infoBox.getBoundingClientRect();
-    const navOffset = window.innerWidth <= 600 ? 72 : 96;
-
-    // Sobald man an den 6 Hauptinfos vorbeigerollt ist, Balken zeigen
-    const hasPassed = rect.bottom < navOffset + 10;
-    bar.classList.toggle("visible", hasPassed);
+    if (shouldShow && !visible) {
+      visible = true;
+      bar.classList.add("sticky-summary-visible");
+    } else if (!shouldShow && visible) {
+      visible = false;
+      bar.classList.remove("sticky-summary-visible");
+    }
   }
 
   window.addEventListener("scroll", updateVisibility, { passive: true });
+  window.addEventListener("resize", updateVisibility);
   updateVisibility();
+
+  // --- Buttons in der Leiste ---
+  const galleryBtn = document.getElementById("sticky-summary-gallery");
+  if (galleryBtn) {
+    galleryBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      document
+        .querySelector(".media-detail-container")
+        ?.scrollIntoView({ behavior: "smooth" });
+    });
+  }
+
+  const msgBtn = document.getElementById("sticky-summary-msg");
+  if (msgBtn) {
+    const scrollMsgBtn = document.getElementById("scrollToMessageBtn");
+    if (scrollMsgBtn) {
+      msgBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        scrollMsgBtn.click(); // benutzt deine bestehende Scroll-Logik
+      });
+    }
+  }
 }
+
 
 function fillTechnical(inserat) {
   // einfache Textfelder (direkte Strings)

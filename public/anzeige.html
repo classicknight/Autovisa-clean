@@ -155,7 +155,35 @@
   </div>
 </nav>
 
-  
+  <!-- Sticky-Mini-Leiste oben mit Thumbnail -->
+<div class="sticky-summary" id="sticky-summary" aria-hidden="true">
+  <div class="sticky-summary-inner">
+    <div class="sticky-summary-media">
+      <img data-field="image" src="" alt="Fahrzeugbild" />
+    </div>
+
+    <div class="sticky-summary-text">
+      <div class="sticky-summary-title" data-field="title">Fahrzeugtitel</div>
+      <div class="sticky-summary-meta">
+        <span class="sticky-summary-price" data-field="price">– €</span>
+        <span class="sticky-summary-dot">•</span>
+        <span class="sticky-summary-km" data-field="km">– km</span>
+        <span class="sticky-summary-dot">•</span>
+        <span class="sticky-summary-ez" data-field="ez">EZ –</span>
+      </div>
+    </div>
+
+    <div class="sticky-summary-actions">
+      <button class="sticky-summary-btn" id="sticky-summary-gallery" type="button">
+        <i class="fas fa-images"></i><span>Galerie</span>
+      </button>
+      <button class="sticky-summary-btn ghost" id="sticky-summary-msg" type="button">
+        <i class="fas fa-comment"></i><span>Nachricht</span>
+      </button>
+    </div>
+  </div>
+</div>
+
   
   
 <div class="media-detail-actions-outside">
@@ -287,36 +315,7 @@
       </div>
     </div>
   </div>
-  
-  <!-- Sticky Mini Header – erscheint beim Scrollen unterhalb der Hauptinfos -->
-  <section class="sticky-media-summary" id="sticky-media-summary">
-    <div class="sticky-media-inner">
-      <div class="sticky-media-thumb-wrapper">
-        <img
-          id="sticky-media-thumb"
-          class="sticky-media-thumb"
-          src=""
-          alt="Fahrzeug Vorschau"
-        />
-      </div>
-  
-      <div class="sticky-media-text">
-        <div class="sticky-media-title" id="sticky-media-title"></div>
-  
-        <div class="sticky-media-meta">
-          <span class="sticky-media-price" id="sticky-media-price"></span>
-          <span class="sticky-media-pill"  id="sticky-media-km"></span>
-          <span class="sticky-media-pill"  id="sticky-media-ez"></span>
-          <span class="sticky-media-pill"  id="sticky-media-location"></span>
-        </div>
-      </div>
-  
-      <button type="button" class="sticky-media-open" id="sticky-media-open">
-        <i class="fas fa-images"></i>
-        Galerie
-      </button>
-    </div>
-  </section>
+
   
 
   <div class="technical-data-box">
