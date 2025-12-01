@@ -322,26 +322,40 @@ function initStickySummary(inserat) {
 
   function formatEZ(ez) {
     if (!ez) return "EZ –";
-    // String "YYYY-MM" aus DB?
-    if (typeof ez === "string" && ez.length >= 7) {
-      const year = ez.slice(0, 4);
-      const month = ez.slice(5, 7);
-      return `EZ ${month}/${year}`;
+
+    // String "YYYY-MM" oder "YYYY/MM"
+    if (typeof ez === "string" && ez.length >= 4) {
+      const s = ez.trim();
+      // YYYY-MM / YYYY/MM
+      const m = s.match(/^(\d{4})[-/.](\d{1,2})$/);
+      if (m) {
+        const year = m[1];
+        const month = String(m[2]).padStart(2, "0");
+        return `EZ ${month}/${year}`;
+      }
+      // Nur Jahr
+      if (/^\d{4}$/.test(s)) {
+        return `EZ 01/${s}`;
+      }
+      // Fallback: Roh anzeigen
+      return `EZ ${s}`;
     }
-    // Objekt { jahr, monat }?
+
+    // Objekt { jahr, monat }
     if (typeof ez === "object" && ez.jahr && ez.monat) {
       const m = String(ez.monat).padStart(2, "0");
       return `EZ ${m}/${ez.jahr}`;
     }
+
     return "EZ –";
   }
 
   // --- Elemente holen ---
   const titleEl = bar.querySelector("[data-field='title']");
   const priceEl = bar.querySelector("[data-field='price']");
-  const kmEl = bar.querySelector("[data-field='km']");
-  const ezEl = bar.querySelector("[data-field='ez']");
-  const imgEl = bar.querySelector("[data-field='image']");
+  const kmEl    = bar.querySelector("[data-field='km']");
+  const ezEl    = bar.querySelector("[data-field='ez']");
+  const imgEl   = bar.querySelector("[data-field='image']");
 
   // --- Inhalte füllen ---
   const titel =
@@ -349,29 +363,67 @@ function initStickySummary(inserat) {
     [inserat.marke, inserat.modell].filter(Boolean).join(" ") ||
     "Fahrzeug";
 
-  titleEl.textContent = titel;
-  priceEl.textContent = formatPrice(inserat.preisBrutto);
+  if (titleEl) {
+    titleEl.textContent = titel;
+  }
+
+  if (priceEl) {
+    const preisValue =
+      inserat.preis ??
+      inserat.verkauf_brutto ??
+      inserat.verkauf_preis ??
+      inserat.preisBrutto ??
+      null;
+
+    priceEl.textContent = formatPrice(preisValue);
+  }
 
   if (kmEl) {
-    if (typeof inserat.kilometer === "number") {
+    let kmValue = null;
+
+    if (typeof inserat.verkauf_kilometer === "number") {
+      kmValue = inserat.verkauf_kilometer;
+    } else if (typeof inserat.kilometer === "number") {
+      // Fallback auf altes Feld, falls irgendwo noch genutzt
+      kmValue = inserat.kilometer;
+    }
+
+    if (kmValue != null) {
       kmEl.textContent =
-        new Intl.NumberFormat("de-DE").format(inserat.kilometer) + " km";
+        new Intl.NumberFormat("de-DE").format(kmValue) + " km";
     } else {
       kmEl.textContent = "– km";
     }
   }
 
   if (ezEl) {
-    ezEl.textContent = formatEZ(inserat.erstzulassung);
+    const ezValue =
+      inserat.verkauf_erstzulassung ||
+      inserat.erstzulassung ||
+      null;
+    ezEl.textContent = formatEZ(ezValue);
   }
 
   if (imgEl) {
-    const firstMedia = (inserat.medien && inserat.medien[0]) || null;
-    if (firstMedia && firstMedia.url) {
-      imgEl.src = firstMedia.url;
+    let firstImage = null;
+
+    if (Array.isArray(inserat.images) && inserat.images.length > 0) {
+      firstImage = inserat.images[0]; // String-URL
+    } else if (
+      inserat.medien &&
+      inserat.medien[0] &&
+      inserat.medien[0].url
+    ) {
+      // Fallback auf altes Format
+      firstImage = inserat.medien[0].url;
+    }
+
+    if (firstImage) {
+      imgEl.src = firstImage;
       imgEl.alt = titel;
     } else {
       imgEl.src = "";
+      imgEl.alt = "Fahrzeugbild";
     }
   }
 

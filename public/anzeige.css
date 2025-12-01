@@ -2967,7 +2967,6 @@ img, video, canvas {
 
 
 
-
 /* === Sticky-Leiste oben mit Thumbnail === */
 .sticky-summary {
   position: fixed;
@@ -2992,14 +2991,13 @@ img, video, canvas {
   margin: 8px auto 0;
   padding: 8px 16px;
   border-radius: 999px;
-  background: rgba(15, 32, 39, 0.96);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  background: #ffffff;                     /* ⬅️ weiß */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.10);
   display: flex;
   align-items: center;
   gap: 12px;
-  color: #f8fbff;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  color: #1a2733;                          /* dunkler Text */
+  border: 1px solid rgba(227, 233, 239, 0.9);
 }
 
 .sticky-summary-media {
@@ -3008,7 +3006,7 @@ img, video, canvas {
   height: 36px;
   border-radius: 10px;
   overflow: hidden;
-  background: #1f2a33;
+  background: #e3e9ef;                     /* hellgrau wie Autovisa-Karten */
 }
 .sticky-summary-media img {
   width: 100%;
@@ -3031,17 +3029,17 @@ img, video, canvas {
 .sticky-summary-meta {
   margin-top: 2px;
   font-size: 12px;
-  color: #cfd8e3;
+  color: #6b7683;                          /* dezenter grau-blauer Ton */
   display: flex;
   align-items: center;
   gap: 6px;
 }
 .sticky-summary-price {
   font-weight: 600;
-  color: #00ffcc;
+  color: #00b8a9;                          /* Autovisa-Akzent */
 }
 .sticky-summary-dot {
-  opacity: 0.7;
+  opacity: 0.6;
 }
 
 .sticky-summary-actions {
@@ -3061,14 +3059,25 @@ img, video, canvas {
   cursor: pointer;
   background: #00b8a9;
   color: #021b24;
-  box-shadow: 0 3px 10px rgba(0, 184, 169, 0.35);
+  box-shadow: 0 3px 10px rgba(0, 184, 169, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
+.sticky-summary-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0, 184, 169, 0.35);
+  background: #00c8b7;
+}
+
 .sticky-summary-btn.ghost {
   background: transparent;
-  color: #e5f4ff;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #1a2733;
+  border: 1px solid rgba(208, 217, 229, 0.9);
   box-shadow: none;
 }
+.sticky-summary-btn.ghost:hover {
+  background: #f5f8fc;
+}
+
 .sticky-summary-btn i {
   font-size: 13px;
 }
