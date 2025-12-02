@@ -215,32 +215,20 @@ function setupNavbarShortcuts() {
 }
 
 async function loadInseratData() {
-  const id = getQuery("id");
+  const ls = localStorage.getItem("ausgewaehltesInserat");
+  if (ls) {
+    try {
+      return JSON.parse(ls);
+    } catch {}
+  }
 
-  // 1) Wenn eine ID in der URL ist → IMMER vom Server holen
+  const id = getQuery("id");
   if (id) {
     try {
       const res = await fetch(api(`/inserat-details/${encodeURIComponent(id)}`), {
         credentials: "include",
       });
-      if (res.ok) {
-        const data = await res.json();
-        // optional: ins localStorage spiegeln
-        try {
-          localStorage.setItem("ausgewaehltesInserat", JSON.stringify(data));
-        } catch {}
-        return data;
-      }
-    } catch (e) {
-      console.error("Fehler beim Laden /inserat-details:", e);
-    }
-  }
-
-  // 2) Fallback: falls kein id-Param → aus localStorage
-  const ls = localStorage.getItem("ausgewaehltesInserat");
-  if (ls) {
-    try {
-      return JSON.parse(ls);
+      if (res.ok) return await res.json();
     } catch {}
   }
 
