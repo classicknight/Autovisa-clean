@@ -1876,7 +1876,6 @@ app.post("/nachricht-senden", checkLogin, async (req, res) => {
 
 
 
-
 // === Inserat-Details (inkl. "isSaved" für aktuellen Nutzer) ===
 app.get("/inserat-details/:id", checkLogin, async (req, res) => {
   try {
@@ -1884,6 +1883,55 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
     const coll = db.collection("inserate");
     const doc = await coll.findOne({ _id: oid });
     if (!doc) return res.status(404).json({ error: "Nicht gefunden" });
+
+    // Verkäufer-ID aus Inserat holen
+    const sellerId = String(
+      doc.seller?.id ||
+      doc.verkaeuferId ||
+      ""
+    ).trim();
+
+    // Vollständiges Händler-Profil aus "nutzer" holen (falls Händler)
+    let sellerProfile = null;
+    if (sellerId) {
+      sellerProfile = await db.collection("nutzer").findOne(
+        { id: sellerId },
+        {
+          projection: {
+            id: 1,
+            role: 1,
+            firma: 1,
+            name: 1,
+            logoUrl: 1,
+
+            // Adresse
+            strasse: 1,
+            hausnummer: 1,
+            plz: 1,
+            ort: 1,
+            land: 1,
+
+            // Kontakt
+            telefon: 1,
+            telefon2: 1,
+            email: 1,
+
+            // Website
+            website: 1,
+            webseite: 1,
+
+            // Sprachen & "Mitglied seit"
+            sprachen: 1,
+            languages: 1,
+            createdAt: 1,
+            erstelltAm: 1,
+
+            // Öffnungszeiten (als Text)
+            oeffnungszeiten: 1,
+          },
+        }
+      );
+    }
 
     // Prüfen, ob dieses Inserat vom aktuellen Nutzer gespeichert wurde
     let isSaved = false;
@@ -1896,11 +1944,51 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
       console.warn("Fehler beim Prüfen von savedInserate:", e?.message || e);
     }
 
+    const sellerType =
+      sellerProfile?.role ||
+      doc.seller?.type ||
+      (doc.verkauf_verkaeufer?.toLowerCase() === "händler"
+        ? "haendler"
+        : "privat");
+
+    const sellerName =
+      sellerProfile?.firma ||
+      sellerProfile?.name ||
+      doc.seller?.name ||
+      doc.verkauf_name ||
+      "";
+
+    const sellerLogo =
+      sellerProfile?.logoUrl ||
+      doc.seller?.logoUrl ||
+      "";
+
+    // Sprachen aus Profil aufbereiten
+    let sellerLangs = [];
+    if (Array.isArray(sellerProfile?.sprachen)) {
+      sellerLangs = sellerProfile.sprachen;
+    } else if (Array.isArray(sellerProfile?.languages)) {
+      sellerLangs = sellerProfile.languages;
+    } else if (typeof sellerProfile?.languages === "string") {
+      sellerLangs = sellerProfile.languages
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+
+    const sellerCreatedAt =
+      sellerProfile?.createdAt || sellerProfile?.erstelltAm || null;
+
     res.json({
       id: doc._id?.toString?.() || String(doc._id || ""),
       titel: doc.titel || "",
-      preis: doc.verkauf_brutto ?? doc.verkauf_preis ?? doc.preis ?? null,
+      preis:
+        doc.verkauf_brutto ??
+        doc.verkauf_preis ??
+        doc.preis ??
+        null,
       images: Array.isArray(doc.images) ? doc.images : [],
+
       verkauf_kurzbeschreibung: doc.verkauf_kurzbeschreibung || "",
       verkauf_kilometer: doc.verkauf_kilometer ?? null,
       verkauf_erstzulassung: doc.verkauf_erstzulassung || null,
@@ -1908,22 +1996,56 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
       verkauf_leistung: doc.verkauf_leistung ?? null,
       verkauf_getriebe: doc.verkauf_getriebe || null,
       verkauf_verbrauch_kombiniert: doc.verkauf_verbrauch_kombiniert || null,
+
+      // Verkäufer-Typ & Name aus Inserat (falls privat) oder Profil
       verkauf_verkaeufer: doc.verkauf_verkaeufer || "",
       verkauf_name: doc.verkauf_name || "",
+
+      // Standort aus Inserat (für Karte & Privat)
       standort: doc.standort || "",
+
+      // ⬅️ neu: Telefon/E-Mail vom Inserat (für Privat)
+      telefon: doc.telefon || "",
+      email: doc.email || "",
+
+      // ⬅️ erweitertes Seller-Objekt mit Profil-Daten
       seller: {
-        type:
-          doc.seller?.type ||
-          (doc.verkauf_verkaeufer?.toLowerCase() === "händler"
-            ? "haendler"
-            : "privat"),
-        id: doc.seller?.id || doc.verkaeuferId || "",
-        name: doc.seller?.name || doc.verkauf_name || "",
-        logoUrl: doc.seller?.logoUrl || ""
+        id: sellerId || "",
+        type: sellerType,
+        name: sellerName,
+        logoUrl: sellerLogo,
+
+        // Adresse (Händler)
+        strasse: sellerProfile?.strasse || "",
+        hausnummer: sellerProfile?.hausnummer || "",
+        plz: sellerProfile?.plz || "",
+        ort: sellerProfile?.ort || "",
+        land: sellerProfile?.land || "",
+
+        // Kontakt (Händler)
+        telefon:
+          sellerProfile?.telefon ||
+          sellerProfile?.telefon2 ||
+          "",
+        email: sellerProfile?.email || "",
+
+        // Website (Händler)
+        website: sellerProfile?.website || sellerProfile?.webseite || "",
+
+        // Sprachen (Händler)
+        sprachen: sellerLangs,
+
+        // Mitglied seit
+        createdAt: sellerCreatedAt,
+
+        // Öffnungszeiten (Rohtext)
+        oeffnungszeiten: sellerProfile?.oeffnungszeiten || "",
       },
-      isSaved // ⬅️ wichtig für die Detailseite
+
+      isSaved, // wichtig für die Detailseite
     });
   } catch (e) {
+    console.error("❌ Fehler /inserat-details:", e);
     res.status(400).json({ error: "Ungültige ID" });
   }
 });

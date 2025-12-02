@@ -708,55 +708,54 @@ function fillSellerCard(inserat) {
   const memberRow    = document.getElementById("sellerMemberSinceRow");
   const memberEl     = document.getElementById("sellerMemberSince");
 
-  const callBtn      = document.getElementById("callBtn");
-  const mailBtn      = document.getElementById("mailBtn");
-  const msgBtn       = document.getElementById("msgBtn");
-  const hoursBox     = document.getElementById("sellerHoursBox");
+  const callBtn = document.getElementById("callBtn");
+  const mailBtn = document.getElementById("mailBtn");
+  const msgBtn  = document.getElementById("msgBtn");
 
   const seller = inserat.seller || {};
 
-  // --- Basisdaten (Name, Typ, Adresse) ------------------------
-  const sellerName =
-    inserat.verkauf_name ||
-    seller.name ||
-    "—";
-
-  const sellerTypeRaw =
-    seller.type ||
-    inserat.verkauf_verkaeufer ||
-    "";
-
-  const sellerTypeLabel = mapRoleToLabel(sellerTypeRaw);
-
+  // --- Händler vs. Privat bestimmen ---
+  const rawType = String(seller.type || inserat.verkauf_verkaeufer || "")
+    .toLowerCase();
   const isDealer =
-    sellerTypeLabel === "Händler" ||
-    /händler|haendler|autohaus|betrieb|gewerb/i.test(sellerTypeRaw);
+    rawType === "haendler" ||
+    rawType === "händler" ||
+    /händ|haend|autohaus|betrieb|gewerb/.test(rawType);
 
-  let sellerAddr =
-    inserat.standort ||
-    [seller.strasse, seller.hausnummer, seller.plz, seller.ort]
-      .filter(Boolean)
-      .join(" ") ||
-    "—";
+  const sellerTypeLabel = isDealer ? "Händler" : "Privatanbieter";
 
-  // Privatanbieter: nur Stadt anzeigen (keine genaue Adresse)
-  if (!isDealer) {
-    const city =
-      inserat.ort ||
+  // --- Name ---
+  const sellerName =
+    seller.name ||
+    inserat.verkauf_name ||
+    (isDealer ? "Händler" : "Privatanbieter");
+
+  // --- Adresse ---
+  let sellerAddr = "–";
+
+  if (isDealer) {
+    const line1 = [seller.strasse, seller.hausnummer].filter(Boolean).join(" ");
+    const line2 = [seller.plz, seller.ort].filter(Boolean).join(" ");
+    const parts = [line1, line2, seller.land].filter(Boolean);
+    if (parts.length) {
+      sellerAddr = parts.join(", ");
+    } else if (inserat.standort) {
+      sellerAddr = inserat.standort;
+    }
+  } else {
+    // Privat: nur Ort / PLZ / Standort
+    sellerAddr =
+      inserat.standort ||
+      [inserat.plz, inserat.ort].filter(Boolean).join(" ") ||
       seller.ort ||
-      (sellerAddr && sellerAddr.replace(/^\s*\d{4,5}\s+/, "")); // PLZ am Anfang wegschneiden
-
-    if (city) sellerAddr = city;
+      "–";
   }
 
+  // --- Logo / Initialen ---
   const logoUrl =
     seller.logoUrl ||
     inserat.sellerLogo ||
     "";
-
-  if (nameEl) nameEl.textContent = sellerName;
-  if (typeEl) typeEl.textContent = sellerTypeLabel;
-  if (addrEl) addrEl.textContent = sellerAddr;
 
   if (logoImg && avatar) {
     if (logoUrl) {
@@ -770,15 +769,24 @@ function fillSellerCard(inserat) {
   }
 
   if (initEl) {
-    initEl.textContent = sellerInitials(sellerName);
+    const initials =
+      (sellerName.match(/\b\p{L}/gu) || [])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase() || "AV";
+    initEl.textContent = initials;
   }
 
-  // --- Telefon -----------------------------------------------
-  const rawPhone =
+  if (nameEl) nameEl.textContent = sellerName;
+  if (typeEl) typeEl.textContent = sellerTypeLabel;
+  if (addrEl) addrEl.textContent = sellerAddr;
+
+  // --- Telefon ---
+  const rawPhone = String(
     inserat.telefon ||
     seller.telefon ||
-    seller.telefon2 ||
-    "";
+    ""
+  ).trim();
 
   if (phoneDisplay) {
     phoneDisplay.textContent = rawPhone || "–";
@@ -793,19 +801,18 @@ function fillSellerCard(inserat) {
     }
   }
 
-  // --- E-Mail (nur bei Händler anzeigen) ----------------------
-  const rawMail =
+  // --- E-Mail ---
+  const rawMail = String(
     inserat.email ||
     seller.email ||
-    "";
-
-  const mailRow = mailDisplay ? mailDisplay.closest("li") : null;
+    ""
+  ).trim();
 
   if (mailDisplay) {
     mailDisplay.textContent = rawMail || "–";
   }
   if (mailBtn) {
-    if (rawMail && isDealer) {
+    if (rawMail) {
       mailBtn.href = `mailto:${rawMail}`;
       mailBtn.setAttribute("aria-disabled", "false");
     } else {
@@ -813,24 +820,16 @@ function fillSellerCard(inserat) {
       mailBtn.setAttribute("aria-disabled", "true");
     }
   }
-  if (mailRow) {
-    // Nur sichtbar, wenn Händler + E-Mail vorhanden
-    mailRow.style.display = (isDealer && rawMail) ? "" : "none";
-  }
 
-  // --- Website (nur Händler) ---------------------------------
+  // --- Website ---
   const rawWebsite =
     seller.website ||
     seller.webseite ||
-    inserat.verkauf_website ||
-    inserat.verkauf_webseite ||
-    inserat.website ||
-    inserat.webseite ||
     "";
 
   if (websiteRow && websiteLink) {
-    if (isDealer && rawWebsite) {
-      const url = ensureHttp(rawWebsite);       // nutzt deinen Helper oben
+    if (rawWebsite) {
+      const url = ensureHttpUrl(rawWebsite);
       websiteLink.href = url;
       websiteLink.textContent = rawWebsite.replace(/^https?:\/\//i, "");
       websiteRow.style.display = "";
@@ -839,11 +838,10 @@ function fillSellerCard(inserat) {
     }
   }
 
-  // --- Sprachen (falls vorhanden, egal ob Händler oder privat)
+  // --- Sprachen ---
   const langs =
     seller.sprachen ||
     seller.languages ||
-    inserat.seller_sprachen ||
     null;
 
   if (languageRow && languageEl) {
@@ -862,14 +860,9 @@ function fillSellerCard(inserat) {
     }
   }
 
-  // --- "Bei Autovisa seit" (sinnvoll eher für Händler) -------
-  const createdRaw =
-    seller.createdAt ||
-    seller.erstelltAm ||
-    inserat.sellerCreatedAt ||
-    null;
-
+  // --- Mitglied seit ---
   if (memberRow && memberEl) {
+    const createdRaw = seller.createdAt || null;
     let year = "";
     if (createdRaw) {
       const d = new Date(createdRaw);
@@ -877,8 +870,7 @@ function fillSellerCard(inserat) {
         year = String(d.getFullYear());
       }
     }
-
-    if (year && isDealer) {
+    if (year) {
       memberEl.textContent = `seit ${year}`;
       memberRow.style.display = "";
     } else {
@@ -886,22 +878,11 @@ function fillSellerCard(inserat) {
     }
   }
 
-  // --- Öffnungszeiten (nur Händler) --------------------------
-  if (hoursBox) {
-    hoursBox.style.display = isDealer ? "" : "none";
-  }
+  // --- Öffnungszeiten & Karte ---
+  fillOpeningHours(seller, inserat, isDealer);
+  renderSellerMap(inserat, sellerName, sellerTypeLabel, sellerAddr, isDealer);
 
-  if (typeof fillOpeningHours === "function") {
-    // Funktion füllt Liste #sellerHours; bekommt Info, ob Händler
-    fillOpeningHours(seller, inserat, isDealer);
-  }
-
-  // --- Karte / Standort --------------------------------------
-  if (typeof renderSellerMap === "function") {
-    renderSellerMap(inserat, sellerName, sellerTypeLabel, sellerAddr, isDealer);
-  }
-
-  // --- Nachricht-Button scrollt zum Formular -----------------
+  // --- Nachricht-Button scrollt zum Formular ---
   if (msgBtn) {
     msgBtn.addEventListener("click", () => {
       document
