@@ -383,14 +383,13 @@ function fillTop(inserat) {
     mapRoleToLabel(inserat?.seller?.type) || mapRoleToLabel(inserat?.verkauf_verkaeufer);
   if (sellerTypeEl) sellerTypeEl.textContent = sellerLabel;
 }
-
 function initStickySummary(inserat) {
   const bar = document.getElementById("sticky-summary");
   if (!bar) return;
 
   // --- Helfer zum Formatieren ---
   function formatPrice(value) {
-    if (value == null) return "Preis auf Anfrage";
+    if (value == null || !Number.isFinite(value)) return "Preis auf Anfrage";
     try {
       return new Intl.NumberFormat("de-DE", {
         style: "currency",
@@ -449,15 +448,44 @@ function initStickySummary(inserat) {
     titleEl.textContent = titel;
   }
 
+  // 🔥 PREIS: gleiche Logik wie in fillTop()
   if (priceEl) {
-    const preisValue =
-      inserat.preis ??
-      inserat.verkauf_brutto ??
-      inserat.verkauf_preis ??
-      inserat.preisBrutto ??
-      null;
+    const mwstRaw = String(inserat.verkauf_mwst || "").trim().toLowerCase();
+    const isKeine = mwstRaw.includes("keine");
+    const isZzgl  = mwstRaw.includes("zzgl");
 
-    priceEl.textContent = formatPrice(preisValue);
+    const brutto = toNum(inserat.verkauf_brutto ?? inserat["brutto-preis"]);
+    const einzel = toNum(inserat.verkauf_preis ?? inserat.preis);
+
+    let mainPriceNum = NaN;
+    if (isKeine) {
+      // "Keine MwSt." -> Einzelpreis ist der Endpreis
+      mainPriceNum = Number.isFinite(einzel) ? einzel : NaN;
+    } else if (isZzgl) {
+      // "zzgl. MwSt." -> Brutto bevorzugt, sonst Einzelpreis
+      mainPriceNum = Number.isFinite(brutto)
+        ? brutto
+        : Number.isFinite(einzel)
+        ? einzel
+        : NaN;
+    } else {
+      // Normale MwSt.-Angabe oder leer -> Brutto bevorzugen, sonst Einzelpreis
+      mainPriceNum = Number.isFinite(brutto)
+        ? brutto
+        : Number.isFinite(einzel)
+        ? einzel
+        : NaN;
+    }
+
+    if (Number.isFinite(mainPriceNum)) {
+      priceEl.textContent = formatPrice(mainPriceNum);
+    } else {
+      // Fallback auf evtl. "preis" (z.B. aus /inserat-details)
+      const fallback = toNum(inserat.preis);
+      priceEl.textContent = Number.isFinite(fallback)
+        ? formatPrice(fallback)
+        : "Preis auf Anfrage";
+    }
   }
 
   // ✅ Kilometer: String oder Number, beides erlaubt
