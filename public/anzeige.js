@@ -1844,72 +1844,161 @@ function renderHours(hours) {
     list.appendChild(li);
   });
   wrap.style.display = "";
-}
-async function renderSeller() {
-  const box = $id("sellerCard");
+}async function renderSeller() {
+  // 👉 passt jetzt sowohl zu altem #sellerCard als auch zu deinem neuen #anbieter
+  const box = $id("sellerCard") || $id("anbieter");
   if (!box) return;
 
+  // --- Inserat aus localStorage holen ---
   let inserat = {};
   try {
     inserat = JSON.parse(localStorage.getItem("ausgewaehltesInserat") || "{}");
   } catch {}
 
-  const rawType = String(inserat?.seller?.type || inserat?.verkauf_verkaeufer || "").toLowerCase();
+  // --- Händler vs. Privat erkennen ---
+  const rawType = String(
+    inserat?.seller?.type || inserat?.verkauf_verkaeufer || ""
+  ).toLowerCase();
+
   const isDealer =
-    rawType.includes("händ") || rawType.includes("haend") || rawType === "haendler" || rawType === "händler" || inserat?.seller?.role === "haendler";
-  let sellerId = inserat?.verkaeuferId || inserat?.seller?.id || inserat?.sellerId || "";
+    rawType === "haendler" ||
+    rawType === "händler" ||
+    rawType.includes("händ") ||
+    rawType.includes("haend") ||
+    inserat?.seller?.role === "haendler";
 
+  // --- Seller-ID bestimmen (aus Inserat) ---
+  let sellerId =
+    inserat?.verkaeuferId || inserat?.seller?.id || inserat?.sellerId || "";
+
+  // --- Händler-Profil aus /api/seller laden ---
   const profile = await fetchSellerProfile(sellerId);
-  if (!sellerId && profile && (profile._id || profile.id)) sellerId = getDocId(profile) || profile.id;
+  if (!sellerId && profile && (profile._id || profile.id)) {
+    sellerId = getDocId(profile) || profile.id;
+  }
 
-  const name = (profile?.firma || profile?.name || inserat?.seller?.name || inserat?.verkauf_name || (isDealer ? "Händler" : "Privatanbieter")).trim();
-  const initials = name.split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() || "").join("") || "AV";
+  // --- Name + Initialen + Typ ---
+  const name = (
+    profile?.firma ||
+    profile?.name ||
+    inserat?.seller?.name ||
+    inserat?.verkauf_name ||
+    (isDealer ? "Händler" : "Privatanbieter")
+  ).trim();
+
+  const initials =
+    name
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase() || "")
+      .join("") || "AV";
+
   setText("sellerName", name);
   setText("sellerInitials", initials);
   setText("sellerType", isDealer ? "Händler" : "Privatanbieter");
 
+  // --- Adresse: Händler = volle Adresse, Privat = nur Ort ---
   const fullAddress = (() => {
     const s = (t) => (t == null ? "" : String(t).trim());
+
     if (isDealer) {
-      const parts = [[s(profile?.strasse), s(profile?.hausnummer)].filter(Boolean).join(" "), [s(profile?.plz), s(profile?.ort)].filter(Boolean).join(" "), s(profile?.land)].filter(Boolean);
+      // Händler: komplette Adresse aus dem Profil
+      const street = [s(profile?.strasse), s(profile?.hausnummer)]
+        .filter(Boolean)
+        .join(" ");
+      const zipCity = [s(profile?.plz), s(profile?.ort)]
+        .filter(Boolean)
+        .join(" ");
+      const country = s(profile?.land);
+
+      const parts = [street, zipCity, country].filter(Boolean);
       if (parts.length) return parts.join(", ");
     }
-    return inserat?.standort || [inserat?.plz, inserat?.ort].filter(Boolean).join(" ") || "Standort nicht angegeben";
+
+    // Privat: nur Stadt/Ort anzeigen
+    const cityDirect = s(inserat?.ort || profile?.ort);
+    if (cityDirect) return cityDirect;
+
+    const rawStandort = s(inserat?.standort);
+    if (rawStandort) {
+      // z.B. "45731 Dortmund" -> "Dortmund"
+      const m = rawStandort.match(/^\s*\d{4,5}\s+(.+)$/);
+      if (m) return m[1];
+      return rawStandort;
+    }
+
+    const zipCity = [s(inserat?.plz), s(inserat?.ort)]
+      .filter(Boolean)
+      .join(" ");
+    if (zipCity) return zipCity;
+
+    return "Standort nicht angegeben";
   })();
+
   setText("sellerAddress", fullAddress);
 
+  // --- Avatar / Logo ---
   const avatar = box.querySelector(".dealer-avatar");
-  const logoUrl = profile?.logoUrl || inserat?.seller?.logoUrl || inserat?.logoUrl || "";
+  const logoUrl =
+    profile?.logoUrl ||
+    inserat?.seller?.logoUrl ||
+    inserat?.logoUrl ||
+    "";
+
   loadLogo($id("sellerLogo"), avatar, logoUrl);
 
-  const rating = Number(profile?.rating ?? inserat?.seller?.rating ?? inserat?.rating ?? 0);
-  const rCnt = Number(profile?.reviews ?? inserat?.seller?.reviews ?? inserat?.reviews ?? 0);
+  // --- Bewertung ---
+  const rating = Number(
+    profile?.rating ?? inserat?.seller?.rating ?? inserat?.rating ?? 0
+  );
+  const rCnt = Number(
+    profile?.reviews ?? inserat?.seller?.reviews ?? inserat?.reviews ?? 0
+  );
   const w = (Math.max(0, Math.min(5, rating)) / 5) * 100;
-  $id("starsFill").style.width = w + "%";
-  setText("ratingValue", rating ? rating.toFixed(1) : "–");
-  $id("ratingCount").textContent = rCnt ? `(${rCnt})` : "";
 
-  const phone = profile?.telefon || inserat?.telefon || inserat?.seller?.phone || "";
+  const starsFill = $id("starsFill");
+  if (starsFill) {
+    starsFill.style.width = w + "%";
+  }
+  setText("ratingValue", rating ? rating.toFixed(1) : "–");
+  const ratingCountEl = $id("ratingCount");
+  if (ratingCountEl) {
+    ratingCountEl.textContent = rCnt ? `(${rCnt})` : "";
+  }
+
+  // --- Kontakt-Daten ---
+  const phone =
+    profile?.telefon || inserat?.telefon || inserat?.seller?.phone || "";
   const mail = profile?.email || inserat?.seller?.email || inserat?.email || "";
-  const web = ensureHttp(profile?.website || profile?.web || inserat?.seller?.website || inserat?.website || "");
+  const web = ensureHttp(
+    profile?.website ||
+      profile?.web ||
+      inserat?.seller?.website ||
+      inserat?.website ||
+      ""
+  );
   const telFmt = sanitizePhone(phone);
 
   const callBtn = $id("callBtn");
-  if (telFmt) {
-    callBtn.href = `tel:${telFmt}`;
-    callBtn.classList.remove("ghost");
-  } else {
-    callBtn.removeAttribute("href");
-    callBtn.classList.add("ghost");
+  if (callBtn) {
+    if (telFmt) {
+      callBtn.href = `tel:${telFmt}`;
+      callBtn.classList.remove("ghost");
+    } else {
+      callBtn.removeAttribute("href");
+      callBtn.classList.add("ghost");
+    }
   }
 
   const mailBtn = $id("mailBtn");
-  if (mail) {
-    mailBtn.href = `mailto:${mail}`;
-    mailBtn.classList.remove("ghost");
-  } else {
-    mailBtn.removeAttribute("href");
-    mailBtn.classList.add("ghost");
+  if (mailBtn) {
+    if (mail) {
+      mailBtn.href = `mailto:${mail}`;
+      mailBtn.classList.remove("ghost");
+    } else {
+      mailBtn.removeAttribute("href");
+      mailBtn.classList.add("ghost");
+    }
   }
 
   const msgBtn = $id("msgBtn");
@@ -1920,14 +2009,16 @@ async function renderSeller() {
     };
   }
 
+  // --- Extra-Infos unten (alte Struktur: rowPhone/rowMail/rowWeb/rowLang) ---
   ensureExtraInfoBlock();
+
   if (phone) {
     setText("sellerPhoneText", phone);
-    $id("rowPhone").style.display = "flex";
+    $id("rowPhone") && ($id("rowPhone").style.display = "flex");
   }
   if (mail) {
     setText("sellerMailText", mail);
-    $id("rowMail").style.display = "flex";
+    $id("rowMail") && ($id("rowMail").style.display = "flex");
   }
   if (web) {
     const a = $id("sellerWebsiteText");
@@ -1935,21 +2026,42 @@ async function renderSeller() {
       a.href = web;
       a.textContent = web.replace(/^https?:\/\//i, "");
     }
-    $id("rowWeb").style.display = "flex";
+    $id("rowWeb") && ($id("rowWeb").style.display = "flex");
   }
 
+  // --- Sprachen ---
   const langs = (() => {
-    const l = profile?.sprachen || profile?.languages || inserat?.seller?.languages || inserat?.sprachen || [];
-    return Array.isArray(l) ? l : typeof l === "string" ? l.split(",").map((s) => s.trim()).filter(Boolean) : [];
+    const l =
+      profile?.sprachen ||
+      profile?.languages ||
+      inserat?.seller?.languages ||
+      inserat?.sprachen ||
+      [];
+    if (Array.isArray(l)) return l;
+    if (typeof l === "string") {
+      return l
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    return [];
   })();
+
   if (langs.length) {
     setText("sellerLanguages", langs.join(", "));
-    $id("rowLang").style.display = "flex";
+    $id("rowLang") && ($id("rowLang").style.display = "flex");
   }
 
-  const hours = profile?.oeffnungszeiten || profile?.hours || inserat?.seller?.hours || inserat?.oeffnungszeiten || null;
+  // --- Öffnungszeiten ---
+  const hours =
+    profile?.oeffnungszeiten ||
+    profile?.hours ||
+    inserat?.seller?.hours ||
+    inserat?.oeffnungszeiten ||
+    null;
   renderHours(hours);
 
+  // --- Weitere Fahrzeuge des Händlers ---
   const moreSec = $id("sellerMore");
   if (isDealer && (sellerId || profile?._id || profile?.id) && moreSec) {
     const finalId = sellerId || getDocId(profile) || profile?.id || "";
@@ -1957,10 +2069,11 @@ async function renderSeller() {
     const currentId = getDocId(inserat);
     const filtered = results.filter((r) => getDocId(r) !== currentId);
     renderSellerMore(filtered.slice(0, 6));
-  } else {
-    if (moreSec) moreSec.style.display = "none";
+  } else if (moreSec) {
+    moreSec.style.display = "none";
   }
 }
+
 
 /* ------------------------ Rating Panel ------------------------ */
 function setupRatingPanel() {
