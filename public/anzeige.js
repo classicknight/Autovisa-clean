@@ -800,136 +800,175 @@ function fillAusstattung(inserat) {
   });
 
   if (any && block) block.style.display = "block";
-}function fillSellerCard(inserat) {
-  const nameEl  = document.getElementById("sellerName");
-  const typeEl  = document.getElementById("sellerType");
-  const addrEl  = document.getElementById("sellerAddress");
-  const logoImg = document.getElementById("sellerLogo");
-  const initEl  = document.getElementById("sellerInitials");
-  const avatar  = document.getElementById("sellerAvatar");
+}
 
-  const phoneDisplay = document.getElementById("sellerPhoneDisplay");
-  const mailDisplay  = document.getElementById("sellerMailDisplay");
-  const websiteRow   = document.getElementById("sellerWebsiteRow");
-  const websiteLink  = document.getElementById("sellerWebsiteLink");
-  const languageRow  = document.getElementById("sellerLanguageRow");
-  const languageEl   = document.getElementById("sellerLanguages");
-  const memberRow    = document.getElementById("sellerMemberSinceRow");
-  const memberEl     = document.getElementById("sellerMemberSince");
-
-  const callBtn = document.getElementById("callBtn");
-  const mailBtn = document.getElementById("mailBtn");
-  const msgBtn  = document.getElementById("msgBtn");
-
-  // kommt direkt aus /inserat-details
+function fillSellerCard(inserat) {
   const seller = inserat.seller || {};
 
-  // --- Typ + Name -------------------------------------------------
-  const sellerTypeLabel =
-    mapRoleToLabel(seller.type || inserat.verkauf_verkaeufer) || "Verkäufer";
+  const rawType = String(
+    seller.type || inserat.verkauf_verkaeufer || ""
+  ).toLowerCase();
 
+  const sellerTypeLabel = mapRoleToLabel(
+    seller.type || inserat.verkauf_verkaeufer
+  );
   const isDealer = sellerTypeLabel === "Händler";
 
-  const sellerName =
-    (isDealer
-      ? (seller.name || inserat.verkauf_name || inserat.seller?.name)
-      : (inserat.verkauf_name || seller.name)) || "—";
+  // --- Basis-Elemente ---
+  const nameEl   = document.getElementById("sellerName");
+  const typeEl   = document.getElementById("sellerType");
+  const addrEl   = document.getElementById("sellerAddress");
+  const logoImg  = document.getElementById("sellerLogo");
+  const avatarEl = document.getElementById("sellerAvatar");
+  const initEl   = document.getElementById("sellerInitials");
 
-  if (nameEl) nameEl.textContent = sellerName;
+  const phoneRow    = document.getElementById("sellerPhoneRow");
+  const phoneDisplay = document.getElementById("sellerPhoneDisplay");
+  const mailRow     = document.getElementById("sellerMailRow");
+  const mailDisplay = document.getElementById("sellerMailDisplay");
+  const websiteRow  = document.getElementById("sellerWebsiteRow");
+  const websiteLink = document.getElementById("sellerWebsiteLink");
+  const languageRow = document.getElementById("sellerLanguageRow");
+  const languageEl  = document.getElementById("sellerLanguages");
+  const memberRow   = document.getElementById("sellerMemberSinceRow");
+  const memberEl    = document.getElementById("sellerMemberSince");
+  const impressumRow = document.getElementById("sellerImpressumRow");
+  const impressumEl  = document.getElementById("sellerImpressum");
+
+  const ratingWrap  = document.querySelector(".seller-rating-wrap");
+  const ratingFill  = document.getElementById("sellerRatingFill");
+  const ratingValue = document.getElementById("sellerRatingValue");
+  const ratingCount = document.getElementById("sellerRatingCount");
+
+  const callBtn  = document.getElementById("callBtn");
+  const carsBtn  = document.getElementById("sellerCarsBtn");
+  const msgBtn   = document.getElementById("msgBtn");
+
+  const hoursBox = document.getElementById("sellerHoursBox");
+  const hoursList = document.getElementById("sellerHours");
+  const mapBox   = document.getElementById("sellerMapBox");
+  const mapNote  = document.getElementById("sellerMapNote");
+  const mapFrame = document.getElementById("sellerMapFrame");
+
+  // --- Name & Typ ---
+  const name =
+    seller.firma ||
+    seller.name ||
+    inserat.verkauf_name ||
+    (isDealer ? "Händler" : "Privatanbieter");
+
+  if (nameEl) nameEl.textContent = name;
   if (typeEl) typeEl.textContent = sellerTypeLabel;
 
-  // --- Adresse: Händler volle Adresse, Privat nur Ort/Standort ----
-  let sellerAddr = "Standort nicht angegeben";
+  // --- Adresse: Händler = volle Adresse, Privat = nur Ort ---
+  const s = (v) => (v == null ? "" : String(v).trim());
 
+  let fullAddress = "";
   if (isDealer) {
-    const parts = [];
-    const street = [seller.strasse, seller.hausnummer].filter(Boolean).join(" ");
-    const city   = [seller.plz, seller.ort].filter(Boolean).join(" ");
-    if (street) parts.push(street);
-    if (city)   parts.push(city);
-    if (seller.land) parts.push(seller.land);
-    if (parts.length) sellerAddr = parts.join(", ");
+    const line1 = [s(seller.strasse), s(seller.hausnummer)]
+      .filter(Boolean)
+      .join(" ");
+    const line2 = [s(seller.plz), s(seller.ort)]
+      .filter(Boolean)
+      .join(" ");
+    const line3 = s(seller.land);
+    fullAddress = [line1, line2, line3].filter(Boolean).join(", ");
   } else {
-    // Privat: nur Ort / Standort
-    const city  = inserat.ort || seller.ort || "";
-    const stand = inserat.standort || "";
-    sellerAddr = city || stand || "Standort nicht angegeben";
+    const city =
+      inserat.ort ||
+      seller.ort ||
+      guessCityFromStandort(inserat.standort || "");
+    fullAddress =
+      city ||
+      inserat.standort ||
+      [s(inserat.plz), s(inserat.ort)].filter(Boolean).join(" ") ||
+      "Standort nicht angegeben";
   }
+  if (addrEl) addrEl.textContent = fullAddress || "–";
 
-  if (addrEl) addrEl.textContent = sellerAddr;
-
-  // --- Logo / Initialen -------------------------------------------
-  const logoUrl =
-    seller.logoUrl ||
-    inserat.sellerLogo ||
-    "";
-
-  if (logoImg && avatar) {
+  // --- Avatar / Logo ---
+  if (logoImg && avatarEl) {
+    const logoUrl =
+      seller.logoUrl || inserat.sellerLogo || inserat.logoUrl || "";
     if (logoUrl) {
       logoImg.src = logoUrl;
-      logoImg.alt = sellerName || "Logo";
-      avatar.classList.add("has-logo");
+      logoImg.alt = name;
+      avatarEl.classList.add("has-logo");
     } else {
       logoImg.removeAttribute("src");
-      avatar.classList.remove("has-logo");
+      logoImg.alt = "Logo";
+      avatarEl.classList.remove("has-logo");
     }
   }
 
   if (initEl) {
     const initials =
-      (sellerName.match(/\b\p{L}/gu) || [])
+      (name.match(/\b\p{L}/gu) || [])
         .slice(0, 2)
         .join("")
         .toUpperCase() || "AV";
     initEl.textContent = initials;
   }
 
-  // --- Telefon ----------------------------------------------------
+  // --- Bewertung: nur bei Händlern anzeigen ---
+  if (!isDealer && ratingWrap) {
+    ratingWrap.style.display = "none";
+  } else if (ratingWrap) {
+    ratingWrap.style.display = "";
+    // Falls du später Rating im Profil speicherst:
+    const ratingNum = Number(seller.rating || inserat.rating || 0);
+    const ratingCnt = Number(seller.reviews || inserat.reviews || 0);
+    const pct = (Math.max(0, Math.min(5, ratingNum)) / 5) * 100;
+    if (ratingFill) ratingFill.style.width = pct + "%";
+    if (ratingValue)
+      ratingValue.textContent = ratingNum ? ratingNum.toFixed(1) + " / 5" : "– / 5";
+    if (ratingCount)
+      ratingCount.textContent = ratingCnt ? `(${ratingCnt})` : "";
+  }
+
+  // --- Telefon (immer erlaubt) ---
   const rawPhone =
-    (isDealer ? seller.telefon : inserat.telefon) ||
+    inserat.telefon ||
+    seller.telefon ||
     seller.telefon2 ||
     "";
-
-  if (phoneDisplay) {
-    phoneDisplay.textContent = rawPhone || "–";
-  }
+  if (phoneDisplay) phoneDisplay.textContent = rawPhone || "–";
   if (callBtn) {
-    if (rawPhone) {
-      callBtn.href = `tel:${sanitizePhone(rawPhone)}`;
+    const telFmt = rawPhone ? sanitizePhone(rawPhone) : "";
+    if (telFmt) {
+      callBtn.href = `tel:${telFmt}`;
       callBtn.setAttribute("aria-disabled", "false");
     } else {
-      callBtn.href = "#";
+      callBtn.removeAttribute("href");
       callBtn.setAttribute("aria-disabled", "true");
     }
   }
 
-  // --- E-Mail -----------------------------------------------------
-  const rawMail =
-    (isDealer ? seller.email : inserat.email) ||
-    "";
+  // --- E-Mail: nur bei Händlern zeigen, bei Privat komplett weg ---
+  const rawMail = isDealer
+    ? (seller.email || inserat.email || "")
+    : "";
 
-  if (mailDisplay) {
-    mailDisplay.textContent = rawMail || "–";
-  }
-  if (mailBtn) {
-    if (rawMail) {
-      mailBtn.href = `mailto:${rawMail}`;
-      mailBtn.setAttribute("aria-disabled", "false");
+  if (mailRow && mailDisplay) {
+    if (isDealer && rawMail) {
+      mailDisplay.textContent = rawMail;
+      mailRow.style.display = "";
     } else {
-      mailBtn.href = "#";
-      mailBtn.setAttribute("aria-disabled", "true");
+      mailRow.style.display = "none";
     }
   }
 
-  // --- Website (nur Händler) --------------------------------------
+  // --- Website: nur wenn vorhanden ---
   const rawWebsite =
-    (isDealer
-      ? (seller.website || seller.webseite)
-      : (inserat.website || inserat.webseite)) || "";
+    seller.website ||
+    seller.webseite ||
+    inserat.website ||
+    inserat.webseite ||
+    "";
 
   if (websiteRow && websiteLink) {
     if (rawWebsite) {
-      const url = ensureHttp(rawWebsite); // Helper oben definiert
+      const url = ensureHttp(rawWebsite);
       websiteLink.href = url;
       websiteLink.textContent = rawWebsite.replace(/^https?:\/\//i, "");
       websiteRow.style.display = "";
@@ -938,7 +977,7 @@ function fillAusstattung(inserat) {
     }
   }
 
-  // --- Sprachen (nur Händler sinnvoll) ----------------------------
+  // --- Sprachen (kommt später in Mongo, bis dahin nur anzeigen wenn vorhanden) ---
   const langs =
     seller.sprachen ||
     seller.languages ||
@@ -947,21 +986,18 @@ function fillAusstattung(inserat) {
 
   if (languageRow && languageEl) {
     let text = "";
-    if (Array.isArray(langs)) {
-      text = langs.join(", ");
-    } else if (typeof langs === "string") {
-      text = langs;
-    }
+    if (Array.isArray(langs)) text = langs.join(", ");
+    else if (typeof langs === "string") text = langs;
 
-    if (text.trim()) {
-      languageEl.textContent = text;
+    if (text && text.trim()) {
+      languageEl.textContent = text.trim();
       languageRow.style.display = "";
     } else {
       languageRow.style.display = "none";
     }
   }
 
-  // --- Mitglied seit ----------------------------------------------
+  // --- Mitglied seit (Jahr) ---
   const createdRaw =
     seller.createdAt ||
     seller.erstelltAm ||
@@ -984,19 +1020,133 @@ function fillAusstattung(inserat) {
     }
   }
 
-  // --- Öffnungszeiten & Karte -------------------------------------
-  fillOpeningHours(seller, inserat, isDealer);
-  renderSellerMap(inserat, sellerName, sellerTypeLabel, sellerAddr, isDealer);
+  // --- Impressum: nur Händler, aus Händler-Dokument ---
+  if (impressumRow && impressumEl) {
+    const impr = isDealer ? (seller.impressum || inserat.impressum || "") : "";
+    if (impr && impr.trim()) {
+      impressumEl.textContent = impr.trim();
+      impressumRow.style.display = "";
+    } else {
+      impressumRow.style.display = "none";
+    }
+  }
 
-  // --- Nachricht-Button scrollt zum Formular ----------------------
+  // --- Öffnungszeiten: nur Händler ---
+  if (hoursBox && hoursList) {
+    const hoursText =
+      isDealer
+        ? (seller.oeffnungszeiten || inserat.oeffnungszeiten || "")
+        : "";
+    if (hoursText && hoursText.trim()) {
+      hoursList.innerHTML = "";
+      hoursText
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .forEach((line) => {
+          const li = document.createElement("li");
+          li.textContent = line;
+          hoursList.appendChild(li);
+        });
+      hoursBox.style.display = "";
+    } else {
+      hoursBox.style.display = "none";
+    }
+  }
+
+  // --- Google Maps: jetzt auch bei Privatanbieter ---
+  if (mapBox && mapFrame && mapNote) {
+    const city =
+      inserat.ort ||
+      seller.ort ||
+      guessCityFromStandort(inserat.standort || fullAddress);
+
+    // Hinweistext
+    if (isDealer) {
+      mapNote.textContent = city ? `${name} · ${city}` : name;
+    } else {
+      mapNote.textContent = city
+        ? `Privater Anbieter in ${city}`
+        : "Privater Anbieter";
+    }
+
+    // Koordinaten bevorzugen
+    let src = "";
+    if (
+      inserat.standortCoords &&
+      Array.isArray(inserat.standortCoords.coordinates) &&
+      inserat.standortCoords.coordinates.length === 2
+    ) {
+      const [lon, lat] = inserat.standortCoords.coordinates;
+      src = `https://www.google.com/maps?q=${encodeURIComponent(
+        lat + "," + lon
+      )}&hl=de&z=12&output=embed`;
+    } else {
+      const query =
+        city ||
+        inserat.standort ||
+        fullAddress;
+
+      if (query && query.trim()) {
+        src = `https://www.google.com/maps?q=${encodeURIComponent(
+          query
+        )}&hl=de&z=12&output=embed`;
+      }
+    }
+
+    if (src) {
+      mapFrame.src = src;
+      mapBox.style.display = "";
+    } else {
+      mapBox.style.display = "none";
+    }
+  }
+
+  // --- Buttons unten: Anrufen haben wir oben, jetzt: "Fahrzeuge dieses Anbieters" ---
+  if (carsBtn) {
+    // sellerId aus Inserat ziehen
+    const sellerId =
+      inserat.verkaeuferId ||
+      inserat.sellerId ||
+      seller.id ||
+      seller._id ||
+      "";
+
+    carsBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      // Funktionalität später: vorerst einfach auf suche.html
+      const param = sellerId
+        ? `?sellerId=${encodeURIComponent(sellerId)}`
+        : "";
+      window.location.href = "suche.html" + param;
+    });
+  }
+
+  // Nachricht-Button scrollt zum Formular / öffnet Panel
   if (msgBtn) {
-    msgBtn.addEventListener("click", () => {
-      document
-        .querySelector(".message-box")
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    msgBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      // Variante 1: Scroll in die Nachrichten-Box
+      const messageBox = document.querySelector(".message-box");
+      if (messageBox) {
+        messageBox.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      } else {
+        // oder: vorhandenes Kontakt-Popup öffnen, falls du das so nutzt:
+        const contactPanel = document.getElementById("contactPanel");
+        if (contactPanel) {
+          contactPanel.classList.add("open");
+          contactPanel
+            .querySelector("textarea")
+            ?.focus();
+        }
+      }
     });
   }
 }
+
 
 
 

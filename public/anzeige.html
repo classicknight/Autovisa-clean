@@ -482,7 +482,6 @@
   </div>
   
 </div>
-<!-- Anbieter / Händler -->
 <!-- Anbieter -->
 <section class="seller-card" id="anbieter">
   <h2 class="seller-heading">Anbieter</h2>
@@ -524,11 +523,11 @@
         <h3 class="seller-subheading">Kontakt</h3>
 
         <ul class="kv">
-          <li>
+          <li id="sellerPhoneRow">
             <span><i class="fas fa-phone"></i> Telefon</span>
             <strong id="sellerPhoneDisplay">–</strong>
           </li>
-          <li>
+          <li id="sellerMailRow">
             <span><i class="fas fa-envelope"></i> E-Mail</span>
             <strong id="sellerMailDisplay">–</strong>
           </li>
@@ -546,6 +545,10 @@
             <span><i class="fas fa-clock"></i> Bei Autovisa seit</span>
             <strong id="sellerMemberSince">–</strong>
           </li>
+          <li id="sellerImpressumRow">
+            <span><i class="fas fa-file-alt"></i> Impressum</span>
+            <strong id="sellerImpressum">–</strong>
+          </li>
         </ul>
 
         <div class="seller-contact">
@@ -553,9 +556,10 @@
             <i class="fas fa-phone-alt"></i>
             Anrufen
           </a>
-          <a href="#" class="btn-primary ghost" id="mailBtn">
-            <i class="fas fa-envelope"></i>
-            E-Mail
+          <!-- NEU: statt E-Mail-Button -->
+          <a href="#" class="btn-primary ghost" id="sellerCarsBtn">
+            <i class="fas fa-car-side"></i>
+            Fahrzeuge dieses Anbieters
           </a>
           <button type="button" class="btn-soft" id="msgBtn">
             <i class="fas fa-comment-dots"></i>
