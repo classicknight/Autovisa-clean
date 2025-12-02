@@ -215,25 +215,95 @@ function setupNavbarShortcuts() {
 }
 
 async function loadInseratData() {
-  const ls = localStorage.getItem("ausgewaehltesInserat");
-  if (ls) {
-    try {
-      return JSON.parse(ls);
-    } catch {}
+  let fromLS = null;
+
+  // 1) Versuch: vorhandenen Eintrag aus localStorage lesen
+  try {
+    const raw = localStorage.getItem("ausgewaehltesInserat");
+    if (raw) {
+      fromLS = JSON.parse(raw);
+    }
+  } catch (e) {
+    console.warn("Konnte localStorage-Eintrag nicht parsen:", e);
   }
 
-  const id = getQuery("id");
-  if (id) {
+  // 2) ID aus der URL holen (z.B. ?id=... )
+  let id = null;
+  try {
+    if (typeof getQuery === "function") {
+      id = getQuery("id");
+    }
+  } catch {
+    // wenn getQuery nicht existiert, einfach weitermachen
+  }
+
+  // 3) Falls keine Query-ID: evtl. /anzeige/<id> im Pfad
+  if (!id && typeof window !== "undefined") {
+    const m = window.location.pathname.match(
+      /\/anzeige(?:\.html)?\/([0-9a-fA-F]{24})/
+    );
+    if (m) id = m[1];
+  }
+
+  // 4) Falls immer noch keine ID: aus dem localStorage-Objekt ziehen
+  if (!id && fromLS) {
+    try {
+      if (typeof getDocId === "function") {
+        id = getDocId(fromLS);
+      } else {
+        const cand =
+          (fromLS._id && (fromLS._id.$oid || fromLS._id)) ||
+          fromLS.id ||
+          null;
+        if (cand) id = String(cand);
+      }
+    } catch {
+      // egal, wir haben ja noch den LS-Fallback
+    }
+  }
+
+  // 5) Wenn wir eine vernünftig aussehende ObjectId haben → Server bevorzugen
+  if (id && /^[0-9a-fA-F]{24}$/.test(String(id))) {
     try {
       const res = await fetch(api(`/inserat-details/${encodeURIComponent(id)}`), {
         credentials: "include",
       });
-      if (res.ok) return await res.json();
-    } catch {}
+
+      if (res.ok) {
+        const data = await res.json();
+
+        // Server-Ergebnis wieder in localStorage spiegeln
+        try {
+          localStorage.setItem("ausgewaehltesInserat", JSON.stringify(data));
+        } catch (e) {
+          console.warn("Konnte Daten nicht in localStorage speichern:", e);
+        }
+
+        return data;
+      } else {
+        console.warn("Antwort /inserat-details:", res.status);
+        if (res.status === 401 || res.status === 403) {
+          console.warn(
+            "Nicht eingeloggt (401/403) – benutze nur localStorage-Fallback."
+          );
+        }
+      }
+    } catch (err) {
+      console.error("Fehler beim Laden /inserat-details:", err);
+    }
   }
 
+  // 6) Fallback: wenn Server nicht geklappt hat → localStorage verwenden
+  if (fromLS) {
+    return fromLS;
+  }
+
+  console.warn(
+    "Kein Inserat im LocalStorage und keine gültige ID in der URL gefunden."
+  );
   return null;
 }
+
 
 
 /* ------------------------ Mapping ------------------------ */
