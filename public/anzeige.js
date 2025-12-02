@@ -227,17 +227,17 @@ async function loadInseratData() {
     console.warn("Konnte localStorage-Eintrag nicht parsen:", e);
   }
 
-  // 2) ID aus der URL holen (z.B. ?id=... )
+  // 2) ID aus der URL holen (?id=...)
   let id = null;
   try {
     if (typeof getQuery === "function") {
       id = getQuery("id");
     }
   } catch {
-    // wenn getQuery nicht existiert, einfach weitermachen
+    // wenn getQuery nicht existiert → ignorieren
   }
 
-  // 3) Falls keine Query-ID: evtl. /anzeige/<id> im Pfad
+  // 3) Falls keine Query-ID: evtl. aus Pfad /anzeige/<id>
   if (!id && typeof window !== "undefined") {
     const m = window.location.pathname.match(
       /\/anzeige(?:\.html)?\/([0-9a-fA-F]{24})/
@@ -262,24 +262,35 @@ async function loadInseratData() {
     }
   }
 
-  // 5) Wenn wir eine vernünftig aussehende ObjectId haben → Server bevorzugen
+  // 5) Wenn wir eine vernünftig aussehende ObjectId haben → Server fragen
   if (id && /^[0-9a-fA-F]{24}$/.test(String(id))) {
     try {
-      const res = await fetch(api(`/inserat-details/${encodeURIComponent(id)}`), {
-        credentials: "include",
-      });
+      const res = await fetch(
+        api(`/inserat-details/${encodeURIComponent(id)}`),
+        { credentials: "include" }
+      );
 
       if (res.ok) {
-        const data = await res.json();
+        const details = await res.json();
 
-        // Server-Ergebnis wieder in localStorage spiegeln
+        // 💡 WICHTIG: Server-Daten mit dem lokalen Inserat MERGEN
+        // fromLS = komplettes Inserat (mit allen Feldern)
+        // details = Zusatzinfos (seller, isSaved, ein paar Felder)
+        const merged = fromLS ? { ...fromLS, ...details } : details;
+
         try {
-          localStorage.setItem("ausgewaehltesInserat", JSON.stringify(data));
+          localStorage.setItem(
+            "ausgewaehltesInserat",
+            JSON.stringify(merged)
+          );
         } catch (e) {
-          console.warn("Konnte Daten nicht in localStorage speichern:", e);
+          console.warn(
+            "Konnte gemergte Daten nicht in localStorage speichern:",
+            e
+          );
         }
 
-        return data;
+        return merged;
       } else {
         console.warn("Antwort /inserat-details:", res.status);
         if (res.status === 401 || res.status === 403) {
