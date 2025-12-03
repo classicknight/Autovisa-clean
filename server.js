@@ -1876,18 +1876,25 @@ app.post("/nachricht-senden", checkLogin, async (req, res) => {
 
 
 // === Inserat-Details (inkl. "isSaved" für aktuellen Nutzer) ===
-app.get("/inserat-details/:id", checkLogin, async (req, res) => {
+app.get("/inserat-details/:id", async (req, res) => {
   try {
     const oid = new ObjectId(String(req.params.id));
     const coll = db.collection("inserate");
     const doc = await coll.findOne({ _id: oid });
     if (!doc) return res.status(404).json({ error: "Nicht gefunden" });
 
+    // Optional: eingeloggten Nutzer aus Session lesen (für isSaved)
+    let currentUserId = null;
+    try {
+      const sess = decodeSession(req.cookies.session);
+      currentUserId = sess?.id || null;
+    } catch {
+      currentUserId = null;
+    }
+
     // Verkäufer-ID aus Inserat holen
     const sellerId = String(
-      doc.seller?.id ||
-      doc.verkaeuferId ||
-      ""
+      doc.seller?.id || doc.verkaeuferId || ""
     ).trim();
 
     // Vollständiges Profil aus "nutzer" holen (Privat + Händler)
@@ -1902,33 +1909,27 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
             firma: 1,
             name: 1,
             logoUrl: 1,
-
             // Adresse
             strasse: 1,
             hausnummer: 1,
             plz: 1,
             ort: 1,
             land: 1,
-
             // Kontakt
             telefon: 1,
             telefon2: 1,
             email: 1,
-
             // Website
             website: 1,
             webseite: 1,
-
             // Sprachen & "Mitglied seit"
             sprachen: 1,
             languages: 1,
             createdAt: 1,
             erstelltAm: 1,
-
             // Öffnungszeiten (als Text)
             oeffnungszeiten: 1,
-
-            // 👉 neu: Impressum
+            // Impressum
             impressum: 1,
           },
         }
@@ -1937,13 +1938,18 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
 
     // Prüfen, ob dieses Inserat vom aktuellen Nutzer gespeichert wurde
     let isSaved = false;
-    try {
-      const savedDoc = await db
-        .collection("savedInserate")
-        .findOne({ nutzerId: req.nutzer.id, inseratId: oid });
-      isSaved = !!savedDoc;
-    } catch (e) {
-      console.warn("Fehler beim Prüfen von savedInserate:", e?.message || e);
+    if (currentUserId) {
+      try {
+        const savedDoc = await db
+          .collection("savedInserate")
+          .findOne({ nutzerId: currentUserId, inseratId: oid });
+        isSaved = !!savedDoc;
+      } catch (e) {
+        console.warn(
+          "Fehler beim Prüfen von savedInserate:",
+          e?.message || e
+        );
+      }
     }
 
     const sellerType =
@@ -1961,9 +1967,7 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
       "";
 
     const sellerLogo =
-      sellerProfile?.logoUrl ||
-      doc.seller?.logoUrl ||
-      "";
+      sellerProfile?.logoUrl || doc.seller?.logoUrl || "";
 
     // Sprachen aus Profil aufbereiten
     let sellerLangs = [];
@@ -1984,23 +1988,21 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
     res.json({
       id: doc._id?.toString?.() || String(doc._id || ""),
       titel: doc.titel || "",
-
-      // Hauptpreis (Detailseite rechnet dann je nach MwSt.-Typ)
+      // Hauptpreis
       preis:
         doc.verkauf_brutto ??
         doc.verkauf_preis ??
         doc.preis ??
         null,
-
       images: Array.isArray(doc.images) ? doc.images : [],
-
       verkauf_kurzbeschreibung: doc.verkauf_kurzbeschreibung || "",
       verkauf_kilometer: doc.verkauf_kilometer ?? null,
       verkauf_erstzulassung: doc.verkauf_erstzulassung || null,
       verkauf_kraftstoff: doc.verkauf_kraftstoff || null,
       verkauf_leistung: doc.verkauf_leistung ?? null,
-      verkauf_getriebe: doc.verkauf_getriebe || null,
-      verkauf_verbrauch_kombiniert: doc.verkauf_verbrauch_kombiniert || null,
+      verkauf_getriebe: doc.verkauf_getriebe ?? null,
+      verkauf_verbrauch_kombiniert:
+        doc.verkauf_verbrauch_kombiniert || null,
 
       // Verkäufer-Typ & Name aus Inserat (falls privat) oder Profil
       verkauf_verkaeufer: doc.verkauf_verkaeufer || "",
@@ -2009,11 +2011,12 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
       // Standort aus Inserat (für Karte & Privat)
       standort: doc.standort || "",
       standortCoords: doc.standortCoords || null,
+
       // Telefon/E-Mail vom Inserat (für Privat)
       telefon: doc.telefon || "",
       email: doc.email || "",
 
-      // Erweitertes Seller-Objekt mit Profil-Daten (v. a. Händler)
+      // Erweitertes Seller-Objekt mit Profil-Daten (v.a. Händler)
       seller: {
         id: sellerId || "",
         type: sellerType,
@@ -2035,7 +2038,10 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
         email: sellerProfile?.email || "",
 
         // Website (Händler)
-        website: sellerProfile?.website || sellerProfile?.webseite || "",
+        website:
+          sellerProfile?.website ||
+          sellerProfile?.webseite ||
+          "",
 
         // Sprachen (Händler)
         sprachen: sellerLangs,
@@ -2046,7 +2052,7 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
         // Öffnungszeiten (Rohtext)
         oeffnungszeiten: sellerProfile?.oeffnungszeiten || "",
 
-        // 👉 neu: Impressum
+        // Impressum
         impressum: sellerProfile?.impressum || "",
       },
 
