@@ -1262,19 +1262,13 @@ function renderSellerMap(inserat, sellerName, sellerAddr, isDealer) {
 
   const s = (v) => (v == null ? "" : String(v).trim());
 
-  // Ort aus Inserat / Standort ziehen
+  // Stadt/Ort aus Inserat ableiten
   let city = "";
   const ortRaw = s(inserat.ort) || s(inserat.standort);
   if (ortRaw) {
-    // "45731 Waltrop" → "Waltrop"
+    // "45731 Waltrop" -> "Waltrop"
     const m = ortRaw.match(/^\s*\d{4,5}\s+(.+)$/);
     city = m ? m[1] : ortRaw;
-  } else if (sellerAddr) {
-    // Fallback: Stadt grob aus der Adresse ziehen
-    const parts = s(sellerAddr).split(",");
-    if (parts.length >= 2) {
-      city = parts[parts.length - 2].trim() || parts[parts.length - 1].trim();
-    }
   }
 
   // Text über der Karte
@@ -1284,47 +1278,61 @@ function renderSellerMap(inserat, sellerName, sellerAddr, isDealer) {
     note.textContent = city ? `Privater Anbieter in ${city}` : "Privater Anbieter";
   }
 
-  // 1) Exakte Koordinaten aus standortCoords (Händler + Privat)
+  // 1. Versuch: exakte Koordinaten verwenden, wenn vorhanden
   let lat = null;
   let lon = null;
   const coords = inserat.standortCoords && inserat.standortCoords.coordinates;
   if (Array.isArray(coords) && coords.length === 2) {
-    lon = Number(coords[0]);
-    lat = Number(coords[1]);
+    lon = coords[0];
+    lat = coords[1];
   }
 
-  let url = "";
-
-  if (!isNaN(lat) && !isNaN(lon)) {
-    // exakte Position über Koordinaten
-    url = `https://www.google.com/maps?q=${lat},${lon}&hl=de&z=14&output=embed`;
-  } else {
-    // 2) Fallback: Händler → volle Adresse, Privat → Ort
-    let query = "";
-
-    if (isDealer && sellerAddr && sellerAddr !== "—") {
-      query = s(sellerAddr);
-    }
-
-    if (!query) {
-      if (city) query = city;
-      else if (s(inserat.standort)) query = s(inserat.standort);
-    }
-
-    if (!query) {
-      box.style.display = "none";
-      frame.src = "";
-      return;
-    }
-
-    url = `https://www.google.com/maps?q=${encodeURIComponent(
-      query
-    )}&hl=de&z=14&output=embed`;
+  if (lat != null && lon != null) {
+    frame.src = `https://www.google.com/maps?q=${lat},${lon}&hl=de&z=14&output=embed`;
+    box.style.display = "";
+    return;
   }
 
-  frame.src = url;
+  // 2. Versuch: Suchstring für Google Maps bauen
+  let query = "";
+
+  if (isDealer) {
+    // Händler: zuerst die volle Adresse, die wir in renderSeller() gebaut haben
+    query = s(sellerAddr);
+
+    // Fallback, falls sellerAddr leer ist
+    if (!query) {
+      const street = [s(inserat.strasse), s(inserat.hausnummer)]
+        .filter(Boolean)
+        .join(" ");
+      const zipCity = [s(inserat.plz), s(inserat.ort)]
+        .filter(Boolean)
+        .join(" ");
+      const country = s(inserat.land);
+      query = [street, zipCity, country].filter(Boolean).join(", ");
+    }
+  }
+
+  // Privat oder letzter Fallback für Händler
+  if (!query) {
+    if (city) query = city;
+    else if (s(inserat.standort)) query = s(inserat.standort);
+  }
+
+  if (!query) {
+    // gar nichts bekannt → Karte ausblenden
+    box.style.display = "none";
+    frame.src = "";
+    return;
+  }
+
+  // Adresse/Ort an Google Maps übergeben
+  frame.src = `https://www.google.com/maps?q=${encodeURIComponent(
+    query
+  )}&hl=de&z=14&output=embed`;
   box.style.display = "";
 }
+
 
 
 
