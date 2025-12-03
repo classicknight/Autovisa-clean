@@ -1278,7 +1278,17 @@ function renderSellerMap(inserat, sellerName, sellerAddr, isDealer) {
     note.textContent = city ? `Privater Anbieter in ${city}` : "Privater Anbieter";
   }
 
-  // 1. Versuch: exakte Koordinaten verwenden, wenn vorhanden
+  // === 1. Händler: immer zuerst die vollständige Adresse versuchen ===
+  const fullAddr = s(sellerAddr);
+  if (isDealer && fullAddr && fullAddr !== "Standort nicht angegeben") {
+    frame.src = `https://www.google.com/maps?q=${encodeURIComponent(
+      fullAddr
+    )}&hl=de&z=16&output=embed`;
+    box.style.display = "";
+    return;
+  }
+
+  // === 2. Koordinaten (für Privat + Fallback bei Händlern) ==========
   let lat = null;
   let lon = null;
   const coords = inserat.standortCoords && inserat.standortCoords.coordinates;
@@ -1293,31 +1303,10 @@ function renderSellerMap(inserat, sellerName, sellerAddr, isDealer) {
     return;
   }
 
-  // 2. Versuch: Suchstring für Google Maps bauen
+  // === 3. Fallback: nur Stadt / Standort-String =====================
   let query = "";
-
-  if (isDealer) {
-    // Händler: zuerst die volle Adresse, die wir in renderSeller() gebaut haben
-    query = s(sellerAddr);
-
-    // Fallback, falls sellerAddr leer ist
-    if (!query) {
-      const street = [s(inserat.strasse), s(inserat.hausnummer)]
-        .filter(Boolean)
-        .join(" ");
-      const zipCity = [s(inserat.plz), s(inserat.ort)]
-        .filter(Boolean)
-        .join(" ");
-      const country = s(inserat.land);
-      query = [street, zipCity, country].filter(Boolean).join(", ");
-    }
-  }
-
-  // Privat oder letzter Fallback für Händler
-  if (!query) {
-    if (city) query = city;
-    else if (s(inserat.standort)) query = s(inserat.standort);
-  }
+  if (city) query = city;
+  else if (s(inserat.standort)) query = s(inserat.standort);
 
   if (!query) {
     // gar nichts bekannt → Karte ausblenden
@@ -1326,10 +1315,9 @@ function renderSellerMap(inserat, sellerName, sellerAddr, isDealer) {
     return;
   }
 
-  // Adresse/Ort an Google Maps übergeben
   frame.src = `https://www.google.com/maps?q=${encodeURIComponent(
     query
-  )}&hl=de&z=14&output=embed`;
+  )}&hl=de&z=12&output=embed`;
   box.style.display = "";
 }
 
