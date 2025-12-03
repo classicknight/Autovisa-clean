@@ -1251,7 +1251,6 @@ function fillOpeningHours(seller, inserat, isDealer) {
 
   box.style.display = "";
 }
-
 // === Google-Maps Karte für Händler & Privat =======================
 // - Händler: komplette Adresse (Straße + Hausnr + PLZ + Ort + Land)
 // - Privat: nur Ort/PLZ-Ort
@@ -1267,8 +1266,15 @@ function renderSellerMap(inserat, sellerName, sellerAddr, isDealer) {
   let city = "";
   const ortRaw = s(inserat.ort) || s(inserat.standort);
   if (ortRaw) {
-    const m = ortRaw.match(/^\s*\d{4,5}\s+(.+)$/); // "45731 Waltrop" -> "Waltrop"
+    // "45731 Waltrop" → "Waltrop"
+    const m = ortRaw.match(/^\s*\d{4,5}\s+(.+)$/);
     city = m ? m[1] : ortRaw;
+  } else if (sellerAddr) {
+    // Fallback: Stadt grob aus der Adresse ziehen
+    const parts = s(sellerAddr).split(",");
+    if (parts.length >= 2) {
+      city = parts[parts.length - 2].trim() || parts[parts.length - 1].trim();
+    }
   }
 
   // Text über der Karte
@@ -1278,46 +1284,48 @@ function renderSellerMap(inserat, sellerName, sellerAddr, isDealer) {
     note.textContent = city ? `Privater Anbieter in ${city}` : "Privater Anbieter";
   }
 
-  // Query-String für Google Maps
-  let query = "";
+  // 1) Exakte Koordinaten aus standortCoords (Händler + Privat)
+  let lat = null;
+  let lon = null;
+  const coords = inserat.standortCoords && inserat.standortCoords.coordinates;
+  if (Array.isArray(coords) && coords.length === 2) {
+    lon = Number(coords[0]);
+    lat = Number(coords[1]);
+  }
 
-  if (isDealer) {
-    // Händler: zuerst die volle Adresse aus dem Profil
-    query = s(sellerAddr);
+  let url = "";
 
-    // Fallback, falls sellerAddr leer ist
-    if (!query) {
-      const street = [s(inserat.strasse), s(inserat.hausnummer)]
-        .filter(Boolean)
-        .join(" ");
-      const zipCity = [s(inserat.plz), s(inserat.ort)]
-        .filter(Boolean)
-        .join(" ");
-      const country = s(inserat.land);
-      const parts = [street, zipCity, country].filter(Boolean);
-      query = parts.join(", ");
+  if (!isNaN(lat) && !isNaN(lon)) {
+    // exakte Position über Koordinaten
+    url = `https://www.google.com/maps?q=${lat},${lon}&hl=de&z=14&output=embed`;
+  } else {
+    // 2) Fallback: Händler → volle Adresse, Privat → Ort
+    let query = "";
+
+    if (isDealer && sellerAddr && sellerAddr !== "—") {
+      query = s(sellerAddr);
     }
+
+    if (!query) {
+      if (city) query = city;
+      else if (s(inserat.standort)) query = s(inserat.standort);
+    }
+
+    if (!query) {
+      box.style.display = "none";
+      frame.src = "";
+      return;
+    }
+
+    url = `https://www.google.com/maps?q=${encodeURIComponent(
+      query
+    )}&hl=de&z=14&output=embed`;
   }
 
-  if (!query) {
-    // Privat oder letzter Fallback für Händler
-    if (city) query = city;
-    else if (s(inserat.standort)) query = s(inserat.standort);
-  }
-
-  if (!query) {
-    // gar nichts bekannt → Karte ausblenden
-    box.style.display = "none";
-    frame.src = "";
-    return;
-  }
-
-  // → komplette Adresse / Ort an Google Maps übergeben
-  frame.src = `https://www.google.com/maps?q=${encodeURIComponent(
-    query
-  )}&hl=de&z=14&output=embed`;
+  frame.src = url;
   box.style.display = "";
 }
+
 
 
 /* ------------------------ Beschreibung ------------------------ */
@@ -2087,9 +2095,12 @@ function renderHours(hours) {
   });
   wrap.style.display = "";
 }
+
+
+
 // === Anbieter-Box (Händler + Privat) ==============================
 async function renderSeller() {
-  const box = $id("sellerCard") || $id("anbieter");
+  const box = $id("anbieter") || $id("sellerCard");
   if (!box) return;
 
   // --- Inserat aus localStorage holen ---
@@ -2100,11 +2111,14 @@ async function renderSeller() {
     inserat = {};
   }
 
+  // Snapshot aus /inserat-details/:id (hat alle Daten aus "nutzer")
+  const profile = inserat.seller || {};
+
   // --- Händler vs. Privat erkennen ---
   const rawType = String(
-    inserat?.seller?.type ||
-      inserat?.verkauf_verkaeufer ||
-      inserat?.seller?.role ||
+    profile.type ||
+      inserat.verkauf_verkaeufer ||
+      profile.role ||
       ""
   ).toLowerCase();
 
@@ -2113,25 +2127,18 @@ async function renderSeller() {
     rawType === "händler" ||
     rawType.includes("händ") ||
     rawType.includes("haend") ||
-    inserat?.seller?.role === "haendler";
+    profile.role === "haendler";
 
-  // --- Seller-ID bestimmen (aus Inserat) ---
-  let sellerId =
-    inserat?.verkaeuferId || inserat?.seller?.id || inserat?.sellerId || "";
-
-  // --- Händler-Profil aus /api/seller laden ---
-  const profile = await fetchSellerProfile(sellerId);
-  if (!sellerId && profile && (profile._id || profile.id)) {
-    sellerId = getDocId(profile) || profile.id;
-  }
+  // --- Seller-ID bestimmen ---
+  const sellerId =
+    profile.id || inserat.verkaeuferId || inserat.sellerId || "";
 
   // --- Name + Initialen + Typ ---
   const name =
     (
-      profile?.firma ||
-      profile?.name ||
-      inserat?.seller?.name ||
-      inserat?.verkauf_name ||
+      profile.firma ||
+      profile.name ||
+      inserat.verkauf_name ||
       (isDealer ? "Händler" : "Privatanbieter")
     ).trim() || (isDealer ? "Händler" : "Privatanbieter");
 
@@ -2146,29 +2153,29 @@ async function renderSeller() {
     const s = (t) => (t == null ? "" : String(t).trim());
 
     if (isDealer) {
-      const street = [s(profile?.strasse), s(profile?.hausnummer)]
+      const street = [s(profile.strasse), s(profile.hausnummer)]
         .filter(Boolean)
         .join(" ");
-      const zipCity = [s(profile?.plz), s(profile?.ort)]
+      const zipCity = [s(profile.plz), s(profile.ort)]
         .filter(Boolean)
         .join(" ");
-      const country = s(profile?.land);
+      const country = s(profile.land);
       const parts = [street, zipCity, country].filter(Boolean);
       if (parts.length) return parts.join(", ");
     }
 
     // Privat: nur Stadt/Ort anzeigen
-    const cityDirect = s(inserat?.ort || profile?.ort);
+    const cityDirect = s(inserat.ort || profile.ort);
     if (cityDirect) return cityDirect;
 
-    const rawStandort = s(inserat?.standort);
+    const rawStandort = s(inserat.standort);
     if (rawStandort) {
       const m = rawStandort.match(/^\s*\d{4,5}\s+(.+)$/); // "45731 Waltrop" → "Waltrop"
       if (m) return m[1];
       return rawStandort;
     }
 
-    const zipCity = [s(inserat?.plz), s(inserat?.ort)]
+    const zipCity = [s(inserat.plz), s(inserat.ort)]
       .filter(Boolean)
       .join(" ");
     if (zipCity) return zipCity;
@@ -2181,10 +2188,9 @@ async function renderSeller() {
   // --- Avatar / Logo ---
   const avatar = box.querySelector(".dealer-avatar");
   const logoUrl =
-    profile?.logoUrl ||
-    inserat?.seller?.logoUrl ||
-    inserat?.logoUrl ||
-    inserat?.sellerLogo ||
+    profile.logoUrl ||
+    inserat.logoUrl ||
+    inserat.sellerLogo ||
     "";
 
   if (typeof loadLogo === "function") {
@@ -2200,18 +2206,12 @@ async function renderSeller() {
   }
 
   // --- Bewertung ---
-  const rating = Number(
-    profile?.rating ?? inserat?.seller?.rating ?? inserat?.rating ?? 0
-  );
-  const rCnt = Number(
-    profile?.reviews ?? inserat?.seller?.reviews ?? inserat?.reviews ?? 0
-  );
+  const rating = Number(profile.rating || inserat.rating || 0);
+  const rCnt   = Number(profile.reviews || inserat.reviews || 0);
   const ratingWidth = (Math.max(0, Math.min(5, rating)) / 5) * 100;
 
   const starsFillEl = $id("sellerRatingFill");
-  if (starsFillEl) {
-    starsFillEl.style.width = ratingWidth + "%";
-  }
+  if (starsFillEl) starsFillEl.style.width = ratingWidth + "%";
 
   const ratingValueEl = $id("sellerRatingValue");
   if (ratingValueEl) {
@@ -2225,14 +2225,19 @@ async function renderSeller() {
 
   // --- Kontakt-Daten (KV-Liste) ---
   const phone =
-    profile?.telefon || inserat?.telefon || inserat?.seller?.phone || "";
-  const mail = profile?.email || inserat?.seller?.email || inserat?.email || "";
+    profile.telefon ||
+    inserat.telefon ||
+    profile.phone ||
+    "";
+  const mail =
+    profile.email ||
+    inserat.email ||
+    "";
   const web = ensureHttp(
-    profile?.website ||
-      profile?.web ||
-      profile?.homepage ||
-      inserat?.seller?.website ||
-      inserat?.website ||
+    profile.website ||
+      profile.webseite ||
+      profile.homepage ||
+      inserat.website ||
       ""
   );
 
@@ -2249,7 +2254,7 @@ async function renderSeller() {
   if (mailRow) mailRow.style.display = mail ? "" : "none";
 
   // Website
-  const webRow = $id("sellerWebsiteRow");
+  const webRow  = $id("sellerWebsiteRow");
   const webLink = $id("sellerWebsiteLink");
   if (web && webLink) {
     webLink.href = web;
@@ -2263,10 +2268,9 @@ async function renderSeller() {
   // --- Sprachen ---
   const langs = (() => {
     const l =
-      profile?.sprachen ||
-      profile?.languages ||
-      inserat?.seller?.languages ||
-      inserat?.sprachen ||
+      profile.sprachen ||
+      profile.languages ||
+      inserat.sprachen ||
       [];
     if (Array.isArray(l)) return l;
     if (typeof l === "string") {
@@ -2288,9 +2292,9 @@ async function renderSeller() {
 
   // --- "Bei Autovisa seit" ---
   const memberSinceRow = $id("sellerMemberSinceRow");
-  const memberSinceEl = $id("sellerMemberSince");
+  const memberSinceEl  = $id("sellerMemberSince");
   const createdAtRaw =
-    profile?.erstelltAm || profile?.createdAt || profile?.created_at || null;
+    profile.erstelltAm || profile.createdAt || profile.created_at || null;
 
   if (createdAtRaw && memberSinceEl) {
     const d = new Date(createdAtRaw);
@@ -2324,15 +2328,14 @@ async function renderSeller() {
   // --- "Fahrzeuge dieses Anbieters" nur bei Händlern ---
   const sellerMoreSec = $id("sellerMore");
   const sellerCarsBtn = $id("sellerCarsBtn");
-  const finalSellerId = sellerId || getDocId(profile) || profile?.id || "";
 
-  if (isDealer && finalSellerId) {
+  if (isDealer && sellerId) {
     if (sellerCarsBtn) {
       sellerCarsBtn.style.display = "inline-flex";
       sellerCarsBtn.addEventListener("click", (e) => {
         e.preventDefault();
         window.location.href = `haendler.html?id=${encodeURIComponent(
-          finalSellerId
+          sellerId
         )}`;
       });
     }
@@ -2352,10 +2355,9 @@ async function renderSeller() {
 
   // --- Öffnungszeiten ---
   const hours =
-    profile?.oeffnungszeiten ||
-    profile?.hours ||
-    inserat?.seller?.hours ||
-    inserat?.oeffnungszeiten ||
+    profile.oeffnungszeiten ||
+    profile.hours ||
+    inserat.oeffnungszeiten ||
     null;
   if (typeof renderHours === "function") {
     renderHours(hours);
@@ -2368,10 +2370,10 @@ async function renderSeller() {
 
   // --- Impressum (nur Händler, unter der Karte ausklappbar) ---
   const impressumRaw =
-    profile?.impressum || inserat?.seller?.impressum || inserat?.impressum || "";
+    profile.impressum || inserat.impressum || "";
 
-  const impressumBox = $id("sellerImpressumBox");
-  const impressumToggle = $id("impressumToggle");
+  const impressumBox     = $id("sellerImpressumBox");
+  const impressumToggle  = $id("impressumToggle");
   const impressumContent = $id("sellerImpressumContent");
 
   if (isDealer && impressumRaw && impressumBox && impressumToggle && impressumContent) {
@@ -2379,8 +2381,8 @@ async function renderSeller() {
       typeof renderMultilineToHTML === "function"
         ? renderMultilineToHTML(impressumRaw)
         : String(impressumRaw);
-    impressumContent.innerHTML = html;
 
+    impressumContent.innerHTML = html;
     impressumBox.style.display = "";
     impressumBox.classList.remove("open");
     impressumToggle.setAttribute("aria-expanded", "false");
@@ -2394,10 +2396,10 @@ async function renderSeller() {
     impressumBox.style.display = "none";
   }
 
-  // --- Weitere Fahrzeuge des Händlers (falls Sektion vorhanden) ---
-  if (isDealer && sellerMoreSec && finalSellerId && typeof fetchSellerCars === "function") {
+  // --- Weitere Fahrzeuge des Händlers (optional) ---
+  if (isDealer && sellerMoreSec && sellerId && typeof fetchSellerCars === "function") {
     try {
-      const { results } = await fetchSellerCars(finalSellerId, 6);
+      const { results } = await fetchSellerCars(sellerId, 6);
       const currentId = getDocId(inserat);
       const filtered = (results || []).filter((r) => getDocId(r) !== currentId);
       if (typeof renderSellerMore === "function") {
@@ -2408,6 +2410,7 @@ async function renderSeller() {
     }
   }
 }
+
 
 
 

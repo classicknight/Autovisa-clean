@@ -3122,14 +3122,12 @@ img, video, canvas {
   margin-top: 14px;
   padding-top: 12px;
   border-top: 1px solid rgba(227, 233, 239, 0.9);
-  display: none;               /* JS setzt bei Händlern auf "" */
+  display: none; /* Start: ausgeblendet, JS schaltet es ein */
 }
 
 .impressum-toggle {
-  width: 100%;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   border: none;
   background: transparent;
@@ -3137,7 +3135,6 @@ img, video, canvas {
   font-weight: 500;
   color: #00b8a9;
   cursor: pointer;
-  padding: 4px 0;
 }
 
 .impressum-toggle:hover {
@@ -3145,32 +3142,25 @@ img, video, canvas {
 }
 
 .impressum-toggle i {
-  font-size: 0.9rem;
   transition: transform 0.25s ease;
 }
 
-/* Start: zugeklappt */
 .seller-impressum-content {
+  margin-top: 8px;
   font-size: 0.85rem;
   line-height: 1.45;
   color: #37444f;
   max-height: 0;
   overflow: hidden;
-  opacity: 0;
-  margin-top: 0;
-  transition: max-height 0.3s ease,
-              opacity 0.25s ease,
-              margin-top 0.25s ease;
+  white-space: pre-line; /* Zeilenumbrüche aus Mongo übernehmen */
+  transition: max-height 0.3s ease;
 }
 
-/* Geöffnet – JS setzt .open auf .seller-impressum-row */
+/* Wenn offen: Inhalt sichtbar + Icon gedreht */
 .seller-impressum-row.open .seller-impressum-content {
-  max-height: 500px;           /* ausreichend groß für dein Impressum */
-  opacity: 1;
-  margin-top: 8px;
+  max-height: 400px; /* reicht für ein normales Impressum */
 }
 
-/* Pfeil drehen, wenn offen */
 .seller-impressum-row.open .impressum-toggle i {
   transform: rotate(180deg);
 }
