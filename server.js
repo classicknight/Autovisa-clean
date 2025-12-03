@@ -2276,17 +2276,37 @@ app.post("/veroeffentlichen", checkLogin, async (req, res) => {
       if (!draft) return res.status(400).send("Kein (frischer) Entwurf zum Veröffentlichen gefunden.");
     }
 
-    // 2) Verkäufer-Snapshot laden (inkl. Logo)
+    // 2) Verkäufer-Snapshot laden (inkl. LOGO + ADRESSE)
     const haendler = await nutzerColl.findOne(
       { id: sellerId },
-      { projection: { id: 1, role: 1, firma: 1, name: 1, logoUrl: 1 } }
+      {
+        projection: {
+          id: 1,
+          role: 1,
+          firma: 1,
+          name: 1,
+          logoUrl: 1,
+          // NEU: Adresse für exakte Geocodierung + Anzeige
+          strasse: 1,
+          hausnummer: 1,
+          plz: 1,
+          ort: 1,
+          land: 1,
+        },
+      }
     );
 
     const seller = {
-      type:   haendler?.role || "privat",
-      id:     haendler?.id   || sellerId,
-      name:   haendler?.firma || haendler?.name || "Händler",
-      logoUrl: haendler?.logoUrl || ""
+      type:    haendler?.role || "privat",
+      id:      haendler?.id   || sellerId,
+      name:    haendler?.firma || haendler?.name || "Händler",
+      logoUrl: haendler?.logoUrl || "",
+      // Adresse gleich im Snapshot mitgeben (nutzt du in anzeige.js sowieso)
+      strasse:    haendler?.strasse    || "",
+      hausnummer: haendler?.hausnummer || "",
+      plz:        haendler?.plz        || "",
+      ort:        haendler?.ort        || "",
+      land:       haendler?.land       || "",
     };
 
     // 3) Entwurfs-Payload sanitisieren (interne Felder entfernen)
@@ -2303,19 +2323,48 @@ app.post("/veroeffentlichen", checkLogin, async (req, res) => {
       // Konsistent setzen (Body-Overrides nur, wenn vorhanden)
       verkauf_verkaeufer: (seller.type === "haendler") ? "Händler" : "Privatverkäufer",
       verkauf_name: req.body?.name || payload.verkauf_name || seller.name,
+
+      // Text-Standort bleibt wie gehabt (für Suche / Anzeige)
       standort: (req.body?.plz && req.body?.ort)
         ? `${req.body.plz} ${req.body.ort}`
         : (payload.standort || "Nicht angegeben"),
+
       telefon: req.body?.telefon || payload.telefon || "",
 
       // Denormalisierte Verkäuferdaten (für schnelle Anzeige)
-      seller
+      seller,
     };
 
-    // 5) (Optional) Geokodierung
-    const locString = (req.body?.plz && req.body?.ort)
-      ? `${req.body.plz} ${req.body.ort}`
-      : (neuesInserat.standort || "");
+    // 5) (Optional) Geokodierung – HÄNDLER: exakte Adresse, PRIVAT: nur PLZ/Ort
+    const locString = (() => {
+      const s = (v) => (v == null ? "" : String(v).trim());
+
+      // Händler → exakte Händleradresse
+      const sellerType = String(seller.type || "").toLowerCase();
+      if (sellerType === "haendler" || sellerType === "händler") {
+        const street  = [s(haendler?.strasse), s(haendler?.hausnummer)]
+          .filter(Boolean)
+          .join(" ");
+        const zipCity = [s(haendler?.plz), s(haendler?.ort)]
+          .filter(Boolean)
+          .join(" ");
+        const country = s(haendler?.land || "Deutschland");
+        const full    = [street, zipCity, country].filter(Boolean).join(", ");
+        if (full) return full;
+      }
+
+      // Privat → nur PLZ + Ort aus dem Formular
+      if (req.body?.plz || req.body?.ort) {
+        const zipCity = [s(req.body.plz), s(req.body.ort)]
+          .filter(Boolean)
+          .join(" ");
+        if (zipCity) return zipCity;
+      }
+
+      // Letzter Fallback: Standorthinweis aus dem Inserat
+      return neuesInserat.standort || "";
+    })();
+
     if (locString) {
       try {
         const point = await geocodeToPoint(locString);
@@ -2343,7 +2392,9 @@ app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
   const { id } = req.body;
   if (!id) return res.status(400).send("ID fehlt.");
 
-  let _id; try { _id = new ObjectId(id); } catch { return res.status(400).send("Ungültige ID."); }
+  let _id;
+  try { _id = new ObjectId(id); }
+  catch { return res.status(400).send("Ungültige ID."); }
 
   try {
     const sellerId     = req.nutzer?.id;
@@ -2354,16 +2405,35 @@ app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
     const draft = await entwurfColl.findOne({ _id, nutzerId: sellerId });
     if (!draft) return res.status(404).send("Entwurf nicht gefunden.");
 
-    // Händler-Snapshot (inkl. Logo)
+    // Händler-Snapshot (inkl. LOGO + ADRESSE)
     const haendler = await nutzerColl.findOne(
       { id: sellerId },
-      { projection: { id: 1, role: 1, firma: 1, name: 1, logoUrl: 1 } }
+      {
+        projection: {
+          id: 1,
+          role: 1,
+          firma: 1,
+          name: 1,
+          logoUrl: 1,
+          strasse: 1,
+          hausnummer: 1,
+          plz: 1,
+          ort: 1,
+          land: 1,
+        },
+      }
     );
+
     const seller = {
-      type:   haendler?.role || "privat",
-      id:     haendler?.id   || sellerId,
-      name:   haendler?.firma || haendler?.name || "Händler",
-      logoUrl: haendler?.logoUrl || ""
+      type:    haendler?.role || "privat",
+      id:      haendler?.id   || sellerId,
+      name:    haendler?.firma || haendler?.name || "Händler",
+      logoUrl: haendler?.logoUrl || "",
+      strasse:    haendler?.strasse    || "",
+      hausnummer: haendler?.hausnummer || "",
+      plz:        haendler?.plz        || "",
+      ort:        haendler?.ort        || "",
+      land:       haendler?.land       || "",
     };
 
     const neuesInserat = {
@@ -2379,17 +2449,41 @@ app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
       standort:     draft.standort || "Nicht angegeben",
       telefon:      draft.telefon || "",
 
-      // ⬇️ WICHTIG
-      seller
+      seller,
     };
 
-    // Geocoding (optional)
-    const locString = neuesInserat.standort || "";
+    //  Geocoding (wie oben: Händler exakte Adresse, Privat Stadt)
+    const locString = (() => {
+      const s = (v) => (v == null ? "" : String(v).trim());
+
+      const sellerType = String(seller.type || "").toLowerCase();
+      if (sellerType === "haendler" || sellerType === "händler") {
+        const street  = [s(haendler?.strasse), s(haendler?.hausnummer)]
+          .filter(Boolean)
+          .join(" ");
+        const zipCity = [s(haendler?.plz), s(haendler?.ort)]
+          .filter(Boolean)
+          .join(" ");
+        const country = s(haendler?.land || "Deutschland");
+        const full    = [street, zipCity, country].filter(Boolean).join(", ");
+        if (full) return full;
+      }
+
+      // Privat: nur den gespeicherten Standort-String (typisch "PLZ Ort")
+      if (neuesInserat.standort && neuesInserat.standort !== "Nicht angegeben") {
+        return s(neuesInserat.standort);
+      }
+
+      return "";
+    })();
+
     if (locString) {
       try {
         const point = await geocodeToPoint(locString);
         if (point) neuesInserat.standortCoords = point;
-      } catch (e) { console.warn("Geocoding fehlgeschlagen:", e?.message || e); }
+      } catch (e) {
+        console.warn("Geocoding fehlgeschlagen:", e?.message || e);
+      }
     }
 
     delete neuesInserat._id;
