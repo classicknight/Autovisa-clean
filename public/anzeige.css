@@ -3116,18 +3116,20 @@ img, video, canvas {
 
 
 
-
 /* ==== Impressum unter Karte ==== */
 
 .seller-impressum-row {
   margin-top: 14px;
   padding-top: 12px;
   border-top: 1px solid rgba(227, 233, 239, 0.9);
+  display: none;               /* JS setzt bei Händlern auf "" */
 }
 
 .impressum-toggle {
-  display: inline-flex;
+  width: 100%;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   border: none;
   background: transparent;
@@ -3135,6 +3137,7 @@ img, video, canvas {
   font-weight: 500;
   color: #00b8a9;
   cursor: pointer;
+  padding: 4px 0;
 }
 
 .impressum-toggle:hover {
@@ -3142,19 +3145,32 @@ img, video, canvas {
 }
 
 .impressum-toggle i {
+  font-size: 0.9rem;
   transition: transform 0.25s ease;
 }
 
-.impressum-toggle i.rotated {
-  transform: rotate(180deg);
-}
-
+/* Start: zugeklappt */
 .seller-impressum-content {
-  margin-top: 8px;
   font-size: 0.85rem;
   line-height: 1.45;
   color: #37444f;
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s ease;
+  opacity: 0;
+  margin-top: 0;
+  transition: max-height 0.3s ease,
+              opacity 0.25s ease,
+              margin-top 0.25s ease;
+}
+
+/* Geöffnet – JS setzt .open auf .seller-impressum-row */
+.seller-impressum-row.open .seller-impressum-content {
+  max-height: 500px;           /* ausreichend groß für dein Impressum */
+  opacity: 1;
+  margin-top: 8px;
+}
+
+/* Pfeil drehen, wenn offen */
+.seller-impressum-row.open .impressum-toggle i {
+  transform: rotate(180deg);
 }
