@@ -2086,9 +2086,8 @@ function renderHours(hours) {
   });
   wrap.style.display = "";
 }
-
 async function renderSeller() {
-  // 👉 funktioniert mit altem #sellerCard und neuem #anbieter
+  // funktioniert mit altem #sellerCard und neuem #anbieter
   const box = $id("sellerCard") || $id("anbieter");
   if (!box) return;
 
@@ -2100,11 +2099,17 @@ async function renderSeller() {
     inserat = {};
   }
 
+  // Seller-Snapshot aus /inserat-details (vom Server)
+  const seller =
+    inserat && inserat.seller && typeof inserat.seller === "object"
+      ? inserat.seller
+      : null;
+
   // --- Händler vs. Privat erkennen ---
   const rawType = String(
-    inserat?.seller?.type ||
+    seller?.type ||
       inserat?.verkauf_verkaeufer ||
-      inserat?.seller?.role ||
+      seller?.role ||
       ""
   ).toLowerCase();
 
@@ -2113,24 +2118,35 @@ async function renderSeller() {
     rawType === "händler" ||
     rawType.includes("händ") ||
     rawType.includes("haend") ||
-    inserat?.seller?.role === "haendler";
+    seller?.role === "haendler";
 
   // --- Seller-ID bestimmen (aus Inserat) ---
   let sellerId =
-    inserat?.verkaeuferId || inserat?.seller?.id || inserat?.sellerId || "";
+    inserat?.verkaeuferId || seller?.id || inserat?.sellerId || "";
 
-  // --- Händler-Profil aus /api/seller laden ---
-  const profile = await fetchSellerProfile(sellerId);
-  if (!sellerId && profile && (profile._id || profile.id)) {
-    sellerId = getDocId(profile) || profile.id;
+  // --- Profil: bevorzugt Seller-Snapshot aus /inserat-details ---
+  let profile = seller || null;
+
+  // Optional: zusätzliches Profil über fetchSellerProfile, falls vorhanden
+  if ((!profile || !profile.strasse) && sellerId && typeof fetchSellerProfile === "function") {
+    try {
+      const apiProfile = await fetchSellerProfile(sellerId);
+      if (apiProfile && typeof apiProfile === "object") {
+        profile = { ...apiProfile, ...profile };
+      }
+    } catch (e) {
+      console.warn("fetchSellerProfile fehlgeschlagen:", e);
+    }
   }
+
+  if (!profile) profile = {};
 
   // --- Name + Initialen + Typ ---
   const name =
     (
       profile?.firma ||
       profile?.name ||
-      inserat?.seller?.name ||
+      seller?.name ||
       inserat?.verkauf_name ||
       (isDealer ? "Händler" : "Privatanbieter")
     ).trim() || (isDealer ? "Händler" : "Privatanbieter");
@@ -2151,14 +2167,14 @@ async function renderSeller() {
     const s = (t) => (t == null ? "" : String(t).trim());
 
     if (isDealer) {
-      // Händler: komplette Adresse aus dem Profil
-      const street = [s(profile?.strasse), s(profile?.hausnummer)]
+      // Händler: komplette Adresse aus dem Profil (nutzer-Snapshot)
+      const street = [s(profile.strasse), s(profile.hausnummer)]
         .filter(Boolean)
         .join(" ");
-      const zipCity = [s(profile?.plz), s(profile?.ort)]
+      const zipCity = [s(profile.plz), s(profile.ort)]
         .filter(Boolean)
         .join(" ");
-      const country = s(profile?.land);
+      const country = s(profile.land);
 
       const parts = [street, zipCity, country].filter(Boolean);
       if (parts.length) return parts.join(", ");
@@ -2189,8 +2205,8 @@ async function renderSeller() {
   // --- Avatar / Logo ---
   const avatar = box.querySelector(".dealer-avatar");
   const logoUrl =
-    profile?.logoUrl ||
-    inserat?.seller?.logoUrl ||
+    profile.logoUrl ||
+    seller?.logoUrl ||
     inserat?.logoUrl ||
     inserat?.sellerLogo ||
     "";
@@ -2198,7 +2214,6 @@ async function renderSeller() {
   if (typeof loadLogo === "function") {
     loadLogo($id("sellerLogo"), avatar, logoUrl);
   } else {
-    // Fallback: Bild direkt setzen, wenn vorhanden
     const logoImg = $id("sellerLogo");
     if (logoImg && logoUrl) {
       logoImg.src = logoUrl;
@@ -2210,10 +2225,10 @@ async function renderSeller() {
 
   // --- Bewertung ---
   const rating = Number(
-    profile?.rating ?? inserat?.seller?.rating ?? inserat?.rating ?? 0
+    profile?.rating ?? seller?.rating ?? inserat?.rating ?? 0
   );
   const rCnt = Number(
-    profile?.reviews ?? inserat?.seller?.reviews ?? inserat?.reviews ?? 0
+    profile?.reviews ?? seller?.reviews ?? inserat?.reviews ?? 0
   );
   const ratingWidth = (Math.max(0, Math.min(5, rating)) / 5) * 100;
 
@@ -2234,13 +2249,17 @@ async function renderSeller() {
 
   // --- Kontakt-Daten (KV-Liste) ---
   const phone =
-    profile?.telefon || inserat?.telefon || inserat?.seller?.phone || "";
-  const mail = profile?.email || inserat?.seller?.email || inserat?.email || "";
+    profile?.telefon ||
+    profile?.telefon2 ||
+    inserat?.telefon ||
+    seller?.phone ||
+    "";
+  const mail =
+    profile?.email || seller?.email || inserat?.email || "";
   const web = ensureHttp(
     profile?.website ||
-      profile?.web ||
-      profile?.homepage ||
-      inserat?.seller?.website ||
+      profile?.webseite ||
+      seller?.website ||
       inserat?.website ||
       ""
   );
@@ -2274,7 +2293,8 @@ async function renderSeller() {
     const l =
       profile?.sprachen ||
       profile?.languages ||
-      inserat?.seller?.languages ||
+      seller?.sprachen ||
+      seller?.languages ||
       inserat?.sprachen ||
       [];
     if (Array.isArray(l)) return l;
@@ -2365,7 +2385,7 @@ async function renderSeller() {
   const hours =
     profile?.oeffnungszeiten ||
     profile?.hours ||
-    inserat?.seller?.hours ||
+    seller?.hours ||
     inserat?.oeffnungszeiten ||
     null;
   if (typeof renderHours === "function") {
@@ -2375,8 +2395,14 @@ async function renderSeller() {
   // --- Standort / Karte (Händler: volle Adresse, Privat: nur Ort) ---
   try {
     if (typeof renderSellerMap === "function") {
-      // Signatur: (inserat, profile, fullAddress, isDealer)
-      renderSellerMap(inserat, profile, fullAddress, isDealer);
+      // Signatur: (inserat, sellerName, sellerTypeLabel, sellerAddr, isDealer)
+      renderSellerMap(
+        inserat,
+        name,
+        mapRoleToLabel(profile?.role || rawType),
+        fullAddress,
+        isDealer
+      );
     }
   } catch (e) {
     console.warn("Fehler in renderSellerMap:", e);
@@ -2384,16 +2410,16 @@ async function renderSeller() {
 
   // --- Impressum (nur für Händler, unter der Karte ausklappbar) ---
   const impressumRaw =
-    profile?.impressum || inserat?.seller?.impressum || inserat?.impressum || "";
+    profile?.impressum || seller?.impressum || inserat?.impressum || "";
 
-  const impressumRow = $id("sellerImpressumRow");
-  const impressumShortEl = $id("sellerImpressum");
+  const impressumRow = $id("sellerImpressumRow");      // optional, wenn du oben eine KV-Zeile willst
+  const impressumShortEl = $id("sellerImpressum");     // optional
   const impressumBox = $id("sellerImpressumBox");
   const impressumToggle = $id("impressumToggle");
-  const impressumContent = $id("impressumContent");
+  const impressumContent = $id("sellerImpressumContent"); // WICHTIG: ID aus deinem HTML
 
   if (isDealer && impressumRaw) {
-    // kurze Vorschau in der KV-Zeile
+    // kurze Vorschau in der KV-Zeile (nur, falls du die <li> wieder einbaust)
     if (impressumShortEl) {
       const flat = String(impressumRaw).replace(/\s+/g, " ").trim();
       const short =
@@ -2429,19 +2455,30 @@ async function renderSeller() {
   }
 
   // --- Weitere Fahrzeuge des Händlers (falls Sektion vorhanden) ---
-  if (isDealer && sellerMoreSec && finalSellerId && typeof fetchSellerCars === "function") {
+  if (
+    isDealer &&
+    sellerMoreSec &&
+    finalSellerId &&
+    typeof fetchSellerCars === "function"
+  ) {
     try {
       const { results } = await fetchSellerCars(finalSellerId, 6);
       const currentId = getDocId(inserat);
-      const filtered = (results || []).filter((r) => getDocId(r) !== currentId);
+      const filtered = (results || []).filter(
+        (r) => getDocId(r) !== currentId
+      );
       if (typeof renderSellerMore === "function") {
         renderSellerMore(filtered.slice(0, 6));
       }
     } catch (e) {
-      console.warn("Fehler beim Laden weiterer Fahrzeuge des Händlers:", e);
+      console.warn(
+        "Fehler beim Laden weiterer Fahrzeuge des Händlers:",
+        e
+      );
     }
   }
 }
+
 
 
 /* ------------------------ Rating Panel ------------------------ */
