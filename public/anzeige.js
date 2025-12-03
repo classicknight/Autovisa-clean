@@ -1262,7 +1262,7 @@ function renderSellerMap(inserat, sellerName, sellerAddr, isDealer) {
 
   const s = (v) => (v == null ? "" : String(v).trim());
 
-  // Stadt/Ort aus Inserat ableiten
+  // Stadt/Ort aus Inserat ableiten (für Text & Fallback)
   let city = "";
   const ortRaw = s(inserat.ort) || s(inserat.standort);
   if (ortRaw) {
@@ -1278,17 +1278,18 @@ function renderSellerMap(inserat, sellerName, sellerAddr, isDealer) {
     note.textContent = city ? `Privater Anbieter in ${city}` : "Privater Anbieter";
   }
 
-  // === 1. Händler: immer zuerst die vollständige Adresse versuchen ===
+  // 1) HÄNDLER: immer erst versuchen, die vollständige Adresse zu verwenden
   const fullAddr = s(sellerAddr);
   if (isDealer && fullAddr && fullAddr !== "Standort nicht angegeben") {
-    frame.src = `https://www.google.com/maps?q=${encodeURIComponent(
+    const src = `https://www.google.com/maps?q=${encodeURIComponent(
       fullAddr
     )}&hl=de&z=16&output=embed`;
+    frame.src = src;
     box.style.display = "";
     return;
   }
 
-  // === 2. Koordinaten (für Privat + Fallback bei Händlern) ==========
+  // 2) KOORDINATEN (Fallback für Händler + Standard für Privat, wenn vorhanden)
   let lat = null;
   let lon = null;
   const coords = inserat.standortCoords && inserat.standortCoords.coordinates;
@@ -1303,7 +1304,7 @@ function renderSellerMap(inserat, sellerName, sellerAddr, isDealer) {
     return;
   }
 
-  // === 3. Fallback: nur Stadt / Standort-String =====================
+  // 3) LETZTER FALLBACK: nur Stadt / Standort-String
   let query = "";
   if (city) query = city;
   else if (s(inserat.standort)) query = s(inserat.standort);
@@ -1320,7 +1321,6 @@ function renderSellerMap(inserat, sellerName, sellerAddr, isDealer) {
   )}&hl=de&z=12&output=embed`;
   box.style.display = "";
 }
-
 
 
 
