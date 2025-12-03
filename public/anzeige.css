@@ -3102,3 +3102,59 @@ img, video, canvas {
     display: none;
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ==== Impressum unter Karte ==== */
+
+.seller-impressum-row {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(227, 233, 239, 0.9);
+}
+
+.impressum-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #00b8a9;
+  cursor: pointer;
+}
+
+.impressum-toggle:hover {
+  color: #008b7f;
+}
+
+.impressum-toggle i {
+  transition: transform 0.25s ease;
+}
+
+.impressum-toggle i.rotated {
+  transform: rotate(180deg);
+}
+
+.seller-impressum-content {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #37444f;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}

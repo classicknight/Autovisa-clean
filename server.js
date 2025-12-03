@@ -2008,7 +2008,7 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
 
       // Standort aus Inserat (für Karte & Privat)
       standort: doc.standort || "",
-
+      standortCoords: doc.standortCoords || null,
       // Telefon/E-Mail vom Inserat (für Privat)
       telefon: doc.telefon || "",
       email: doc.email || "",

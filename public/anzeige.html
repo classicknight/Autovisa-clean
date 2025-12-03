@@ -545,17 +545,14 @@
             <span><i class="fas fa-clock"></i> Bei Autovisa seit</span>
             <strong id="sellerMemberSince">–</strong>
           </li>
-          <li id="sellerImpressumRow">
-            <span><i class="fas fa-file-alt"></i> Impressum</span>
-            <strong id="sellerImpressum">–</strong>
-          </li>
         </ul>
 
         <div class="seller-contact">
           <a href="#" class="btn-primary" id="callBtn">
-            <i class="fas fa-phone-alt"></i>
+            <i class="fas fa-phone"></i>
             Anrufen
           </a>
+
           <!-- Händler: "Fahrzeuge dieses Anbieters" (JS blendet bei Privat aus) -->
           <a href="#" class="btn-primary ghost" id="sellerCarsBtn">
             <i class="fas fa-car-side"></i>
@@ -591,9 +588,19 @@
           allowfullscreen
         ></iframe>
       </div>
+
+      <!-- IMPRESSUM (nur Händler, per JS) -->
+      <div class="seller-impressum-row" id="sellerImpressumBox">
+        <button type="button" class="impressum-toggle" id="impressumToggle">
+          <span class="impressum-toggle-label">Impressum anzeigen</span>
+          <i class="fas fa-chevron-down"></i>
+        </button>
+        <div class="seller-impressum-content" id="sellerImpressumContent"></div>
+      </div>
     </div>
   </div>
 </section>
+
 
 
 

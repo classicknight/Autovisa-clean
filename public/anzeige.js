@@ -1252,30 +1252,32 @@ function fillOpeningHours(seller, inserat, isDealer) {
   box.style.display = "";
 }
 
-// Google-Maps Karte für Händler, nur Stadt-Text bei Privat
+// Google-Maps Karte für Händler & Privat
+// - Händler: volle Adresse / genaue Koordinaten
+// - Privat: Karte auf Ort, keine Straße
 function renderSellerMap(inserat, sellerName, sellerTypeLabel, sellerAddr, isDealer) {
-  const box   = document.getElementById("sellerMapBox");
+  const box = document.getElementById("sellerMapBox");
   const frame = document.getElementById("sellerMapFrame");
-  const note  = document.getElementById("sellerMapNote");
+  const note = document.getElementById("sellerMapNote");
   if (!box || !frame || !note) return;
 
-  const city = inserat.ort || guessCityFromStandort(sellerAddr);
-
-  if (!isDealer) {
-    // Privatanbieter → nur Info-Text, keine Karte
-    box.classList.add("seller-map-box--no-map");
-    note.textContent = city
-      ? `Privater Anbieter in ${city}`
-      : "Privater Anbieter";
-    frame.src = "";
-    return;
-  }
-
   box.classList.remove("seller-map-box--no-map");
-  const label = city ? `${sellerName} · ${city}` : sellerName;
+
+  const city =
+    inserat.ort ||
+    guessCityFromStandort(inserat.standort || "") ||
+    guessCityFromStandort(sellerAddr || "");
+
+  // Text über der Karte
+  let label = "";
+  if (isDealer) {
+    label = city ? `${sellerName} · ${city}` : sellerName;
+  } else {
+    label = city ? `Privater Anbieter in ${city}` : "Privater Anbieter";
+  }
   note.textContent = label;
 
-  // Versuche Koordinaten aus dem Inserat
+  // Koordinaten aus dem Inserat (für Händler & Privat)
   let lat = null;
   let lon = null;
   const coords = inserat.standortCoords && inserat.standortCoords.coordinates;
@@ -1285,21 +1287,37 @@ function renderSellerMap(inserat, sellerName, sellerTypeLabel, sellerAddr, isDea
   }
 
   let url = "";
+
   if (lat != null && lon != null) {
+    // exakte Position über standortCoords
     url = `https://www.google.com/maps?q=${lat},${lon}&hl=de&z=14&output=embed`;
-  } else if (sellerAddr && sellerAddr !== "—") {
-    const q = encodeURIComponent(sellerAddr);
-    url = `https://www.google.com/maps?q=${q}&hl=de&z=14&output=embed`;
+  } else {
+    // Fallback: Händler → komplette Adresse, Privat → nur Ort
+    let query = "";
+    if (isDealer && sellerAddr && sellerAddr !== "—") {
+      query = sellerAddr;
+    } else if (city) {
+      query = city;
+    } else if (inserat.standort) {
+      query = inserat.standort;
+    }
+
+    if (query) {
+      const q = encodeURIComponent(query);
+      url = `https://www.google.com/maps?q=${q}&hl=de&z=14&output=embed`;
+    }
   }
 
   if (!url) {
     box.style.display = "none";
+    frame.src = "";
     return;
   }
 
   box.style.display = "";
   frame.src = url;
 }
+
 
 /* ------------------------ Beschreibung ------------------------ */
 function fillDescription(inserat) {
@@ -2067,8 +2085,10 @@ function renderHours(hours) {
     list.appendChild(li);
   });
   wrap.style.display = "";
-}async function renderSeller() {
-  // 👉 passt jetzt sowohl zu altem #sellerCard als auch zu deinem neuen #anbieter
+}
+
+async function renderSeller() {
+  // 👉 funktioniert mit altem #sellerCard und neuem #anbieter
   const box = $id("sellerCard") || $id("anbieter");
   if (!box) return;
 
@@ -2076,11 +2096,16 @@ function renderHours(hours) {
   let inserat = {};
   try {
     inserat = JSON.parse(localStorage.getItem("ausgewaehltesInserat") || "{}");
-  } catch {}
+  } catch {
+    inserat = {};
+  }
 
   // --- Händler vs. Privat erkennen ---
   const rawType = String(
-    inserat?.seller?.type || inserat?.verkauf_verkaeufer || ""
+    inserat?.seller?.type ||
+      inserat?.verkauf_verkaeufer ||
+      inserat?.seller?.role ||
+      ""
   ).toLowerCase();
 
   const isDealer =
@@ -2101,13 +2126,14 @@ function renderHours(hours) {
   }
 
   // --- Name + Initialen + Typ ---
-  const name = (
-    profile?.firma ||
-    profile?.name ||
-    inserat?.seller?.name ||
-    inserat?.verkauf_name ||
-    (isDealer ? "Händler" : "Privatanbieter")
-  ).trim();
+  const name =
+    (
+      profile?.firma ||
+      profile?.name ||
+      inserat?.seller?.name ||
+      inserat?.verkauf_name ||
+      (isDealer ? "Händler" : "Privatanbieter")
+    ).trim() || (isDealer ? "Händler" : "Privatanbieter");
 
   const initials =
     name
@@ -2166,9 +2192,21 @@ function renderHours(hours) {
     profile?.logoUrl ||
     inserat?.seller?.logoUrl ||
     inserat?.logoUrl ||
+    inserat?.sellerLogo ||
     "";
 
-  loadLogo($id("sellerLogo"), avatar, logoUrl);
+  if (typeof loadLogo === "function") {
+    loadLogo($id("sellerLogo"), avatar, logoUrl);
+  } else {
+    // Fallback: Bild direkt setzen, wenn vorhanden
+    const logoImg = $id("sellerLogo");
+    if (logoImg && logoUrl) {
+      logoImg.src = logoUrl;
+      logoImg.style.display = "block";
+      const initialsEl = $id("sellerInitials");
+      if (initialsEl) initialsEl.style.display = "none";
+    }
+  }
 
   // --- Bewertung ---
   const rating = Number(
@@ -2177,82 +2215,61 @@ function renderHours(hours) {
   const rCnt = Number(
     profile?.reviews ?? inserat?.seller?.reviews ?? inserat?.reviews ?? 0
   );
-  const w = (Math.max(0, Math.min(5, rating)) / 5) * 100;
+  const ratingWidth = (Math.max(0, Math.min(5, rating)) / 5) * 100;
 
-  const starsFill = $id("starsFill");
-  if (starsFill) {
-    starsFill.style.width = w + "%";
+  const starsFillEl = $id("sellerRatingFill");
+  if (starsFillEl) {
+    starsFillEl.style.width = ratingWidth + "%";
   }
-  setText("ratingValue", rating ? rating.toFixed(1) : "–");
-  const ratingCountEl = $id("ratingCount");
+
+  const ratingValueEl = $id("sellerRatingValue");
+  if (ratingValueEl) {
+    ratingValueEl.textContent = rating ? `${rating.toFixed(1)} / 5` : "– / 5";
+  }
+
+  const ratingCountEl = $id("sellerRatingCount");
   if (ratingCountEl) {
     ratingCountEl.textContent = rCnt ? `(${rCnt})` : "";
   }
 
-  // --- Kontakt-Daten ---
+  // --- Kontakt-Daten (KV-Liste) ---
   const phone =
     profile?.telefon || inserat?.telefon || inserat?.seller?.phone || "";
   const mail = profile?.email || inserat?.seller?.email || inserat?.email || "";
   const web = ensureHttp(
     profile?.website ||
       profile?.web ||
+      profile?.homepage ||
       inserat?.seller?.website ||
       inserat?.website ||
       ""
   );
-  const telFmt = sanitizePhone(phone);
 
-  const callBtn = $id("callBtn");
-  if (callBtn) {
-    if (telFmt) {
-      callBtn.href = `tel:${telFmt}`;
-      callBtn.classList.remove("ghost");
-    } else {
-      callBtn.removeAttribute("href");
-      callBtn.classList.add("ghost");
-    }
-  }
+  // Telefon
+  const phoneRow = $id("sellerPhoneRow");
+  const phoneDisplay = $id("sellerPhoneDisplay");
+  if (phoneDisplay) phoneDisplay.textContent = phone || "–";
+  if (phoneRow) phoneRow.style.display = phone ? "" : "none";
 
-  const mailBtn = $id("mailBtn");
-  if (mailBtn) {
-    if (mail) {
-      mailBtn.href = `mailto:${mail}`;
-      mailBtn.classList.remove("ghost");
-    } else {
-      mailBtn.removeAttribute("href");
-      mailBtn.classList.add("ghost");
-    }
-  }
+  // E-Mail
+  const mailRow = $id("sellerMailRow");
+  const mailDisplay = $id("sellerMailDisplay");
+  if (mailDisplay) mailDisplay.textContent = mail || "–";
+  if (mailRow) mailRow.style.display = mail ? "" : "none";
 
-  const msgBtn = $id("msgBtn");
-  if (msgBtn) {
-    msgBtn.onclick = () => {
-      document.getElementById("contactPanel")?.classList.add("open");
-      document.querySelector("#messageForm textarea")?.focus();
-    };
+  // Website
+  const webRow = $id("sellerWebsiteRow");
+  const webLink = $id("sellerWebsiteLink");
+  if (web && webLink) {
+    webLink.href = web;
+    webLink.textContent = web.replace(/^https?:\/\//i, "");
+  } else if (webLink) {
+    webLink.removeAttribute("href");
+    webLink.textContent = "–";
   }
+  if (webRow) webRow.style.display = web ? "" : "none";
 
-  // --- Extra-Infos unten (alte Struktur: rowPhone/rowMail/rowWeb/rowLang) ---
-  ensureExtraInfoBlock();
-
-  if (phone) {
-    setText("sellerPhoneText", phone);
-    $id("rowPhone") && ($id("rowPhone").style.display = "flex");
-  }
-  if (mail) {
-    setText("sellerMailText", mail);
-    $id("rowMail") && ($id("rowMail").style.display = "flex");
-  }
-  if (web) {
-    const a = $id("sellerWebsiteText");
-    if (a) {
-      a.href = web;
-      a.textContent = web.replace(/^https?:\/\//i, "");
-    }
-    $id("rowWeb") && ($id("rowWeb").style.display = "flex");
-  }
-
-  // --- Sprachen ---
+  // Sprachen
   const langs = (() => {
     const l =
       profile?.sprachen ||
@@ -2270,9 +2287,78 @@ function renderHours(hours) {
     return [];
   })();
 
+  const langRow = $id("sellerLanguageRow");
   if (langs.length) {
     setText("sellerLanguages", langs.join(", "));
-    $id("rowLang") && ($id("rowLang").style.display = "flex");
+    if (langRow) langRow.style.display = "";
+  } else if (langRow) {
+    langRow.style.display = "none";
+  }
+
+  // "Bei Autovisa seit"
+  const memberSinceRow = $id("sellerMemberSinceRow");
+  const memberSinceEl = $id("sellerMemberSince");
+
+  const createdAtRaw =
+    profile?.erstelltAm || profile?.createdAt || profile?.created_at || null;
+
+  if (createdAtRaw && memberSinceEl) {
+    const d = new Date(createdAtRaw);
+    if (!isNaN(d.getTime())) {
+      const formatted = d.toLocaleDateString("de-DE", {
+        month: "2-digit",
+        year: "numeric",
+      });
+      memberSinceEl.textContent = formatted;
+      if (memberSinceRow) memberSinceRow.style.display = "";
+    } else if (memberSinceRow) {
+      memberSinceRow.style.display = "none";
+    }
+  } else if (memberSinceRow) {
+    memberSinceRow.style.display = "none";
+  }
+
+  // --- Anrufen-Button (Font Awesome Telefonhörer) ---
+  const telFmt = sanitizePhone(phone);
+  const callBtn = $id("callBtn");
+  if (callBtn) {
+    if (telFmt) {
+      callBtn.href = `tel:${telFmt}`;
+      callBtn.classList.remove("ghost");
+    } else {
+      callBtn.removeAttribute("href");
+      callBtn.classList.add("ghost");
+    }
+  }
+
+  // --- "Fahrzeuge dieses Anbieters" nur bei Händlern ---
+  const sellerMoreSec = $id("sellerMore");
+  const sellerCarsBtn = $id("sellerCarsBtn");
+  const finalSellerId = sellerId || getDocId(profile) || profile?.id || "";
+
+  if (isDealer && finalSellerId) {
+    if (sellerCarsBtn) {
+      sellerCarsBtn.style.display = "inline-flex";
+      sellerCarsBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        // Profilseite des Händlers öffnen
+        window.location.href = `haendler.html?id=${encodeURIComponent(
+          finalSellerId
+        )}`;
+      });
+    }
+  } else {
+    if (sellerCarsBtn) sellerCarsBtn.style.display = "none";
+    if (sellerMoreSec) sellerMoreSec.style.display = "none";
+  }
+
+  // --- Nachricht-Button (öffnet dein Kontakt-Popup) ---
+  const msgBtn = $id("msgBtn");
+  if (msgBtn) {
+    msgBtn.onclick = () => {
+      document.getElementById("contactPanel")?.classList.add("open");
+      document.querySelector("#messageForm textarea")?.focus();
+    };
   }
 
   // --- Öffnungszeiten ---
@@ -2282,18 +2368,78 @@ function renderHours(hours) {
     inserat?.seller?.hours ||
     inserat?.oeffnungszeiten ||
     null;
-  renderHours(hours);
+  if (typeof renderHours === "function") {
+    renderHours(hours);
+  }
 
-  // --- Weitere Fahrzeuge des Händlers ---
-  const moreSec = $id("sellerMore");
-  if (isDealer && (sellerId || profile?._id || profile?.id) && moreSec) {
-    const finalId = sellerId || getDocId(profile) || profile?.id || "";
-    const { results } = await fetchSellerCars(finalId, 6);
-    const currentId = getDocId(inserat);
-    const filtered = results.filter((r) => getDocId(r) !== currentId);
-    renderSellerMore(filtered.slice(0, 6));
-  } else if (moreSec) {
-    moreSec.style.display = "none";
+  // --- Standort / Karte (Händler: volle Adresse, Privat: nur Ort) ---
+  try {
+    if (typeof renderSellerMap === "function") {
+      // Signatur: (inserat, profile, fullAddress, isDealer)
+      renderSellerMap(inserat, profile, fullAddress, isDealer);
+    }
+  } catch (e) {
+    console.warn("Fehler in renderSellerMap:", e);
+  }
+
+  // --- Impressum (nur für Händler, unter der Karte ausklappbar) ---
+  const impressumRaw =
+    profile?.impressum || inserat?.seller?.impressum || inserat?.impressum || "";
+
+  const impressumRow = $id("sellerImpressumRow");
+  const impressumShortEl = $id("sellerImpressum");
+  const impressumBox = $id("sellerImpressumBox");
+  const impressumToggle = $id("impressumToggle");
+  const impressumContent = $id("impressumContent");
+
+  if (isDealer && impressumRaw) {
+    // kurze Vorschau in der KV-Zeile
+    if (impressumShortEl) {
+      const flat = String(impressumRaw).replace(/\s+/g, " ").trim();
+      const short =
+        flat.length > 80 ? flat.slice(0, 80).trimEnd() + " …" : flat || "–";
+      impressumShortEl.textContent = short;
+    }
+    if (impressumRow) impressumRow.style.display = "";
+
+    // Ausklappbereich unter der Karte
+    if (impressumBox && impressumContent) {
+      const html =
+        typeof renderMultilineToHTML === "function"
+          ? renderMultilineToHTML(impressumRaw)
+          : String(impressumRaw);
+      impressumContent.innerHTML = html;
+      impressumBox.style.display = "";
+
+      if (impressumToggle) {
+        impressumToggle.setAttribute("aria-expanded", "false");
+        impressumToggle.addEventListener("click", () => {
+          const isOpen = impressumBox.classList.toggle("open");
+          impressumToggle.setAttribute(
+            "aria-expanded",
+            isOpen ? "true" : "false"
+          );
+        });
+      }
+    }
+  } else {
+    // bei Privaten: Impressum komplett ausblenden
+    if (impressumRow) impressumRow.style.display = "none";
+    if (impressumBox) impressumBox.style.display = "none";
+  }
+
+  // --- Weitere Fahrzeuge des Händlers (falls Sektion vorhanden) ---
+  if (isDealer && sellerMoreSec && finalSellerId && typeof fetchSellerCars === "function") {
+    try {
+      const { results } = await fetchSellerCars(finalSellerId, 6);
+      const currentId = getDocId(inserat);
+      const filtered = (results || []).filter((r) => getDocId(r) !== currentId);
+      if (typeof renderSellerMore === "function") {
+        renderSellerMore(filtered.slice(0, 6));
+      }
+    } catch (e) {
+      console.warn("Fehler beim Laden weiterer Fahrzeuge des Händlers:", e);
+    }
   }
 }
 
