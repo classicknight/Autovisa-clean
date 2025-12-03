@@ -1875,7 +1875,6 @@ app.post("/nachricht-senden", checkLogin, async (req, res) => {
 });
 
 
-
 // === Inserat-Details (inkl. "isSaved" für aktuellen Nutzer) ===
 app.get("/inserat-details/:id", checkLogin, async (req, res) => {
   try {
@@ -1891,7 +1890,7 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
       ""
     ).trim();
 
-    // Vollständiges Händler-Profil aus "nutzer" holen (falls Händler)
+    // Vollständiges Profil aus "nutzer" holen (Privat + Händler)
     let sellerProfile = null;
     if (sellerId) {
       sellerProfile = await db.collection("nutzer").findOne(
@@ -1928,6 +1927,9 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
 
             // Öffnungszeiten (als Text)
             oeffnungszeiten: 1,
+
+            // 👉 neu: Impressum
+            impressum: 1,
           },
         }
       );
@@ -1947,7 +1949,7 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
     const sellerType =
       sellerProfile?.role ||
       doc.seller?.type ||
-      (doc.verkauf_verkaeufer?.toLowerCase() === "händler"
+      (String(doc.verkauf_verkaeufer || "").toLowerCase() === "händler"
         ? "haendler"
         : "privat");
 
@@ -1982,11 +1984,14 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
     res.json({
       id: doc._id?.toString?.() || String(doc._id || ""),
       titel: doc.titel || "",
+
+      // Hauptpreis (Detailseite rechnet dann je nach MwSt.-Typ)
       preis:
         doc.verkauf_brutto ??
         doc.verkauf_preis ??
         doc.preis ??
         null,
+
       images: Array.isArray(doc.images) ? doc.images : [],
 
       verkauf_kurzbeschreibung: doc.verkauf_kurzbeschreibung || "",
@@ -2004,11 +2009,11 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
       // Standort aus Inserat (für Karte & Privat)
       standort: doc.standort || "",
 
-      // ⬅️ neu: Telefon/E-Mail vom Inserat (für Privat)
+      // Telefon/E-Mail vom Inserat (für Privat)
       telefon: doc.telefon || "",
       email: doc.email || "",
 
-      // ⬅️ erweitertes Seller-Objekt mit Profil-Daten
+      // Erweitertes Seller-Objekt mit Profil-Daten (v. a. Händler)
       seller: {
         id: sellerId || "",
         type: sellerType,
@@ -2040,15 +2045,19 @@ app.get("/inserat-details/:id", checkLogin, async (req, res) => {
 
         // Öffnungszeiten (Rohtext)
         oeffnungszeiten: sellerProfile?.oeffnungszeiten || "",
+
+        // 👉 neu: Impressum
+        impressum: sellerProfile?.impressum || "",
       },
 
-      isSaved, // wichtig für die Detailseite
+      isSaved,
     });
   } catch (e) {
     console.error("❌ Fehler /inserat-details:", e);
     res.status(400).json({ error: "Ungültige ID" });
   }
 });
+
 
 
 
