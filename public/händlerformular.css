@@ -795,7 +795,7 @@ img, video, canvas {
   
   .form-wrapper {
     max-width: 900px;
-    margin: 160px auto 60px; /* vorher: 100px */
+    margin: 40px auto 60px; /* vorher: 100px */
     padding: 40px;
     background: linear-gradient(135deg, #1a2733, #222f3e);
     border-radius: 20px;
@@ -1135,14 +1135,16 @@ img, video, canvas {
       
     }
   
-    .form-wrapper {
-      padding: 110px 16px 24px !important;
-      margin: 0 !important;
-      border-radius: 0 !important;
-      box-sizing: border-box !important;
-      width: 100% !important;
-    }
-  
+    
+      .form-wrapper {
+        padding: 32px 16px 24px !important; /* statt 110px */
+        margin: 0 !important;
+        border-radius: 0 !important;
+        box-sizing: border-box !important;
+        width: 100% !important;
+      }
+    
+    
   
     
   
@@ -1303,5 +1305,67 @@ img, video, canvas {
   
   @media (max-width:600px){
     .logo-preview { width: 80px; height: 80px; }
+  }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+  .phone-input {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .phone-prefix {
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: #e3e9ef;
+    font-size: 14px;
+    color: #1a2733;
+    white-space: nowrap;
+  }
+  
+  .phone-input input[type="tel"] {
+    flex: 1;
+  }
+  
+  /* Öffnungszeiten-Grid – simpel */
+  .opening-hours-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .opening-hours-row {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr) auto minmax(0, 1fr) auto;
+    gap: 6px;
+    align-items: center;
+  }
+  
+  .day-label {
+    font-size: 14px;
+    color: #37444f;
+  }
+  
+  .dash {
+    text-align: center;
+  }
+  
+  .closed-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
   }
   

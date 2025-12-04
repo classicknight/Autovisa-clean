@@ -2,10 +2,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("dealerForm");
 
   // --- Logo-Vorschau Elemente
-  const fileInput  = document.getElementById("logo");       // <input type="file" name="logo" ...>
+  const fileInput  = document.getElementById("logo");
   const imgEl      = document.getElementById("logoImg");
   const initialsEl = document.getElementById("logoInitials");
   const removeBtn  = document.getElementById("logoRemove");
+  const confirmPasswordInput = document.getElementById("confirm-password");
 
   // Initialen aus Firmenname
   function initialsFromName(name = "") {
@@ -62,9 +63,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Logo entfernen
   removeBtn?.addEventListener("click", () => {
-    fileInput.value = "";
+    if (fileInput) fileInput.value = "";
     resetPreview();
   });
+
+  // +49-Logik: deutsche Nummern
+  function normalizePhone(raw) {
+    let v = (raw || "").trim();
+    if (!v) return "";
+
+    // Leerzeichen entfernen
+    v = v.replace(/\s+/g, "");
+
+    // 00 → +
+    if (v.startsWith("00")) {
+      v = "+" + v.slice(2);
+    }
+
+    // Wenn bereits mit +49 beginnt → so lassen
+    if (v.startsWith("+49")) {
+      return v;
+    }
+
+    // Führende 0 entfernen (0176 → 176)
+    if (v.startsWith("0")) {
+      v = v.slice(1);
+    }
+
+    return "+49" + v;
+  }
 
   // --- Formular absenden (MULTIPART inkl. optionalem LOGO)
   form.addEventListener("submit", async (e) => {
@@ -75,7 +102,9 @@ document.addEventListener("DOMContentLoaded", () => {
       alert("Bitte AGB und Datenschutz akzeptieren.");
       return;
     }
-    if (form.password.value !== form["confirm-password"].value) {
+
+    // Passwort-Check (Bugfix: confirmPasswordInput statt form['confirm-password'])
+    if (form.password.value !== confirmPasswordInput.value) {
       alert("Die Passwörter stimmen nicht überein.");
       return;
     }
@@ -95,35 +124,68 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const submitBtn = form.querySelector(".submit-btn");
-    submitBtn.disabled = true;
+    if (submitBtn) submitBtn.disabled = true;
 
     try {
-      // WICHTIG: FormData statt JSON, Feldname fürs Logo MUSS "logo" sein
       const fd = new FormData();
-      fd.append("firma",            form.firma.value.trim());
-      fd.append("strasse",          form.strasse.value.trim());
-      fd.append("hausnummer",       form.hausnummer.value.trim());
-      fd.append("plz",              form.plz.value.trim());
-      fd.append("ort",              form.ort.value.trim());
-      fd.append("land",             form.land.value);
-      fd.append("telefon",          form.telefon.value.trim());
-      fd.append("telefon2",         form.telefon2.value.trim());
-      fd.append("email",            form.email.value.trim());
-      fd.append("whatsapp",         form.whatsapp.checked ? "true" : "false");
-      fd.append("tarif",            form.tarif.value);
-      fd.append("zahlungsmethode",  form.zahlungsmethode.value);
-      fd.append("kontoinhaber",     form.kontoinhaber.value.trim());
-      fd.append("iban",             form.iban.value.trim());
-      fd.append("bic",              form.bic.value.trim());
-      fd.append("impressum",        form.impressum.value.trim());
-      fd.append("agb",              form.agb.checked ? "true" : "false");
-      fd.append("datenschutz",      form.datenschutz.checked ? "true" : "false");
-      fd.append("password",         form.password.value);
-      fd.append("confirmPassword",  form["confirm-password"].value);
 
-      if (f) fd.append("logo", f); // <— schickt die Datei mit
+      // Basisdaten
+      fd.append("firma",       form.firma.value.trim());
+      fd.append("strasse",     form.strasse.value.trim());
+      fd.append("hausnummer",  form.hausnummer.value.trim());
+      fd.append("plz",         form.plz.value.trim());
+      fd.append("ort",         form.ort.value.trim());
+      fd.append("land",        form.land.value);
 
-      // KEIN Content-Type-Header setzen! Browser setzt Boundary automatisch.
+      // Telefonnummern mit +49-Normalisierung
+      fd.append("telefon",  normalizePhone(form.telefon.value));
+      fd.append("telefon2", normalizePhone(form.telefon2.value));
+
+      fd.append("email",       form.email.value.trim());
+      fd.append("whatsapp",    form.whatsapp.checked ? "true" : "false");
+
+      // Tarif
+      const selectedTarif = form.querySelector("input[name='tarif']:checked");
+      fd.append("tarif", selectedTarif ? selectedTarif.value : "");
+
+      // Zahlungsdaten / SEPA
+      fd.append("zahlungsmethode", form.zahlungsmethode.value);
+      fd.append("kontoinhaber",    form.kontoinhaber.value.trim());
+      fd.append("iban",            form.iban.value.trim());
+      fd.append("bic",             form.bic.value.trim());
+
+      // Impressum & Rechtliches
+      fd.append("impressum",   form.impressum.value.trim());
+      fd.append("agb",         form.agb.checked ? "true" : "false");
+      fd.append("datenschutz", form.datenschutz.checked ? "true" : "false");
+
+      // Zugangsdaten
+      fd.append("password",        form.password.value);
+      fd.append("confirmPassword", confirmPasswordInput.value);
+
+      // Öffnungszeiten
+      const days = ["mo", "di", "mi", "do", "fr", "sa", "so"];
+      days.forEach((key) => {
+        const von    = form[`${key}_von`]    ? form[`${key}_von`].value : "";
+        const bis    = form[`${key}_bis`]    ? form[`${key}_bis`].value : "";
+        const closed = form[`${key}_closed`] ? form[`${key}_closed`].checked : false;
+
+        fd.append(`oeffnungszeiten_${key}_von`, von);
+        fd.append(`oeffnungszeiten_${key}_bis`, bis);
+        fd.append(`oeffnungszeiten_${key}_closed`, closed ? "true" : "false");
+      });
+
+      // Sprachen (mehrere Werte)
+      const langInputs = form.querySelectorAll("input[name='sprachen']:checked");
+      langInputs.forEach((inp) => {
+        fd.append("sprachen", inp.value);
+      });
+
+      // Logo
+      if (f) {
+        fd.append("logo", f);
+      }
+
       const res = await fetch("/haendler-registrieren", {
         method: "POST",
         body: fd
@@ -133,16 +195,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (res.ok) {
         alert("Registrierung erfolgreich! Bitte E-Mail zur Bestätigung prüfen.");
-        // Nach Verifizierung ist logoUrl im Profil; neue Inserate bekommen es automatisch.
         window.location.href = "index.html";
       } else {
         alert(result.error || "Ein Fehler ist aufgetreten.");
-        submitBtn.disabled = false;
+        if (submitBtn) submitBtn.disabled = false;
       }
     } catch (err) {
       console.error(err);
       alert("Serverfehler. Bitte später erneut versuchen.");
-      submitBtn.disabled = false;
+      if (submitBtn) submitBtn.disabled = false;
     }
   });
 });
