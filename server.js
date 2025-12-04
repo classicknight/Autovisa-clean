@@ -1461,6 +1461,7 @@ const uploadLogo = multer({
   }
 });
 // === Händlerregistrierung mit optionalem Logo-Upload ===
+// === Händlerregistrierung mit optionalem Logo-Upload ===
 app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) => {
   // Felder kommen bei multipart als Strings
   const {
@@ -1484,36 +1485,34 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
     datenschutz,
     password,
     confirmPassword,
-    website,            // ✅ NEU: Website (optional)
+    website,            // ✅ Website (optional)
+
+    // Öffnungszeiten-Felder & Sprachen kommen auch in req.body an
   } = req.body;
 
   // Normalisierung / Sanitizing
-  const _firma           = (firma || "").trim();
-  const _email           = (email || "").trim().toLowerCase();
-  const _strasse         = (strasse || "").trim();
-  const _hausnummer      = (hausnummer || "").trim();
-  const _plz             = (plz || "").trim();
-  const _ort             = (ort || "").trim();
-  const _land            = (land || "").trim();
-  const _telefon         = (telefon || "").trim();
-  const _telefon2        = (telefon2 || "").trim();
-  const _tarif           = (tarif || "").trim();
+  const _firma         = (firma || "").trim();
+  const _email         = (email || "").trim().toLowerCase();
+  const _strasse       = (strasse || "").trim();
+  const _hausnummer    = (hausnummer || "").trim();
+  const _plz           = (plz || "").trim();
+  const _ort           = (ort || "").trim();
+  const _land          = (land || "").trim();
+  const _telefon       = (telefon || "").trim();
+  const _telefon2      = (telefon2 || "").trim();
+  const _tarif         = (tarif || "").trim();
   const _zahlungsmethode = (zahlungsmethode || "").trim();
-  const _kontoinhaber    = (kontoinhaber || "").trim();
-  const _iban            = (iban || "").replace(/\s+/g, "").toUpperCase();
-  const _bic             = (bic || "").replace(/\s+/g, "").toUpperCase();
-  const _impressum       = (impressum || "").trim();
-  const _website         = (website || "").trim();   // ✅ Website normalisieren
+  const _kontoinhaber  = (kontoinhaber || "").trim();
+  const _iban          = (iban || "").replace(/\s+/g, "").toUpperCase();
+  const _bic           = (bic || "").replace(/\s+/g, "").toUpperCase();
+  const _impressum     = (impressum || "").trim();
+  const _website       = (website || "").trim();   // ✅ Website normalisieren
 
   const toBool = (v) =>
-    v === true ||
-    v === "true" ||
-    v === "on" ||
-    v === 1 ||
-    v === "1";
+    v === true || v === "true" || v === "on" || v === 1 || v === "1";
 
-  const _whatsapp    = toBool(whatsapp);
-  const _agb         = toBool(agb);
+  const _whatsapp   = toBool(whatsapp);
+  const _agb        = toBool(agb);
   const _datenschutz = toBool(datenschutz);
 
   // ✅ Öffnungszeiten aus den Einzel-Feldern bauen
@@ -1531,8 +1530,8 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
   const openingLines   = [];
 
   for (const [key, label] of Object.entries(dayLabels)) {
-    const vonRaw    = req.body[`oeffnungszeiten_${key}_von`] || "";
-    const bisRaw    = req.body[`oeffnungszeiten_${key}_bis`] || "";
+    const vonRaw   = req.body[`oeffnungszeiten_${key}_von`] || "";
+    const bisRaw   = req.body[`oeffnungszeiten_${key}_bis`] || "";
     const closedRaw = req.body[`oeffnungszeiten_${key}_closed`];
 
     const von    = String(vonRaw || "").trim();
@@ -1565,16 +1564,19 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
   // Pflichtfelder prüfen
   if (!_firma || !_email || !password || !_agb || !_datenschutz) {
     return res.status(400).json({
-      error: "Bitte füllen Sie alle Pflichtfelder aus und akzeptieren Sie AGB & Datenschutz.",
+      error:
+        "Bitte füllen Sie alle Pflichtfelder aus und akzeptieren Sie AGB & Datenschutz.",
     });
   }
+
   if (password !== confirmPassword) {
     return res.status(400).json({ error: "Passwörter stimmen nicht überein." });
   }
 
-  // Telefonnummer basic check (optional – kannst du auch strenger machen)
   if (!_telefon) {
-    return res.status(400).json({ error: "Bitte eine Telefonnummer für Kundenanfragen angeben." });
+    return res
+      .status(400)
+      .json({ error: "Bitte eine Telefonnummer für Kundenanfragen angeben." });
   }
 
   try {
@@ -1583,15 +1585,16 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
     // E-Mail darf nur einmal vorkommen
     const existing = await nutzerColl.findOne({ email: _email });
     if (existing) {
-      return res.status(400).json({ error: "Diese E-Mail-Adresse wird bereits verwendet." });
+      return res
+        .status(400)
+        .json({ error: "Diese E-Mail-Adresse wird bereits verwendet." });
     }
 
     const newId = crypto.randomUUID();
 
     // Verifizierungs-Token generieren
     const token = crypto.randomBytes(32).toString("hex");
-
-    const hash = await bcrypt.hash(password, 12);
+    const hash  = await bcrypt.hash(password, 12);
 
     // Logo aus Multer + Cloudinary
     let logoUrl = null;
@@ -1608,8 +1611,9 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
       } catch (err) {
         console.error("❌ Fehler beim Logo-Upload:", err);
       } finally {
-        // temp-Datei wieder löschen
-        try { fs.unlink(req.file.path, () => {}); } catch {}
+        try {
+          fs.unlink(req.file.path, () => {});
+        } catch {}
       }
     }
 
@@ -1636,18 +1640,15 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
       // Profil / Extras
       ...( _website ? { website: _website } : {} ),
       ...( sprachenArr.length ? { sprachen: sprachenArr } : {} ),
-      ...(
-        _oeffnungszeiten
+      ...( _oeffnungszeiten
           ? {
-              oeffnungszeiten: _oeffnungszeiten,          // schöner Text (für Anzeige / getNutzerInfo)
-              oeffnungszeitenDetails: openingDetails,     // strukturierte Daten (für spätere Features)
+              oeffnungszeiten: _oeffnungszeiten,     // hübscher Text
+              oeffnungszeitenDetails: openingDetails, // strukturierte Daten
             }
-          : {
-              oeffnungszeitenDetails: openingDetails,
-            }
+          : { oeffnungszeitenDetails: openingDetails }
       ),
 
-      // Tarif / Zahlung (SEPA jetzt, später Stripe)
+      // Tarif / Zahlung
       tarif: _tarif,
       zahlungsmethode: _zahlungsmethode,
       kontoinhaber: _kontoinhaber,
@@ -1663,37 +1664,50 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
       password: hash,
 
       // Logo (optional)
-      ...(logoUrl ? { logoUrl, logoPublicId, logoUpdatedAt: new Date() } : {}),
+      ...(logoUrl
+        ? { logoUrl, logoPublicId, logoUpdatedAt: new Date() }
+        : {}),
     };
 
     await nutzerColl.insertOne(neuerHaendler);
 
-    // Bestätigungs-Mail verschicken
-    const { appUrl } = getUrls();
-    const verifyUrl = `${appUrl.replace(/\/+$/, "")}/verify?token=${token}`;
+    // 🔗 Verifizierungs-Link bauen – **immer** vom aktuellen Host aus
+    const { appUrl: envAppUrl } = getAppUrls();
+    const proto = (req.headers["x-forwarded-proto"] || req.protocol || "https")
+      .split(",")[0];
+    const host = req.get("host");
+    const baseUrl = (host ? `${proto}://${host}` : envAppUrl || "").replace(
+      /\/+$/,
+      ""
+    );
+    const verifyUrl = `${baseUrl}/verify?token=${token}`;
 
+    // Bestätigungs-Mail verschicken (mit richtigem <a>-Link)
     await mailer.sendMail({
-      from: `"Autovisa" <no-reply@autovisa.de>`,
+      from: `"Autovisa" `,
       to: _email,
       subject: "Bitte bestätigen Sie Ihre Händlerregistrierung",
       html: `
-        <p>Hallo ${_firma || "Autohaus"},</p>
+        <p>Hallo ${escapeHtml(_firma || "Autohaus")},</p>
         <p>vielen Dank für Ihre Registrierung bei Autovisa.</p>
         <p>Bitte bestätigen Sie Ihre E-Mail-Adresse über den folgenden Link:</p>
-        <p><a href="${verifyUrl}" target="_blank">${verifyUrl}</a></p>
-        <p>Mit freundlichen Grüßen<br/>Ihr Autovisa-Team</p>
+        <p><a href="${verifyUrl}" target="_blank" rel="noopener noreferrer">${verifyUrl}</a></p>
+        <p>Mit freundlichen Grüßen<br>Ihr Autovisa-Team</p>
       `,
     });
 
     return res.json({
       ok: true,
-      message: "Registrierung erfolgreich. Bitte bestätigen Sie Ihre E-Mail.",
+      message: "Registrierung erfolgreich. Bitte prüfen Sie Ihre E-Mails.",
     });
   } catch (err) {
     console.error("❌ Fehler bei /haendler-registrieren:", err);
-    return res.status(500).json({ error: "Serverfehler bei der Händlerregistrierung." });
+    return res
+      .status(500)
+      .json({ error: "Serverfehler bei der Händlerregistrierung." });
   }
 });
+
 
 
 app.post("/haendler/logo", checkLogin, uploadLogo.single("logo"), async (req, res) => {
@@ -1741,17 +1755,22 @@ app.post("/haendler/logo", checkLogin, uploadLogo.single("logo"), async (req, re
 app.get("/verify", async (req, res) => {
   const { token } = req.query;
 
-  // Ziel-URL aus ENV ermitteln (falls getUrls() nicht existiert)
-  const hasGetUrls = (typeof getUrls === "function");
-  const { appUrl } = hasGetUrls
-    ? getUrls()
-    : { appUrl: process.env.PUBLIC_APP_URL || process.env.API_URL || process.env.BASE_URL || `http://localhost:${PORT}` };
+  // Basis-URL: bevorzugt Host aus der aktuellen Anfrage,
+  // sonst Fallback auf ENV (getUrls / PUBLIC_APP_URL)
+  const { appUrl: envAppUrl } = getAppUrls();
+  const proto = (req.headers["x-forwarded-proto"] || req.protocol || "https")
+    .split(",")[0];
+  const host = req.get("host");
+  const baseUrl = (host ? `${proto}://${host}` : envAppUrl || "").replace(
+    /\/+$/,
+    ""
+  );
 
   // Keine Caches für diesen Endpunkt
   res.set("Cache-Control", "no-store");
 
   if (!token || typeof token !== "string") {
-    return res.redirect(`${appUrl}/login.html?verified=0&reason=invalid`);
+    return res.redirect(`${baseUrl}/login.html?verified=0&reason=invalid`);
   }
 
   try {
@@ -1761,22 +1780,26 @@ app.get("/verify", async (req, res) => {
     const user = await nutzerColl.findOne({ token });
     if (!user) {
       // Schon bestätigt oder Token falsch/abgelaufen
-      return res.redirect(`${appUrl}/login.html?verified=0&reason=token`);
+      return res.redirect(`${baseUrl}/login.html?verified=0&reason=token`);
     }
 
     // Verifizieren & Token entfernen
     await nutzerColl.updateOne(
       { _id: user._id },
-      { $set: { verified: true, verifiedAt: new Date() }, $unset: { token: "" } }
+      {
+        $set: { verified: true, verifiedAt: new Date() },
+        $unset: { token: "" },
+      }
     );
 
     // Erfolg
-    return res.redirect(`${appUrl}/login.html?verified=1`);
+    return res.redirect(`${baseUrl}/login.html?verified=1`);
   } catch (err) {
     console.error("❌ Fehler bei /verify:", err);
-    return res.redirect(`${appUrl}/login.html?verified=0&reason=server`);
+    return res.redirect(`${baseUrl}/login.html?verified=0&reason=server`);
   }
 });
+
 // ====== E-Mail-Benachrichtigung bei neuer Chat-Nachricht ======
 const NOTIFY_ENABLED = (process.env.NOTIFY_EMAILS ?? "1") !== "0";
 const NOTIFY_MIN_INTERVAL_MIN = parseInt(process.env.NOTIFY_MIN_INTERVAL_MIN || "10", 10);
