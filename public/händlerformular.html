@@ -70,7 +70,7 @@
     <fieldset>
       <legend>Kontaktinformationen</legend>
       <div class="form-grid">
-        <!-- Telefonnummern mit +49 -->
+        <!-- Telefon 1 -->
         <div class="form-group">
           <label for="telefon">* Telefonnummer für Kundenanfragen</label>
           <div class="phone-input">
@@ -80,13 +80,14 @@
               id="telefon"
               name="telefon"
               inputmode="tel"
-              pattern="[0-9\\s/()+-]{5,}"
-              placeholder="176 1234567"
+              autocomplete="tel"
+              placeholder="z. B. 151 23456789"
               required
-            />
+            >
           </div>
         </div>
-
+    
+        <!-- Telefon 2 -->
         <div class="form-group">
           <label for="telefon2">Weitere Telefonnummer (optional)</label>
           <div class="phone-input">
@@ -96,14 +97,27 @@
               id="telefon2"
               name="telefon2"
               inputmode="tel"
-              pattern="[0-9\\s/()+-]{5,}"
-              placeholder="176 7654321"
-            />
+              autocomplete="tel"
+              placeholder="z. B. 2301 9876543"
+            >
           </div>
         </div>
-
+    
+        <!-- Website -->
+        <div class="form-group">
+          <label for="website">Website (optional)</label>
+          <input
+            type="url"
+            id="website"
+            name="website"
+            inputmode="url"
+            placeholder="https://www.ihr-autohaus.de"
+          >
+        </div>
+    
+        <!-- WhatsApp -->
         <label class="whatsapp-checkbox">
-          <input type="checkbox" id="whatsapp" name="whatsapp" />
+          <input type="checkbox" id="whatsapp" name="whatsapp">
           <div class="checkbox-visual">
             <i class="fab fa-whatsapp"></i>
             <span>WhatsApp verfügbar</span>
@@ -111,6 +125,7 @@
         </label>
       </div>
     </fieldset>
+    
 
     <!-- ÖFFNUNGSZEITEN – NEU -->
     <fieldset>

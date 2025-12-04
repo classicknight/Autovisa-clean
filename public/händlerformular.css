@@ -1369,3 +1369,83 @@ img, video, canvas {
     font-size: 12px;
   }
   
+
+
+
+
+  /* === Telefonfelder mit +49 im Autovisa-Stil === */
+.phone-input {
+  display: flex;
+  align-items: stretch;
+  gap: 0;                      /* Prefix & Input sind „ein Block“ */
+}
+
+.phone-prefix {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 14px;
+  min-width: 58px;
+
+  background-color: #222f3e;
+  border-radius: 10px 0 0 10px;
+  border: 2px solid #3c4a58;
+  border-right: none;
+
+  font-size: 14px;
+  color: #cfdce8;
+}
+
+.phone-input input[type="tel"] {
+  flex: 1;
+  border-radius: 0 10px 10px 0;
+  border-left: none;
+}
+
+/* Fokuszustand für die ganze Einheit */
+.phone-input:focus-within .phone-prefix,
+.phone-input:focus-within input[type="tel"] {
+  border-color: #00b8a9;
+  box-shadow: 0 0 12px rgba(0, 184, 169, 0.3);
+}
+
+
+
+
+
+/* === "Geschlossen"-Toggle im Autovisa-Stil === */
+.closed-toggle {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.closed-toggle label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 2px solid #3c4a58;
+  background-color: #2b3947;
+  font-size: 13px;
+  color: #cfdce8;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.closed-toggle input[type="checkbox"] {
+  accent-color: #00b8a9;
+  transform: scale(1.1);
+}
+
+/* Wenn angekreuzt → leuchtender Rahmen */
+.closed-toggle label:has(input[type="checkbox"]:checked) {
+  border-color: #00b8a9;
+  box-shadow: 0 0 10px rgba(0, 184, 169, 0.35);
+  color: #00e0c0;
+  background-color: #253646;
+}

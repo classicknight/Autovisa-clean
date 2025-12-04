@@ -1240,7 +1240,6 @@ app.get("/saved/list", checkLogin, async (req, res) => {
     res.status(500).json({ error: "Fehler beim Laden der gespeicherten Inserate." });
   }
 });
-
 // === Nutzer-Info aus Session (Privat + Händler) ===
 app.get("/getNutzerInfo", async (req, res) => {
   try {
@@ -1282,7 +1281,11 @@ app.get("/getNutzerInfo", async (req, res) => {
 
           // Öffnungszeiten
           oeffnungszeiten: 1,
-          "öffnungszeiten": 1
+          "öffnungszeiten": 1,
+          oeffnungszeitenDetails: 1,   // ✅ neu
+
+          // Sprachen
+          sprachen: 1                  // ✅ neu
         }
       }
     );
@@ -1333,7 +1336,7 @@ app.get("/getNutzerInfo", async (req, res) => {
           .toArray();
 
         if (agg.length > 0) {
-          ratingAvg = agg[0].avg;    // z.B. 4.3
+          ratingAvg = agg[0].avg;     // z.B. 4.3
           ratingCount = agg[0].count; // z.B. 12
         }
       } catch (ratingErr) {
@@ -1368,15 +1371,20 @@ app.get("/getNutzerInfo", async (req, res) => {
       standort: nutzer.standort || "",
 
       // Kontakt
-      telefon: nutzer.telefon || nutzer.telefon2 || "",
-      email: nutzer.email || "",
+      telefon:  nutzer.telefon  || "",        // Hauptnummer
+      telefon2: nutzer.telefon2 || "",        // zweite Nummer
+      email:    nutzer.email    || "",
 
-      // Website
+      // Website (vereinheitlicht)
       website,
 
-      // Öffnungszeiten (bei Privat meistens leer)
+      // Öffnungszeiten (Text + strukturierte Daten)
       oeffnungszeiten:
         nutzer.oeffnungszeiten || nutzer["öffnungszeiten"] || "",
+      oeffnungszeitenDetails: nutzer.oeffnungszeitenDetails || null,  // ✅ neu
+
+      // Sprachen als Array (z.B. ["de", "en", "tr"])
+      sprachen: Array.isArray(nutzer.sprachen) ? nutzer.sprachen : [], // ✅ neu
 
       // Bewertungen (nur bei Händlern wirklich > 0)
       ratingAvg,    // z.B. 4.3 oder null
@@ -1389,6 +1397,7 @@ app.get("/getNutzerInfo", async (req, res) => {
       .json({ eingeloggt: false, error: "Interner Serverfehler." });
   }
 });
+
 
 
 // Profil-Felder (Adresse, Telefon, Website, Öffnungszeiten) speichern
@@ -1451,14 +1460,31 @@ const uploadLogo = multer({
     cb(ok ? null : new Error("Nur Bilddateien (PNG/JPG/WEBP) erlaubt."), ok);
   }
 });
-
 // === Händlerregistrierung mit optionalem Logo-Upload ===
 app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) => {
   // Felder kommen bei multipart als Strings
   const {
-    firma, strasse, hausnummer, plz, ort, land, telefon, telefon2,
-    email, whatsapp, tarif, zahlungsmethode, kontoinhaber, iban, bic,
-    impressum, agb, datenschutz, password, confirmPassword
+    firma,
+    strasse,
+    hausnummer,
+    plz,
+    ort,
+    land,
+    telefon,
+    telefon2,
+    email,
+    whatsapp,
+    tarif,
+    zahlungsmethode,
+    kontoinhaber,
+    iban,
+    bic,
+    impressum,
+    agb,
+    datenschutz,
+    password,
+    confirmPassword,
+    website,            // ✅ NEU: Website (optional)
   } = req.body;
 
   // Normalisierung / Sanitizing
@@ -1477,54 +1503,115 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
   const _iban            = (iban || "").replace(/\s+/g, "").toUpperCase();
   const _bic             = (bic || "").replace(/\s+/g, "").toUpperCase();
   const _impressum       = (impressum || "").trim();
+  const _website         = (website || "").trim();   // ✅ Website normalisieren
 
-  const toBool = (v) => (v === true || v === "true" || v === "on" || v === 1 || v === "1");
+  const toBool = (v) =>
+    v === true ||
+    v === "true" ||
+    v === "on" ||
+    v === 1 ||
+    v === "1";
+
   const _whatsapp    = toBool(whatsapp);
   const _agb         = toBool(agb);
   const _datenschutz = toBool(datenschutz);
 
-  // Pflichtfelder + Basis-Checks
+  // ✅ Öffnungszeiten aus den Einzel-Feldern bauen
+  const dayLabels = {
+    mo: "Montag",
+    di: "Dienstag",
+    mi: "Mittwoch",
+    do: "Donnerstag",
+    fr: "Freitag",
+    sa: "Samstag",
+    so: "Sonntag",
+  };
+
+  const openingDetails = {};
+  const openingLines   = [];
+
+  for (const [key, label] of Object.entries(dayLabels)) {
+    const vonRaw    = req.body[`oeffnungszeiten_${key}_von`] || "";
+    const bisRaw    = req.body[`oeffnungszeiten_${key}_bis`] || "";
+    const closedRaw = req.body[`oeffnungszeiten_${key}_closed`];
+
+    const von    = String(vonRaw || "").trim();
+    const bis    = String(bisRaw || "").trim();
+    const closed = toBool(closedRaw);
+
+    openingDetails[key] = { von, bis, closed };
+
+    // Wenn gar nichts eingetragen wurde, überspringen wir den Tag einfach
+    if (!von && !bis && !closed) continue;
+
+    if (closed || (!von && !bis)) {
+      openingLines.push(`${label}: geschlossen`);
+    } else {
+      openingLines.push(`${label}: ${von || "—"}–${bis || "—"}`);
+    }
+  }
+
+  const _oeffnungszeiten = openingLines.join("\n");
+
+  // ✅ Sprachen: Checkboxen → Array
+  let sprachenArr = req.body.sprachen || [];
+  if (!Array.isArray(sprachenArr)) {
+    sprachenArr = sprachenArr ? [sprachenArr] : [];
+  }
+  sprachenArr = sprachenArr
+    .map((s) => String(s || "").trim())
+    .filter(Boolean);
+
+  // Pflichtfelder prüfen
   if (!_firma || !_email || !password || !_agb || !_datenschutz) {
-    return res.status(400).json({ error: "Bitte füllen Sie alle Pflichtfelder aus." });
+    return res.status(400).json({
+      error: "Bitte füllen Sie alle Pflichtfelder aus und akzeptieren Sie AGB & Datenschutz.",
+    });
   }
-  if (password.length < 8) {
-    return res.status(400).json({ error: "Das Passwort muss mindestens 8 Zeichen lang sein." });
-  }
-  if (confirmPassword && confirmPassword !== password) {
+  if (password !== confirmPassword) {
     return res.status(400).json({ error: "Passwörter stimmen nicht überein." });
+  }
+
+  // Telefonnummer basic check (optional – kannst du auch strenger machen)
+  if (!_telefon) {
+    return res.status(400).json({ error: "Bitte eine Telefonnummer für Kundenanfragen angeben." });
   }
 
   try {
     const nutzerColl = db.collection("nutzer");
 
-    // Keine doppelte E-Mail zulassen
-    const existiert = await nutzerColl.findOne({ email: _email });
-    if (existiert) {
-      return res.status(400).json({ error: "E-Mail bereits registriert." });
+    // E-Mail darf nur einmal vorkommen
+    const existing = await nutzerColl.findOne({ email: _email });
+    if (existing) {
+      return res.status(400).json({ error: "Diese E-Mail-Adresse wird bereits verwendet." });
     }
 
-    // Nutzer-ID vorab erzeugen (für Cloudinary-Ordner)
-    const newId = Date.now().toString();
+    const newId = crypto.randomUUID();
 
-    // Logo optional zu Cloudinary hochladen
-    let logoUrl = "";
-    let logoPublicId = "";
+    // Verifizierungs-Token generieren
+    const token = crypto.randomBytes(32).toString("hex");
+
+    const hash = await bcrypt.hash(password, 12);
+
+    // Logo aus Multer + Cloudinary
+    let logoUrl = null;
+    let logoPublicId = null;
+
     if (req.file) {
       try {
-        const result = await uploadFileToCloudinary(req.file.path, {
-          folder: `autovisa/${newId}/logo`,
-          resource_type: "image",
+        const uploadRes = await cloudinary.uploader.upload(req.file.path, {
+          folder: "autovisa/haendler-logos",
+          overwrite: true,
         });
-        logoUrl = result.secure_url || "";
-        logoPublicId = result.public_id || "";
+        logoUrl = uploadRes.secure_url;
+        logoPublicId = uploadRes.public_id;
+      } catch (err) {
+        console.error("❌ Fehler beim Logo-Upload:", err);
       } finally {
-        try { fs.unlinkSync(req.file.path); } catch {}
+        // temp-Datei wieder löschen
+        try { fs.unlink(req.file.path, () => {}); } catch {}
       }
     }
-
-    // Token/Passwort
-    const token = crypto.randomBytes(20).toString("hex");
-    const hash  = await bcrypt.hash(password, 12);
 
     // Händler-Dokument
     const neuerHaendler = {
@@ -1533,6 +1620,7 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
       verified: false,
       token,
       createdAt: new Date(),
+
       // Firma / Kontakt
       firma: _firma,
       strasse: _strasse,
@@ -1544,76 +1632,66 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
       telefon2: _telefon2,
       email: _email,
       whatsapp: _whatsapp,
-      // Tarif / Zahlung
+
+      // Profil / Extras
+      ...( _website ? { website: _website } : {} ),
+      ...( sprachenArr.length ? { sprachen: sprachenArr } : {} ),
+      ...(
+        _oeffnungszeiten
+          ? {
+              oeffnungszeiten: _oeffnungszeiten,          // schöner Text (für Anzeige / getNutzerInfo)
+              oeffnungszeitenDetails: openingDetails,     // strukturierte Daten (für spätere Features)
+            }
+          : {
+              oeffnungszeitenDetails: openingDetails,
+            }
+      ),
+
+      // Tarif / Zahlung (SEPA jetzt, später Stripe)
       tarif: _tarif,
       zahlungsmethode: _zahlungsmethode,
       kontoinhaber: _kontoinhaber,
       iban: _iban,
       bic: _bic,
+
       // Rechtliches
       impressum: _impressum,
       agb: _agb,
       datenschutz: _datenschutz,
+
       // Auth
       password: hash,
+
       // Logo (optional)
       ...(logoUrl ? { logoUrl, logoPublicId, logoUpdatedAt: new Date() } : {}),
     };
 
     await nutzerColl.insertOne(neuerHaendler);
 
-    // URLs aus ENV (robust, falls getUrls() nicht definiert ist)
-    const hasGetUrls = (typeof getUrls === "function");
-    const urls = hasGetUrls
-      ? getUrls()
-      : {
-          api:    process.env.API_URL || process.env.BASE_URL || `http://localhost:${PORT}`,
-          appUrl: process.env.PUBLIC_APP_URL || process.env.API_URL || process.env.BASE_URL || `http://localhost:${PORT}`,
-        };
+    // Bestätigungs-Mail verschicken
+    const { appUrl } = getUrls();
+    const verifyUrl = `${appUrl.replace(/\/+$/, "")}/verify?token=${token}`;
 
-    const verifyLink = `${urls.api}/verify?token=${token}`;
-    const brandLogo  = `${urls.appUrl}/${encodeURIComponent("AUTOVISA LOGO.PNG")}`;
-
-    // E-Mail
-    const subject = "Bitte bestätigen Sie Ihre Händlerregistrierung";
-    const html = buildAutovisaEmail({
-      subject,
-      logoUrl: brandLogo,
-      greeting: `Hallo ${_firma},`,
-      title: "Händlerkonto bestätigen",
-      htmlText: "Bitte bestätigen Sie Ihre E-Mail-Adresse, um Ihr Händlerkonto zu aktivieren.",
-      buttonText: "Händlerkonto bestätigen",
-      buttonUrl: verifyLink,
-      footerNote: "Wenn Sie sich nicht bei Autovisa registriert haben, können Sie diese E-Mail ignorieren.",
-    });
-    const text =
-`Hallo ${_firma},
-bitte bestätigen Sie Ihre E-Mail-Adresse, um Ihr Händlerkonto bei Autovisa zu aktivieren:
-${verifyLink}
-
-Wenn Sie sich nicht registriert haben, ignorieren Sie diese E-Mail.`;
-
-    // Versand (Absender/Reply-To aus ENV)
-    const info = await transporter.sendMail({
-      from: MAIL_FROM,
-      replyTo: MAIL_REPLY_TO,
+    await mailer.sendMail({
+      from: `"Autovisa" <no-reply@autovisa.de>`,
       to: _email,
-      subject,
-      html,
-      text,
+      subject: "Bitte bestätigen Sie Ihre Händlerregistrierung",
+      html: `
+        <p>Hallo ${_firma || "Autohaus"},</p>
+        <p>vielen Dank für Ihre Registrierung bei Autovisa.</p>
+        <p>Bitte bestätigen Sie Ihre E-Mail-Adresse über den folgenden Link:</p>
+        <p><a href="${verifyUrl}" target="_blank">${verifyUrl}</a></p>
+        <p>Mit freundlichen Grüßen<br/>Ihr Autovisa-Team</p>
+      `,
     });
 
-    console.log("✅ Händler-Mail gesendet:", info.messageId || info.response);
-    return res.json({ success: true, message: "Händlerregistrierung erfolgreich. E-Mail wurde versendet." });
-
-  } catch (mailErr) {
-    console.error("❌ Fehler bei /haendler-registrieren:", mailErr);
-
-    // Aufräumen: Account entfernen, optional Cloudinary-Asset löschen
-    try { if (req.body?.email) await db.collection("nutzer").deleteOne({ email: (req.body.email || "").toLowerCase(), verified: false }); } catch {}
-    try { if (typeof logoPublicId === "string" && logoPublicId) await cloudinary.uploader.destroy(logoPublicId, { resource_type: "image" }); } catch {}
-
-    return res.status(500).json({ error: "E-Mail-Versand fehlgeschlagen. Bitte später erneut versuchen." });
+    return res.json({
+      ok: true,
+      message: "Registrierung erfolgreich. Bitte bestätigen Sie Ihre E-Mail.",
+    });
+  } catch (err) {
+    console.error("❌ Fehler bei /haendler-registrieren:", err);
+    return res.status(500).json({ error: "Serverfehler bei der Händlerregistrierung." });
   }
 });
 

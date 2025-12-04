@@ -138,12 +138,12 @@ document.addEventListener("DOMContentLoaded", () => {
       fd.append("land",        form.land.value);
 
       // Telefonnummern mit +49-Normalisierung
-      fd.append("telefon",  normalizePhone(form.telefon.value));
+      fd.append("telefon", normalizePhone(form.telefon.value));
       fd.append("telefon2", normalizePhone(form.telefon2.value));
-
-      fd.append("email",       form.email.value.trim());
-      fd.append("whatsapp",    form.whatsapp.checked ? "true" : "false");
-
+      fd.append("email", form.email.value.trim());
+      fd.append("website", form.website.value.trim());   // <— NEU
+      fd.append("whatsapp", form.whatsapp.checked ? "true" : "false");
+      
       // Tarif
       const selectedTarif = form.querySelector("input[name='tarif']:checked");
       fd.append("tarif", selectedTarif ? selectedTarif.value : "");
