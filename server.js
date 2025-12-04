@@ -1462,6 +1462,7 @@ const uploadLogo = multer({
 });
 // === Händlerregistrierung mit optionalem Logo-Upload ===
 // === Händlerregistrierung mit optionalem Logo-Upload ===
+// === Händlerregistrierung mit optionalem Logo-Upload ===
 app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) => {
   // Felder kommen bei multipart als Strings
   const {
@@ -1491,28 +1492,28 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
   } = req.body;
 
   // Normalisierung / Sanitizing
-  const _firma         = (firma || "").trim();
-  const _email         = (email || "").trim().toLowerCase();
-  const _strasse       = (strasse || "").trim();
-  const _hausnummer    = (hausnummer || "").trim();
-  const _plz           = (plz || "").trim();
-  const _ort           = (ort || "").trim();
-  const _land          = (land || "").trim();
-  const _telefon       = (telefon || "").trim();
-  const _telefon2      = (telefon2 || "").trim();
-  const _tarif         = (tarif || "").trim();
+  const _firma           = (firma || "").trim();
+  const _email           = (email || "").trim().toLowerCase();
+  const _strasse         = (strasse || "").trim();
+  const _hausnummer      = (hausnummer || "").trim();
+  const _plz             = (plz || "").trim();
+  const _ort             = (ort || "").trim();
+  const _land            = (land || "").trim();
+  const _telefon         = (telefon || "").trim();
+  const _telefon2        = (telefon2 || "").trim();
+  const _tarif           = (tarif || "").trim();
   const _zahlungsmethode = (zahlungsmethode || "").trim();
-  const _kontoinhaber  = (kontoinhaber || "").trim();
-  const _iban          = (iban || "").replace(/\s+/g, "").toUpperCase();
-  const _bic           = (bic || "").replace(/\s+/g, "").toUpperCase();
-  const _impressum     = (impressum || "").trim();
-  const _website       = (website || "").trim();   // ✅ Website normalisieren
+  const _kontoinhaber    = (kontoinhaber || "").trim();
+  const _iban            = (iban || "").replace(/\s+/g, "").toUpperCase();
+  const _bic             = (bic || "").replace(/\s+/g, "").toUpperCase();
+  const _impressum       = (impressum || "").trim();
+  const _website         = (website || "").trim();   // ✅ Website normalisieren
 
   const toBool = (v) =>
     v === true || v === "true" || v === "on" || v === 1 || v === "1";
 
-  const _whatsapp   = toBool(whatsapp);
-  const _agb        = toBool(agb);
+  const _whatsapp    = toBool(whatsapp);
+  const _agb         = toBool(agb);
   const _datenschutz = toBool(datenschutz);
 
   // ✅ Öffnungszeiten aus den Einzel-Feldern bauen
@@ -1530,8 +1531,8 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
   const openingLines   = [];
 
   for (const [key, label] of Object.entries(dayLabels)) {
-    const vonRaw   = req.body[`oeffnungszeiten_${key}_von`] || "";
-    const bisRaw   = req.body[`oeffnungszeiten_${key}_bis`] || "";
+    const vonRaw    = req.body[`oeffnungszeiten_${key}_von`] || "";
+    const bisRaw    = req.body[`oeffnungszeiten_${key}_bis`] || "";
     const closedRaw = req.body[`oeffnungszeiten_${key}_closed`];
 
     const von    = String(vonRaw || "").trim();
@@ -1597,7 +1598,7 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
     const hash  = await bcrypt.hash(password, 12);
 
     // Logo aus Multer + Cloudinary
-    let logoUrl = null;
+    let logoUrl      = null;
     let logoPublicId = null;
 
     if (req.file) {
@@ -1606,7 +1607,7 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
           folder: "autovisa/haendler-logos",
           overwrite: true,
         });
-        logoUrl = uploadRes.secure_url;
+        logoUrl      = uploadRes.secure_url;
         logoPublicId = uploadRes.public_id;
       } catch (err) {
         console.error("❌ Fehler beim Logo-Upload:", err);
@@ -1619,45 +1620,45 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
 
     // Händler-Dokument
     const neuerHaendler = {
-      id: newId,
-      role: "haendler",
-      verified: false,
+      id:        newId,
+      role:      "haendler",
+      verified:  false,
       token,
       createdAt: new Date(),
 
       // Firma / Kontakt
-      firma: _firma,
-      strasse: _strasse,
-      hausnummer: _hausnummer,
-      plz: _plz,
-      ort: _ort,
-      land: _land,
-      telefon: _telefon,
-      telefon2: _telefon2,
-      email: _email,
-      whatsapp: _whatsapp,
+      firma:       _firma,
+      strasse:     _strasse,
+      hausnummer:  _hausnummer,
+      plz:         _plz,
+      ort:         _ort,
+      land:        _land,
+      telefon:     _telefon,
+      telefon2:    _telefon2,
+      email:       _email,
+      whatsapp:    _whatsapp,
 
       // Profil / Extras
       ...( _website ? { website: _website } : {} ),
       ...( sprachenArr.length ? { sprachen: sprachenArr } : {} ),
       ...( _oeffnungszeiten
           ? {
-              oeffnungszeiten: _oeffnungszeiten,     // hübscher Text
-              oeffnungszeitenDetails: openingDetails, // strukturierte Daten
+              oeffnungszeiten:       _oeffnungszeiten,   // hübscher Text
+              oeffnungszeitenDetails: openingDetails,    // strukturierte Daten
             }
           : { oeffnungszeitenDetails: openingDetails }
       ),
 
       // Tarif / Zahlung
-      tarif: _tarif,
+      tarif:           _tarif,
       zahlungsmethode: _zahlungsmethode,
-      kontoinhaber: _kontoinhaber,
-      iban: _iban,
-      bic: _bic,
+      kontoinhaber:    _kontoinhaber,
+      iban:            _iban,
+      bic:             _bic,
 
       // Rechtliches
-      impressum: _impressum,
-      agb: _agb,
+      impressum:   _impressum,
+      agb:         _agb,
       datenschutz: _datenschutz,
 
       // Auth
@@ -1676,24 +1677,46 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
     const proto = (req.headers["x-forwarded-proto"] || req.protocol || "https")
       .split(",")[0];
     const host = req.get("host");
-    const baseUrl = (host ? `${proto}://${host}` : envAppUrl || "").replace(
-      /\/+$/,
-      ""
-    );
-    const verifyUrl = `${baseUrl}/verify?token=${token}`;
+    const baseUrl = (host ? `${proto}://${host}` : envAppUrl || "")
+      .replace(/\/+$/, "");
 
-    // Bestätigungs-Mail verschicken (mit richtigem <a>-Link)
-    await mailer.sendMail({
-      from: `"Autovisa" `,
-      to: _email,
-      subject: "Bitte bestätigen Sie Ihre Händlerregistrierung",
-      html: `
-        <p>Hallo ${escapeHtml(_firma || "Autohaus")},</p>
+    const verifyUrl = `${baseUrl}/verify?token=${token}`;
+    const logoMailUrl = `${baseUrl}/${encodeURIComponent("AUTOVISA LOGO.PNG")}`;
+
+    const subject = "Bitte bestätigen Sie Ihre Händlerregistrierung";
+
+    const html = buildAutovisaEmail({
+      subject,
+      logoUrl: logoMailUrl,
+      greeting: `Hallo ${escapeHtml(_firma || "Autohaus")},`,
+      title: "Bitte E-Mail-Adresse bestätigen",
+      htmlText: `
         <p>vielen Dank für Ihre Registrierung bei Autovisa.</p>
-        <p>Bitte bestätigen Sie Ihre E-Mail-Adresse über den folgenden Link:</p>
-        <p><a href="${verifyUrl}" target="_blank" rel="noopener noreferrer">${verifyUrl}</a></p>
-        <p>Mit freundlichen Grüßen<br>Ihr Autovisa-Team</p>
+        <p>Bitte bestätigen Sie Ihre E-Mail-Adresse über den folgenden Button:</p>
       `,
+      buttonText: "E-Mail-Adresse bestätigen",
+      buttonUrl: verifyUrl,
+      footerNote:
+        "Falls Sie sich nicht bei Autovisa registriert haben, können Sie diese E-Mail ignorieren.",
+    });
+
+    const text = `Hallo ${_firma || "Autohaus"},
+
+vielen Dank für Ihre Registrierung bei Autovisa.
+Bitte bestätigen Sie Ihre E-Mail-Adresse über den folgenden Link:
+
+${verifyUrl}
+
+Falls Sie sich nicht registriert haben, können Sie diese E-Mail ignorieren.`;
+
+    // ✅ Mail jetzt mit dem zentralen Transporter + MAIL_FROM verschicken
+    await transporter.sendMail({
+      from: MAIL_FROM,
+      replyTo: MAIL_REPLY_TO,
+      to: _email,
+      subject,
+      html,
+      text,
     });
 
     return res.json({
@@ -1708,33 +1731,44 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
   }
 });
 
-
-
 app.post("/haendler/logo", checkLogin, uploadLogo.single("logo"), async (req, res) => {
   try {
     if (req.nutzer.role !== "haendler") {
       return res.status(403).json({ error: "Nur für Händler verfügbar." });
     }
-    if (!req.file) return res.status(400).json({ error: "Keine Datei hochgeladen." });
+    if (!req.file) {
+      return res.status(400).json({ error: "Keine Datei hochgeladen." });
+    }
 
     const folder = `autovisa/${req.nutzer.id}/logo`;
     const result = await uploadFileToCloudinary(req.file.path, { folder, resource_type: "image" });
     try { fs.unlinkSync(req.file.path); } catch {}
 
     const nutzerColl = db.collection("nutzer");
-    const old = await nutzerColl.findOne({ id: req.nutzer.id }, { projection: { logoPublicId: 1 } });
+    const old = await nutzerColl.findOne(
+      { id: req.nutzer.id },
+      { projection: { logoPublicId: 1 } }
+    );
 
     // optional: altes Logo aus Cloudinary löschen
     if (old?.logoPublicId && old.logoPublicId !== result.public_id) {
-      try { await cloudinary.uploader.destroy(old.logoPublicId, { resource_type: "image" }); } catch(e) {}
+      try {
+        await cloudinary.uploader.destroy(old.logoPublicId, { resource_type: "image" });
+      } catch (e) {}
     }
 
     await nutzerColl.updateOne(
       { id: req.nutzer.id },
-      { $set: { logoUrl: result.secure_url, logoPublicId: result.public_id, logoUpdatedAt: new Date() } }
+      {
+        $set: {
+          logoUrl: result.secure_url,
+          logoPublicId: result.public_id,
+          logoUpdatedAt: new Date(),
+        },
+      }
     );
-    
-    // ⬇️ NEU: Logo sofort in allen Inseraten/Entwürfen spiegeln
+
+    // ⬇️ Logo sofort in allen Inseraten/Entwürfen spiegeln
     await db.collection("inserate").updateMany(
       { verkaeuferId: req.nutzer.id },
       { $set: { "seller.logoUrl": result.secure_url } }
@@ -1743,14 +1777,14 @@ app.post("/haendler/logo", checkLogin, uploadLogo.single("logo"), async (req, re
       { nutzerId: req.nutzer.id },
       { $set: { "seller.logoUrl": result.secure_url } }
     );
-    
+
     res.json({ success: true, logoUrl: result.secure_url });
-    
   } catch (e) {
     console.error("❌ Fehler /haendler/logo:", e);
     res.status(500).json({ error: e.message || "Fehler beim Logo-Upload." });
   }
 });
+
 // === ✅ Verifikations-Route (Redirect auf Frontend) ===
 app.get("/verify", async (req, res) => {
   const { token } = req.query;
@@ -1799,6 +1833,7 @@ app.get("/verify", async (req, res) => {
     return res.redirect(`${baseUrl}/login.html?verified=0&reason=server`);
   }
 });
+
 
 // ====== E-Mail-Benachrichtigung bei neuer Chat-Nachricht ======
 const NOTIFY_ENABLED = (process.env.NOTIFY_EMAILS ?? "1") !== "0";
