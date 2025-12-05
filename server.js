@@ -2698,46 +2698,95 @@ process.on("uncaughtException", (err) => {
 
 
 
-// === API: Inserat-Daten zum Bearbeiten laden ===
-app.get("/api/inserat-edit/:id", async (req, res) => {
+// server.js
+const { ObjectId } = require("mongodb");
+
+// kleine Helfer
+const pick = (obj, keys) =>
+  keys.reduce((acc, k) => {
+    if (obj && obj[k] !== undefined) acc[k] = obj[k];
+    return acc;
+  }, {});
+
+app.get("/api/inserat/:id/edit-data", checkLogin, async (req, res) => {
   try {
-    const sess = decodeSession(req.cookies.session);
-    if (!sess?.id) {
-      return res.status(401).json({ error: "Nicht eingeloggt." });
-    }
+    const inseratId = req.params.id;
 
-    const idStr = String(req.params.id || "").trim();
-    if (!idStr) {
-      return res.status(400).json({ error: "Inserat-ID fehlt." });
-    }
-
-    let objId;
+    let doc = null;
     try {
-      objId = new ObjectId(idStr);
+      doc = await db.collection("inserate").findOne({ _id: new ObjectId(inseratId) });
     } catch {
-      return res.status(400).json({ error: "Ungültige Inserat-ID." });
+      // falls du irgendwo auch string-ids nutzt
+      doc = await db.collection("inserate").findOne({ id: inseratId });
     }
 
-    const inserat = await db.collection("inserate").findOne(
-      { _id: objId, verkaeuferId: sess.id }
-    );
+    if (!doc) return res.status(404).json({ error: "Inserat nicht gefunden." });
 
-    if (!inserat) {
-      return res.status(404).json({ error: "Inserat nicht gefunden." });
+    // Ownership check (bei dir existieren beide Felder je nach Alt/Neu-Stand)
+    const ownerId = doc.verkaeuferId || doc.nutzerId;
+    if (ownerId !== req.nutzer.id) {
+      return res.status(403).json({ error: "Kein Zugriff auf dieses Inserat." });
     }
 
-    const rolle = (inserat.sellerRole || sess.role || "privat").toLowerCase();
+    // === STEP 1: Fahrzeugdaten ===
+    const step1Keys = [
+      "marke","modell","titel","preis",
+      "brutto-preis","netto-preis",
+      "verkauf_brutto","verkauf_netto","verkauf_preis","verkauf_mwst",
+      "verkauf_ez_monat","verkauf_ez_jahr",
+      "erstzulassung","verkauf_erstzulassung",
+      "verkauf_kilometer","verkauf_leistung","verkauf_leistung_kw",
+      "hubraum","verkauf_hubraum",
+      "antriebsart","verkauf_antrieb",
+      "verkauf_getriebe",
+      "fahrzeugtyp","verkauf_fahrzeugtyp",
+      "türen","tueren","verkauf_tueren",
+      "verkauf_kraftstoff",
+      "partikelfilter","verkauf_partikelfilter",
+      "verbrauch_kombiniert","verbrauch_innerorts","verbrauch_ausserorts",
+      "co2_emission",
+      "schadstoffklasse","umweltplakette","emissionsklasse",
+      "verkauf_verbrauch_kombiniert","verkauf_verbrauch_innerorts",
+      "verkauf_verbrauch_ausserorts","verkauf_co2_emission",
+      "verkauf_schadstoffklasse","verkauf_umweltplakette",
+      "verkauf_emissionsklasse"
+    ];
+
+    const fahrzeugdaten = pick(doc, step1Keys);
+
+    // EZ harmonisieren falls nötig
+    if (!fahrzeugdaten.erstzulassung && doc.verkauf_erstzulassung) {
+      fahrzeugdaten.erstzulassung = doc.verkauf_erstzulassung;
+    }
+    if (!fahrzeugdaten.verkauf_erstzulassung && doc.erstzulassung) {
+      fahrzeugdaten.verkauf_erstzulassung = doc.erstzulassung;
+    }
+
+    // === STEP 2: Details ===
+    // Hier geben wir bewusst "fast alles" zurück,
+    // damit dein fahrzeugdetails.js genug Material hat.
+    const { images, video, seller, standortCoords, ...rest } = doc;
+    const fahrzeugdetails = rest;
+
+    // === STEP 3: Medien ===
+    const medien = {
+      images: Array.isArray(doc.images) ? doc.images : [],
+      video: doc.video || ""
+    };
 
     return res.json({
       ok: true,
-      rolle,
-      inserat
+      inseratId: String(doc._id || doc.id || inseratId),
+      fahrzeugdaten,
+      fahrzeugdetails,
+      medien
     });
   } catch (err) {
-    console.error("❌ /api/inserat-edit/:id:", err);
-    return res.status(500).json({ error: "Interner Serverfehler." });
+    console.error("❌ edit-data Fehler:", err);
+    res.status(500).json({ error: "Serverfehler." });
   }
 });
+
 
 
 

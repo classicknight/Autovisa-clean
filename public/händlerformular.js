@@ -162,18 +162,19 @@ fd.append("datenschutz", form.datenschutz.checked ? "true" : "false");
 fd.append("password",        form.password.value);
 fd.append("confirmPassword", confirmPasswordInput.value);
 
-// Öffnungszeiten
+// Öffnungszeiten (passend zum HTML mit oeffnungszeiten_* IDs)
 const days = ["mo", "di", "mi", "do", "fr", "sa", "so"];
 
 days.forEach((key) => {
-  const vonEl = document.getElementById(`oeffnungszeiten_${key}_von`);
-  const bisEl = document.getElementById(`oeffnungszeiten_${key}_bis`);
+  const vonEl    = document.getElementById(`oeffnungszeiten_${key}_von`);
+  const bisEl    = document.getElementById(`oeffnungszeiten_${key}_bis`);
   const closedEl = document.getElementById(`oeffnungszeiten_${key}_closed`);
 
-  const von = vonEl ? vonEl.value.trim() : "";
-  const bis = bisEl ? bisEl.value.trim() : "";
-  const closed = closedEl ? closedEl.checked : false;
+  const von    = vonEl ? String(vonEl.value || "").trim() : "";
+  const bis    = bisEl ? String(bisEl.value || "").trim() : "";
+  const closed = closedEl ? !!closedEl.checked : false;
 
+  // Genau die Feldnamen, die dein Server ausliest
   fd.append(`oeffnungszeiten_${key}_von`, von);
   fd.append(`oeffnungszeiten_${key}_bis`, bis);
   fd.append(`oeffnungszeiten_${key}_closed`, closed ? "true" : "false");

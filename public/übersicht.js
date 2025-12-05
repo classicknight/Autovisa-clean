@@ -901,37 +901,128 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
 
-      // --- Bearbeiten pro Karte (mit direktem Inserat-Payload) ---
-const editButtons = wrapper.querySelectorAll(".edit-btn");
 
-editButtons.forEach((btn) => {
-  btn.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+      // =========================
+      // BEARBEITEN – NEU (Wizard-State setzen)
+      // =========================
 
-    // 1) Vollständiges Inserat für Edit-Init speichern
-    try {
-      localStorage.setItem("autovisa_edit_payload", JSON.stringify(inserat));
-    } catch {}
+      function buildFahrzeugdatenFromInserat(ins) {
+        // Step 1 braucht vor allem diese Felder.
+        // Wir nehmen bewusst "mehr" mit – deine Step-JS ignorieren Unbekanntes.
+        const fd = {
+          titel: ins.titel || ins.verkauf_modell || "",
+          marke: ins.marke || "",
+          modell: ins.modell || "",
+          preis: ins.preis || ins.verkauf_preis || "",
 
-    // 2) Echte ID merken (Mongo-ID bevorzugt)
-    const realId = extractMongoId(inserat);
-    if (realId) sessionStorage.setItem("autovisa_edit_id", realId);
+          "brutto-preis": ins["brutto-preis"] || ins.verkauf_brutto || "",
+          "netto-preis":  ins["netto-preis"]  || ins.verkauf_netto  || "",
 
-    // 3) Rolle aus Nutzer-Info (die hast du oben schon geladen)
-    const roleRaw = String(nutzerData?.role || nutzerData?.rolle || "privat").toLowerCase();
-    const isHaendlerUser =
-      roleRaw.includes("haend") || roleRaw.includes("händ") || roleRaw === "haendler" || roleRaw === "händler";
+          verkauf_brutto: ins.verkauf_brutto || "",
+          verkauf_netto:  ins.verkauf_netto  || "",
+          verkauf_preis:  ins.verkauf_preis  || ins.preis || "",
+          verkauf_mwst:   ins.verkauf_mwst   || "",
 
-    const ziel = isHaendlerUser ? "haendler.html" : "privat.html";
+          erstzulassung: ins.erstzulassung || ins.verkauf_erstzulassung || "",
+          verkauf_erstzulassung: ins.verkauf_erstzulassung || ins.erstzulassung || "",
 
-    // 4) optional Status merken (online vs draft)
-    const status = inserat.__status || wrapper.dataset.status || "";
-    if (status) sessionStorage.setItem("autovisa_edit_status", status);
+          verkauf_kilometer: ins.verkauf_kilometer || "",
+          verkauf_leistung:  ins.verkauf_leistung  || "",
+          verkauf_leistung_kw: ins.verkauf_leistung_kw || "",
 
-    window.location.href = `${ziel}?edit=1`;
-  });
-});
+          hubraum: ins.hubraum || ins.verkauf_hubraum || "",
+          verkauf_hubraum: ins.verkauf_hubraum || ins.hubraum || "",
+
+          verkauf_kraftstoff: ins.verkauf_kraftstoff || "",
+          verkauf_getriebe:   ins.verkauf_getriebe   || "",
+          antriebsart:        ins.antriebsart        || ins.verkauf_antrieb || "",
+          verkauf_antrieb:    ins.verkauf_antrieb    || ins.antriebsart || "",
+
+          fahrzeugtyp:        ins.fahrzeugtyp        || ins.verkauf_fahrzeugtyp || "",
+          verkauf_fahrzeugtyp: ins.verkauf_fahrzeugtyp || ins.fahrzeugtyp || "",
+
+          tueren: ins.tueren || ins["türen"] || ins.türen || "",
+          "türen": ins["türen"] || ins.türen || "",
+          verkauf_tueren: ins.verkauf_tueren || ins.tueren || ins["türen"] || ins.türen || "",
+
+          partikelfilter: ins.partikelfilter || ins.verkauf_partikelfilter || "",
+          verkauf_partikelfilter: ins.verkauf_partikelfilter || ins.partikelfilter || "",
+
+          verbrauch_kombiniert: ins.verbrauch_kombiniert || "",
+          verbrauch_innerorts:  ins.verbrauch_innerorts  || "",
+          verbrauch_ausserorts: ins.verbrauch_ausserorts || "",
+          co2_emission:         ins.co2_emission         || "",
+
+          verkauf_verbrauch_kombiniert: ins.verkauf_verbrauch_kombiniert || ins.verbrauch_kombiniert || "",
+          verkauf_verbrauch_innerorts:  ins.verkauf_verbrauch_innerorts  || ins.verbrauch_innerorts  || "",
+          verkauf_verbrauch_ausserorts: ins.verkauf_verbrauch_ausserorts || ins.verbrauch_ausserorts || "",
+          verkauf_co2_emission:         ins.verkauf_co2_emission         || ins.co2_emission         || "",
+
+          schadstoffklasse: ins.schadstoffklasse || "",
+          umweltplakette:  ins.umweltplakette  || "",
+          emissionsklasse: ins.emissionsklasse || "",
+
+          verkauf_schadstoffklasse: ins.verkauf_schadstoffklasse || ins.schadstoffklasse || "",
+          verkauf_umweltplakette:   ins.verkauf_umweltplakette   || ins.umweltplakette  || "",
+          verkauf_emissionsklasse:  ins.verkauf_emissionsklasse  || ins.emissionsklasse || "",
+
+          // Verkäuferlabel
+          verkauf_verkaeufer: ins.verkauf_verkaeufer || ""
+        };
+
+        return fd;
+      }
+
+      function buildFahrzeugdetailsFromInserat(ins) {
+        // Step 2 darf ruhig "fast alles" bekommen
+        // (inkl. Boolean-Felder, Ausstattung, etc.)
+        return {
+          ...ins,
+          ausstattung: Array.isArray(ins.ausstattung)
+            ? ins.ausstattung
+            : (Array.isArray(ins.verkauf_ausstattung) ? ins.verkauf_ausstattung : [])
+        };
+      }
+
+      function buildMedienFromInserat(ins) {
+        return {
+          images: Array.isArray(ins.images) ? ins.images : [],
+          video: ins.video || ""
+        };
+      }
+
+      wrapper.querySelectorAll(".edit-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const realId = extractMongoId(inserat) || wrapper.dataset.id || "";
+
+          try {
+            localStorage.setItem("editMode", "1");
+            if (realId) localStorage.setItem("editInseratId", realId);
+
+            localStorage.setItem("fahrzeugdaten", JSON.stringify(buildFahrzeugdatenFromInserat(inserat)));
+            localStorage.setItem("fahrzeugdetails", JSON.stringify(buildFahrzeugdetailsFromInserat(inserat)));
+            localStorage.setItem("medien", JSON.stringify(buildMedienFromInserat(inserat)));
+
+            // verhindert eventuell Abbruch-Clears in deinen Step-Skripten
+            sessionStorage.setItem("inseratGestartet", "true");
+            sessionStorage.setItem("hatGespeichert", "true");
+          } catch (err) {
+            console.warn("Konnte Edit-State nicht speichern:", err);
+          }
+
+          const roleRaw = String(nutzerData?.role || nutzerData?.rolle || "privat").toLowerCase();
+          const isHaendlerUser =
+            roleRaw.includes("haend") || roleRaw.includes("händ");
+
+          const ziel = isHaendlerUser ? "haendler.html" : "privat.html";
+          window.location.href = realId
+            ? `${ziel}?edit=${encodeURIComponent(realId)}`
+            : `${ziel}?edit=1`;
+        });
+      });
 
       // Karte klickbar (außer Buttons/Arrows)
       wrapper.addEventListener("click", (e) => {
@@ -1349,33 +1440,9 @@ async function fetchUserRole() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  // Rolle laden
-  fetchUserRole();
 
-  // Delegation für Bearbeiten-Button
-  document.addEventListener("click", (ev) => {
-    const editBtn = ev.target.closest(".edit-btn");
-    if (!editBtn) return;
 
-    ev.preventDefault();
-    ev.stopPropagation(); // verhindert, dass der Klick auch die Karten-Navigation auslöst
 
-    const wrapper = editBtn.closest(".car-card-wrapper");
-    const inseratId = wrapper?.dataset.id;
-    if (!inseratId) {
-      console.warn("Kein data-id am Wrapper gefunden.");
-      return;
-    }
 
-    // Zielseite abhängig von der Rolle
-    const role = AUTOVISA_USER_ROLE;
-    const ziel = role === "haendler" || role === "händler"
-      ? "haendler.html"
-      : "privat.html";
 
-    // Inserat-ID als Query-Parameter anhängen
-    const url = `${ziel}?edit=${encodeURIComponent(inseratId)}`;
-    window.location.href = url;
-  });
-});
+
