@@ -29,6 +29,77 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+
+  // ===== Edit-Mode Bootstrap (Händler) =====
+(function initEditModeHaendler() {
+  const params = new URLSearchParams(location.search);
+  const isEdit = params.get("edit") === "1";
+  if (!isEdit) return;
+
+  let payload = null;
+  try {
+    payload = JSON.parse(localStorage.getItem("autovisa_edit_payload") || "null");
+  } catch {}
+
+  if (!payload) {
+    // Fallback: wenn aus irgendeinem Grund kein Payload da ist
+    // kannst du optional später wieder eine API-Variante ergänzen.
+    console.warn("Kein Edit-Payload gefunden.");
+    return;
+  }
+
+  // ID merken
+  const editId = sessionStorage.getItem("autovisa_edit_id") || payload.id || "";
+  if (editId) sessionStorage.setItem("editInseratId", editId);
+
+  // ====== Mapping in deine Wizard-Keys ======
+  // Annahme: deine Steps lesen diese Keys bereits:
+  // - "fahrzeugdaten"
+  // - "fahrzeugdetails"
+  // - "fahrzeugMedia"
+  //
+  // Wenn die Keys bei dir anders heißen, hier anpassen.
+
+  const fahrzeugdaten = {
+    // Beispiele – passe an deine echten Feldnamen an:
+    marke: payload.verkauf_marke || payload.marke || "",
+    modell: payload.verkauf_modell || payload.modell || "",
+    erstzulassung: payload.verkauf_erstzulassung || payload.erstzulassung || "",
+    kilometer: payload.verkauf_kilometer ?? payload.kilometer ?? "",
+    leistung: payload.verkauf_leistung ?? payload.leistung ?? "",
+    kraftstoff: payload.verkauf_kraftstoff || payload.kraftstoff || "",
+    getriebe: payload.verkauf_getriebe || payload.getriebe || "",
+    // ...
+  };
+
+  const fahrzeugdetails = {
+    titel: payload.titel || payload.verkauf_titel || "",
+    kurzbeschreibung: payload.verkauf_kurzbeschreibung || "",
+    beschreibung: payload.verkauf_beschreibung || payload.beschreibung || "",
+    farbe: payload.verkauf_farbe || payload.farbe || "",
+    // merkmale/ausstattung evtl. Arrays übernehmen
+    merkmale: payload.merkmale || payload.verkauf_ausstattung || [],
+    // ...
+  };
+
+  const fahrzeugMedia = {
+    bilder: payload.bilder || payload.images || payload.mediaImages || [],
+    videos: payload.videos || payload.mediaVideos || [],
+    // oder falls du ein einheitliches Array nutzt:
+    media: payload.media || [],
+  };
+
+  try {
+    localStorage.setItem("fahrzeugdaten", JSON.stringify(fahrzeugdaten));
+    localStorage.setItem("fahrzeugdetails", JSON.stringify(fahrzeugdetails));
+    localStorage.setItem("fahrzeugMedia", JSON.stringify(fahrzeugMedia));
+  } catch {}
+
+  // Flag für UI/Logik in den Steps
+  localStorage.setItem("autovisa_edit_mode", "true");
+})();
+
   function positionMenu(li) {
     const trigger = li.querySelector('a[aria-haspopup="true"]');
     const menu = li.querySelector(".dropdown-menu");

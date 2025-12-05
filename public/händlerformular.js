@@ -166,19 +166,19 @@ fd.append("confirmPassword", confirmPasswordInput.value);
 const days = ["mo", "di", "mi", "do", "fr", "sa", "so"];
 
 days.forEach((key) => {
-  const vonField    = form[`${key}_von`];
-  const bisField    = form[`${key}_bis`];
-  const closedField = form[`${key}_closed`];
+  const vonEl = document.getElementById(`oeffnungszeiten_${key}_von`);
+  const bisEl = document.getElementById(`oeffnungszeiten_${key}_bis`);
+  const closedEl = document.getElementById(`oeffnungszeiten_${key}_closed`);
 
-  const von    = vonField    ? vonField.value.trim() : "";
-  const bis    = bisField    ? bisField.value.trim() : "";
-  const closed = closedField ? closedField.checked    : false;
+  const von = vonEl ? vonEl.value.trim() : "";
+  const bis = bisEl ? bisEl.value.trim() : "";
+  const closed = closedEl ? closedEl.checked : false;
 
-  // → genau die Namen, die der Server erwartet
   fd.append(`oeffnungszeiten_${key}_von`, von);
   fd.append(`oeffnungszeiten_${key}_bis`, bis);
   fd.append(`oeffnungszeiten_${key}_closed`, closed ? "true" : "false");
 });
+
 
 // Sprachen (mehrere Werte)
 const langInputs = form.querySelectorAll("input[name='sprachen']:checked");

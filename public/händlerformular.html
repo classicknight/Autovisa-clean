@@ -126,86 +126,95 @@
       </div>
     </fieldset>
     
+<!-- ÖFFNUNGSZEITEN – KORRIGIERT -->
+<fieldset>
+  <legend>Öffnungszeiten</legend>
+  <p class="form-note small">
+    Tragen Sie Ihre regulären Öffnungszeiten ein. „Geschlossen“ kann für einzelne Tage aktiviert werden.
+  </p>
 
-    <!-- ÖFFNUNGSZEITEN – NEU -->
-    <fieldset>
-      <legend>Öffnungszeiten</legend>
-      <p class="form-note small">
-        Tragen Sie Ihre regulären Öffnungszeiten ein. „Geschlossen“ kann für einzelne Tage aktiviert werden.
-      </p>
-      <div class="opening-hours-grid">
-        <div class="opening-hours-row">
-          <span class="day-label">Montag</span>
-          <input type="time" id="mo_von" name="mo_von" />
-          <span class="dash">–</span>
-          <input type="time" id="mo_bis" name="mo_bis" />
-          <label class="closed-toggle">
-            <input type="checkbox" id="mo_closed" name="mo_closed" />
-            <span>Geschlossen</span>
-          </label>
-        </div>
-        <div class="opening-hours-row">
-          <span class="day-label">Dienstag</span>
-          <input type="time" id="di_von" name="di_von" />
-          <span class="dash">–</span>
-          <input type="time" id="di_bis" name="di_bis" />
-          <label class="closed-toggle">
-            <input type="checkbox" id="di_closed" name="di_closed" />
-            <span>Geschlossen</span>
-          </label>
-        </div>
-        <div class="opening-hours-row">
-          <span class="day-label">Mittwoch</span>
-          <input type="time" id="mi_von" name="mi_von" />
-          <span class="dash">–</span>
-          <input type="time" id="mi_bis" name="mi_bis" />
-          <label class="closed-toggle">
-            <input type="checkbox" id="mi_closed" name="mi_closed" />
-            <span>Geschlossen</span>
-          </label>
-        </div>
-        <div class="opening-hours-row">
-          <span class="day-label">Donnerstag</span>
-          <input type="time" id="do_von" name="do_von" />
-          <span class="dash">–</span>
-          <input type="time" id="do_bis" name="do_bis" />
-          <label class="closed-toggle">
-            <input type="checkbox" id="do_closed" name="do_closed" />
-            <span>Geschlossen</span>
-          </label>
-        </div>
-        <div class="opening-hours-row">
-          <span class="day-label">Freitag</span>
-          <input type="time" id="fr_von" name="fr_von" />
-          <span class="dash">–</span>
-          <input type="time" id="fr_bis" name="fr_bis" />
-          <label class="closed-toggle">
-            <input type="checkbox" id="fr_closed" name="fr_closed" />
-            <span>Geschlossen</span>
-          </label>
-        </div>
-        <div class="opening-hours-row">
-          <span class="day-label">Samstag</span>
-          <input type="time" id="sa_von" name="sa_von" />
-          <span class="dash">–</span>
-          <input type="time" id="sa_bis" name="sa_bis" />
-          <label class="closed-toggle">
-            <input type="checkbox" id="sa_closed" name="sa_closed" />
-            <span>Geschlossen</span>
-          </label>
-        </div>
-        <div class="opening-hours-row">
-          <span class="day-label">Sonntag</span>
-          <input type="time" id="so_von" name="so_von" />
-          <span class="dash">–</span>
-          <input type="time" id="so_bis" name="so_bis" />
-          <label class="closed-toggle">
-            <input type="checkbox" id="so_closed" name="so_closed" />
-            <span>Geschlossen</span>
-          </label>
-        </div>
-      </div>
-    </fieldset>
+  <div class="opening-hours-grid">
+
+    <div class="opening-hours-row">
+      <span class="day-label">Montag</span>
+      <input type="time" id="oeffnungszeiten_mo_von" name="oeffnungszeiten_mo_von" />
+      <span class="dash">–</span>
+      <input type="time" id="oeffnungszeiten_mo_bis" name="oeffnungszeiten_mo_bis" />
+      <label class="closed-toggle">
+        <input type="checkbox" id="oeffnungszeiten_mo_closed" name="oeffnungszeiten_mo_closed" />
+        <span>Geschlossen</span>
+      </label>
+    </div>
+
+    <div class="opening-hours-row">
+      <span class="day-label">Dienstag</span>
+      <input type="time" id="oeffnungszeiten_di_von" name="oeffnungszeiten_di_von" />
+      <span class="dash">–</span>
+      <input type="time" id="oeffnungszeiten_di_bis" name="oeffnungszeiten_di_bis" />
+      <label class="closed-toggle">
+        <input type="checkbox" id="oeffnungszeiten_di_closed" name="oeffnungszeiten_di_closed" />
+        <span>Geschlossen</span>
+      </label>
+    </div>
+
+    <div class="opening-hours-row">
+      <span class="day-label">Mittwoch</span>
+      <input type="time" id="oeffnungszeiten_mi_von" name="oeffnungszeiten_mi_von" />
+      <span class="dash">–</span>
+      <input type="time" id="oeffnungszeiten_mi_bis" name="oeffnungszeiten_mi_bis" />
+      <label class="closed-toggle">
+        <input type="checkbox" id="oeffnungszeiten_mi_closed" name="oeffnungszeiten_mi_closed" />
+        <span>Geschlossen</span>
+      </label>
+    </div>
+
+    <div class="opening-hours-row">
+      <span class="day-label">Donnerstag</span>
+      <input type="time" id="oeffnungszeiten_do_von" name="oeffnungszeiten_do_von" />
+      <span class="dash">–</span>
+      <input type="time" id="oeffnungszeiten_do_bis" name="oeffnungszeiten_do_bis" />
+      <label class="closed-toggle">
+        <input type="checkbox" id="oeffnungszeiten_do_closed" name="oeffnungszeiten_do_closed" />
+        <span>Geschlossen</span>
+      </label>
+    </div>
+
+    <div class="opening-hours-row">
+      <span class="day-label">Freitag</span>
+      <input type="time" id="oeffnungszeiten_fr_von" name="oeffnungszeiten_fr_von" />
+      <span class="dash">–</span>
+      <input type="time" id="oeffnungszeiten_fr_bis" name="oeffnungszeiten_fr_bis" />
+      <label class="closed-toggle">
+        <input type="checkbox" id="oeffnungszeiten_fr_closed" name="oeffnungszeiten_fr_closed" />
+        <span>Geschlossen</span>
+      </label>
+    </div>
+
+    <div class="opening-hours-row">
+      <span class="day-label">Samstag</span>
+      <input type="time" id="oeffnungszeiten_sa_von" name="oeffnungszeiten_sa_von" />
+      <span class="dash">–</span>
+      <input type="time" id="oeffnungszeiten_sa_bis" name="oeffnungszeiten_sa_bis" />
+      <label class="closed-toggle">
+        <input type="checkbox" id="oeffnungszeiten_sa_closed" name="oeffnungszeiten_sa_closed" />
+        <span>Geschlossen</span>
+      </label>
+    </div>
+
+    <div class="opening-hours-row">
+      <span class="day-label">Sonntag</span>
+      <input type="time" id="oeffnungszeiten_so_von" name="oeffnungszeiten_so_von" />
+      <span class="dash">–</span>
+      <input type="time" id="oeffnungszeiten_so_bis" name="oeffnungszeiten_so_bis" />
+      <label class="closed-toggle">
+        <input type="checkbox" id="oeffnungszeiten_so_closed" name="oeffnungszeiten_so_closed" />
+        <span>Geschlossen</span>
+      </label>
+    </div>
+
+  </div>
+</fieldset>
+
 
     <!-- SPRACHEN – NEU -->
     <fieldset>

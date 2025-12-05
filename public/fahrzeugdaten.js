@@ -104,11 +104,20 @@ document.addEventListener("DOMContentLoaded", async () => {
   const inseratGestartet = sessionStorage.getItem("inseratGestartet") === "true";
   const hatGespeichert = sessionStorage.getItem("hatGespeichert") === "true";
 
-  if (kamVonNeutralerSeite && inseratGestartet && !hatGespeichert) {
-    localStorage.removeItem("fahrzeugdaten");
-    sessionStorage.removeItem("inseratGestartet");
-    console.log("❌ Abbruch erkannt: Fahrzeugdaten gelöscht.");
-  }
+  // ✅ Edit-Modus erkennen
+  const isEditMode =
+    localStorage.getItem("autovisa_edit_mode") === "true" ||
+    !!sessionStorage.getItem("editInseratId") ||
+    !!sessionStorage.getItem("autovisa_edit_id") ||
+    new URLSearchParams(location.search).get("edit") === "1";
+
+
+    if (!isEditMode && kamVonNeutralerSeite && inseratGestartet && !hatGespeichert) {
+      localStorage.removeItem("fahrzeugdaten");
+      sessionStorage.removeItem("inseratGestartet");
+      console.log("❌ Abbruch erkannt: Fahrzeugdaten gelöscht.");
+    }
+  
   sessionStorage.setItem("inseratGestartet", "true");
 
   // ============================

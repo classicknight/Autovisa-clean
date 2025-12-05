@@ -899,6 +899,40 @@ document.addEventListener("DOMContentLoaded", async () => {
         </div>
       `;
 
+
+
+      // --- Bearbeiten pro Karte (mit direktem Inserat-Payload) ---
+const editButtons = wrapper.querySelectorAll(".edit-btn");
+
+editButtons.forEach((btn) => {
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // 1) Vollständiges Inserat für Edit-Init speichern
+    try {
+      localStorage.setItem("autovisa_edit_payload", JSON.stringify(inserat));
+    } catch {}
+
+    // 2) Echte ID merken (Mongo-ID bevorzugt)
+    const realId = extractMongoId(inserat);
+    if (realId) sessionStorage.setItem("autovisa_edit_id", realId);
+
+    // 3) Rolle aus Nutzer-Info (die hast du oben schon geladen)
+    const roleRaw = String(nutzerData?.role || nutzerData?.rolle || "privat").toLowerCase();
+    const isHaendlerUser =
+      roleRaw.includes("haend") || roleRaw.includes("händ") || roleRaw === "haendler" || roleRaw === "händler";
+
+    const ziel = isHaendlerUser ? "haendler.html" : "privat.html";
+
+    // 4) optional Status merken (online vs draft)
+    const status = inserat.__status || wrapper.dataset.status || "";
+    if (status) sessionStorage.setItem("autovisa_edit_status", status);
+
+    window.location.href = `${ziel}?edit=1`;
+  });
+});
+
       // Karte klickbar (außer Buttons/Arrows)
       wrapper.addEventListener("click", (e) => {
         const isActionButton = e.target.closest(".car-card-actions button");
