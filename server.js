@@ -2698,8 +2698,7 @@ process.on("uncaughtException", (err) => {
 
 
 
-// server.js
-const { ObjectId } = require("mongodb");
+
 
 // kleine Helfer
 const pick = (obj, keys) =>
@@ -3886,10 +3885,6 @@ app.get("/api/search", async (req, res) => {
     res.status(500).json({ error: "Interner Fehler bei der Suche." });
   }
 });
-
-
-
-
 
 
 
