@@ -486,35 +486,13 @@ document.addEventListener("DOMContentLoaded", () => {
   
   
   
-document.querySelectorAll('.slide img, .slide video').forEach(media => {
-    if (media.tagName === "VIDEO") {
-      media.addEventListener("loadedmetadata", () => {
-        if (media.videoHeight > media.videoWidth) {
-          media.classList.add("portrait-zoom");
-        }
-      });
-    } else {
-      media.addEventListener("load", () => {
-        if (media.naturalHeight > media.naturalWidth) {
-          media.classList.add("portrait-zoom");
-        }
-      });
-    }
-  });
-  
 
 
 
 
 
-document.querySelectorAll('.remove-saved-btn').forEach(button => {
-  button.addEventListener('click', function() {
-    const wrapper = this.closest('.car-card-wrapper');
-    if (confirm("Möchtest du dieses Fahrzeug wirklich entfernen?")) {
-      wrapper.remove();
-    }
-  });
-});
+
+
 
 
 
@@ -1423,22 +1401,6 @@ document.querySelectorAll(".sidebar-link").forEach(link => {
 // loadMessagesSection();
 
 
-// === User-Rolle holen (privat / haendler) ===
-let AUTOVISA_USER_ROLE = "privat";
-
-async function fetchUserRole() {
-  try {
-    const res = await fetch("/getNutzerInfo", { credentials: "include" });
-    if (!res.ok) return;
-    const data = await res.json();
-    if (data.eingeloggt) {
-      const r = (data.rolle || data.role || "privat").toLowerCase();
-      AUTOVISA_USER_ROLE = r;
-    }
-  } catch (e) {
-    console.warn("Konnte Nutzerrolle nicht laden:", e);
-  }
-}
 
 
 
