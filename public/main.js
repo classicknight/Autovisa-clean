@@ -1124,7 +1124,7 @@ function toAnzeigePayload(item) {
 }
 
 // ===== Server laden (holt online-Inserate) =====
-async function fetchInserate(page = 1, limit = 8) {
+async function fetchInserate(page = 1, limit = 9) {
   const url = `/inserate?page=${encodeURIComponent(page)}&limit=${encodeURIComponent(limit)}`;
   const res = await fetch(url, { credentials: "omit" });
   if (!res.ok) throw new Error("Fetch /inserate fehlgeschlagen");
@@ -1207,7 +1207,7 @@ async function loadHomeListings() {
   container.innerHTML = "<p style='opacity:.7'>Lade Inserate…</p>";
 
   try {
-    const { items } = await fetchInserate(1, 8);
+    const { items } = await fetchInserate(1, 9);
     const list = Array.isArray(items) ? items : [];
 
     if (!list.length) {
@@ -1360,6 +1360,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const y = document.getElementById("year");
   if (y) y.textContent = new Date().getFullYear();
 });
+
+
+
+
+
 
 
 
