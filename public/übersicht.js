@@ -1298,3 +1298,50 @@ document.querySelectorAll(".sidebar-link").forEach(link => {
 // loadMessagesSection();
 
 
+// === User-Rolle holen (privat / haendler) ===
+let AUTOVISA_USER_ROLE = "privat";
+
+async function fetchUserRole() {
+  try {
+    const res = await fetch("/getNutzerInfo", { credentials: "include" });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.eingeloggt) {
+      const r = (data.rolle || data.role || "privat").toLowerCase();
+      AUTOVISA_USER_ROLE = r;
+    }
+  } catch (e) {
+    console.warn("Konnte Nutzerrolle nicht laden:", e);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  // Rolle laden
+  fetchUserRole();
+
+  // Delegation für Bearbeiten-Button
+  document.addEventListener("click", (ev) => {
+    const editBtn = ev.target.closest(".edit-btn");
+    if (!editBtn) return;
+
+    ev.preventDefault();
+    ev.stopPropagation(); // verhindert, dass der Klick auch die Karten-Navigation auslöst
+
+    const wrapper = editBtn.closest(".car-card-wrapper");
+    const inseratId = wrapper?.dataset.id;
+    if (!inseratId) {
+      console.warn("Kein data-id am Wrapper gefunden.");
+      return;
+    }
+
+    // Zielseite abhängig von der Rolle
+    const role = AUTOVISA_USER_ROLE;
+    const ziel = role === "haendler" || role === "händler"
+      ? "haendler.html"
+      : "privat.html";
+
+    // Inserat-ID als Query-Parameter anhängen
+    const url = `${ziel}?edit=${encodeURIComponent(inseratId)}`;
+    window.location.href = url;
+  });
+});

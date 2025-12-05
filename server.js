@@ -2698,6 +2698,46 @@ process.on("uncaughtException", (err) => {
 
 
 
+// === API: Inserat-Daten zum Bearbeiten laden ===
+app.get("/api/inserat-edit/:id", async (req, res) => {
+  try {
+    const sess = decodeSession(req.cookies.session);
+    if (!sess?.id) {
+      return res.status(401).json({ error: "Nicht eingeloggt." });
+    }
+
+    const idStr = String(req.params.id || "").trim();
+    if (!idStr) {
+      return res.status(400).json({ error: "Inserat-ID fehlt." });
+    }
+
+    let objId;
+    try {
+      objId = new ObjectId(idStr);
+    } catch {
+      return res.status(400).json({ error: "Ungültige Inserat-ID." });
+    }
+
+    const inserat = await db.collection("inserate").findOne(
+      { _id: objId, verkaeuferId: sess.id }
+    );
+
+    if (!inserat) {
+      return res.status(404).json({ error: "Inserat nicht gefunden." });
+    }
+
+    const rolle = (inserat.sellerRole || sess.role || "privat").toLowerCase();
+
+    return res.json({
+      ok: true,
+      rolle,
+      inserat
+    });
+  } catch (err) {
+    console.error("❌ /api/inserat-edit/:id:", err);
+    return res.status(500).json({ error: "Interner Serverfehler." });
+  }
+});
 
 
 

@@ -153,33 +153,39 @@ document.addEventListener("DOMContentLoaded", () => {
       fd.append("kontoinhaber",    form.kontoinhaber.value.trim());
       fd.append("iban",            form.iban.value.trim());
       fd.append("bic",             form.bic.value.trim());
+// Impressum & Rechtliches
+fd.append("impressum",   form.impressum.value.trim());
+fd.append("agb",         form.agb.checked ? "true" : "false");
+fd.append("datenschutz", form.datenschutz.checked ? "true" : "false");
 
-      // Impressum & Rechtliches
-      fd.append("impressum",   form.impressum.value.trim());
-      fd.append("agb",         form.agb.checked ? "true" : "false");
-      fd.append("datenschutz", form.datenschutz.checked ? "true" : "false");
+// Zugangsdaten
+fd.append("password",        form.password.value);
+fd.append("confirmPassword", confirmPasswordInput.value);
 
-      // Zugangsdaten
-      fd.append("password",        form.password.value);
-      fd.append("confirmPassword", confirmPasswordInput.value);
+// Öffnungszeiten
+const days = ["mo", "di", "mi", "do", "fr", "sa", "so"];
 
-      // Öffnungszeiten
-      const days = ["mo", "di", "mi", "do", "fr", "sa", "so"];
-      days.forEach((key) => {
-        const von    = form[`${key}_von`]    ? form[`${key}_von`].value : "";
-        const bis    = form[`${key}_bis`]    ? form[`${key}_bis`].value : "";
-        const closed = form[`${key}_closed`] ? form[`${key}_closed`].checked : false;
+days.forEach((key) => {
+  const vonField    = form[`${key}_von`];
+  const bisField    = form[`${key}_bis`];
+  const closedField = form[`${key}_closed`];
 
-        fd.append(`oeffnungszeiten_${key}_von`, von);
-        fd.append(`oeffnungszeiten_${key}_bis`, bis);
-        fd.append(`oeffnungszeiten_${key}_closed`, closed ? "true" : "false");
-      });
+  const von    = vonField    ? vonField.value.trim() : "";
+  const bis    = bisField    ? bisField.value.trim() : "";
+  const closed = closedField ? closedField.checked    : false;
 
-      // Sprachen (mehrere Werte)
-      const langInputs = form.querySelectorAll("input[name='sprachen']:checked");
-      langInputs.forEach((inp) => {
-        fd.append("sprachen", inp.value);
-      });
+  // → genau die Namen, die der Server erwartet
+  fd.append(`oeffnungszeiten_${key}_von`, von);
+  fd.append(`oeffnungszeiten_${key}_bis`, bis);
+  fd.append(`oeffnungszeiten_${key}_closed`, closed ? "true" : "false");
+});
+
+// Sprachen (mehrere Werte)
+const langInputs = form.querySelectorAll("input[name='sprachen']:checked");
+langInputs.forEach((inp) => {
+  fd.append("sprachen", inp.value);
+});
+
 
       // Logo
       if (f) {
