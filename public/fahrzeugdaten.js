@@ -1,4 +1,6 @@
-// fahrzeugdaten.js — korrigiert & robust
+// fahrzeugdaten.js — korrigiert & robust (Autovisa 2025)
+// kompatibel zu: übersicht.js Edit-Flow + neuem haendler.js
+
 document.addEventListener("DOMContentLoaded", async () => {
   // ============================
   // API-Basis (für Domain-/Subdomain-Setups)
@@ -7,6 +9,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     (typeof window !== "undefined" && window.API_BASE) ||
     document.querySelector('meta[name="api-base"]')?.content ||
     "";
+
   const api = (path) =>
     API_BASE
       ? API_BASE.replace(/\/+$/, "") + "/" + String(path).replace(/^\/+/, "")
@@ -26,10 +29,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       zIndex: "9999",
       display: "flex",
       flexDirection: "column",
-      gap: "10px"
+      gap: "10px",
     });
     document.body.appendChild(c);
   }
+
   const safeToast = (msg, type = "success") => {
     if (typeof window.showToast === "function") return window.showToast(msg, type);
     ensureToastContainer();
@@ -44,7 +48,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       fontSize: "14px",
       opacity: "0",
       transform: "translateY(-8px)",
-      transition: "all .25s ease"
+      transition: "all .25s ease",
     });
     document.getElementById("toast-container").appendChild(t);
     requestAnimationFrame(() => {
@@ -56,14 +60,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       t.addEventListener("transitionend", () => t.remove(), { once: true });
     }, 3000);
   };
+
   const safeMarkStepDone = (step) => {
     if (typeof window.markStepDone === "function") return window.markStepDone(step);
+
+    // Rollenbasiert speichern (schadet nie, hilft oft)
+    const roleRaw = String(localStorage.getItem("userRole") || "").toLowerCase();
+    const isHaendler = roleRaw.includes("haend") || roleRaw.includes("händ");
+    const KEY = isHaendler ? "haendlerSteps" : "privatSteps";
+
     try {
-      const KEY = "haendlerSteps";
       const state = JSON.parse(localStorage.getItem(KEY) || "{}");
       state[step] = true;
       localStorage.setItem(KEY, JSON.stringify(state));
     } catch {}
+
     const box = document.querySelector(`.step-box[data-step="${step}"]`);
     if (box) {
       box.classList.add("completed");
@@ -76,20 +87,30 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Login-Gate (serverbasiert)
   // ============================
   try {
-    const info = await fetch(api("/getNutzerInfo"), { credentials: "include" }).then(r => r.json());
+    const info = await fetch(api("/getNutzerInfo"), { credentials: "include" }).then((r) =>
+      r.json()
+    );
+
     if (!info?.eingeloggt) {
-      try { localStorage.setItem("redirectAfterLogin", "fahrzeugdaten.html"); } catch {}
+      try {
+        localStorage.setItem("redirectAfterLogin", location.pathname + location.search);
+      } catch {}
       window.location.href = "login.html";
       return;
     }
-    // Rolle & Verkäufer-Label sauber setzen
-    const roleStr = String(info.rolle || "").toLowerCase();
-    const sellerLabel =
-      /haendler|händler|dealer/.test(roleStr) ? "Händler" : "Privatverkäufer";
-    localStorage.setItem("userRole", info.rolle || "");
+
+    // Rolle robust
+    const roleStr = String(info.role || info.rolle || "").toLowerCase();
+    const sellerLabel = /haendler|händler|dealer/.test(roleStr)
+      ? "Händler"
+      : "Privatverkäufer";
+
+    localStorage.setItem("userRole", info.role || info.rolle || "");
     localStorage.setItem("verkaeuferTyp", sellerLabel);
   } catch {
-    try { localStorage.setItem("redirectAfterLogin", "fahrzeugdaten.html"); } catch {}
+    try {
+      localStorage.setItem("redirectAfterLogin", location.pathname + location.search);
+    } catch {}
     window.location.href = "login.html";
     return;
   }
@@ -101,29 +122,33 @@ document.addEventListener("DOMContentLoaded", async () => {
   const kamVonNeutralerSeite = ["index.html", "verkaufen.html"].some((p) =>
     referrer.includes(p)
   );
+
   const inseratGestartet = sessionStorage.getItem("inseratGestartet") === "true";
   const hatGespeichert = sessionStorage.getItem("hatGespeichert") === "true";
 
-  // ✅ Edit-Modus erkennen
+  // ✅ Edit-Modus (NEUER STANDARD)
+  const params = new URLSearchParams(location.search);
+  const editParam = params.get("edit");
+
   const isEditMode =
-    localStorage.getItem("autovisa_edit_mode") === "true" ||
+    localStorage.getItem("editMode") === "1" ||
+    !!localStorage.getItem("editInseratId") ||
     !!sessionStorage.getItem("editInseratId") ||
-    !!sessionStorage.getItem("autovisa_edit_id") ||
-    new URLSearchParams(location.search).get("edit") === "1";
+    (!!editParam && editParam !== "");
 
+  if (!isEditMode && kamVonNeutralerSeite && inseratGestartet && !hatGespeichert) {
+    localStorage.removeItem("fahrzeugdaten");
+    sessionStorage.removeItem("inseratGestartet");
+    console.log("❌ Abbruch erkannt: Fahrzeugdaten gelöscht.");
+  }
 
-    if (!isEditMode && kamVonNeutralerSeite && inseratGestartet && !hatGespeichert) {
-      localStorage.removeItem("fahrzeugdaten");
-      sessionStorage.removeItem("inseratGestartet");
-      console.log("❌ Abbruch erkannt: Fahrzeugdaten gelöscht.");
-    }
-  
   sessionStorage.setItem("inseratGestartet", "true");
 
   // ============================
   // Helpers
   // ============================
   const $ = (id) => document.getElementById(id);
+
   const getFirst = (...ids) => {
     for (const id of ids) {
       const el = $(id);
@@ -131,12 +156,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     return null;
   };
+
   const getVal = (...ids) => {
     const el = getFirst(...ids);
     if (!el) return "";
     if (el.type === "checkbox") return el.checked ? "true" : "false";
     return String(el.value || "").trim();
   };
+
   const getNum = (...ids) => {
     const raw = getVal(...ids);
     if (!raw) return "";
@@ -148,6 +175,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const n = Number(cleaned);
     return Number.isFinite(n) ? String(n) : "";
   };
+
   const pad2 = (n) => String(n).padStart(2, "0");
 
   // ============================
@@ -163,21 +191,22 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ============================
   // DOM-Refs
   // ============================
-  const form         = $("fahrzeugForm");
-  const saveButton   = document.querySelector(".save-button");
-  const backButton   = document.querySelector(".back-button");
+  const form = $("fahrzeugForm");
+  const saveButton = document.querySelector(".save-button");
+  const backButton = document.querySelector(".back-button");
 
-  const markeSelect  = $("marke");
+  const markeSelect = $("marke");
   const modellSelect = $("modell");
-  const titelInput   = $("titel");
+  const titelInput = $("titel");
 
-  const mwstCheckbox      = $("mwst-ausweisbar");
+  const mwstCheckbox = $("mwst-ausweisbar");
   const bruttoNettoFields = $("brutto-netto-fields");
-  const standardPreis     = $("preis-wrapper");
-  const bruttoInput       = $("brutto-preis");
-  const nettoInput        = $("netto-preis");
-  const preisInput        = $("preis");
-  // === Leistung: PS ↔ kW Sync (optional, aber nice) ===
+  const standardPreis = $("preis-wrapper");
+  const bruttoInput = $("brutto-preis");
+  const nettoInput = $("netto-preis");
+  const preisInput = $("preis");
+
+  // Leistung PS ↔ kW Sync
   const psInput = $("leistung_ps");
   const kwInput = $("leistung_kw");
 
@@ -205,22 +234,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // EZ-Felder robust holen (unterstützt alternative IDs)
+  // EZ-Felder robust
   const ezMonat = $("ez-monat") || $("first-registration-month") || $("verkauf-ez-monat");
-  const ezJahr  = $("ez-jahr")  || $("first-registration-year")  || $("verkauf-ez-jahr");
+  const ezJahr = $("ez-jahr") || $("first-registration-year") || $("verkauf-ez-jahr");
 
   // ============================
-  // Jahre befüllen (1950 .. aktuellesJahr+2)
+  // Jahre befüllen
   // ============================
   if (ezJahr) {
     const aktuellesJahr = new Date().getFullYear();
     const minYear = 1950;
-    const maxYear = aktuellesJahr + 2; // Vorbestellungen erlauben
+    const maxYear = aktuellesJahr + 2;
 
-    // Nur befüllen, wenn noch KEINE echten Jahres-Optionen existieren
-    const hatJahre = Array.from(ezJahr.options).some(o => /^\d{4}$/.test(o.value));
+    const hatJahre = Array.from(ezJahr.options).some((o) => /^\d{4}$/.test(o.value));
     if (!hatJahre) {
-      // Falls kein Platzhalter vorhanden, einen setzen
       if (!ezJahr.querySelector('option[disabled][selected]')) {
         const ph = document.createElement("option");
         ph.value = "";
@@ -229,7 +256,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         ph.selected = true;
         ezJahr.appendChild(ph);
       }
-      // Von maxYear rückwärts bis minYear auffüllen
+
       for (let j = maxYear; j >= minYear; j--) {
         const opt = document.createElement("option");
         opt.value = String(j);
@@ -241,41 +268,41 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // ============================
   // Felder aus Storage vorbelegen + live speichern
-  // (nutzt name ODER id als Key)
   // ============================
   if (form) {
     const fields = form.querySelectorAll("input, select, textarea");
+
     fields.forEach((field) => {
       const key = field.name || field.id;
       if (!key) return;
 
       const stored = fahrzeugdaten[key];
       if (stored != null) {
-        if (field.type === "checkbox") {
-          field.checked = stored === "true";
-        } else {
-          field.value = stored;
-        }
+        if (field.type === "checkbox") field.checked = stored === "true";
+        else field.value = stored;
       }
 
       const speichern = () => {
         const value = field.type === "checkbox" ? String(field.checked) : String(field.value || "");
         fahrzeugdaten[key] = value;
 
-        // EZ zusätzlich als normiertes Feld ablegen (YYYY-MM)
+        // EZ normieren
         if (ezJahr && ezMonat) {
-          const jahr  = ezJahr.value;
+          const jahr = ezJahr.value;
           const monat = ezMonat.value;
           if (jahr && monat) {
             const iso = `${jahr}-${pad2(monat)}`;
-            fahrzeugdaten.erstzulassung         = iso; // neutral
-            fahrzeugdaten.verkauf_erstzulassung = iso; // für Vorschau
+            fahrzeugdaten.erstzulassung = iso;
+            fahrzeugdaten.verkauf_erstzulassung = iso;
           }
         }
 
-        localStorage.setItem("fahrzeugdaten", JSON.stringify(fahrzeugdaten));
-        if (typeof updateProgressBar === "function") updateProgressBar();
-        if (typeof aktualisiereTitel === "function")  aktualisiereTitel();
+        try {
+          localStorage.setItem("fahrzeugdaten", JSON.stringify(fahrzeugdaten));
+        } catch {}
+
+        updateProgressBar();
+        aktualisiereTitel();
       };
 
       field.addEventListener("input", speichern);
@@ -283,22 +310,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // ============================
-  // EZ aus Storage wiederherstellen
-  // ============================
+  // EZ wiederherstellen
   if (fahrzeugdaten.erstzulassung && ezMonat && ezJahr) {
     const [jahr, monat] = String(fahrzeugdaten.erstzulassung).split("-");
-    if (jahr)  ezJahr.value  = jahr;
+    if (jahr) ezJahr.value = jahr;
     if (monat) ezMonat.value = monat;
   }
 
   // ============================
-  // Marken/Modelle (Verkäufer-Ansicht: ohne "Beliebig"/"(Alle)")
+  // Marken/Modelle
   // ============================
   function sanitizeModelListSell(listRaw = []) {
     const seen = new Set();
     const out = [];
     let hadAndere = false;
+
     for (const raw of listRaw) {
       if (raw == null) continue;
       const name = String(raw).trim();
@@ -306,31 +332,38 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (/^beliebig$/i.test(name)) continue;
       if (/\(alle\)/i.test(name)) continue;
       if (/^andere$/i.test(name)) { hadAndere = true; continue; }
+
       const key = name.toLowerCase();
-      if (!seen.has(key)) { seen.add(key); out.push(name); }
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(name);
+      }
     }
+
     out.sort((a, b) => a.localeCompare(b, "de", { sensitivity: "base" }));
     if (hadAndere) out.push("Andere");
     return out;
   }
 
   let brandModelMap = {};
+
   function rebuildModelOptionsSell(brand, preselect = "") {
     if (!modellSelect) return;
+
     modellSelect.innerHTML = `<option value="" disabled selected>Bitte Modell wählen</option>`;
     const rawList = (brandModelMap && brandModelMap[brand]) || [];
-    const models  = sanitizeModelListSell(rawList);
+    const models = sanitizeModelListSell(rawList);
+
     for (const m of models) {
       const opt = document.createElement("option");
       opt.value = m;
       opt.textContent = m;
       modellSelect.appendChild(opt);
     }
-    if (preselect && models.includes(preselect)) {
-      modellSelect.value = preselect;
-    } else {
-      modellSelect.value = "";
-    }
+
+    if (preselect && models.includes(preselect)) modellSelect.value = preselect;
+    else modellSelect.value = "";
+
     modellSelect.dispatchEvent(new Event("change", { bubbles: true }));
     aktualisiereTitel();
     updateProgressBar();
@@ -340,12 +373,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     .then((res) => res.json())
     .then((data) => {
       brandModelMap = (data && typeof data === "object") ? data : {};
+
       if (markeSelect && modellSelect) {
         markeSelect.addEventListener("change", () => {
           rebuildModelOptionsSell(markeSelect.value, "");
         });
+
         const initialBrand = markeSelect.value || fahrzeugdaten.marke || "";
         const initialModel = fahrzeugdaten.modell || "";
+
         if (initialBrand) {
           if (!markeSelect.value) markeSelect.value = initialBrand;
           rebuildModelOptionsSell(initialBrand, initialModel);
@@ -361,18 +397,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
   // ============================
-  // Titel automatisch vorschlagen (nur wenn leer)
+  // Titel automatisch vorschlagen
   // ============================
   function aktualisiereTitel() {
-    const marke  = markeSelect?.value || "";
+    const marke = markeSelect?.value || "";
     const modell = modellSelect?.value || "";
+
     if (titelInput && marke && modell) {
       const aktuellerTitel = titelInput.value.trim();
       const vorgeschlagenerTitel = `${marke} ${modell}`;
+
       if (aktuellerTitel === "") {
         titelInput.value = vorgeschlagenerTitel;
         fahrzeugdaten.titel = vorgeschlagenerTitel;
-        localStorage.setItem("fahrzeugdaten", JSON.stringify(fahrzeugdaten));
+        try { localStorage.setItem("fahrzeugdaten", JSON.stringify(fahrzeugdaten)); } catch {}
       }
     }
   }
@@ -382,16 +420,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ============================
   function updateProgressBar() {
     const ids = Array.from(new Set([
-      "marke","modell","kilometer","leistung_ps","leistung_kw","hubraum",
-      "kraftstoff","getriebe","antriebsart","fahrzeugtyp",
-      "tueren","türen","partikelfilter","verbrauch_kombiniert","co2_emission",
-      "verbrauch_innerorts","verbrauch_ausserorts","schadstoffklasse","umweltplakette",
+      "marke", "modell", "kilometer", "leistung_ps", "leistung_kw", "hubraum",
+      "kraftstoff", "getriebe", "antriebsart", "fahrzeugtyp",
+      "tueren", "türen", "partikelfilter", "verbrauch_kombiniert", "co2_emission",
+      "verbrauch_innerorts", "verbrauch_ausserorts", "schadstoffklasse", "umweltplakette",
       "emissionsklasse"
     ]));
 
-    const felder = ids
-      .map(id => $(id))
-      .filter(el => !!el && !el.disabled);
+    const felder = ids.map(id => $(id)).filter(el => !!el && !el.disabled);
 
     let gefuellt = 0;
     for (const el of felder) {
@@ -403,7 +439,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const hatEZ = !!(ezMonat && ezJahr);
-    const ezOK  = hatEZ && ezMonat.value && ezJahr.value;
+    const ezOK = hatEZ && ezMonat.value && ezJahr.value;
 
     const total = felder.length + (hatEZ ? 1 : 0);
     const prozentRaw = total > 0 ? ((gefuellt + (ezOK ? 1 : 0)) / total) * 100 : 0;
@@ -417,17 +453,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   ezMonat?.addEventListener("change", updateProgressBar);
-  ezJahr ?.addEventListener("change", updateProgressBar);
+  ezJahr?.addEventListener("change", updateProgressBar);
 
   // ============================
   // MwSt / Preis-Logik
   // ============================
   if (mwstCheckbox && bruttoNettoFields && standardPreis) {
     const applyMwstUI = (checked) => {
-      preisInput.disabled = checked;
+      if (preisInput) preisInput.disabled = checked;
       bruttoNettoFields.style.display = checked ? "grid" : "none";
       standardPreis.style.display = checked ? "none" : "grid";
     };
+
     applyMwstUI(mwstCheckbox.checked);
 
     mwstCheckbox.addEventListener("change", function () {
@@ -437,13 +474,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     bruttoInput?.addEventListener("input", function () {
       const brutto = Number(getNum("brutto-preis"));
-      const netto  = Number.isFinite(brutto) ? (brutto / 1.19) : NaN;
-      nettoInput.value = Number.isFinite(netto) ? netto.toFixed(2) : "";
+      const netto = Number.isFinite(brutto) ? (brutto / 1.19) : NaN;
+      if (nettoInput) nettoInput.value = Number.isFinite(netto) ? netto.toFixed(2) : "";
 
-      // sofort persistieren
       fahrzeugdaten["brutto-preis"] = this.value || "";
-      fahrzeugdaten["netto-preis"]  = nettoInput.value || "";
-      localStorage.setItem("fahrzeugdaten", JSON.stringify(fahrzeugdaten));
+      fahrzeugdaten["netto-preis"] = nettoInput?.value || "";
+      try { localStorage.setItem("fahrzeugdaten", JSON.stringify(fahrzeugdaten)); } catch {}
       updateProgressBar();
     });
   }
@@ -453,24 +489,26 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ============================
   backButton?.addEventListener("click", (e) => {
     e.preventDefault();
-    const userRole = localStorage.getItem("userRole");
-    window.location.href = userRole && /haendler|händler|dealer/i.test(userRole) ? "haendler.html" : "privat.html";
+    const userRole = localStorage.getItem("userRole") || "";
+    window.location.href = /haendler|händler|dealer/i.test(userRole)
+      ? "haendler.html"
+      : "privat.html";
   });
 
   // ============================
-  // Speichern → sammelt ALLE Felder robust ein
+  // Speichern
   // ============================
   saveButton?.addEventListener("click", async (e) => {
     e.preventDefault();
 
     // Preise
-    const brutto      = getNum("brutto-preis") || fahrzeugdaten["brutto-preis"] || "";
-    const netto       = getNum("netto-preis")  || fahrzeugdaten["netto-preis"]  || "";
-    const einzelpreis = getNum("preis")        || fahrzeugdaten["preis"]        || "";
+    const brutto = getNum("brutto-preis") || fahrzeugdaten["brutto-preis"] || "";
+    const netto = getNum("netto-preis") || fahrzeugdaten["netto-preis"] || "";
+    const einzelpreis = getNum("preis") || fahrzeugdaten["preis"] || "";
 
-    const marke  = markeSelect?.value || "";
+    const marke = markeSelect?.value || "";
     const modell = modellSelect?.value || "";
-    const titel  = (titelInput?.value || "").trim() || `${marke} ${modell}`;
+    const titel = (titelInput?.value || "").trim() || `${marke} ${modell}`.trim();
 
     // EZ als YYYY-MM
     const ezIso = (() => {
@@ -479,11 +517,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       return jahr && monat ? `${jahr}-${pad2(monat)}` : "";
     })();
 
-    // Verkäufer-Typ robust aus userRole ableiten
-    const userRoleLS  = localStorage.getItem("userRole") || "";
-    const sellerLabel = /haendler|händler|dealer/i.test(userRoleLS) ? "Händler" : "Privatverkäufer";
+    // Verkäufer-Typ
+    const sellerFromLS = localStorage.getItem("verkaeuferTyp");
+    const userRoleLS = localStorage.getItem("userRole") || "";
+    const sellerLabel =
+      sellerFromLS ||
+      (/haendler|händler|dealer/i.test(userRoleLS) ? "Händler" : "Privatverkäufer");
 
-    // Robust Werte einsammeln (IDs mit/ohne Umlaute, Alternativen)
     const out = {
       // Titel / Marke / Modell
       titel,
@@ -492,53 +532,51 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       // Preise + MwSt
       "brutto-preis": brutto,
-      "netto-preis":  netto,
-      preis:          einzelpreis,
+      "netto-preis": netto,
+      preis: einzelpreis,
 
       verkauf_brutto: brutto,
-      verkauf_netto:  netto,
-      verkauf_preis:  einzelpreis,
-      verkauf_mwst:   mwstCheckbox?.checked ? "zzgl. MwSt." : "Keine MwSt.",
+      verkauf_netto: netto,
+      verkauf_preis: einzelpreis,
+      verkauf_mwst: mwstCheckbox?.checked ? "zzgl. MwSt." : "Keine MwSt.",
 
-      // Vorschau erwartet "verkauf_modell" als großen Titel
+      // Vorschau-Title
       verkauf_modell: titel,
 
-      // Verkäufer-Typ
+      // Verkäufer
       verkauf_verkaeufer: sellerLabel,
 
-      // Erstzulassung (kompatibel zur Suche & Vorschau)
+      // Erstzulassung
       erstzulassung: ezIso,
       verkauf_erstzulassung: ezIso,
 
-         // Kernfelder (Leistung jetzt aus neuen IDs holen)
-    verkauf_kilometer:            getNum("kilometer", "km"),
-    verkauf_leistung:             getNum("leistung_ps","leistung","ps"), // PS
-    verkauf_leistung_kw:          getNum("leistung_kw"),                 // kW  ➜ NEU
-    verkauf_hubraum:              getNum("hubraum","ccm"),
-    verkauf_kraftstoff:           getVal("kraftstoff","kraftstoffart"),
-    verkauf_getriebe:             getVal("getriebe","getriebeart"),
-    verkauf_antrieb:              getVal("antriebsart","antrieb"),
+      // Kernfelder
+      verkauf_kilometer: getNum("kilometer", "km"),
+      verkauf_leistung: getNum("leistung_ps", "leistung", "ps"),
+      verkauf_leistung_kw: getNum("leistung_kw"),
+      verkauf_hubraum: getNum("hubraum", "ccm"),
+      verkauf_kraftstoff: getVal("kraftstoff", "kraftstoffart"),
+      verkauf_getriebe: getVal("getriebe", "getriebeart"),
+      verkauf_antrieb: getVal("antriebsart", "antrieb"),
 
-    verkauf_fahrzeugtyp:          getVal("fahrzeugtyp"),
-    verkauf_tueren:               getVal("tueren","türen"),
-    verkauf_partikelfilter:       getVal("partikelfilter"),
+      verkauf_fahrzeugtyp: getVal("fahrzeugtyp"),
+      verkauf_tueren: getVal("tueren", "türen"),
+      verkauf_partikelfilter: getVal("partikelfilter"),
 
-    verkauf_verbrauch_kombiniert: getVal("verbrauch_kombiniert"),
-    verkauf_verbrauch_innerorts:  getVal("verbrauch_innerorts"),
-    verkauf_verbrauch_ausserorts: getVal("verbrauch_ausserorts"),
-    verkauf_co2_emission:         getVal("co2_emission"),
+      verkauf_verbrauch_kombiniert: getVal("verbrauch_kombiniert"),
+      verkauf_verbrauch_innerorts: getVal("verbrauch_innerorts"),
+      verkauf_verbrauch_ausserorts: getVal("verbrauch_ausserorts"),
+      verkauf_co2_emission: getVal("co2_emission"),
 
-    verkauf_schadstoffklasse:     getVal("schadstoffklasse"),
-    verkauf_umweltplakette:       getVal("umweltplakette"),
+      verkauf_schadstoffklasse: getVal("schadstoffklasse"),
+      verkauf_umweltplakette: getVal("umweltplakette"),
 
-    // Emissions-/Energieeffizienzklasse (nur übernehmen, NICHT berechnen)
-    emissionsklasse:              getVal("emissionsklasse"),     // neutral
-    verkauf_emissionsklasse:      getVal("emissionsklasse")    // für Vorschau
-
+      emissionsklasse: getVal("emissionsklasse"),
+      verkauf_emissionsklasse: getVal("emissionsklasse"),
     };
 
-    // In Memory mergen & persistieren
     Object.assign(fahrzeugdaten, out);
+
     try { localStorage.setItem("fahrzeugdaten", JSON.stringify(fahrzeugdaten)); } catch {}
 
     // POST an Backend
@@ -546,9 +584,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       const res = await fetch(api("/saveFahrzeugdaten"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // ← Session-Cookie mitschicken
-        body: JSON.stringify(fahrzeugdaten)
+        credentials: "include",
+        body: JSON.stringify(fahrzeugdaten),
       });
+
       if (!res.ok) throw new Error(await res.text().catch(() => "Fehler beim Speichern"));
 
       sessionStorage.setItem("hatGespeichert", "true");
@@ -557,9 +596,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       safeMarkStepDone(1);
       safeToast("Fahrzeugdaten gespeichert ✅");
 
-      const userRole = localStorage.getItem("userRole");
+      const userRole = localStorage.getItem("userRole") || "";
       setTimeout(() => {
-        window.location.href = userRole && /haendler|händler|dealer/i.test(userRole) ? "haendler.html" : "privat.html";
+        window.location.href = /haendler|händler|dealer/i.test(userRole)
+          ? "haendler.html"
+          : "privat.html";
       }, 600);
     } catch (err) {
       console.error("🚫 Fehler:", err);
@@ -571,6 +612,4 @@ document.addEventListener("DOMContentLoaded", async () => {
   updateProgressBar();
   aktualisiereTitel();
 });
-
-
 

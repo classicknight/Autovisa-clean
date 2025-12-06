@@ -1,5 +1,8 @@
 try { require("dotenv").config(); } catch {}
 
+/* =========================
+   Imports
+========================= */
 const express = require("express");
 const multer = require("multer");
 const cookieParser = require("cookie-parser");
@@ -11,31 +14,36 @@ const nodemailer = require("nodemailer");
 const cloudinary = require("cloudinary").v2;
 const crypto = require("crypto");
 
+/* =========================
+   Session (HMAC)
+========================= */
 const SESSION_SECRET = process.env.SESSION_SECRET;
 if (!SESSION_SECRET) {
   console.error("❌ SESSION_SECRET fehlt in ENV");
   process.exit(1);
 }
-function b64url(buf){ return Buffer.from(buf).toString("base64url"); }
-function makeSessionPayload(user){
+
+function b64url(input) {
+  return Buffer.from(String(input), "utf8").toString("base64url");
+}
+function makeSessionPayload(user) {
   return { id: user.id, role: user.role || "privat", email: user.email || "" };
 }
-function sign(val){
+function sign(val) {
   return crypto.createHmac("sha256", SESSION_SECRET).update(val).digest("base64url");
 }
-function encodeSession(obj){
+function encodeSession(obj) {
   const body = b64url(JSON.stringify(obj));
-  const sig  = sign(body);
+  const sig = sign(body);
   return `${body}.${sig}`;
 }
-
-function decodeSession(token){
+function decodeSession(token) {
   if (!token || typeof token !== "string") return null;
   const [body, sig] = token.split(".");
   if (!body || !sig) return null;
 
   try {
-    const expected = sign(body); // base64url-String
+    const expected = sign(body);
     const a = Buffer.from(expected, "base64url");
     const b = Buffer.from(sig, "base64url");
     if (a.length !== b.length) return null;
@@ -69,6 +77,7 @@ function driveCanon(raw) {
   if (/(rwd|heck|hinterrad|heckantrieb|rear)/.test(s)) return "heckantrieb";
   return s;
 }
+
 function fuelCanon(raw) {
   const s = String(raw || "").trim().toLowerCase();
 
@@ -104,19 +113,16 @@ function fuelCanon(raw) {
   if (/(wasserstoff|hydrogen|h2)/.test(flat)) return "wasserstoff";
   if (/(ethanol|e85|flex\s?fuel)/.test(flat)) return "ethanol";
 
-  return flat; // Fallback
+  return flat;
 }
-
 
 const FUEL_REGEX = {
   benzin: /benzin|super|e10|e5|e95|e98|otto|petrol|gasoline/i,
   diesel: /diesel/i,
   elektrisch: /elektro|electric|bev|strom|ev/i,
 
-  // generischer Hybrid (egal ob Benzin/Diesel)
   hybrid: /hybrid|plug[\s-]?in|plugin|phev|mhev|hev/i,
 
-  // Hybrid-Unterarten – brauchen sowohl "hybrid" als auch Basis-Kraftstoff
   "hybrid-benzin": /(?=.*(hybrid|plug[\s-]?in|plugin|phev|mhev|hev))(?=.*(benzin|super|e10|e5|e95|e98|otto|petrol|gasoline))/i,
   "hybrid-diesel": /(?=.*(hybrid|plug[\s-]?in|plugin|phev|mhev|hev))(?=.*diesel)/i,
 
@@ -125,7 +131,6 @@ const FUEL_REGEX = {
   wasserstoff: /wasserstoff|hydrogen|\bh2\b/i,
   ethanol: /ethanol|e85|flex\s*fuel/i
 };
-
 
 /* ------------------------------------------------------------------ */
 /* --- HU: Datumshelfer (YYYY-MM, MM/YYYY, Monatsname YYYY, YYYY) --- */
@@ -140,12 +145,14 @@ function parseYMServer(input, fallbackMonthIfYearOnly = 1) {
     const y = +m[1], mo = Math.min(12, Math.max(1, +m[2]));
     return new Date(Date.UTC(y, mo - 1, 1));
   }
+
   // 2) MM/YYYY
   m = s.match(/^(\d{1,2})[-/.](\d{4})$/);
   if (m) {
     const y = +m[2], mo = Math.min(12, Math.max(1, +m[1]));
     return new Date(Date.UTC(y, mo - 1, 1));
   }
+
   // 3) Monatsname + Jahr (de/en)
   const rxName = /(jan(?:uar)?|feb(?:ruar)?|märz|maerz|marz|apr(?:il)?|mai|may|jun(?:i)?|jul(?:i)?|aug(?:ust)?|sep(?:t|tember)?|okt(?:ober)?|oct(?:ober)?|nov(?:ember)?|dez(?:ember)?|dec(?:ember)?)/i;
   m = s.match(new RegExp(`^${rxName.source}\\s+(\\d{4})$`, "i"));
@@ -162,6 +169,7 @@ function parseYMServer(input, fallbackMonthIfYearOnly = 1) {
     const mo = toMo(name);
     return new Date(Date.UTC(y, mo - 1, 1));
   }
+
   // 4) Nur Jahr
   m = s.match(/^(\d{4})$/);
   if (m) {
@@ -175,15 +183,18 @@ function parseYMServer(input, fallbackMonthIfYearOnly = 1) {
 function monthsLeftFromToday(d) {
   if (!(d instanceof Date)) return NaN;
   const now = new Date();
-  const yNow = now.getUTCFullYear(),  mNow = now.getUTCMonth() + 1; // 1..12
-  const yItm = d.getUTCFullYear(),    mItm = d.getUTCMonth() + 1;   // 1..12
+  const yNow = now.getUTCFullYear(), mNow = now.getUTCMonth() + 1;
+  const yItm = d.getUTCFullYear(),   mItm = d.getUTCMonth() + 1;
   return (yItm * 12 + mItm) - (yNow * 12 + mNow);
 }
 
-/* === Express Initialisierung === */
+/* =========================
+   Express Initialisierung
+========================= */
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 app.set("trust proxy", 1);
+
 // Helper: saubere URLs aus ENV
 function getUrls() {
   const api = process.env.API_URL || process.env.BASE_URL || `http://localhost:${PORT}`;
@@ -191,10 +202,18 @@ function getUrls() {
   return { api, appUrl };
 }
 
-/* === MongoDB Konfiguration === */
+/* =========================
+   MongoDB Konfiguration
+========================= */
 const mongoUri = process.env.MONGODB_URI;
+if (!mongoUri) {
+  console.error("❌ MONGODB_URI fehlt in ENV");
+  process.exit(1);
+}
+
 const client = new MongoClient(mongoUri);
 let db;
+
 client.connect()
   .then(async () => {
     db = client.db("autovisa");
@@ -206,19 +225,21 @@ client.connect()
       { userId: 1, fahrzeugId: 1 },
       { unique: true }
     );
-    
+
     await db.collection("geosuggest").createIndex({ key: 1 }, { unique: true });
     await db.collection("geosuggest").createIndex(
       { updatedAt: 1 },
       { expireAfterSeconds: 60 * 60 * 24 * 30 }
     );
+
     await db.collection("nutzer").createIndex({ email: 1 }, { unique: true });
 
     // ✅ TTL für Fahrzeugs-Entwürfe: 30 Minuten ab letzter Änderung
     await db.collection("fahrzeugeEntwurf").createIndex(
       { updatedAt: 1 },
-      { expireAfterSeconds: 60 * 30 } // 30 Minuten
+      { expireAfterSeconds: 60 * 30 }
     );
+
     // Alte Entwürfe ohne updatedAt einmalig „heilen“
     await db.collection("fahrzeugeEntwurf").updateMany(
       { updatedAt: { $exists: false } },
@@ -229,19 +250,26 @@ client.connect()
   })
   .catch(err => console.error("❌ MongoDB-Verbindung fehlgeschlagen:", err));
 
-/* === Cloudinary Konfiguration === */
+/* =========================
+   Cloudinary Konfiguration
+========================= */
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key:    process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+/* =========================
+   Middleware
+========================= */
 // Body-Limits nur für Text (Dateien sind davon unberührt)
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(cookieParser());
 
-/* === Statische Dateien ausliefern === */
+/* =========================
+   Statische Dateien
+========================= */
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/data", express.static(path.join(__dirname, "data"), {
   dotfiles: "ignore",
@@ -249,13 +277,16 @@ app.use("/data", express.static(path.join(__dirname, "data"), {
   maxAge: "1d"
 }));
 
-
-/* === Startseite === */
+/* =========================
+   Startseite
+========================= */
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-/* === Multer (A): Medien (Bilder/Video) auf Disk === */
+/* =========================
+   Multer (A): Medien (Bilder/Video) auf Disk
+========================= */
 const TMP_DIR = path.join(__dirname, "uploads_tmp");
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
 
@@ -278,23 +309,45 @@ const upload = multer({
 });
 
 // Helper: lokale Datei → Cloudinary (Bilder normal, Videos chunked)
-function uploadFileToCloudinary(filePath, { folder, resource_type }) {
-  return new Promise((resolve, reject) => {
-    const isVideo = resource_type === "video";
-    const fn = isVideo ? cloudinary.uploader.upload_large : cloudinary.uploader.upload;
-    const options = { folder, resource_type };
-    if (isVideo) options.chunk_size = 20 * 1024 * 1024;
-    fn(filePath, options, (err, result) => (err ? reject(err) : resolve(result)));
-  });
+async function uploadFileToCloudinary(filePath, { folder, resource_type }) {
+  const isVideo = resource_type === "video";
+  const options = { folder, resource_type };
+
+  if (isVideo) {
+    options.chunk_size = 20 * 1024 * 1024;
+    return cloudinary.uploader.upload_large(filePath, options);
+  }
+  return cloudinary.uploader.upload(filePath, options);
 }
 
-/* ===================== Fahrzeugspeichern / Medien ===================== */
+/* =========================
+   Draft Save: Fahrzeugdaten
+========================= */
 app.post("/saveFahrzeugdaten", checkLogin, async (req, res) => {
   try {
-    const daten = req.body;
-    const collection = db.collection("fahrzeugeEntwurf");
+    const daten = req.body || {};
+    const { draftId, ...payload } = daten;
 
+    const collection = db.collection("fahrzeugeEntwurf");
     const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
+
+    // ✅ 1) Wenn draftId kommt → genau diesen Draft updaten
+    if (draftId) {
+      let _id;
+      try { _id = new ObjectId(String(draftId)); }
+      catch { return res.status(400).json({ error: "Ungültige draftId." }); }
+
+      const draft = await collection.findOne({ _id, nutzerId: req.nutzer.id });
+      if (!draft) return res.status(404).json({ error: "Draft nicht gefunden." });
+
+      await collection.updateOne(
+        { _id },
+        { $set: { ...payload, updatedAt: new Date() } }
+      );
+      return res.json({ success: true, fahrzeugId: _id });
+    }
+
+    // ✅ 2) Sonst: wie bisher letzten frischen Draft verwenden
     const letzter = await collection.findOne(
       { nutzerId: req.nutzer.id, updatedAt: { $gte: thirtyMinAgo } },
       { sort: { updatedAt: -1, _id: -1 } }
@@ -303,12 +356,12 @@ app.post("/saveFahrzeugdaten", checkLogin, async (req, res) => {
     if (letzter) {
       await collection.updateOne(
         { _id: letzter._id },
-        { $set: { ...daten, updatedAt: new Date() } }
+        { $set: { ...payload, updatedAt: new Date() } }
       );
       return res.json({ success: true, fahrzeugId: letzter._id });
     } else {
       const r = await collection.insertOne({
-        ...daten,
+        ...payload,
         nutzerId: req.nutzer.id,
         erstelltAm: new Date(),
         updatedAt: new Date()
@@ -321,14 +374,32 @@ app.post("/saveFahrzeugdaten", checkLogin, async (req, res) => {
   }
 });
 
-
+/* =========================
+   Draft Save: Details
+========================= */
 app.post("/saveDetails", checkLogin, async (req, res) => {
   try {
-    const details = req.body;
-    const collection = db.collection("fahrzeugeEntwurf");
+    const details = req.body || {};
+    const { draftId, ...payload } = details;
 
-    // nur frische Entwürfe finden (≤ 30 Min)
+    const collection = db.collection("fahrzeugeEntwurf");
     const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
+
+    if (draftId) {
+      let _id;
+      try { _id = new ObjectId(String(draftId)); }
+      catch { return res.status(400).json({ error: "Ungültige draftId." }); }
+
+      const draft = await collection.findOne({ _id, nutzerId: req.nutzer.id });
+      if (!draft) return res.status(404).json({ error: "Draft nicht gefunden." });
+
+      await collection.updateOne(
+        { _id },
+        { $set: { ...payload, updatedAt: new Date() } }
+      );
+      return res.json({ success: true });
+    }
+
     const letzter = await collection.findOne(
       { nutzerId: req.nutzer.id, updatedAt: { $gte: thirtyMinAgo } },
       { sort: { updatedAt: -1, _id: -1 } }
@@ -337,7 +408,7 @@ app.post("/saveDetails", checkLogin, async (req, res) => {
 
     await collection.updateOne(
       { _id: letzter._id },
-      { $set: { ...details, updatedAt: new Date() } } // ⬅️ updatedAt refreshen
+      { $set: { ...payload, updatedAt: new Date() } }
     );
     res.json({ success: true });
   } catch (err) {
@@ -346,32 +417,57 @@ app.post("/saveDetails", checkLogin, async (req, res) => {
   }
 });
 
+/* =========================
+   Draft Save: Media
+========================= */
 app.post(
   "/saveMedia",
   checkLogin,
   upload.fields([{ name: "images", maxCount: 20 }, { name: "video", maxCount: 1 }]),
   async (req, res) => {
-    const cleanup = (arr = []) => arr.forEach(f => { try { fs.unlinkSync(f.path); } catch {} });
+    const cleanup = (arr = []) =>
+      arr.forEach(f => { try { fs.unlinkSync(f.path); } catch {} });
 
     try {
       const collection = db.collection("fahrzeugeEntwurf");
 
-      // nur frische Entwürfe finden (≤ 30 Min)
-      const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
-      const letzter = await collection.findOne(
-        { nutzerId: req.nutzer.id, updatedAt: { $gte: thirtyMinAgo } },
-        { sort: { updatedAt: -1, _id: -1 } }
-      );
+      // 1) Draft-Auswahl: draftId > letzter frischer Draft
+      const bodyDraftId = (req.body?.draftId || "").toString().trim();
+      let letzter = null;
+
+      if (bodyDraftId) {
+        try {
+          const _id = new ObjectId(bodyDraftId);
+          letzter = await collection.findOne({ _id, nutzerId: req.nutzer.id });
+        } catch {
+          letzter = null;
+        }
+      }
+
+      if (!letzter) {
+        const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
+        letzter = await collection.findOne(
+          { nutzerId: req.nutzer.id, updatedAt: { $gte: thirtyMinAgo } },
+          { sort: { updatedAt: -1, _id: -1 } }
+        );
+      }
+
       if (!letzter) {
         cleanup([...(req.files?.images || []), ...(req.files?.video || [])]);
         return res.status(400).json({ error: "Kein (frischer) Fahrzeugentwurf gefunden." });
       }
 
+      // 2) Dateien aus Multer lesen
       const files = req.files || {};
       const imageFiles = Array.isArray(files.images) ? files.images : [];
-      const videoFile  = Array.isArray(files.video)  ? (files.video[0] || null) : null;
+      const videoFile =
+        Array.isArray(files.video) && files.video.length
+          ? files.video[0]
+          : null;
 
+      // 3) Limit-Prüfung: max 20 Bilder gesamt
       const existingImages = Array.isArray(letzter.images) ? letzter.images.length : 0;
+
       if (imageFiles.length && existingImages + imageFiles.length > 20) {
         cleanup([...imageFiles, ...(videoFile ? [videoFile] : [])]);
         return res.status(400).json({ error: "Maximal 20 Bilder pro Inserat." });
@@ -379,12 +475,16 @@ app.post(
 
       const baseFolder = `autovisa/${req.nutzer.id}`;
 
+      // 4) Upload Images
       let uploadedImageUrls = [];
       if (imageFiles.length) {
         try {
           const results = await Promise.all(
             imageFiles.map(f =>
-              uploadFileToCloudinary(f.path, { folder: `${baseFolder}/images`, resource_type: "image" })
+              uploadFileToCloudinary(f.path, {
+                folder: `${baseFolder}/images`,
+                resource_type: "image"
+              })
             )
           );
           uploadedImageUrls = results.map(r => r.secure_url);
@@ -393,50 +493,81 @@ app.post(
         }
       }
 
+      // 5) Upload Video
       let uploadedVideoUrl = null;
       if (videoFile) {
         try {
-          const r = await uploadFileToCloudinary(videoFile.path, { folder: `${baseFolder}/videos`, resource_type: "video" });
+          const r = await uploadFileToCloudinary(videoFile.path, {
+            folder: `${baseFolder}/videos`,
+            resource_type: "video"
+          });
           uploadedVideoUrl = r.secure_url;
         } finally {
           cleanup([videoFile]);
         }
       }
 
+      // 6) Wenn nichts neu hochgeladen wurde
       if (!uploadedImageUrls.length && !uploadedVideoUrl) {
         return res.json({
           success: true,
           message: "Keine neuen Dateien – bestehende Medien unverändert.",
-          images: letzter.images || [],
-          video:  letzter.video  || null
+          images: Array.isArray(letzter.images) ? letzter.images : [],
+          video: letzter.video || null,
+          draftId: String(letzter._id)
         });
       }
 
+      // 7) Update-Dokument bauen
       const updateDoc = {};
+
       if (uploadedImageUrls.length) {
         updateDoc.images = Array.isArray(letzter.images)
           ? [...letzter.images, ...uploadedImageUrls]
           : [...uploadedImageUrls];
       }
-      if (uploadedVideoUrl) updateDoc.video = uploadedVideoUrl;
 
-      updateDoc.updatedAt = new Date(); // ⬅️ TTL-Refresh bei Medienänderung
-      await collection.updateOne({ _id: letzter._id }, { $set: updateDoc });
+      if (uploadedVideoUrl) {
+        updateDoc.video = uploadedVideoUrl;
+      }
 
-      res.json({
+      updateDoc.updatedAt = new Date();
+
+      await collection.updateOne(
+        { _id: letzter._id, nutzerId: req.nutzer.id },
+        { $set: updateDoc }
+      );
+
+      // 8) Antwort
+      const finalImages = updateDoc.images ?? (Array.isArray(letzter.images) ? letzter.images : []);
+      const finalVideo  = updateDoc.video  ?? (letzter.video || null);
+
+      return res.json({
         success: true,
         message: "Medien gespeichert.",
-        images: updateDoc.images ?? letzter.images ?? [],
-        video:  updateDoc.video  ?? letzter.video  ?? null
+        images: finalImages,
+        video: finalVideo,
+        draftId: String(letzter._id)
       });
+
     } catch (err) {
       console.error("❌ Fehler beim Speichern der Medien (Cloudinary):", err);
-      res.status(500).json({ error: err.message || "Fehler beim Speichern der Medien." });
+      try {
+        const cleanup = (arr = []) =>
+          arr.forEach(f => { try { fs.unlinkSync(f.path); } catch {} });
+        cleanup([...(req.files?.images || []), ...(req.files?.video || [])]);
+      } catch {}
+
+      return res.status(500).json({
+        error: err.message || "Fehler beim Speichern der Medien."
+      });
     }
   }
 );
 
-// === Vorschau: Nur frische Entwürfe dieses Nutzers (≤ 30 Min) laden + Seller-Snapshot
+/* =========================
+   Vorschau: Drafts laden + Seller-Snapshot
+========================= */
 app.get("/getVehicleData", checkLogin, async (req, res) => {
   try {
     const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
@@ -444,24 +575,22 @@ app.get("/getVehicleData", checkLogin, async (req, res) => {
     const drafts = await db.collection("fahrzeugeEntwurf")
       .find({
         nutzerId: req.nutzer.id,
-        updatedAt: { $gte: thirtyMinAgo }      // ⬅️ nur frische Drafts
+        updatedAt: { $gte: thirtyMinAgo }
       })
-      .sort({ updatedAt: -1, _id: -1 })        // neueste zuerst
+      .sort({ updatedAt: -1, _id: -1 })
       .toArray();
 
-    // Verkäuferdaten für Snapshot holen
     const user = await db.collection("nutzer").findOne(
       { id: req.nutzer.id },
       { projection: { role: 1, firma: 1, name: 1, logoUrl: 1 } }
     );
 
     const seller = {
-      type: user?.role || "haendler",
-      name: user?.firma || user?.name || "Händler",
+      type: user?.role || "privat",
+      name: user?.firma || user?.name || "Unbekannt",
       logoUrl: user?.logoUrl || ""
     };
 
-    // jedem Entwurf __status + seller anhängen
     const withSeller = drafts.map(d => ({ ...d, __status: "draft", seller }));
 
     res.json(withSeller);
@@ -471,6 +600,139 @@ app.get("/getVehicleData", checkLogin, async (req, res) => {
   }
 });
 
+/* =========================
+   Draft -> Inserat Helper
+========================= */
+async function publishOrUpdateFromDraft({
+  draft,
+  sellerId,
+  seller,
+  req,
+  entwurfColl,
+  inserateColl,
+}) {
+  const editId = String(draft.__editInseratId || "").trim();
+
+  const {
+    _id,
+    updatedAt,
+    erstelltAm,
+    __status,
+    __editInseratId,
+    ...payload
+  } = draft;
+
+  const baseUpdate = {
+    ...payload,
+    seller,
+    status: "online",
+    lastEditedAt: new Date(),
+    verkauf_kurzbeschreibung: getZufaelligeAusstattung(payload.verkauf_ausstattung || []),
+  };
+
+  if (editId) {
+    let editOid;
+    try { editOid = new ObjectId(editId); }
+    catch { throw new Error("Ungültige Edit-ID im Draft."); }
+
+    const existing = await inserateColl.findOne({ _id: editOid });
+    const ownerId = existing?.verkaeuferId || existing?.nutzerId;
+    if (!existing || ownerId !== sellerId) {
+      throw new Error("Original-Inserat nicht gefunden oder kein Zugriff.");
+    }
+
+    await inserateColl.updateOne(
+      { _id: editOid },
+      { $set: baseUpdate }
+    );
+
+    await entwurfColl.deleteOne({ _id: draft._id, nutzerId: sellerId });
+
+    return { updated: true, inseratId: editId };
+  }
+
+  const neuesInserat = {
+    ...baseUpdate,
+    verkaeuferId: sellerId,
+    veroeffentlichtAm: new Date(),
+
+    verkauf_verkaeufer: (seller.type === "haendler") ? "Händler" : "Privatverkäufer",
+    verkauf_name: req.body?.name || payload.verkauf_name || seller.name,
+
+    standort: (req.body?.plz && req.body?.ort)
+      ? `${req.body.plz} ${req.body.ort}`
+      : (payload.standort || "Nicht angegeben"),
+
+    telefon: req.body?.telefon || payload.telefon || "",
+  };
+
+  delete neuesInserat._id;
+
+  await inserateColl.insertOne(neuesInserat);
+  await entwurfColl.deleteOne({ _id: draft._id, nutzerId: sellerId });
+
+  return { created: true };
+}
+
+/* =========================
+   Edit-Workflow Start
+========================= */
+app.post("/api/inserat/:id/start-edit", checkLogin, async (req, res) => {
+  try {
+    const inseratId = String(req.params.id || "").trim();
+    if (!inseratId) return res.status(400).json({ error: "ID fehlt." });
+
+    let oid;
+    try { oid = new ObjectId(inseratId); }
+    catch { return res.status(400).json({ error: "Ungültige ID." }); }
+
+    const inserateColl = db.collection("inserate");
+    const draftColl    = db.collection("fahrzeugeEntwurf");
+
+    const doc = await inserateColl.findOne({ _id: oid });
+    if (!doc) return res.status(404).json({ error: "Inserat nicht gefunden." });
+
+    const ownerId = doc.verkaeuferId || doc.nutzerId;
+    if (ownerId !== req.nutzer.id) {
+      return res.status(403).json({ error: "Kein Zugriff auf dieses Inserat." });
+    }
+
+    const {
+      _id,
+      status,
+      veroeffentlichtAm,
+      standortCoords,
+      seller,
+      verkauf_kurzbeschreibung,
+      ...payload
+    } = doc;
+
+    const r = await draftColl.insertOne({
+      ...payload,
+
+      nutzerId: req.nutzer.id,
+      __status: "edit",
+      __editInseratId: inseratId,
+
+      erstelltAm: new Date(),
+      updatedAt: new Date(),
+    });
+
+    return res.json({
+      ok: true,
+      editInseratId: inseratId,
+      draftId: String(r.insertedId),
+    });
+
+  } catch (err) {
+    console.error("❌ start-edit Fehler:", err);
+    return res.status(500).json({ error: "Serverfehler beim Starten des Edit-Modus." });
+  }
+});
+
+/* =========================
+   Abbrechen (letzten Draft löschen)
+========================= */
 app.post("/abbrechen", checkLogin, async (req, res) => {
   try {
     const collection = db.collection("fahrzeugeEntwurf");
@@ -485,12 +747,11 @@ app.post("/abbrechen", checkLogin, async (req, res) => {
   }
 });
 
-
-
-// === 📄 Tarif temporär speichern (noch lokal) ===
+/* =========================
+   Tarif temporär speichern (lokal)
+========================= */
 const tarifPath = path.join(__dirname, "nutzerTarif.json");
 
-// Tarif speichern
 app.post("/saveTarif", (req, res) => {
   const { tarif } = req.body;
 
@@ -508,7 +769,6 @@ app.post("/saveTarif", (req, res) => {
   }
 });
 
-// Tarif abrufen
 app.get("/getTarif", (req, res) => {
   try {
     if (!fs.existsSync(tarifPath)) {
@@ -525,17 +785,20 @@ app.get("/getTarif", (req, res) => {
   }
 });
 
-// === Übersicht: veröffentlichte Inserate laden ===
+/* =========================
+   Übersicht: veröffentlichte Inserate laden (public)
+========================= */
 app.get("/meineInserate.json", async (req, res) => {
   try {
     const inserateCollection = db.collection("inserate");
     const inserate = await inserateCollection
       .find({ status: "online" })
       .project({
-        token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0 // sicherheitshalber ausblenden
+        token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0
       })
       .sort({ veroeffentlichtAm: -1, _id: -1 })
       .toArray();
+
     res.json(inserate);
   } catch (err) {
     console.error("❌ Fehler beim Laden der veröffentlichten Inserate:", err);
@@ -543,9 +806,10 @@ app.get("/meineInserate.json", async (req, res) => {
   }
 });
 
-// Erlaubte Ausstattungseinträge für Kurzbeschreibung
+/* =========================
+   Kurzbeschreibung aus Ausstattung
+========================= */
 const erlaubteAusstattungen = [
- 
   "Gepäckraumabtrennung",
   "Skisack",
   "Schiebedach",
@@ -577,17 +841,18 @@ const erlaubteAusstattungen = [
   "Sommerreifen",
   "Winterreifen",
   "Allwetterreifen"
-
 ];
 
-// Funktion: 3 zufällige erlaubte Ausstattungen auswählen
 function getZufaelligeAusstattung(ausstattungArray) {
   if (!Array.isArray(ausstattungArray)) return "Besondere Ausstattung";
   const gefiltert = ausstattungArray.filter(item => erlaubteAusstattungen.includes(item));
   if (gefiltert.length === 0) return "Besondere Ausstattung";
   return gefiltert.sort(() => 0.5 - Math.random()).slice(0, 3).join(" • ");
 }
-// Entwurf -> veröffentlichen (ID-basiert, sicher)
+
+/* =========================
+   Entwurf -> veröffentlichen (ID-basiert)
+========================= */
 app.post("/entwurf/:id/publish", checkLogin, async (req, res) => {
   const { id } = req.params;
 
@@ -603,11 +868,9 @@ app.post("/entwurf/:id/publish", checkLogin, async (req, res) => {
     const inserateCollection = db.collection("inserate");
     const nutzerCollection   = db.collection("nutzer");
 
-    // Entwurf muss dem eingeloggten Nutzer gehören
     const draft = await entwurfCollection.findOne({ _id, nutzerId: req.nutzer.id });
     if (!draft) return res.status(404).send("Entwurf nicht gefunden.");
 
-    // Händlerdaten (Snapshot) ziehen
     const haendler = await nutzerCollection.findOne(
       { id: req.nutzer.id },
       { projection: { id: 1, role: 1, firma: 1, name: 1, logoUrl: 1 } }
@@ -616,7 +879,7 @@ app.post("/entwurf/:id/publish", checkLogin, async (req, res) => {
     const seller = {
       type: haendler?.role || "privat",
       id:   haendler?.id || req.nutzer.id,
-      name: haendler?.firma || haendler?.name || "Händler",
+      name: haendler?.firma || haendler?.name || "Anbieter",
       logoUrl: haendler?.logoUrl || ""
     };
 
@@ -626,10 +889,9 @@ app.post("/entwurf/:id/publish", checkLogin, async (req, res) => {
       status: "online",
       veroeffentlichtAm: new Date(),
       verkauf_kurzbeschreibung: getZufaelligeAusstattung(draft.verkauf_ausstattung || []),
-      seller // ⬅️ Neu: denormalisierte Verkäuferinfos (Logo + Name)
+      seller
     };
 
-    // neue _id für öffentliche Sammlung
     delete neuesInserat._id;
 
     await inserateCollection.insertOne(neuesInserat);
@@ -642,15 +904,19 @@ app.post("/entwurf/:id/publish", checkLogin, async (req, res) => {
   }
 });
 
-
-// === 🛡️ Login-Prüfung Middleware (signierte Session + DB-Check) ===
+/* =========================
+   🛡️ Login-Prüfung Middleware (signierte Session + DB-Check)
+========================= */
 async function checkLogin(req, res, next) {
   try {
-    const token = req.cookies.session;               // <-- NEU: signiertes Cookie "session"
+    if (!db) {
+      return res.status(503).json({ error: "DB noch nicht bereit. Bitte erneut versuchen." });
+    }
+
+    const token = req.cookies.session;
     const sess  = decodeSession(token);
     if (!sess?.id) return res.status(401).json({ error: "Nicht eingeloggt." });
 
-    // immer gegen DB prüfen
     const user = await db.collection("nutzer").findOne(
       { id: sess.id },
       { projection: { id: 1, role: 1, email: 1, verified: 1 } }
@@ -666,14 +932,16 @@ async function checkLogin(req, res, next) {
   }
 }
 
-// === 📧 Mail (IONOS / beliebiger SMTP via .env) ===
+/* =========================
+   📧 Mail (SMTP)
+========================= */
 const MAIL_FROM = process.env.MAIL_FROM || "Autovisa <no-reply@autovisa.de>";
 const MAIL_REPLY_TO = process.env.MAIL_REPLY_TO || "support@autovisa.de";
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT || 587),
-  secure: String(process.env.SMTP_SECURE || "false") === "true", // 465 => true
+  secure: String(process.env.SMTP_SECURE || "false") === "true",
   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
 });
 
@@ -682,8 +950,9 @@ transporter.verify((error) => {
   else console.log("✅ SMTP bereit");
 });
 
-
-// === 🔧 Email-Template Helper (einmalig definieren) ===
+/* =========================
+   🔧 Email-Template Helper
+========================= */
 function buildAutovisaEmail({
   subject = "Autovisa Nachricht",
   logoUrl,
@@ -706,7 +975,6 @@ function buildAutovisaEmail({
   <title>${subject}</title>
 </head>
 <body style="margin:0; padding:0; background:#f5f8fc; font-family:Arial,Helvetica,sans-serif; color:#1a2a33;">
-  <!-- Preheader (hidden) -->
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
     ${preheader}
   </div>
@@ -715,7 +983,6 @@ function buildAutovisaEmail({
     <tr>
       <td align="center">
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px; background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 6px 30px rgba(0,0,0,0.06);">
-          <!-- Header / Logo -->
           <tr>
             <td align="center" style="padding:24px; background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);">
               ${logoUrl
@@ -724,7 +991,6 @@ function buildAutovisaEmail({
             </td>
           </tr>
 
-          <!-- Content -->
           <tr>
             <td style="padding:28px 28px 8px;">
               ${greeting ? `<div style="font-size:16px; margin-bottom:8px;">${greeting}</div>` : ""}
@@ -734,7 +1000,6 @@ function buildAutovisaEmail({
           </tr>
 
           ${buttonText && buttonUrl ? `
-          <!-- Button -->
           <tr>
             <td align="center" style="padding:16px 28px 6px;">
               <a href="${buttonUrl}"
@@ -752,7 +1017,6 @@ function buildAutovisaEmail({
             </td>
           </tr>` : ""}
 
-          <!-- Footer -->
           <tr>
             <td style="padding:18px 28px 28px;">
               <div style="border-top:1px solid #e3e9ef; padding-top:14px; font-size:12px; color:#6b7a86;">
@@ -771,15 +1035,16 @@ function buildAutovisaEmail({
 </body>
 </html>`;
 }
-// === 📝 Registrierung mit Verifizierungslink ===
+
+/* =========================
+   📝 Registrierung
+========================= */
 app.post("/register", async (req, res) => {
   let { name, email, password } = req.body;
 
-  // Normalisieren
   name  = (name  || "").trim();
   email = (email || "").trim().toLowerCase();
 
-  // Validierung
   if (!name || !email || !password) {
     return res.status(400).json({ error: "Alle Felder sind erforderlich." });
   }
@@ -790,22 +1055,19 @@ app.post("/register", async (req, res) => {
   try {
     const nutzerColl = db.collection("nutzer");
 
-    // E-Mail darf nur einmal existieren
     const exists = await nutzerColl.findOne({ email });
     if (exists) {
       return res.status(400).json({ error: "E-Mail bereits registriert." });
     }
 
-    // Token + Passwort-Hash
     const token = crypto.randomBytes(20).toString("hex");
     const hash  = await bcrypt.hash(password, 12);
 
-    // Nutzer-Dokument
     const neuerNutzer = {
-      id: Date.now().toString(),   // interne string-ID
+      id: Date.now().toString(),
       name,
       email,
-      password: hash,              // ✅ gehasht
+      password: hash,
       verified: false,
       token,
       role: "privat",
@@ -814,19 +1076,10 @@ app.post("/register", async (req, res) => {
 
     await nutzerColl.insertOne(neuerNutzer);
 
-    // URLs aus ENV (robust, auch falls getUrls() nicht definiert ist)
-    const hasGetUrls = (typeof getUrls === "function");
-    const urls = hasGetUrls
-      ? getUrls()
-      : {
-          api:    process.env.API_URL || process.env.BASE_URL || `http://localhost:${PORT}`,
-          appUrl: process.env.PUBLIC_APP_URL || process.env.API_URL || process.env.BASE_URL || `http://localhost:${PORT}`,
-        };
-
+    const urls = getUrls();
     const verifyLink = `${urls.api}/verify?token=${token}`;
     const logoUrl    = `${urls.appUrl}/${encodeURIComponent("AUTOVISA LOGO.PNG")}`;
 
-    // Mailinhalt
     const subject = "Bitte bestätige deine Registrierung";
     const html = buildAutovisaEmail({
       subject,
@@ -838,6 +1091,7 @@ app.post("/register", async (req, res) => {
       buttonUrl: verifyLink,
       footerNote: "Wenn du dich nicht bei Autovisa registriert hast, kannst du diese E-Mail ignorieren."
     });
+
     const text =
 `Willkommen bei Autovisa, ${name}!
 Bitte bestätige deine E-Mail, um die Registrierung abzuschließen:
@@ -845,7 +1099,6 @@ ${verifyLink}
 
 Wenn du dich nicht registriert hast, ignoriere diese E-Mail.`;
 
-    // Versand (Absender/Reply-To kommen aus ENV via MAIL_FROM/MAIL_REPLY_TO)
     const info = await transporter.sendMail({
       from: MAIL_FROM,
       replyTo: MAIL_REPLY_TO,
@@ -861,14 +1114,15 @@ Wenn du dich nicht registriert hast, ignoriere diese E-Mail.`;
   } catch (mailOrDbErr) {
     console.error("❌ Fehler bei Registrierung/Versand:", mailOrDbErr);
 
-    // Falls der Nutzer bereits angelegt wurde, aber Versand scheiterte:
     try { if (email) await db.collection("nutzer").deleteOne({ email, verified: false }); } catch {}
 
     return res.status(500).json({ error: "Interner Fehler oder E-Mail-Versand fehlgeschlagen." });
   }
 });
 
-// === Login-Route (bcrypt + sanfte Migration + signierte Session) ===
+/* =========================
+   🔐 Login (bcrypt + Migration + signierte Session)
+========================= */
 app.post("/login", async (req, res) => {
   let { email, password } = req.body;
 
@@ -881,19 +1135,17 @@ app.post("/login", async (req, res) => {
     const nutzerColl = db.collection("nutzer");
     const user = await nutzerColl.findOne({ email });
 
-    // Einheitliche Fehlerausgabe (keine Info, ob E-Mail existiert)
     if (!user) {
       return res.status(401).json({ error: "❌ E-Mail oder Passwort falsch." });
     }
 
-    // Passwort prüfen (sanfte Migration auf bcrypt)
     let passOK = false;
+
     if (typeof user.password === "string" && user.password.startsWith("$2")) {
       passOK = await bcrypt.compare(password, user.password);
     } else {
       passOK = user.password === password;
       if (passOK) {
-        // ✅ Sofortige Migration auf Hash
         const newHash = await bcrypt.hash(password, 12);
         await nutzerColl.updateOne({ _id: user._id }, { $set: { password: newHash } });
       }
@@ -910,7 +1162,6 @@ app.post("/login", async (req, res) => {
     const { appUrl } = getUrls();
     const isSecureCookie = appUrl.startsWith("https") || process.env.NODE_ENV === "production";
 
-    // 🔒 Signierte Session setzen (einzig relevante Auth-Cookie)
     const payload = makeSessionPayload(user);
     const sessionToken = encodeSession(payload);
 
@@ -918,11 +1169,10 @@ app.post("/login", async (req, res) => {
       httpOnly: true,
       sameSite: "Lax",
       secure: isSecureCookie,
-      maxAge: 1000 * 60 * 60 * 24, // 1 Tag
+      maxAge: 1000 * 60 * 60 * 24,
       path: "/"
     });
 
-    // (Optional) UI-Helfer für dein Frontend – kein Security-Flag.
     res.cookie("isLoggedIn", "true", {
       httpOnly: false,
       sameSite: "Lax",
@@ -930,27 +1180,6 @@ app.post("/login", async (req, res) => {
       maxAge: 1000 * 60 * 60 * 24,
       path: "/"
     });
-
-    /* -----------------------------------------------
-       ⚠️ Legacy-Kompatibilität:
-       Wenn dein Frontend aktuell noch das unsignierte
-       "nutzer"-Cookie liest (z.B. /getNutzerInfo),
-       kannst du es vorübergehend weiter setzen.
-       ABER: Niemals für Auth nutzen!
-       -> Empfohlen: /getNutzerInfo auf "session" umstellen.
-    ------------------------------------------------
-    res.cookie("nutzer", JSON.stringify({
-      id: user.id,
-      role: user.role || "privat",
-      email: user.email
-    }), {
-      httpOnly: true,            // bewusst httpOnly lassen (nicht im Browser lesbar)
-      sameSite: "Lax",
-      secure: isSecureCookie,
-      maxAge: 1000 * 60 * 60 * 24,
-      path: "/"
-    });
-    ------------------------------------------------ */
 
     return res.json({
       success: true,
@@ -965,7 +1194,9 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// === Passwort-Zurücksetzen anfordern ===
+/* =========================
+   🔁 Passwort-Reset anfordern
+========================= */
 app.post("/forgot-password", async (req, res) => {
   let { email } = req.body;
   email = (email || "").trim().toLowerCase();
@@ -980,16 +1211,15 @@ app.post("/forgot-password", async (req, res) => {
 
     if (user) {
       const resetToken   = crypto.randomBytes(32).toString("hex");
-      const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 Stunde
+      const resetExpires = new Date(Date.now() + 60 * 60 * 1000);
 
       await nutzerColl.updateOne(
         { _id: user._id },
         { $set: { resetToken, resetTokenExpires: resetExpires } }
       );
 
-      const { api, appUrl } = getUrls();
+      const { appUrl } = getUrls();
 
-      // WICHTIG: hier deine Datei reset-passwort.html
       const resetLink = `${appUrl}/reset-passwort.html?token=${resetToken}`;
       const logoUrl   = `${appUrl}/${encodeURIComponent("AUTOVISA LOGO.PNG")}`;
       const subject   = "Passwort für Autovisa zurücksetzen";
@@ -1010,7 +1240,7 @@ app.post("/forgot-password", async (req, res) => {
         `Hallo ${name || ""},\n\n` +
         `du kannst dein Autovisa-Passwort über diesen Link zurücksetzen:\n${resetLink}\n\n` +
         "Wenn du diese Anfrage nicht gestellt hast, ignoriere diese E-Mail.";
-      
+
       await transporter.sendMail({
         from: MAIL_FROM,
         replyTo: MAIL_REPLY_TO,
@@ -1021,11 +1251,9 @@ app.post("/forgot-password", async (req, res) => {
       });
     }
 
-    // Immer gleiche Antwort → kein Info-Leak
     return res.json({
       success: true,
-      message:
-        "Wenn die E-Mail bei Autovisa registriert ist, haben wir dir einen Link geschickt.",
+      message: "Wenn die E-Mail bei Autovisa registriert ist, haben wir dir einen Link geschickt.",
     });
   } catch (err) {
     console.error("❌ Fehler bei /forgot-password:", err);
@@ -1033,7 +1261,9 @@ app.post("/forgot-password", async (req, res) => {
   }
 });
 
-// === Neues Passwort setzen (per Reset-Token) ===
+/* =========================
+   🔁 Neues Passwort setzen
+========================= */
 app.post("/reset-password", async (req, res) => {
   const { token, password } = req.body;
 
@@ -1054,9 +1284,7 @@ app.post("/reset-password", async (req, res) => {
     });
 
     if (!user) {
-      return res
-        .status(400)
-        .json({ error: "Dieser Link ist ungültig oder abgelaufen." });
+      return res.status(400).json({ error: "Dieser Link ist ungültig oder abgelaufen." });
     }
 
     const hash = await bcrypt.hash(password, 12);
@@ -1076,8 +1304,9 @@ app.post("/reset-password", async (req, res) => {
   }
 });
 
-
-// === Helper: Seller-Fallback für Aggregationen ===
+/* =========================
+   Helper: Seller-Fallback für Aggregationen
+========================= */
 function projectWithSeller() {
   return [
     {
@@ -1121,6 +1350,9 @@ function projectWithSeller() {
   ];
 }
 
+/* =========================
+   Private Liste veröffentlichter Inserate des Verkäufers
+========================= */
 app.get("/meine-inserate", checkLogin, async (req, res) => {
   try {
     const userId = req.nutzer.id;
@@ -1137,9 +1369,9 @@ app.get("/meine-inserate", checkLogin, async (req, res) => {
   }
 });
 
-// === Gespeicherte Inserate (Speichern / Status / Liste) ===
-
-// Toggle: speichern / entfernen
+/* =========================
+   Gespeicherte Inserate
+========================= */
 app.post("/saved/toggle", checkLogin, async (req, res) => {
   try {
     const userId = req.nutzer.id;
@@ -1150,17 +1382,13 @@ app.post("/saved/toggle", checkLogin, async (req, res) => {
     }
 
     const coll = db.collection("savedInserate");
-
-    // Existiert schon?
     const existing = await coll.findOne({ userId, fahrzeugId });
 
     if (existing) {
-      // => wieder entfernen
       await coll.deleteOne({ _id: existing._id });
       return res.json({ saved: false });
     }
 
-    // => neu speichern
     try {
       await coll.insertOne({
         userId,
@@ -1169,9 +1397,7 @@ app.post("/saved/toggle", checkLogin, async (req, res) => {
       });
       return res.json({ saved: true });
     } catch (err) {
-      // Falls der unique-Index zuschlägt (parallel geklickt / Alt-Daten):
       if (err && err.code === 11000) {
-        // Ist faktisch "gespeichert", also kein Fehler für den Nutzer
         return res.json({ saved: true });
       }
       throw err;
@@ -1187,8 +1413,6 @@ app.post("/saved/toggle", checkLogin, async (req, res) => {
   }
 });
 
-
-// Status für ein Inserat
 app.get("/saved/status/:fahrzeugId", checkLogin, async (req, res) => {
   try {
     const userId = req.nutzer.id;
@@ -1207,7 +1431,6 @@ app.get("/saved/status/:fahrzeugId", checkLogin, async (req, res) => {
   }
 });
 
-// (optional) komplette Liste der gespeicherten Inserate des Nutzers
 app.get("/saved/list", checkLogin, async (req, res) => {
   try {
     const userId = req.nutzer.id;
@@ -1240,9 +1463,16 @@ app.get("/saved/list", checkLogin, async (req, res) => {
     res.status(500).json({ error: "Fehler beim Laden der gespeicherten Inserate." });
   }
 });
-// === Nutzer-Info aus Session (Privat + Händler) ===
+
+/* =========================
+   Nutzer-Info aus Session (Privat + Händler)
+========================= */
 app.get("/getNutzerInfo", async (req, res) => {
   try {
+    if (!db) {
+      return res.status(503).json({ eingeloggt: false, error: "DB noch nicht bereit." });
+    }
+
     const sess = decodeSession(req.cookies.session);
     if (!sess?.id) {
       return res.json({ eingeloggt: false });
@@ -1260,7 +1490,6 @@ app.get("/getNutzerInfo", async (req, res) => {
           createdAt: 1,
           erstelltAm: 1,
 
-          // Adresse / Standort
           strasse: 1,
           hausnummer: 1,
           plz: 1,
@@ -1269,23 +1498,19 @@ app.get("/getNutzerInfo", async (req, res) => {
           adresse: 1,
           standort: 1,
 
-          // Kontakt
           telefon: 1,
           telefon2: 1,
           email: 1,
 
-          // Website / Profil
           website: 1,
           webseite: 1,
           homepage: 1,
 
-          // Öffnungszeiten
           oeffnungszeiten: 1,
           "öffnungszeiten": 1,
-          oeffnungszeitenDetails: 1,   // ✅ neu
+          oeffnungszeitenDetails: 1,
 
-          // Sprachen
-          sprachen: 1                  // ✅ neu
+          sprachen: 1
         }
       }
     );
@@ -1301,14 +1526,11 @@ app.get("/getNutzerInfo", async (req, res) => {
       rolleRaw.includes("haend") ||
       rolleRaw.includes("händ");
 
-    // Einheitliche created-Info für "Bei Autovisa seit …"
     const created = nutzer.erstelltAm || nutzer.createdAt || null;
 
-    // Website vereinheitlichen
     const website =
       nutzer.website || nutzer.webseite || nutzer.homepage || "";
 
-    // --- Händler-Bewertungen (Durchschnitt + Anzahl) ---
     let ratingAvg = null;
     let ratingCount = 0;
 
@@ -1322,7 +1544,7 @@ app.get("/getNutzerInfo", async (req, res) => {
                   { haendlerId: nutzer.id },
                   { sellerId: nutzer.id }
                 ],
-                rating: { $gt: 0 } // nur sinnvolle Bewertungen
+                rating: { $gt: 0 }
               }
             },
             {
@@ -1336,8 +1558,8 @@ app.get("/getNutzerInfo", async (req, res) => {
           .toArray();
 
         if (agg.length > 0) {
-          ratingAvg = agg[0].avg;     // z.B. 4.3
-          ratingCount = agg[0].count; // z.B. 12
+          ratingAvg = agg[0].avg;
+          ratingCount = agg[0].count;
         }
       } catch (ratingErr) {
         console.error("Fehler beim Laden der Händler-Bewertungen:", ratingErr);
@@ -1348,20 +1570,17 @@ app.get("/getNutzerInfo", async (req, res) => {
       eingeloggt: true,
       nutzerId: nutzer.id,
 
-      rolle: rolleRaw,               // fürs Frontend
-      role: nutzer.role || "privat", // falls irgendwo noch "role" genutzt wird
+      rolle: rolleRaw,
+      role: nutzer.role || "privat",
       isHaendler,
 
-      // Anzeigename
       name: nutzer.name || "",
       firma: nutzer.firma || "",
       anzeigeName: nutzer.firma || nutzer.name || "Unbekannt",
 
-      // Logo + Mitglied seit
       logoUrl: nutzer.logoUrl || "",
       createdAt: created,
 
-      // Adresse / Standort
       strasse: nutzer.strasse || "",
       hausnummer: nutzer.hausnummer || "",
       plz: nutzer.plz || "",
@@ -1370,25 +1589,20 @@ app.get("/getNutzerInfo", async (req, res) => {
       adresse: nutzer.adresse || "",
       standort: nutzer.standort || "",
 
-      // Kontakt
-      telefon:  nutzer.telefon  || "",        // Hauptnummer
-      telefon2: nutzer.telefon2 || "",        // zweite Nummer
+      telefon:  nutzer.telefon  || "",
+      telefon2: nutzer.telefon2 || "",
       email:    nutzer.email    || "",
 
-      // Website (vereinheitlicht)
       website,
 
-      // Öffnungszeiten (Text + strukturierte Daten)
       oeffnungszeiten:
         nutzer.oeffnungszeiten || nutzer["öffnungszeiten"] || "",
-      oeffnungszeitenDetails: nutzer.oeffnungszeitenDetails || null,  // ✅ neu
+      oeffnungszeitenDetails: nutzer.oeffnungszeitenDetails || null,
 
-      // Sprachen als Array (z.B. ["de", "en", "tr"])
-      sprachen: Array.isArray(nutzer.sprachen) ? nutzer.sprachen : [], // ✅ neu
+      sprachen: Array.isArray(nutzer.sprachen) ? nutzer.sprachen : [],
 
-      // Bewertungen (nur bei Händlern wirklich > 0)
-      ratingAvg,    // z.B. 4.3 oder null
-      ratingCount   // z.B. 12 oder 0
+      ratingAvg,
+      ratingCount
     });
   } catch (err) {
     console.error("❌ Fehler bei /getNutzerInfo:", err);
@@ -1399,15 +1613,17 @@ app.get("/getNutzerInfo", async (req, res) => {
 });
 
 
+// ============================================================
+// ✅ 2. Hälfte – bereinigt & kompatibel zur 1. Hälfte
+// ============================================================
 
+
+// ------------------------------------------------------------
 // Profil-Felder (Adresse, Telefon, Website, Öffnungszeiten) speichern
-app.post("/profil/update", async (req, res) => {
+// -> jetzt mit checkLogin, damit verified + req.nutzer sauber genutzt wird
+// ------------------------------------------------------------
+app.post("/profil/update", checkLogin, async (req, res) => {
   try {
-    const sess = decodeSession(req.cookies.session);
-    if (!sess?.id) {
-      return res.status(401).json({ error: "Nicht eingeloggt." });
-    }
-
     const { field, value } = req.body || {};
     if (!field) {
       return res.status(400).json({ error: "Kein Feld angegeben." });
@@ -1418,8 +1634,7 @@ app.post("/profil/update", async (req, res) => {
 
     switch (field) {
       case "address":
-        // freie Textadresse – getrennte Felder bleiben unangetastet
-        update.adresse = v;
+        update.adresse = v; // freie Textadresse
         break;
       case "phone":
         update.telefon = v;
@@ -1428,17 +1643,16 @@ app.post("/profil/update", async (req, res) => {
         update.website = v;
         break;
       case "openingHours":
-        // genau hier landen die bearbeiteten Öffnungszeiten (inkl. Mo–So-Template)
-        update.oeffnungszeiten = v;
+        update.oeffnungszeiten = v; // bearbeiteter Text inkl. Template
         break;
       default:
-        return res
-          .status(400)
-          .json({ error: "Dieses Feld darf nicht aktualisiert werden." });
+        return res.status(400).json({
+          error: "Dieses Feld darf nicht aktualisiert werden."
+        });
     }
 
     await db.collection("nutzer").updateOne(
-      { id: sess.id },
+      { id: req.nutzer.id },
       { $set: update }
     );
 
@@ -1450,8 +1664,9 @@ app.post("/profil/update", async (req, res) => {
 });
 
 
-
-
+// ------------------------------------------------------------
+// Multer-Instanz für Logo-Upload (nutzt storage aus Teil 1)
+// ------------------------------------------------------------
 const uploadLogo = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024, files: 1 }, // 5 MB
@@ -1460,11 +1675,12 @@ const uploadLogo = multer({
     cb(ok ? null : new Error("Nur Bilddateien (PNG/JPG/WEBP) erlaubt."), ok);
   }
 });
-// === Händlerregistrierung mit optionalem Logo-Upload ===
-// === Händlerregistrierung mit optionalem Logo-Upload ===
-// === Händlerregistrierung mit optionalem Logo-Upload ===
+
+
+// ------------------------------------------------------------
+// Händlerregistrierung mit optionalem Logo-Upload
+// ------------------------------------------------------------
 app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) => {
-  // Felder kommen bei multipart als Strings
   const {
     firma,
     strasse,
@@ -1486,12 +1702,10 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
     datenschutz,
     password,
     confirmPassword,
-    website,            // ✅ Website (optional)
-
-    // Öffnungszeiten-Felder & Sprachen kommen auch in req.body an
+    website
   } = req.body;
 
-  // Normalisierung / Sanitizing
+  // Normalisierung
   const _firma           = (firma || "").trim();
   const _email           = (email || "").trim().toLowerCase();
   const _strasse         = (strasse || "").trim();
@@ -1507,7 +1721,7 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
   const _iban            = (iban || "").replace(/\s+/g, "").toUpperCase();
   const _bic             = (bic || "").replace(/\s+/g, "").toUpperCase();
   const _impressum       = (impressum || "").trim();
-  const _website         = (website || "").trim();   // ✅ Website normalisieren
+  const _website         = (website || "").trim();
 
   const toBool = (v) =>
     v === true || v === "true" || v === "on" || v === 1 || v === "1";
@@ -1516,7 +1730,7 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
   const _agb         = toBool(agb);
   const _datenschutz = toBool(datenschutz);
 
-  // ✅ Öffnungszeiten aus den Einzel-Feldern bauen
+  // ✅ Öffnungszeiten aus Input-Feldern bauen
   const dayLabels = {
     mo: "Montag",
     di: "Dienstag",
@@ -1541,7 +1755,7 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
 
     openingDetails[key] = { von, bis, closed };
 
-    // Wenn gar nichts eingetragen wurde, überspringen wir den Tag einfach
+    // Wenn gar nichts eingetragen wurde, Tag überspringen
     if (!von && !bis && !closed) continue;
 
     if (closed || (!von && !bis)) {
@@ -1565,8 +1779,7 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
   // Pflichtfelder prüfen
   if (!_firma || !_email || !password || !_agb || !_datenschutz) {
     return res.status(400).json({
-      error:
-        "Bitte füllen Sie alle Pflichtfelder aus und akzeptieren Sie AGB & Datenschutz.",
+      error: "Bitte füllen Sie alle Pflichtfelder aus und akzeptieren Sie AGB & Datenschutz.",
     });
   }
 
@@ -1575,9 +1788,9 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
   }
 
   if (!_telefon) {
-    return res
-      .status(400)
-      .json({ error: "Bitte eine Telefonnummer für Kundenanfragen angeben." });
+    return res.status(400).json({
+      error: "Bitte eine Telefonnummer für Kundenanfragen angeben.",
+    });
   }
 
   try {
@@ -1586,14 +1799,12 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
     // E-Mail darf nur einmal vorkommen
     const existing = await nutzerColl.findOne({ email: _email });
     if (existing) {
-      return res
-        .status(400)
-        .json({ error: "Diese E-Mail-Adresse wird bereits verwendet." });
+      return res.status(400).json({
+        error: "Diese E-Mail-Adresse wird bereits verwendet.",
+      });
     }
 
     const newId = crypto.randomUUID();
-
-    // Verifizierungs-Token generieren
     const token = crypto.randomBytes(32).toString("hex");
     const hash  = await bcrypt.hash(password, 12);
 
@@ -1606,19 +1817,17 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
         const uploadRes = await cloudinary.uploader.upload(req.file.path, {
           folder: "autovisa/haendler-logos",
           overwrite: true,
+          resource_type: "image",
         });
         logoUrl      = uploadRes.secure_url;
         logoPublicId = uploadRes.public_id;
       } catch (err) {
         console.error("❌ Fehler beim Logo-Upload:", err);
       } finally {
-        try {
-          fs.unlink(req.file.path, () => {});
-        } catch {}
+        try { fs.unlinkSync(req.file.path); } catch {}
       }
     }
 
-    // Händler-Dokument
     const neuerHaendler = {
       id:        newId,
       role:      "haendler",
@@ -1642,11 +1851,11 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
       ...( _website ? { website: _website } : {} ),
       ...( sprachenArr.length ? { sprachen: sprachenArr } : {} ),
       ...( _oeffnungszeiten
-          ? {
-              oeffnungszeiten:       _oeffnungszeiten,   // hübscher Text
-              oeffnungszeitenDetails: openingDetails,    // strukturierte Daten
-            }
-          : { oeffnungszeitenDetails: openingDetails }
+        ? {
+            oeffnungszeiten:        _oeffnungszeiten,
+            oeffnungszeitenDetails: openingDetails,
+          }
+        : { oeffnungszeitenDetails: openingDetails }
       ),
 
       // Tarif / Zahlung
@@ -1665,14 +1874,12 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
       password: hash,
 
       // Logo (optional)
-      ...(logoUrl
-        ? { logoUrl, logoPublicId, logoUpdatedAt: new Date() }
-        : {}),
+      ...(logoUrl ? { logoUrl, logoPublicId, logoUpdatedAt: new Date() } : {}),
     };
 
     await nutzerColl.insertOne(neuerHaendler);
 
-    // 🔗 Verifizierungs-Link bauen – **immer** vom aktuellen Host aus
+    // 🔗 Verifizierungs-Link bauen – Host-First
     const { appUrl: envAppUrl } = getAppUrls();
     const proto = (req.headers["x-forwarded-proto"] || req.protocol || "https")
       .split(",")[0];
@@ -1680,10 +1887,9 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
     const baseUrl = (host ? `${proto}://${host}` : envAppUrl || "")
       .replace(/\/+$/, "");
 
-    const verifyUrl = `${baseUrl}/verify?token=${token}`;
+    const verifyUrl   = `${baseUrl}/verify?token=${token}`;
     const logoMailUrl = `${baseUrl}/${encodeURIComponent("AUTOVISA LOGO.PNG")}`;
-
-    const subject = "Bitte bestätigen Sie Ihre Händlerregistrierung";
+    const subject     = "Bitte bestätigen Sie Ihre Händlerregistrierung";
 
     const html = buildAutovisaEmail({
       subject,
@@ -1709,7 +1915,6 @@ ${verifyUrl}
 
 Falls Sie sich nicht registriert haben, können Sie diese E-Mail ignorieren.`;
 
-    // ✅ Mail jetzt mit dem zentralen Transporter + MAIL_FROM verschicken
     await transporter.sendMail({
       from: MAIL_FROM,
       replyTo: MAIL_REPLY_TO,
@@ -1723,14 +1928,19 @@ Falls Sie sich nicht registriert haben, können Sie diese E-Mail ignorieren.`;
       ok: true,
       message: "Registrierung erfolgreich. Bitte prüfen Sie Ihre E-Mails.",
     });
+
   } catch (err) {
     console.error("❌ Fehler bei /haendler-registrieren:", err);
-    return res
-      .status(500)
-      .json({ error: "Serverfehler bei der Händlerregistrierung." });
+    return res.status(500).json({
+      error: "Serverfehler bei der Händlerregistrierung."
+    });
   }
 });
 
+
+// ------------------------------------------------------------
+// Händler-Logo nachträglich ändern
+// ------------------------------------------------------------
 app.post("/haendler/logo", checkLogin, uploadLogo.single("logo"), async (req, res) => {
   try {
     if (req.nutzer.role !== "haendler") {
@@ -1741,7 +1951,11 @@ app.post("/haendler/logo", checkLogin, uploadLogo.single("logo"), async (req, re
     }
 
     const folder = `autovisa/${req.nutzer.id}/logo`;
-    const result = await uploadFileToCloudinary(req.file.path, { folder, resource_type: "image" });
+    const result = await uploadFileToCloudinary(req.file.path, {
+      folder,
+      resource_type: "image"
+    });
+
     try { fs.unlinkSync(req.file.path); } catch {}
 
     const nutzerColl = db.collection("nutzer");
@@ -1750,11 +1964,13 @@ app.post("/haendler/logo", checkLogin, uploadLogo.single("logo"), async (req, re
       { projection: { logoPublicId: 1 } }
     );
 
-    // optional: altes Logo aus Cloudinary löschen
+    // optional: altes Logo löschen
     if (old?.logoPublicId && old.logoPublicId !== result.public_id) {
       try {
-        await cloudinary.uploader.destroy(old.logoPublicId, { resource_type: "image" });
-      } catch (e) {}
+        await cloudinary.uploader.destroy(old.logoPublicId, {
+          resource_type: "image"
+        });
+      } catch {}
     }
 
     await nutzerColl.updateOne(
@@ -1768,7 +1984,7 @@ app.post("/haendler/logo", checkLogin, uploadLogo.single("logo"), async (req, re
       }
     );
 
-    // ⬇️ Logo sofort in allen Inseraten/Entwürfen spiegeln
+    // Logo in Inseraten/Entwürfen spiegeln
     await db.collection("inserate").updateMany(
       { verkaeuferId: req.nutzer.id },
       { $set: { "seller.logoUrl": result.secure_url } }
@@ -1785,22 +2001,20 @@ app.post("/haendler/logo", checkLogin, uploadLogo.single("logo"), async (req, re
   }
 });
 
-// === ✅ Verifikations-Route (Redirect auf Frontend) ===
+
+// ------------------------------------------------------------
+// ✅ Verifikations-Route (Redirect auf Frontend)
+// ------------------------------------------------------------
 app.get("/verify", async (req, res) => {
   const { token } = req.query;
 
-  // Basis-URL: bevorzugt Host aus der aktuellen Anfrage,
-  // sonst Fallback auf ENV (getUrls / PUBLIC_APP_URL)
   const { appUrl: envAppUrl } = getAppUrls();
   const proto = (req.headers["x-forwarded-proto"] || req.protocol || "https")
     .split(",")[0];
   const host = req.get("host");
-  const baseUrl = (host ? `${proto}://${host}` : envAppUrl || "").replace(
-    /\/+$/,
-    ""
-  );
+  const baseUrl = (host ? `${proto}://${host}` : envAppUrl || "")
+    .replace(/\/+$/, "");
 
-  // Keine Caches für diesen Endpunkt
   res.set("Cache-Control", "no-store");
 
   if (!token || typeof token !== "string") {
@@ -1809,15 +2023,12 @@ app.get("/verify", async (req, res) => {
 
   try {
     const nutzerColl = db.collection("nutzer");
-
-    // Token suchen
     const user = await nutzerColl.findOne({ token });
+
     if (!user) {
-      // Schon bestätigt oder Token falsch/abgelaufen
       return res.redirect(`${baseUrl}/login.html?verified=0&reason=token`);
     }
 
-    // Verifizieren & Token entfernen
     await nutzerColl.updateOne(
       { _id: user._id },
       {
@@ -1826,7 +2037,6 @@ app.get("/verify", async (req, res) => {
       }
     );
 
-    // Erfolg
     return res.redirect(`${baseUrl}/login.html?verified=1`);
   } catch (err) {
     console.error("❌ Fehler bei /verify:", err);
@@ -1835,7 +2045,9 @@ app.get("/verify", async (req, res) => {
 });
 
 
+// ------------------------------------------------------------
 // ====== E-Mail-Benachrichtigung bei neuer Chat-Nachricht ======
+// ------------------------------------------------------------
 const NOTIFY_ENABLED = (process.env.NOTIFY_EMAILS ?? "1") !== "0";
 const NOTIFY_MIN_INTERVAL_MIN = parseInt(process.env.NOTIFY_MIN_INTERVAL_MIN || "10", 10);
 
@@ -1848,7 +2060,8 @@ function getAppUrls() {
   }
 }
 
-function escapeHtml(s = "") {
+function escapeHtml(input = "") {
+  const s = String(input);
   return s.replace(/[&<>"']/g, c => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   }[c]));
@@ -1863,7 +2076,7 @@ async function sendNewMessageEmail({ to, recipientName, senderName, messagePrevi
   const html = buildAutovisaEmail({
     subject,
     logoUrl,
-    greeting: `Hallo ${recipientName || ""},`,
+    greeting: `Hallo ${escapeHtml(recipientName || "")},`,
     title: "Du hast eine neue Nachricht",
     htmlText: `
       <p><b>${escapeHtml(senderName)}</b> hat dir eine neue Nachricht geschickt:</p>
@@ -1874,7 +2087,8 @@ async function sendNewMessageEmail({ to, recipientName, senderName, messagePrevi
     `,
     buttonText: "Zum Chat",
     buttonUrl: chatUrl,
-    footerNote: "Diese Benachrichtigung wurde automatisch gesendet. Du kannst E-Mail-Benachrichtigungen jederzeit in deinen Einstellungen deaktivieren."
+    footerNote:
+      "Diese Benachrichtigung wurde automatisch gesendet. Du kannst E-Mail-Benachrichtigungen jederzeit in deinen Einstellungen deaktivieren."
   });
 
   const text =
@@ -1898,7 +2112,7 @@ ${chatUrl}
   });
 }
 
-// Throttling: max. 1 Mail pro 10 Min je (empfaengerId, senderId, fahrzeugId)
+// Throttling: max. 1 Mail pro Intervall je (empfaengerId, senderId, fahrzeugId)
 async function shouldSendNowAndTouchThrottle({ empfaengerId, senderId, fahrzeugId }) {
   try {
     const coll = db.collection("notifyThrottle");
@@ -1906,7 +2120,6 @@ async function shouldSendNowAndTouchThrottle({ empfaengerId, senderId, fahrzeugI
     const now = new Date();
     const minAgo = new Date(Date.now() - NOTIFY_MIN_INTERVAL_MIN * 60 * 1000);
 
-    // Atomar mit Aggregations-Pipeline upsert (erfordert MongoDB 4.2+)
     const r = await coll.findOneAndUpdate(
       { key },
       [
@@ -1925,32 +2138,46 @@ async function shouldSendNowAndTouchThrottle({ empfaengerId, senderId, fahrzeugI
     return previous < minAgo;
   } catch (e) {
     console.warn("Notify throttle error:", e?.message || e);
-    return true; // im Zweifel senden
+    return true;
   }
 }
 
+
+// ------------------------------------------------------------
 // === Nachricht senden ===
-// Sicherheitsänderung: Sender NUR aus Session, nicht aus Body
+// SenderId nur aus Session (checkLogin)
+// absenderName optional – wird serverseitig sauber gefüllt
+// ------------------------------------------------------------
 app.post("/nachricht-senden", checkLogin, async (req, res) => {
-  const { empfaengerId, fahrzeugId, absenderName, nachricht } = req.body;
+  const { empfaengerId, fahrzeugId, absenderName, nachricht } = req.body || {};
   const senderId = req.nutzer.id;
 
-  if (!senderId || !empfaengerId || !fahrzeugId || !nachricht || !absenderName) {
+  if (!senderId || !empfaengerId || !fahrzeugId || !nachricht) {
     return res.status(400).json({ error: "Fehlende Felder." });
   }
-  if (senderId === empfaengerId) {
+  if (String(senderId) === String(empfaengerId)) {
     return res.status(400).json({ error: "Absender und Empfänger dürfen nicht identisch sein." });
   }
 
   try {
     const nachrichtenColl = db.collection("nachrichten");
+    const nutzerColl = db.collection("nutzer");
+
+    const senderUser = await nutzerColl.findOne(
+      { id: String(senderId) },
+      { projection: { name: 1, firma: 1 } }
+    );
+
+    const absenderNameFinal = String(
+      absenderName || senderUser?.firma || senderUser?.name || "Interessent"
+    ).trim().slice(0, 128);
 
     const neueNachricht = {
       id: Date.now().toString(),
-      senderId,
+      senderId: String(senderId),
       empfaengerId: String(empfaengerId),
       fahrzeugId: String(fahrzeugId),
-      absenderName: String(absenderName).trim().slice(0, 128),
+      absenderName: absenderNameFinal,
       nachricht: String(nachricht).trim().slice(0, 5000),
       zeit: new Date().toISOString(),
       gelesen: false
@@ -1968,72 +2195,69 @@ app.post("/nachricht-senden", checkLogin, async (req, res) => {
         });
 
         if (okToSend) {
-          const nutzerColl = db.collection("nutzer");
-          const [empf, sndr] = await Promise.all([
-            nutzerColl.findOne({ id: String(empfaengerId) }, { projection: { email: 1, name: 1, firma: 1 } }),
-            nutzerColl.findOne({ id: String(senderId) },    { projection: { name: 1, firma: 1 } })
-          ]);
+          const empf = await nutzerColl.findOne(
+            { id: String(empfaengerId) },
+            { projection: { email: 1, name: 1, firma: 1 } }
+          );
 
           const recipientEmail = empf?.email || "";
           const recipientName  = empf?.firma || empf?.name || "Nutzer";
-          const senderName     = absenderName || sndr?.firma || sndr?.name || "Interessent";
 
           if (recipientEmail) {
             const { appUrl } = getAppUrls();
-            const chatUrl = `${appUrl}/chat.html?user=${encodeURIComponent(empfaengerId)}&with=${encodeURIComponent(senderId)}&fahrzeug=${encodeURIComponent(fahrzeugId)}`;
+            const chatUrl =
+              `${appUrl}/chat.html?user=${encodeURIComponent(empfaengerId)}` +
+              `&with=${encodeURIComponent(senderId)}` +
+              `&fahrzeug=${encodeURIComponent(fahrzeugId)}`;
 
             await sendNewMessageEmail({
               to: recipientEmail,
               recipientName,
-              senderName,
+              senderName: absenderNameFinal,
               messagePreview: neueNachricht.nachricht,
               chatUrl
             });
-            console.log(`✅ Mail-Benachrichtigung an ${recipientEmail} gesendet.`);
-          } else {
-            console.log("ℹ️ Empfänger ohne E-Mail – Benachrichtigung übersprungen.");
           }
-        } else {
-          console.log("⏳ Benachrichtigung gedrosselt (Intervall).");
         }
       }
     } catch (mailErr) {
       console.error("⚠️ Konnte Benachrichtigung nicht senden:", mailErr);
     }
 
-    // API-Antwort erst am Ende zurückgeben
-    res.json({ success: true });
+    return res.json({ success: true });
 
   } catch (err) {
     console.error("❌ Fehler beim Speichern der Nachricht:", err);
-    res.status(500).json({ error: "Fehler beim Speichern der Nachricht." });
+    return res.status(500).json({ error: "Fehler beim Speichern der Nachricht." });
   }
 });
 
 
-// === Inserat-Details (inkl. "isSaved" für aktuellen Nutzer) ===
+// ------------------------------------------------------------
+// === Inserat-Details (inkl. "isSaved" für aktuellen Nutzer)
+// -> savedInserate Schema korrigiert: userId + fahrzeugId
+// ------------------------------------------------------------
 app.get("/inserat-details/:id", async (req, res) => {
   try {
     const oid = new ObjectId(String(req.params.id));
     const coll = db.collection("inserate");
+
     const doc = await coll.findOne({ _id: oid });
     if (!doc) return res.status(404).json({ error: "Nicht gefunden" });
 
-    // Optional: eingeloggten Nutzer aus Session lesen (für isSaved)
+    // Optional: eingeloggten Nutzer aus Session lesen
     let currentUserId = null;
     try {
       const sess = decodeSession(req.cookies.session);
       currentUserId = sess?.id || null;
-    } catch {
-      currentUserId = null;
-    }
+    } catch {}
 
-    // Verkäufer-ID aus Inserat holen
+    // Verkäufer-ID
     const sellerId = String(
       doc.seller?.id || doc.verkaeuferId || ""
     ).trim();
 
-    // Vollständiges Profil aus "nutzer" holen (Privat + Händler)
+    // Vollständiges Profil laden (Privat + Händler)
     let sellerProfile = null;
     if (sellerId) {
       sellerProfile = await db.collection("nutzer").findOne(
@@ -2045,46 +2269,38 @@ app.get("/inserat-details/:id", async (req, res) => {
             firma: 1,
             name: 1,
             logoUrl: 1,
-            // Adresse
             strasse: 1,
             hausnummer: 1,
             plz: 1,
             ort: 1,
             land: 1,
-            // Kontakt
             telefon: 1,
             telefon2: 1,
             email: 1,
-            // Website
             website: 1,
             webseite: 1,
-            // Sprachen & "Mitglied seit"
             sprachen: 1,
             languages: 1,
             createdAt: 1,
             erstelltAm: 1,
-            // Öffnungszeiten (als Text)
             oeffnungszeiten: 1,
-            // Impressum
             impressum: 1,
           },
         }
       );
     }
 
-    // Prüfen, ob dieses Inserat vom aktuellen Nutzer gespeichert wurde
+    // isSaved prüfen (Schema: userId + fahrzeugId)
     let isSaved = false;
     if (currentUserId) {
       try {
-        const savedDoc = await db
-          .collection("savedInserate")
-          .findOne({ nutzerId: currentUserId, inseratId: oid });
+        const savedDoc = await db.collection("savedInserate").findOne({
+          userId: String(currentUserId),
+          fahrzeugId: String(oid)
+        });
         isSaved = !!savedDoc;
       } catch (e) {
-        console.warn(
-          "Fehler beim Prüfen von savedInserate:",
-          e?.message || e
-        );
+        console.warn("Fehler beim Prüfen von savedInserate:", e?.message || e);
       }
     }
 
@@ -2105,7 +2321,6 @@ app.get("/inserat-details/:id", async (req, res) => {
     const sellerLogo =
       sellerProfile?.logoUrl || doc.seller?.logoUrl || "";
 
-    // Sprachen aus Profil aufbereiten
     let sellerLangs = [];
     if (Array.isArray(sellerProfile?.sprachen)) {
       sellerLangs = sellerProfile.sprachen;
@@ -2114,7 +2329,7 @@ app.get("/inserat-details/:id", async (req, res) => {
     } else if (typeof sellerProfile?.languages === "string") {
       sellerLangs = sellerProfile.languages
         .split(",")
-        .map((s) => s.trim())
+        .map(s => s.trim())
         .filter(Boolean);
     }
 
@@ -2124,13 +2339,15 @@ app.get("/inserat-details/:id", async (req, res) => {
     res.json({
       id: doc._id?.toString?.() || String(doc._id || ""),
       titel: doc.titel || "",
-      // Hauptpreis
       preis:
         doc.verkauf_brutto ??
         doc.verkauf_preis ??
         doc.preis ??
         null,
+
       images: Array.isArray(doc.images) ? doc.images : [],
+      video: doc.video || null,
+
       verkauf_kurzbeschreibung: doc.verkauf_kurzbeschreibung || "",
       verkauf_kilometer: doc.verkauf_kilometer ?? null,
       verkauf_erstzulassung: doc.verkauf_erstzulassung || null,
@@ -2140,55 +2357,34 @@ app.get("/inserat-details/:id", async (req, res) => {
       verkauf_verbrauch_kombiniert:
         doc.verkauf_verbrauch_kombiniert || null,
 
-      // Verkäufer-Typ & Name aus Inserat (falls privat) oder Profil
       verkauf_verkaeufer: doc.verkauf_verkaeufer || "",
       verkauf_name: doc.verkauf_name || "",
 
-      // Standort aus Inserat (für Karte & Privat)
       standort: doc.standort || "",
       standortCoords: doc.standortCoords || null,
 
-      // Telefon/E-Mail vom Inserat (für Privat)
       telefon: doc.telefon || "",
       email: doc.email || "",
 
-      // Erweitertes Seller-Objekt mit Profil-Daten (v.a. Händler)
       seller: {
         id: sellerId || "",
         type: sellerType,
         name: sellerName,
         logoUrl: sellerLogo,
 
-        // Adresse (Händler)
         strasse: sellerProfile?.strasse || "",
         hausnummer: sellerProfile?.hausnummer || "",
         plz: sellerProfile?.plz || "",
         ort: sellerProfile?.ort || "",
         land: sellerProfile?.land || "",
 
-        // Kontakt (Händler)
-        telefon:
-          sellerProfile?.telefon ||
-          sellerProfile?.telefon2 ||
-          "",
+        telefon: sellerProfile?.telefon || sellerProfile?.telefon2 || "",
         email: sellerProfile?.email || "",
 
-        // Website (Händler)
-        website:
-          sellerProfile?.website ||
-          sellerProfile?.webseite ||
-          "",
-
-        // Sprachen (Händler)
+        website: sellerProfile?.website || sellerProfile?.webseite || "",
         sprachen: sellerLangs,
-
-        // Mitglied seit
         createdAt: sellerCreatedAt,
-
-        // Öffnungszeiten (Rohtext)
         oeffnungszeiten: sellerProfile?.oeffnungszeiten || "",
-
-        // Impressum
         impressum: sellerProfile?.impressum || "",
       },
 
@@ -2201,32 +2397,27 @@ app.get("/inserat-details/:id", async (req, res) => {
 });
 
 
-
-
-// === Inserat speichern ===
+// ------------------------------------------------------------
+// === Legacy: Inserat speichern/entspeichern
+// -> nutzt jetzt dasselbe Schema wie /saved/* aus Teil 1
+// ------------------------------------------------------------
 app.post("/inserat/save", checkLogin, async (req, res) => {
   const { fahrzeugId } = req.body || {};
-  if (!fahrzeugId) {
-    return res.status(400).json({ error: "Fahrzeug-ID fehlt." });
-  }
+  const fid = String(fahrzeugId || "").trim();
+  if (!fid) return res.status(400).json({ error: "Fahrzeug-ID fehlt." });
 
-  let oid;
-  try {
-    oid = new ObjectId(String(fahrzeugId));
-  } catch {
+  // Nur Validierungs-Check (optional)
+  try { new ObjectId(fid); } catch {
     return res.status(400).json({ error: "Ungültige Fahrzeug-ID." });
   }
 
   try {
     const coll = db.collection("savedInserate");
     await coll.updateOne(
-      { nutzerId: req.nutzer.id, inseratId: oid },
+      { userId: req.nutzer.id, fahrzeugId: fid },
       {
-        $set: {
-          nutzerId: req.nutzer.id,
-          inseratId: oid,
-          createdAt: new Date()
-        }
+        $setOnInsert: { createdAt: new Date() },
+        $set: { userId: req.nutzer.id, fahrzeugId: fid }
       },
       { upsert: true }
     );
@@ -2238,23 +2429,18 @@ app.post("/inserat/save", checkLogin, async (req, res) => {
   }
 });
 
-// === Inserat aus gespeicherten entfernen ===
 app.post("/inserat/unsave", checkLogin, async (req, res) => {
   const { fahrzeugId } = req.body || {};
-  if (!fahrzeugId) {
-    return res.status(400).json({ error: "Fahrzeug-ID fehlt." });
-  }
+  const fid = String(fahrzeugId || "").trim();
+  if (!fid) return res.status(400).json({ error: "Fahrzeug-ID fehlt." });
 
-  let oid;
-  try {
-    oid = new ObjectId(String(fahrzeugId));
-  } catch {
+  try { new ObjectId(fid); } catch {
     return res.status(400).json({ error: "Ungültige Fahrzeug-ID." });
   }
 
   try {
     const coll = db.collection("savedInserate");
-    await coll.deleteOne({ nutzerId: req.nutzer.id, inseratId: oid });
+    await coll.deleteOne({ userId: req.nutzer.id, fahrzeugId: fid });
 
     return res.json({ success: true, saved: false });
   } catch (err) {
@@ -2264,11 +2450,14 @@ app.post("/inserat/unsave", checkLogin, async (req, res) => {
 });
 
 
-// === Nachrichten für Empfänger abrufen ===
-// Sicherheitsänderung: Nur der eingeloggte Nutzer darf seine Nachrichten abrufen
+// ------------------------------------------------------------
+// === Nachrichten für Empfänger abrufen
+// ------------------------------------------------------------
 app.get("/nachrichten/:empfaengerId", checkLogin, async (req, res) => {
   const { empfaengerId } = req.params;
-  if (!empfaengerId) return res.status(400).json({ error: "Keine ID übergeben." });
+  if (!empfaengerId) {
+    return res.status(400).json({ error: "Keine ID übergeben." });
+  }
 
   if (req.nutzer.id !== empfaengerId) {
     return res.status(403).json({ error: "Zugriff verweigert." });
@@ -2286,23 +2475,30 @@ app.get("/nachrichten/:empfaengerId", checkLogin, async (req, res) => {
     res.status(500).json({ error: "Fehler beim Abrufen der Nachrichten." });
   }
 });
+
 // Nachricht als gelesen markieren
 app.patch("/nachrichten/:id/gelesen", checkLogin, async (req, res) => {
   try {
     const coll = db.collection("nachrichten");
     const msg = await coll.findOne({ id: String(req.params.id) });
     if (!msg) return res.status(404).json({ error: "Nicht gefunden" });
+
     if (msg.empfaengerId !== req.nutzer.id) {
       return res.status(403).json({ error: "Nur der Empfänger darf das ändern." });
     }
-    await coll.updateOne({ id: String(req.params.id) }, { $set: { gelesen: true } });
+
+    await coll.updateOne(
+      { id: String(req.params.id) },
+      { $set: { gelesen: true } }
+    );
+
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: "Update fehlgeschlagen" });
   }
 });
 
-// === Chatverlauf abrufen ===
+// Chatverlauf abrufen
 app.get("/chat", checkLogin, async (req, res) => {
   const { user1, user2, fahrzeugId } = req.query;
 
@@ -2310,7 +2506,6 @@ app.get("/chat", checkLogin, async (req, res) => {
     return res.status(400).json({ error: "Unvollständige Anfrage." });
   }
 
-  // Sicherheitscheck: nur Teilnehmer dürfen ihren Chat sehen
   const requester = req.nutzer.id;
   if (requester !== user1 && requester !== user2) {
     return res.status(403).json({ error: "Zugriff verweigert." });
@@ -2328,31 +2523,30 @@ app.get("/chat", checkLogin, async (req, res) => {
     }).sort({ zeit: 1 }).toArray();
 
     res.json(verlauf);
-
   } catch (err) {
     console.error("❌ Fehler beim Abrufen des Chatverlaufs:", err);
     res.status(500).json({ error: "Fehler beim Abrufen des Chatverlaufs." });
   }
 });
 
-
-
-
 // Alle Nachrichten, an denen der eingeloggte Nutzer beteiligt ist
 app.get("/meine-nachrichten", checkLogin, async (req, res) => {
-  try{
+  try {
     const uid = req.nutzer.id;
     const coll = db.collection("nachrichten");
     const list = await coll.find({
       $or: [{ senderId: uid }, { empfaengerId: uid }]
     }).toArray();
     res.json(list);
-  }catch(e){
+  } catch (e) {
     res.status(500).json({ error: "Fehler beim Laden" });
   }
 });
 
-// === Geocoding mit einfachem Mongo-Cache (Node >= 18: global fetch vorhanden)
+
+// ------------------------------------------------------------
+// === Geocoding mit einfachem Mongo-Cache
+// ------------------------------------------------------------
 async function geocodeToPoint(query) {
   const q = String(query || "").trim();
   if (!q) return null;
@@ -2363,7 +2557,11 @@ async function geocodeToPoint(query) {
   if (cached?.coords?.type === "Point") return cached.coords;
 
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`;
-  const res = await fetch(url, { headers: { "User-Agent": "autovisa/1.0 (contact: info@autovisa.de)" } }).catch(() => null);
+
+  const res = await fetch(url, {
+    headers: { "User-Agent": "autovisa/1.0 (contact: info@autovisa.de)" }
+  }).catch(() => null);
+
   if (!res || !res.ok) return null;
 
   const arr = await res.json().catch(() => []);
@@ -2374,70 +2572,88 @@ async function geocodeToPoint(query) {
   if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
 
   const coords = { type: "Point", coordinates: [lon, lat] };
+
   await cacheColl.updateOne(
     { key },
-    { $set: { key, coords, display_name: first.display_name || q, updatedAt: new Date() } },
+    {
+      $set: {
+        key,
+        coords,
+        display_name: first.display_name || q,
+        updatedAt: new Date()
+      }
+    },
     { upsert: true }
   );
+
   return coords;
 }
-app.post("/veroeffentlichen", checkLogin, async (req, res) => {
+
+function isHaendlerRole(role) {
+  const r = String(role || "").toLowerCase();
+  return r === "haendler" || r === "händler" || r.includes("haend") || r.includes("händ");
+}
+
+
+// ------------------------------------------------------------
+// Veröffentlichung aus Draft (ohne Edit-Logik, kompatibel zu deinen Legacy-Endpunkten)
+// ------------------------------------------------------------
+async function publishFromDraft(req, res, { requireId = false } = {}) {
   try {
     const sellerId = req.nutzer?.id;
-    if (!sellerId) return res.status(401).send("Nicht eingeloggt.");
+    if (!sellerId) return res.status(401).json({ error: "Nicht eingeloggt." });
 
     const entwurfColl  = db.collection("fahrzeugeEntwurf");
     const inserateColl = db.collection("inserate");
     const nutzerColl   = db.collection("nutzer");
 
-    // 1) Entwurf ermitteln
-    const { draftId } = req.body || {};
-    let draft;
+    const requestedId = String(req.body?.draftId || req.body?.id || "").trim();
+    let draft = null;
 
-    if (draftId) {
-      // Falls Frontend eine Draft-ID mitsendet → genau den Entwurf publizieren
+    if (requestedId) {
       let _id;
-      try { _id = new ObjectId(String(draftId)); }
-      catch { return res.status(400).send("Ungültige Draft-ID."); }
+      try { _id = new ObjectId(requestedId); }
+      catch { return res.status(400).json({ error: "Ungültige Draft-ID." }); }
 
       draft = await entwurfColl.findOne({ _id, nutzerId: sellerId });
-      if (!draft) return res.status(404).send("Entwurf nicht gefunden oder gehört nicht zu dir.");
+      if (!draft) {
+        return res.status(404).json({ error: "Entwurf nicht gefunden oder gehört nicht zu dir." });
+      }
     } else {
-      // Sonst: den zuletzt geänderten frischen Entwurf (≤ 30 Min) nehmen
+      if (requireId) {
+        return res.status(400).json({ error: "ID fehlt." });
+      }
+
       const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
       draft = await entwurfColl.findOne(
         { nutzerId: sellerId, updatedAt: { $gte: thirtyMinAgo } },
         { sort: { updatedAt: -1, _id: -1 } }
       );
-      if (!draft) return res.status(400).send("Kein (frischer) Entwurf zum Veröffentlichen gefunden.");
+
+      if (!draft) {
+        return res.status(400).json({ error: "Kein (frischer) Entwurf zum Veröffentlichen gefunden." });
+      }
     }
 
-    // 2) Verkäufer-Snapshot laden (inkl. LOGO + ADRESSE)
+    // Verkäufer-Snapshot
     const haendler = await nutzerColl.findOne(
       { id: sellerId },
       {
         projection: {
-          id: 1,
-          role: 1,
-          firma: 1,
-          name: 1,
-          logoUrl: 1,
-          // NEU: Adresse für exakte Geocodierung + Anzeige
-          strasse: 1,
-          hausnummer: 1,
-          plz: 1,
-          ort: 1,
-          land: 1,
-        },
+          id: 1, role: 1, firma: 1, name: 1, logoUrl: 1,
+          strasse: 1, hausnummer: 1, plz: 1, ort: 1, land: 1,
+        }
       }
     );
 
+    const sellerTypeRaw = haendler?.role || "privat";
+    const isHaendler = isHaendlerRole(sellerTypeRaw);
+
     const seller = {
-      type:    haendler?.role || "privat",
-      id:      haendler?.id   || sellerId,
-      name:    haendler?.firma || haendler?.name || "Händler",
+      type:    isHaendler ? "haendler" : "privat",
+      id:      haendler?.id || sellerId,
+      name:    haendler?.firma || haendler?.name || (isHaendler ? "Händler" : "Privatverkäufer"),
       logoUrl: haendler?.logoUrl || "",
-      // Adresse gleich im Snapshot mitgeben (nutzt du in anzeige.js sowieso)
       strasse:    haendler?.strasse    || "",
       hausnummer: haendler?.hausnummer || "",
       plz:        haendler?.plz        || "",
@@ -2445,60 +2661,56 @@ app.post("/veroeffentlichen", checkLogin, async (req, res) => {
       land:       haendler?.land       || "",
     };
 
-    // 3) Entwurfs-Payload sanitisieren (interne Felder entfernen)
-    const { _id, updatedAt, erstelltAm, __status, ...payload } = draft;
+    const draftMongoId = draft._id;
 
-    // 4) Live-Inserat bauen (mit sinnvollen Defaults)
+    const {
+      _id,
+      updatedAt,
+      erstelltAm,
+      __status,
+      seller: sellerFromDraft,
+      ...payload
+    } = draft;
+
     const neuesInserat = {
-      ...payload, // enthält Medien, technische Daten, etc.
+      ...payload,
+
       verkaeuferId: sellerId,
       status: "online",
       veroeffentlichtAm: new Date(),
+
       verkauf_kurzbeschreibung: getZufaelligeAusstattung(payload.verkauf_ausstattung || []),
 
-      // Konsistent setzen (Body-Overrides nur, wenn vorhanden)
-      verkauf_verkaeufer: (seller.type === "haendler") ? "Händler" : "Privatverkäufer",
+      verkauf_verkaeufer: isHaendler ? "Händler" : "Privatverkäufer",
       verkauf_name: req.body?.name || payload.verkauf_name || seller.name,
 
-      // Text-Standort bleibt wie gehabt (für Suche / Anzeige)
       standort: (req.body?.plz && req.body?.ort)
-        ? `${req.body.plz} ${req.body.ort}`
+        ? `${String(req.body.plz).trim()} ${String(req.body.ort).trim()}`
         : (payload.standort || "Nicht angegeben"),
 
       telefon: req.body?.telefon || payload.telefon || "",
 
-      // Denormalisierte Verkäuferdaten (für schnelle Anzeige)
       seller,
     };
 
-    // 5) (Optional) Geokodierung – HÄNDLER: exakte Adresse, PRIVAT: nur PLZ/Ort
+    // Geocoding
     const locString = (() => {
       const s = (v) => (v == null ? "" : String(v).trim());
 
-      // Händler → exakte Händleradresse
-      const sellerType = String(seller.type || "").toLowerCase();
-      if (sellerType === "haendler" || sellerType === "händler") {
-        const street  = [s(haendler?.strasse), s(haendler?.hausnummer)]
-          .filter(Boolean)
-          .join(" ");
-        const zipCity = [s(haendler?.plz), s(haendler?.ort)]
-          .filter(Boolean)
-          .join(" ");
+      if (isHaendler) {
+        const street  = [s(haendler?.strasse), s(haendler?.hausnummer)].filter(Boolean).join(" ");
+        const zipCity = [s(haendler?.plz), s(haendler?.ort)].filter(Boolean).join(" ");
         const country = s(haendler?.land || "Deutschland");
         const full    = [street, zipCity, country].filter(Boolean).join(", ");
         if (full) return full;
       }
 
-      // Privat → nur PLZ + Ort aus dem Formular
       if (req.body?.plz || req.body?.ort) {
-        const zipCity = [s(req.body.plz), s(req.body.ort)]
-          .filter(Boolean)
-          .join(" ");
+        const zipCity = [s(req.body.plz), s(req.body.ort)].filter(Boolean).join(" ");
         if (zipCity) return zipCity;
       }
 
-      // Letzter Fallback: Standorthinweis aus dem Inserat
-      return neuesInserat.standort || "";
+      return s(neuesInserat.standort);
     })();
 
     if (locString) {
@@ -2510,131 +2722,37 @@ app.post("/veroeffentlichen", checkLogin, async (req, res) => {
       }
     }
 
-    // 6) Speichern & Entwurf entfernen
-    await inserateColl.insertOne(neuesInserat);
-    await entwurfColl.deleteOne({ _id: draft._id, nutzerId: sellerId });
+    // ✅ Insert + insertedId sauber zurückgeben
+    const insertRes = await inserateColl.insertOne(neuesInserat);
+    const insertedId = insertRes?.insertedId;
 
-    return res.json({ success: true, message: "Inserat erfolgreich veröffentlicht." });
+    await entwurfColl.deleteOne({ _id: draftMongoId, nutzerId: sellerId });
+
+    return res.json({
+      success: true,
+      message: "Inserat erfolgreich veröffentlicht.",
+      inseratId: insertedId ? String(insertedId) : "",
+      draftId: String(draftMongoId)
+    });
+
   } catch (err) {
-    console.error("❌ Fehler bei /veroeffentlichen:", err);
-    return res.status(500).send("Fehler beim Veröffentlichen.");
+    console.error("❌ Fehler beim Veröffentlichen:", err);
+    return res.status(500).json({ error: "Fehler beim Veröffentlichen." });
   }
+}
+
+app.post("/veroeffentlichen", checkLogin, async (req, res) => {
+  return publishFromDraft(req, res, { requireId: false });
 });
-
-
-
 
 app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
-  const { id } = req.body;
-  if (!id) return res.status(400).send("ID fehlt.");
-
-  let _id;
-  try { _id = new ObjectId(id); }
-  catch { return res.status(400).send("Ungültige ID."); }
-
-  try {
-    const sellerId     = req.nutzer?.id;
-    const entwurfColl  = db.collection("fahrzeugeEntwurf");
-    const inserateColl = db.collection("inserate");
-    const nutzerColl   = db.collection("nutzer");
-
-    const draft = await entwurfColl.findOne({ _id, nutzerId: sellerId });
-    if (!draft) return res.status(404).send("Entwurf nicht gefunden.");
-
-    // Händler-Snapshot (inkl. LOGO + ADRESSE)
-    const haendler = await nutzerColl.findOne(
-      { id: sellerId },
-      {
-        projection: {
-          id: 1,
-          role: 1,
-          firma: 1,
-          name: 1,
-          logoUrl: 1,
-          strasse: 1,
-          hausnummer: 1,
-          plz: 1,
-          ort: 1,
-          land: 1,
-        },
-      }
-    );
-
-    const seller = {
-      type:    haendler?.role || "privat",
-      id:      haendler?.id   || sellerId,
-      name:    haendler?.firma || haendler?.name || "Händler",
-      logoUrl: haendler?.logoUrl || "",
-      strasse:    haendler?.strasse    || "",
-      hausnummer: haendler?.hausnummer || "",
-      plz:        haendler?.plz        || "",
-      ort:        haendler?.ort        || "",
-      land:       haendler?.land       || "",
-    };
-
-    const neuesInserat = {
-      ...draft,
-      verkaeuferId: sellerId,
-      status: "online",
-      veroeffentlichtAm: new Date(),
-      verkauf_kurzbeschreibung: getZufaelligeAusstattung(draft.verkauf_ausstattung || []),
-
-      // Konsistent setzen
-      verkauf_verkaeufer: (seller.type === "haendler") ? "Händler" : "Privatverkäufer",
-      verkauf_name: draft.verkauf_name || seller.name,
-      standort:     draft.standort || "Nicht angegeben",
-      telefon:      draft.telefon || "",
-
-      seller,
-    };
-
-    //  Geocoding (wie oben: Händler exakte Adresse, Privat Stadt)
-    const locString = (() => {
-      const s = (v) => (v == null ? "" : String(v).trim());
-
-      const sellerType = String(seller.type || "").toLowerCase();
-      if (sellerType === "haendler" || sellerType === "händler") {
-        const street  = [s(haendler?.strasse), s(haendler?.hausnummer)]
-          .filter(Boolean)
-          .join(" ");
-        const zipCity = [s(haendler?.plz), s(haendler?.ort)]
-          .filter(Boolean)
-          .join(" ");
-        const country = s(haendler?.land || "Deutschland");
-        const full    = [street, zipCity, country].filter(Boolean).join(", ");
-        if (full) return full;
-      }
-
-      // Privat: nur den gespeicherten Standort-String (typisch "PLZ Ort")
-      if (neuesInserat.standort && neuesInserat.standort !== "Nicht angegeben") {
-        return s(neuesInserat.standort);
-      }
-
-      return "";
-    })();
-
-    if (locString) {
-      try {
-        const point = await geocodeToPoint(locString);
-        if (point) neuesInserat.standortCoords = point;
-      } catch (e) {
-        console.warn("Geocoding fehlgeschlagen:", e?.message || e);
-      }
-    }
-
-    delete neuesInserat._id;
-    await inserateColl.insertOne(neuesInserat);
-    await entwurfColl.deleteOne({ _id, nutzerId: sellerId });
-
-    res.send("Inserat erfolgreich veröffentlicht.");
-  } catch (err) {
-    console.error("❌ Fehler bei /inserat-veroeffentlichen:", err);
-    res.status(500).send("Fehler beim Veröffentlichen.");
-  }
+  return publishFromDraft(req, res, { requireId: true });
 });
 
 
-
+// ------------------------------------------------------------
+// Öffentlich: Inserate mit Paging
+// ------------------------------------------------------------
 app.get("/inserate", async (req, res) => {
   try {
     const page  = Math.max(parseInt(req.query.page)  || 1, 1);
@@ -2659,48 +2777,44 @@ app.get("/inserate", async (req, res) => {
   }
 });
 
-// (optional) Legacy-Weiterleitung:
+// Legacy-Weiterleitung
 app.get("/fahrzeuge-online", (req, res) => {
   const { page, limit } = req.query;
   const qs = new URLSearchParams();
-  if (page) qs.set("page", page);
+  if (page)  qs.set("page", page);
   if (limit) qs.set("limit", limit);
   res.redirect(302, `/inserate${qs.toString() ? `?${qs}` : ""}`);
 });
 
 
-
+// ------------------------------------------------------------
+// Logout
+// ------------------------------------------------------------
 app.post("/logout", (req, res) => {
   const { appUrl } = getUrls();
   const isSecureCookie = appUrl.startsWith("https") || process.env.NODE_ENV === "production";
-  res.clearCookie("session",   { httpOnly: true,  sameSite: "Lax", secure: isSecureCookie, path: "/" });
-  res.clearCookie("isLoggedIn",{ httpOnly: false, sameSite: "Lax", secure: isSecureCookie, path: "/" });
+
+  res.clearCookie("session", {
+    httpOnly: true,
+    sameSite: "Lax",
+    secure: isSecureCookie,
+    path: "/"
+  });
+
+  res.clearCookie("isLoggedIn", {
+    httpOnly: false,
+    sameSite: "Lax",
+    secure: isSecureCookie,
+    path: "/"
+  });
+
   return res.json({ success: true });
 });
 
 
-
-// === Healthcheck & Server starten ===
-app.get("/healthz", (req, res) => res.status(200).send("ok"));
-
-console.log("Render PORT env =", process.env.PORT); // Debug
-
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ Server läuft auf Port ${PORT} (host 0.0.0.0)`);
-});
-
-process.on("unhandledRejection", (err) => {
-  console.error("❌ UnhandledRejection:", err);
-});
-process.on("uncaughtException", (err) => {
-  console.error("❌ UncaughtException:", err);
-});
-
-
-
-
-
-// kleine Helfer
+// ------------------------------------------------------------
+// kleine Helfer + Edit-Data Endpoint
+// ------------------------------------------------------------
 const pick = (obj, keys) =>
   keys.reduce((acc, k) => {
     if (obj && obj[k] !== undefined) acc[k] = obj[k];
@@ -2715,19 +2829,16 @@ app.get("/api/inserat/:id/edit-data", checkLogin, async (req, res) => {
     try {
       doc = await db.collection("inserate").findOne({ _id: new ObjectId(inseratId) });
     } catch {
-      // falls du irgendwo auch string-ids nutzt
       doc = await db.collection("inserate").findOne({ id: inseratId });
     }
 
     if (!doc) return res.status(404).json({ error: "Inserat nicht gefunden." });
 
-    // Ownership check (bei dir existieren beide Felder je nach Alt/Neu-Stand)
     const ownerId = doc.verkaeuferId || doc.nutzerId;
     if (ownerId !== req.nutzer.id) {
       return res.status(403).json({ error: "Kein Zugriff auf dieses Inserat." });
     }
 
-    // === STEP 1: Fahrzeugdaten ===
     const step1Keys = [
       "marke","modell","titel","preis",
       "brutto-preis","netto-preis",
@@ -2753,7 +2864,6 @@ app.get("/api/inserat/:id/edit-data", checkLogin, async (req, res) => {
 
     const fahrzeugdaten = pick(doc, step1Keys);
 
-    // EZ harmonisieren falls nötig
     if (!fahrzeugdaten.erstzulassung && doc.verkauf_erstzulassung) {
       fahrzeugdaten.erstzulassung = doc.verkauf_erstzulassung;
     }
@@ -2761,13 +2871,9 @@ app.get("/api/inserat/:id/edit-data", checkLogin, async (req, res) => {
       fahrzeugdaten.verkauf_erstzulassung = doc.erstzulassung;
     }
 
-    // === STEP 2: Details ===
-    // Hier geben wir bewusst "fast alles" zurück,
-    // damit dein fahrzeugdetails.js genug Material hat.
     const { images, video, seller, standortCoords, ...rest } = doc;
     const fahrzeugdetails = rest;
 
-    // === STEP 3: Medien ===
     const medien = {
       images: Array.isArray(doc.images) ? doc.images : [],
       video: doc.video || ""
@@ -2785,6 +2891,26 @@ app.get("/api/inserat/:id/edit-data", checkLogin, async (req, res) => {
     res.status(500).json({ error: "Serverfehler." });
   }
 });
+
+
+// ------------------------------------------------------------
+// Healthcheck & Server starten (ganz ans Ende)
+// ------------------------------------------------------------
+app.get("/healthz", (req, res) => res.status(200).send("ok"));
+
+console.log("Render PORT env =", process.env.PORT);
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`✅ Server läuft auf Port ${PORT} (host 0.0.0.0)`);
+});
+
+process.on("unhandledRejection", (err) => {
+  console.error("❌ UnhandledRejection:", err);
+});
+process.on("uncaughtException", (err) => {
+  console.error("❌ UncaughtException:", err);
+});
+
 
 
 

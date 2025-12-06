@@ -1,9 +1,10 @@
 // haendler.js — EINHEITLICH
-// haendler.js — EINHEITLICH
 document.documentElement.classList.remove("no-js");
 
 document.addEventListener("DOMContentLoaded", () => {
-  // ---------- Navbar / Dropdown ----------
+  /* =========================
+     Navbar / Dropdown (Klick)
+     ========================= */
   const navLinks      = document.getElementById("nav-links");
   const hamburger     = document.getElementById("hamburger");
   const dropdownLinks = document.querySelectorAll(".dropdown > a");
@@ -19,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (li !== except) {
         li.classList.remove("open");
         const trigger = li.querySelector('a[aria-haspopup="true"]');
-        const menu = li.querySelector(".dropdown-menu");
+        const menu    = li.querySelector(".dropdown-menu");
         if (trigger) trigger.setAttribute("aria-expanded", "false");
         if (menu) {
           menu.classList.remove("show");
@@ -30,102 +31,44 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-
-  // ===== Edit-Mode Bootstrap (Händler) =====
-(function initEditModeHaendler() {
-  const params = new URLSearchParams(location.search);
-  const isEdit = params.get("edit") === "1";
-  if (!isEdit) return;
-
-  let payload = null;
-  try {
-    payload = JSON.parse(localStorage.getItem("autovisa_edit_payload") || "null");
-  } catch {}
-
-  if (!payload) {
-    // Fallback: wenn aus irgendeinem Grund kein Payload da ist
-    // kannst du optional später wieder eine API-Variante ergänzen.
-    console.warn("Kein Edit-Payload gefunden.");
-    return;
-  }
-
-  // ID merken
-  const editId = sessionStorage.getItem("autovisa_edit_id") || payload.id || "";
-  if (editId) sessionStorage.setItem("editInseratId", editId);
-
-  // ====== Mapping in deine Wizard-Keys ======
-  // Annahme: deine Steps lesen diese Keys bereits:
-  // - "fahrzeugdaten"
-  // - "fahrzeugdetails"
-  // - "fahrzeugMedia"
-  //
-  // Wenn die Keys bei dir anders heißen, hier anpassen.
-
-  const fahrzeugdaten = {
-    // Beispiele – passe an deine echten Feldnamen an:
-    marke: payload.verkauf_marke || payload.marke || "",
-    modell: payload.verkauf_modell || payload.modell || "",
-    erstzulassung: payload.verkauf_erstzulassung || payload.erstzulassung || "",
-    kilometer: payload.verkauf_kilometer ?? payload.kilometer ?? "",
-    leistung: payload.verkauf_leistung ?? payload.leistung ?? "",
-    kraftstoff: payload.verkauf_kraftstoff || payload.kraftstoff || "",
-    getriebe: payload.verkauf_getriebe || payload.getriebe || "",
-    // ...
-  };
-
-  const fahrzeugdetails = {
-    titel: payload.titel || payload.verkauf_titel || "",
-    kurzbeschreibung: payload.verkauf_kurzbeschreibung || "",
-    beschreibung: payload.verkauf_beschreibung || payload.beschreibung || "",
-    farbe: payload.verkauf_farbe || payload.farbe || "",
-    // merkmale/ausstattung evtl. Arrays übernehmen
-    merkmale: payload.merkmale || payload.verkauf_ausstattung || [],
-    // ...
-  };
-
-  const fahrzeugMedia = {
-    bilder: payload.bilder || payload.images || payload.mediaImages || [],
-    videos: payload.videos || payload.mediaVideos || [],
-    // oder falls du ein einheitliches Array nutzt:
-    media: payload.media || [],
-  };
-
-  try {
-    localStorage.setItem("fahrzeugdaten", JSON.stringify(fahrzeugdaten));
-    localStorage.setItem("fahrzeugdetails", JSON.stringify(fahrzeugdetails));
-    localStorage.setItem("fahrzeugMedia", JSON.stringify(fahrzeugMedia));
-  } catch {}
-
-  // Flag für UI/Logik in den Steps
-  localStorage.setItem("autovisa_edit_mode", "true");
-})();
-
   function positionMenu(li) {
     const trigger = li.querySelector('a[aria-haspopup="true"]');
-    const menu = li.querySelector(".dropdown-menu");
+    const menu    = li.querySelector(".dropdown-menu");
     if (!trigger || !menu) return;
-    const tRect = trigger.getBoundingClientRect();
-    const mRect = menu.getBoundingClientRect();
+
+    const tRect  = trigger.getBoundingClientRect();
+    const mRect  = menu.getBoundingClientRect();
     const liRect = li.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const center = tRect.left + tRect.width / 2;
-    let leftAbs = center - mRect.width / 2;
-    leftAbs = clamp(leftAbs, 16, vw - mRect.width - 16);
+    const vw     = window.innerWidth;
+
+    const center  = tRect.left + tRect.width / 2;
+    let leftAbs   = center - mRect.width / 2;
+    leftAbs       = clamp(leftAbs, 16, vw - mRect.width - 16);
+
     menu.style.left = `${leftAbs - liRect.left}px`;
   }
+
   function openDropdown(trigger) {
     const li   = trigger.closest(".dropdown");
     const menu = trigger.nextElementSibling;
+    if (!li || !menu) return;
+
     closeAllDropdowns(li);
     li.classList.add("open");
     trigger.setAttribute("aria-expanded", "true");
     menu.classList.add("show");
-    [...menu.children].forEach((item, i) => (item.style.transitionDelay = `${i * 25}ms`));
+
+    [...menu.children].forEach((item, i) => {
+      item.style.transitionDelay = `${i * 25}ms`;
+    });
+
     const isMobile = window.matchMedia("(max-width: 900px)").matches;
     if (!isMobile) requestAnimationFrame(() => positionMenu(li));
   }
+
   function toggleDropdown(trigger) {
     const li = trigger.closest(".dropdown");
+    if (!li) return;
     li.classList.contains("open") ? closeAllDropdowns() : openDropdown(trigger);
   }
 
@@ -136,6 +79,7 @@ document.addEventListener("DOMContentLoaded", () => {
     closeAllDropdowns();
     hamburger.setAttribute("aria-expanded", willOpen ? "true" : "false");
   });
+
   dropdownLinks.forEach(link => {
     link.setAttribute("aria-expanded", "false");
     link.addEventListener("click", (e) => {
@@ -144,6 +88,7 @@ document.addEventListener("DOMContentLoaded", () => {
       toggleDropdown(link);
     });
   });
+
   document.addEventListener("click", (e) => {
     if (!e.target.closest(".navbar")) {
       navLinks?.classList.remove("active");
@@ -151,6 +96,7 @@ document.addEventListener("DOMContentLoaded", () => {
       closeAllDropdowns();
     }
   });
+
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       navLinks?.classList.remove("active");
@@ -158,58 +104,134 @@ document.addEventListener("DOMContentLoaded", () => {
       closeAllDropdowns();
     }
   });
-  const repositionOpen = () => document.querySelectorAll(".dropdown.open").forEach(positionMenu);
+
+  const repositionOpen = () =>
+    document.querySelectorAll(".dropdown.open").forEach(positionMenu);
+
   window.addEventListener("resize", repositionOpen);
   window.addEventListener("scroll", repositionOpen);
 
-  // ---------- Auth / Händler-Pflicht ----------
+
+  /* =========================
+     Edit-Mode Bootstrap (Händler)
+     - kompatibel zu übersicht.js
+     ========================= */
+  (function initEditModeHaendler() {
+    const params = new URLSearchParams(location.search);
+    const editParam = params.get("edit");
+    if (!editParam) return;
+
+    // ID aus URL oder Fallback aus Storage
+    const editId =
+      editParam !== "1"
+        ? editParam
+        : (localStorage.getItem("editInseratId") || sessionStorage.getItem("editInseratId") || "");
+
+    if (editId) {
+      localStorage.setItem("editInseratId", editId);
+      sessionStorage.setItem("editInseratId", editId);
+    }
+
+    // Flags wie bei deinem Wizard-Flow
+    localStorage.setItem("editMode", "1");
+    sessionStorage.setItem("inseratGestartet", "true");
+    sessionStorage.setItem("hatGespeichert", "true");
+
+    // Wenn Daten schon aus übersicht.js da sind → nichts überschreiben
+    const hasAny =
+      localStorage.getItem("fahrzeugdaten") ||
+      localStorage.getItem("fahrzeugdetails") ||
+      localStorage.getItem("medien");
+
+    if (hasAny) return;
+
+    // Optionaler Fallback: wenn jemand direkt haendler.html?edit=<id> aufruft,
+    // kannst du später einen Endpoint anbieten.
+    // Aktuell: bewusst leer lassen, um keine falschen Mappings reinzuschreiben.
+  })();
+
+
+  /* =========================
+     Auth / Händler-Pflicht
+     ========================= */
   fetch("/getNutzerInfo", { credentials: "include" })
     .then(res => res.json())
     .then(user => {
       if (!user?.eingeloggt) {
-        try { localStorage.setItem("redirectAfterLogin", "haendler.html"); } catch {}
+        try {
+          const url = location.search ? `haendler.html${location.search}` : "haendler.html";
+          localStorage.setItem("redirectAfterLogin", url);
+        } catch {}
         window.location.href = "login.html";
         return;
       }
-      if (user.rolle !== "haendler") {
+
+      const roleRaw = String(user?.role || user?.rolle || "").toLowerCase();
+      const isHaendler = roleRaw.includes("haend") || roleRaw.includes("händ");
+
+      if (!isHaendler) {
         alert("Dieser Bereich ist nur für Händler zugänglich.");
         window.location.href = "verkaufen.html";
         return;
       }
 
       initAuthDisplay(user);
-      savedCarsLink?.addEventListener("click", (e) => { e.preventDefault(); window.location.href = "gespeicherte-autos.html"; });
-      myCarsLink?.addEventListener("click",    (e) => { e.preventDefault(); window.location.href = "meine-autos.html"; });
 
+      // Navbar-Shortcuts → neue Übersicht-Hashes
+      savedCarsLink?.addEventListener("click", (e) => {
+        e.preventDefault();
+        window.location.href = "übersicht.html#saved-cars";
+      });
+      myCarsLink?.addEventListener("click", (e) => {
+        e.preventDefault();
+        window.location.href = "übersicht.html#car-list";
+      });
+
+      // Nach Auth erst UI/Wizard initialisieren
+      initStepsAndTarifUI();
       initWizard(user);
     })
     .catch(err => console.error("❌ Fehler beim Login-Check:", err));
 
+
   function initAuthDisplay(user) {
     if (!authDisplayEl) return;
-    const name  = user?.name || user?.email || "";
-    const role  = user?.rolle === "haendler" ? "Händler" : user?.rolle || "";
-    const label = name ? `Eingeloggt${role ? " – " + role : ""}: ${name}` : `Eingeloggt${role ? " – " + role : ""}`;
+
+    const name = user?.name || user?.email || "";
+    const roleRaw = String(user?.role || user?.rolle || "");
+    const role = roleRaw.toLowerCase().includes("haend") || roleRaw.toLowerCase().includes("händ")
+      ? "Händler"
+      : roleRaw;
+
+    const label = name
+      ? `Eingeloggt${role ? " – " + role : ""}: ${name}`
+      : `Eingeloggt${role ? " – " + role : ""}`;
+
     authDisplayEl.innerHTML = `<i class="fas fa-user-check"></i> ${label}`;
   }
 
-  // ---------- Wizard / Steps / Tarif ----------
+
+  /* =========================
+     Wizard / Steps / Tarif
+     ========================= */
   const STEP_STATE_KEY = "haendlerSteps";
   const TARIF_KEY      = "haendlerTarif";
-  const stepsState     = loadSteps();
+  let stepsState = {};
 
   // Exponiere Mini-APIs für andere Seiten
-  window.markStepDone  = markStepDone;
-  window.showToast     = showToast;
-  window.toggleTarife  = toggleTarife;
+  window.markStepDone = (step) => markStepDone(step);
+  window.showToast    = (msg, type) => showToast(msg, type);
+  window.toggleTarife = () => toggleTarife();
 
-  renderStepsFromState();
-  wireStepNavigation();
-  setupToasts();
-  setupTarif();
+  function initStepsAndTarifUI() {
+    stepsState = loadSteps();
+    setupToasts();
+    renderStepsFromState();
+    wireStepNavigation();
+    setupTarif();
+  }
 
-  // Prüft Publish-Flag & Drafts
-  async function initWizard(user) {
+  async function initWizard() {
     if (!document.getElementById("toast-container")) setupToasts();
 
     // A) Direkt nach dem Veröffentlichen?
@@ -233,23 +255,25 @@ document.addEventListener("DOMContentLoaded", () => {
   function wireStepNavigation() {
     document.querySelectorAll(".step-box").forEach((box) => {
       box.addEventListener("click", () => {
-        const step = box.dataset.step;
+        const step = String(box.dataset.step || "");
         const targets = {
-          1: "fahrzeugdaten.html",
-          2: "fahrzeugdetails.html",
-          3: "medien.html",
-          4: "vorschau.html",
+          "1": "fahrzeugdaten.html",
+          "2": "fahrzeugdetails.html",
+          "3": "medien.html",
+          "4": "vorschau.html",
         };
         if (targets[step]) window.location.href = targets[step];
       });
     });
   }
 
+
+  /* ---------- Tarif ---------- */
   function setupTarif() {
     const grid = document.getElementById("tarifGrid");
     if (!grid) return;
 
-    // Restore
+    // Restore Auswahl im UI
     const saved = safeGet(TARIF_KEY, "");
     if (saved) {
       const el = grid.querySelector(`.tarif-box[data-tarif="${cssEscape(saved)}"]`);
@@ -261,9 +285,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const first = grid.querySelector(".tarif-box");
       if (first) {
         first.classList.add("selected");
-        persistTarif(first.dataset.tarif);
+        persistTarif(first.dataset.tarif || "");
       }
     }
+
     updateNavbarTarif();
 
     grid.addEventListener("click", async (e) => {
@@ -273,7 +298,7 @@ document.addEventListener("DOMContentLoaded", () => {
       grid.querySelectorAll(".tarif-box").forEach(b => b.classList.remove("selected"));
       box.classList.add("selected");
 
-      const code = box.dataset.tarif;
+      const code = box.dataset.tarif || "";
       try {
         const res = await fetch("/saveTarif", {
           method: "POST",
@@ -281,7 +306,9 @@ document.addEventListener("DOMContentLoaded", () => {
           credentials: "include",
           body: JSON.stringify({ tarif: humanTarifLabel(code) }),
         });
-        const data = await res.json();
+
+        const data = await res.json().catch(() => ({}));
+
         if (res.ok && data.success) {
           persistTarif(code);
           markStepDone(4);
@@ -300,17 +327,21 @@ document.addEventListener("DOMContentLoaded", () => {
     safeSet(TARIF_KEY, code);
     updateNavbarTarif();
   }
+
   function updateNavbarTarif() {
     const badge = document.getElementById("tarifAnzeige");
     if (!badge) return;
+
     const code  = safeGet(TARIF_KEY, "");
     if (!code) { badge.textContent = ""; return; }
+
     const label = humanTarifLabel(code);
     const price = tarifPrice(label);
     badge.innerHTML = `<i class="fas fa-tag"></i> Aktiver Tarif: ${label}${price ? " – " + price : ""}`;
   }
 
-  // Steps
+
+  /* ---------- Steps ---------- */
   function markStepDone(step) {
     const box = document.querySelector(`.step-box[data-step="${step}"]`);
     if (box) {
@@ -321,6 +352,7 @@ document.addEventListener("DOMContentLoaded", () => {
     stepsState[step] = true;
     saveSteps();
   }
+
   function renderStepsFromState() {
     Object.entries(stepsState).forEach(([step, val]) => {
       if (!val) return;
@@ -331,15 +363,18 @@ document.addEventListener("DOMContentLoaded", () => {
       if (status) status.textContent = "✔️";
     });
   }
+
   function loadSteps() {
     try { return JSON.parse(localStorage.getItem(STEP_STATE_KEY)) || {}; }
     catch { return {}; }
   }
+
   function saveSteps() {
-    localStorage.setItem(STEP_STATE_KEY, JSON.stringify(stepsState));
+    try { localStorage.setItem(STEP_STATE_KEY, JSON.stringify(stepsState)); } catch {}
   }
 
-  // Toasts
+
+  /* ---------- Toasts ---------- */
   function setupToasts() {
     let c = document.getElementById("toast-container");
     if (!c) {
@@ -348,41 +383,52 @@ document.addEventListener("DOMContentLoaded", () => {
       document.body.appendChild(c);
     }
   }
+
   function showToast(message, type = "success") {
     const c = document.getElementById("toast-container");
     if (!c) return;
+
     const t = document.createElement("div");
     t.className = `toast ${type}`;
     t.textContent = message;
     c.appendChild(t);
+
     requestAnimationFrame(() => t.classList.add("show"));
+
     setTimeout(() => {
       t.classList.remove("show");
       t.addEventListener("transitionend", () => t.remove(), { once: true });
     }, 3000);
   }
 
-  // Mobile Tarife togglen
+
+  /* ---------- Mobile Tarife Toggle ---------- */
   function toggleTarife() {
-    document.querySelectorAll(".tarif-grid .hide-mobile").forEach(el => el.classList.toggle("hide-mobile"));
+    document.querySelectorAll(".tarif-grid .hide-mobile")
+      .forEach(el => el.classList.toggle("hide-mobile"));
+
     const btn = document.querySelector(".tarif-toggle-btn.mobile-only");
     if (btn) {
-      btn.textContent = btn.textContent.includes("Mehr") ? "Weniger Tarife anzeigen" : "Mehr Tarife anzeigen";
+      btn.textContent = btn.textContent.includes("Mehr")
+        ? "Weniger Tarife anzeigen"
+        : "Mehr Tarife anzeigen";
     }
   }
 
-  // Helper
+
+  /* ---------- Helpers ---------- */
   function humanTarifLabel(code) {
     const map = {
-      "0-3":  "0–3 Fahrzeuge",
-      "4-10": "4–10 Fahrzeuge",
-      "11-25":"11–25 Fahrzeuge",
-      "26-50":"26–50 Fahrzeuge",
+      "0-3":   "0–3 Fahrzeuge",
+      "4-10":  "4–10 Fahrzeuge",
+      "11-25": "11–25 Fahrzeuge",
+      "26-50": "26–50 Fahrzeuge",
       "51-100":"51–100 Fahrzeuge",
-      "100+": "100+ Fahrzeuge",
+      "100+":  "100+ Fahrzeuge",
     };
     return map[code] || code;
   }
+
   function tarifPrice(label) {
     const preisMap = {
       "0–3 Fahrzeuge":   "Kostenlos",
@@ -394,30 +440,50 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     return preisMap[label] || "";
   }
+
   function cssEscape(value) {
     if (window.CSS && CSS.escape) return CSS.escape(value);
     return String(value).replace(/["\\]/g, "\\$&");
   }
+
   function safeGet(key, fallback) {
     try { return localStorage.getItem(key) || fallback; } catch { return fallback; }
   }
+
   function safeSet(key, val) {
     try { localStorage.setItem(key, val); } catch {}
   }
-}); // ✅ DOMContentLoaded HIER schließen!
+});
 
-// Wizard & lokale Draft-Daten zurücksetzen (global)
+
+/* =========================
+   Wizard & lokale Draft-Daten zurücksetzen (global)
+   ========================= */
 function clearWizardState() {
-  localStorage.removeItem("haendlerSteps");     // Steps
-  localStorage.removeItem("fahrzeugdaten");     // Step 1
+  // Steps & Tarif
+  try { localStorage.removeItem("haendlerSteps"); } catch {}
+  // optional: Tarif behalten oder löschen – ich lasse ihn bewusst stehen
+  // try { localStorage.removeItem("haendlerTarif"); } catch {}
+
+  // Step-Daten (neuer Standard)
+  try { localStorage.removeItem("fahrzeugdaten"); } catch {}
+  try { localStorage.removeItem("fahrzeugdetails"); } catch {}
+  try { localStorage.removeItem("medien"); } catch {}
+
+  // Legacy/Alt-Keys (falls irgendwo noch genutzt)
   try {
-    Object.keys(localStorage).forEach(k => {    // Step 2 (alle details_)
+    Object.keys(localStorage).forEach(k => {
       if (k.startsWith("details_")) localStorage.removeItem(k);
     });
   } catch {}
 
-  sessionStorage.removeItem("inseratGestartet");
-  sessionStorage.removeItem("hatGespeichert");
+  // Edit-Flags
+  try { localStorage.removeItem("editMode"); } catch {}
+  try { localStorage.removeItem("editInseratId"); } catch {}
+
+  // Flow-Flags
+  try { sessionStorage.removeItem("inseratGestartet"); } catch {}
+  try { sessionStorage.removeItem("hatGespeichert"); } catch {}
 
   // UI sofort neutralisieren (falls haendler.html offen ist)
   document.querySelectorAll(".step-box").forEach(b => {
@@ -426,7 +492,6 @@ function clearWizardState() {
     if (s) s.textContent = "";
   });
 }
-
 
 
 

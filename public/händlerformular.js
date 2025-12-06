@@ -162,7 +162,7 @@ fd.append("datenschutz", form.datenschutz.checked ? "true" : "false");
 fd.append("password",        form.password.value);
 fd.append("confirmPassword", confirmPasswordInput.value);
 
-// Öffnungszeiten (passend zum HTML mit oeffnungszeiten_* IDs)
+// Öffnungszeiten (robust)
 const days = ["mo", "di", "mi", "do", "fr", "sa", "so"];
 
 days.forEach((key) => {
@@ -170,15 +170,18 @@ days.forEach((key) => {
   const bisEl    = document.getElementById(`oeffnungszeiten_${key}_bis`);
   const closedEl = document.getElementById(`oeffnungszeiten_${key}_closed`);
 
-  const von    = vonEl ? String(vonEl.value || "").trim() : "";
-  const bis    = bisEl ? String(bisEl.value || "").trim() : "";
-  const closed = closedEl ? !!closedEl.checked : false;
+  const closed = !!closedEl?.checked;
 
-  // Genau die Feldnamen, die dein Server ausliest
-  fd.append(`oeffnungszeiten_${key}_von`, von);
-  fd.append(`oeffnungszeiten_${key}_bis`, bis);
-  fd.append(`oeffnungszeiten_${key}_closed`, closed ? "true" : "false");
+  // Wenn geschlossen → Zeiten bewusst leeren
+  const von = closed ? "" : String(vonEl?.value || "").trim();
+  const bis = closed ? "" : String(bisEl?.value || "").trim();
+
+  // set() statt append() -> keine doppelten Keys, sauberer Body
+  fd.set(`oeffnungszeiten_${key}_von`, von);
+  fd.set(`oeffnungszeiten_${key}_bis`, bis);
+  fd.set(`oeffnungszeiten_${key}_closed`, closed ? "true" : "false");
 });
+
 
 
 // Sprachen (mehrere Werte)
