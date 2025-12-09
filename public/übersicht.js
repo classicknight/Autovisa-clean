@@ -1,8 +1,7 @@
-// uebersicht.js (klick-only, kein Hover-Open)
+// uebersicht.js (clean + robust)
 document.documentElement.classList.remove("no-js");
 
 document.addEventListener("DOMContentLoaded", async () => {
-  "use strict";
 
   /* =========================================================
      Helpers
@@ -16,7 +15,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function sellerInitials(name = "") {
-    const parts = String(name).trim().split(/\s+/).slice(0, 2);
+    const parts = name.trim().split(/\s+/).slice(0, 2);
     const ini = parts.map(p => p[0]?.toUpperCase() || "").join("");
     return ini || "AV";
   }
@@ -48,31 +47,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     return { monat: "", jahr: "" };
   }
 
-  async function safeJson(res, fallback = []) {
-    try {
-      const ct = (res.headers.get("content-type") || "").toLowerCase();
-      if (ct.includes("application/json")) return await res.json();
-
-      const text = await res.text();
-      try {
-        return JSON.parse(text);
-      } catch {
-        return fallback;
-      }
-    } catch {
-      return fallback;
-    }
-  }
-
-  function asArray(v) {
-    return Array.isArray(v) ? v : [];
-  }
-
   /* =========================================================
-     Medien-Slider (EIN System)
+     Medien-Slider (EIN System, guard)
      ========================================================= */
 
   function initMediaSlider(container) {
+    if (!container || container.dataset.sliderInit === "1") return;
+    container.dataset.sliderInit = "1";
+
     const slidesWrapper = container.querySelector(".slides");
     if (!slidesWrapper) return;
 
@@ -93,6 +75,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     slidesWrapper.style.display = "flex";
     slidesWrapper.style.willChange = "transform";
+
     slides.forEach(slide => {
       slide.style.flex = "0 0 100%";
       slide.style.minWidth = "100%";
@@ -112,11 +95,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       state.prevTranslate = state.currentTranslate;
       setTransition(true);
       setSliderPosition();
-    }
-
-    function animation() {
-      setSliderPosition();
-      if (state.isDragging) state.rafId = requestAnimationFrame(animation);
     }
 
     function onPointerDown(e) {
@@ -142,10 +120,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       const movedBy = state.currentTranslate - state.prevTranslate;
       const threshold = Math.min(80, (container.clientWidth || 0) * 0.18);
 
-      if (movedBy < -threshold && state.currentIndex < slides.length - 1) state.currentIndex++;
-      else if (movedBy > threshold && state.currentIndex > 0) state.currentIndex--;
+      if (movedBy < -threshold && state.currentIndex < slides.length - 1) {
+        state.currentIndex++;
+      } else if (movedBy > threshold && state.currentIndex > 0) {
+        state.currentIndex--;
+      }
 
       updateSlidePosition();
+    }
+
+    function animation() {
+      setSliderPosition();
+      if (state.isDragging) state.rafId = requestAnimationFrame(animation);
     }
 
     slidesWrapper.addEventListener("pointerdown", onPointerDown);
@@ -161,7 +147,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         updateSlidePosition();
       }
     });
-
     rightBtn?.addEventListener("click", (e) => {
       e.stopPropagation();
       if (state.currentIndex < slides.length - 1) {
@@ -176,6 +161,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function initAllSliders(root = document) {
     root.querySelectorAll(".media-container").forEach(initMediaSlider);
+  }
+
+  function markPortraitMedia(root = document) {
+    root.querySelectorAll(".slide").forEach(media => {
+      if (media.tagName === "VIDEO") {
+        media.addEventListener("loadedmetadata", () => {
+          if (media.videoHeight > media.videoWidth) media.classList.add("portrait-zoom");
+        }, { once: true });
+      } else if (media.tagName === "IMG") {
+        media.addEventListener("load", () => {
+          if (media.naturalHeight > media.naturalWidth) media.classList.add("portrait-zoom");
+        }, { once: true });
+      }
+    });
   }
 
   /* =========================================================
@@ -309,19 +308,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   messagesLink?.addEventListener("click",  (e) => { e.preventDefault(); checkLoginAndRedirect("#messages-list"); });
 
   /* =========================================================
-     Sidebar/Tabs + Hash-Deep-Link
+     Sidebar/Tabs + Hash
      ========================================================= */
 
   const sidebarLinks = document.querySelectorAll(".sidebar-link");
   const titleEl      = document.querySelector(".title");
 
-  // LISTE der Karten
-  const carListEl = document.querySelector(".car-list");
-
-  // TAB-SECTIONS (fallbacks)
   const sections = {
-    "car-list":      document.querySelector("#car-list")      || document.querySelector(".car-list-section")      || carListEl,
-    "messages-list": document.querySelector("#messages-list") || document.querySelector(".messages-list"),
+    "car-list":      document.querySelector(".car-list"),
+    "messages-list": document.querySelector("#messages-list"),
     "saved-cars":    document.querySelector("#saved-cars"),
     "sold-cars":     document.querySelector("#sold-cars"),
   };
@@ -409,116 +404,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       case "#my-cars":
       default:
         return "car-list";
-    }
-  }
-
-  function applyHash() {
-    const section = sectionFromHash(location.hash);
-    setActiveSidebar(section);
-    showSection(section);
-    updateTitle(section);
-
-    if (section === "messages-list") {
-      loadMessagesSection();
-    }
-  }
-
-  sidebarLinks.forEach(link => {
-    link.addEventListener("click", () => {
-      const selected = link.dataset.section;
-      if (selected && location.hash !== `#${selected}`) {
-        history.replaceState(null, "", `#${selected}`);
-      }
-      applyHash();
-    });
-  });
-
-  window.addEventListener("hashchange", applyHash);
-
-  /* =========================================================
-     Profil: Inline bearbeiten
-     ========================================================= */
-
-  function enableProfileInlineEditing() {
-    const editableGroups = document.querySelectorAll(
-      ".profile-info-row.is-editable, .profile-opening-wrapper.is-editable"
-    );
-
-    editableGroups.forEach(group => {
-      const valueEl =
-        group.querySelector(".profile-info-value") ||
-        group.querySelector(".profile-opening-text");
-      const btn = group.querySelector(".profile-edit-inline");
-
-      if (!valueEl || !btn) return;
-
-      const fieldKey = valueEl.dataset.profileField;
-      if (!fieldKey) return;
-
-      function enterEditMode() {
-        group.classList.add("is-editing");
-        valueEl.setAttribute("contenteditable", "true");
-
-        const range = document.createRange();
-        range.selectNodeContents(valueEl);
-        range.collapse(false);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-
-        valueEl.focus();
-      }
-
-      function exitEditMode(save) {
-        group.classList.remove("is-editing");
-        valueEl.setAttribute("contenteditable", "false");
-
-        if (save) {
-          const newValue = valueEl.textContent.trim();
-          saveProfileField(fieldKey, newValue);
-        }
-      }
-
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        group.classList.contains("is-editing")
-          ? exitEditMode(true)
-          : enterEditMode();
-      });
-
-      valueEl.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          exitEditMode(true);
-        } else if (e.key === "Escape") {
-          e.preventDefault();
-          exitEditMode(false);
-        }
-      });
-
-      valueEl.addEventListener("blur", () => {
-        if (group.classList.contains("is-editing")) {
-          exitEditMode(true);
-        }
-      });
-    });
-  }
-
-  async function saveProfileField(field, value) {
-    try {
-      const res = await fetch("/profil/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ field, value }),
-      });
-
-      if (!res.ok) {
-        const msg = await res.text();
-        console.error("Profil-Update fehlgeschlagen:", msg);
-      }
-    } catch (err) {
-      console.error("Netzwerkfehler beim Profil-Update:", err);
     }
   }
 
@@ -686,14 +571,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   /* =========================================================
-     Profilbereich rendern
+     Profilbereich rendern (deine Version nutzen)
      ========================================================= */
 
   function renderProfileSection(nutzerData, drafts, online) {
     const section = document.querySelector(".profile-section");
     if (!section || !nutzerData) return;
 
-    const roleRaw = String(nutzerData.role || nutzerData.rolle || "privat").toLowerCase();
+    const roleRaw = (nutzerData.role || nutzerData.rolle || "privat").toLowerCase();
     const isHaendler =
       roleRaw.includes("händ") ||
       roleRaw.includes("haend") ||
@@ -712,7 +597,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const logoWrapper = section.querySelector(".profile-logo-wrapper");
     const logoImg = section.querySelector(".profile-logo");
-    const logoUrl = String(nutzerData.logoUrl || "").trim();
+    const logoUrl = nutzerData.logoUrl || "";
 
     if (logoImg && logoWrapper) {
       if (logoUrl) {
@@ -725,27 +610,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
-    // Standort
     const locParts = [];
     if (nutzerData?.plz) locParts.push(String(nutzerData.plz).trim());
     if (nutzerData?.ort) locParts.push(String(nutzerData.ort).trim());
-
     const location =
       locParts.filter(Boolean).join(" ") ||
       String(nutzerData?.standort || "").trim();
 
-    const locationEl = section.querySelector('[data-profile-field="location"]');
-    if (locationEl) {
-      locationEl.textContent = location || "Ort noch nicht hinterlegt";
-    }
+    section.querySelector('[data-profile-field="location"]')?.textContent =
+      location || "Ort noch nicht hinterlegt";
 
-    // Rolle-Label
-    const roleEl = section.querySelector('[data-profile-field="role"]');
-    if (roleEl) {
-      roleEl.textContent = isHaendler ? "Händlerkonto" : "Privatkonto";
-    }
+    section.querySelector('[data-profile-field="role"]')?.textContent =
+      isHaendler ? "Händlerkonto" : "Privatkonto";
 
-    // Mitglied seit
     const memberEl = section.querySelector('[data-profile-field="memberSince"]');
     const createdRaw = nutzerData.erstelltAm || nutzerData.createdAt || nutzerData.created || null;
     if (memberEl && createdRaw) {
@@ -754,12 +631,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         const month = String(d.getMonth() + 1).padStart(2, "0");
         const year = d.getFullYear();
         memberEl.textContent = `Bei Autovisa seit ${month}/${year}`;
-      } else {
-        memberEl.textContent = "";
       }
     }
 
-    // Adresse
     const addressEl = section.querySelector('[data-profile-field="address"]');
     if (addressEl) {
       const lines = [];
@@ -767,30 +641,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (nutzerData.strasse) streetParts.push(nutzerData.strasse);
       if (nutzerData.hausnummer) streetParts.push(nutzerData.hausnummer);
       if (streetParts.length) lines.push(streetParts.join(" "));
-
       const plzOrt = [];
       if (nutzerData.plz) plzOrt.push(nutzerData.plz);
       if (nutzerData.ort) plzOrt.push(nutzerData.ort);
       if (plzOrt.length) lines.push(plzOrt.join(" "));
-
       if (!lines.length && nutzerData.adresse) lines.push(nutzerData.adresse);
 
       addressEl.textContent = lines.length ? lines.join(", ") : "Noch keine Adresse hinterlegt";
     }
 
-    // Telefon
     const phoneEl = section.querySelector('[data-profile-field="phone"]');
     if (phoneEl) {
-      const phone =
-        nutzerData.telefon ||
-        nutzerData.phone ||
-        nutzerData.tel ||
-        nutzerData.telefonnummer ||
-        "";
+      const phone = nutzerData.telefon || nutzerData.phone || nutzerData.tel || nutzerData.telefonnummer || "";
       phoneEl.textContent = phone || "–";
     }
 
-    // E-Mail
     const emailEl = section.querySelector('[data-profile-field="email"]');
     if (emailEl) {
       const email = nutzerData.email || nutzerData.mail || "";
@@ -805,15 +670,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
-    // Website
     const websiteEl = section.querySelector('[data-profile-field="website"]');
     if (websiteEl) {
-      const url =
-        nutzerData.website ||
-        nutzerData.webseite ||
-        nutzerData.homepage ||
-        nutzerData.url ||
-        "";
+      const url = nutzerData.website || nutzerData.webseite || nutzerData.homepage || nutzerData.url || "";
       websiteEl.textContent = "";
       if (url) {
         const a = document.createElement("a");
@@ -827,7 +686,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
-    // Öffnungszeiten
     const openingEl = section.querySelector('[data-profile-field="openingHours"]');
     if (openingEl) {
       const text = nutzerData.oeffnungszeiten || nutzerData["öffnungszeiten"] || "";
@@ -838,39 +696,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       el.style.display = isHaendler ? "" : "none";
     });
 
-    // Bewertungen
-    const ratingAvg = typeof nutzerData.ratingAverage === "number" ? nutzerData.ratingAverage : null;
-    const ratingCount = typeof nutzerData.ratingCount === "number" ? nutzerData.ratingCount : 0;
-
-    const ratingAvgEl = section.querySelector('[data-profile-field="ratingAverage"]');
-    if (ratingAvgEl) {
-      ratingAvgEl.textContent =
-        (isHaendler && ratingAvg && ratingCount > 0) ? `${ratingAvg.toFixed(1)} / 5` : "– / 5";
-    }
-
-    const ratingCountEl = section.querySelector('[data-profile-field="ratingCount"]');
-    if (ratingCountEl) {
-      if (isHaendler && ratingCount > 0) ratingCountEl.textContent = `${ratingCount} Bewertung${ratingCount === 1 ? "" : "en"}`;
-      else if (isHaendler) ratingCountEl.textContent = "Noch keine Bewertungen";
-      else ratingCountEl.textContent = "";
-    }
-
-    const starsContainer = section.querySelector('[data-profile-field="ratingStars"]');
-    if (starsContainer) {
-      const value = (isHaendler && ratingAvg && ratingCount > 0) ? ratingAvg : 0;
-      const full = Math.floor(value);
-      const half = value - full >= 0.5;
-      const stars = starsContainer.querySelectorAll("i");
-
-      stars.forEach((star, index) => {
-        star.classList.remove("star-full", "star-half", "star-empty");
-        if (value === 0) star.classList.add("star-empty");
-        else if (index < full) star.classList.add("star-full");
-        else if (index === full && half) star.classList.add("star-half");
-        else star.classList.add("star-empty");
-      });
-    }
-
     const activeCount = Array.isArray(online) ? online.length : 0;
     const draftCount  = Array.isArray(drafts) ? drafts.length : 0;
 
@@ -880,16 +705,100 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   /* =========================================================
+     Profil: Inline bearbeiten (deine Logik)
+     ========================================================= */
+
+  function enableProfileInlineEditing() {
+    const editableGroups = document.querySelectorAll(
+      ".profile-info-row.is-editable, .profile-opening-wrapper.is-editable"
+    );
+
+    editableGroups.forEach(group => {
+      const valueEl =
+        group.querySelector(".profile-info-value") ||
+        group.querySelector(".profile-opening-text");
+      const btn = group.querySelector(".profile-edit-inline");
+
+      if (!valueEl || !btn) return;
+
+      const fieldKey = valueEl.dataset.profileField;
+      if (!fieldKey) return;
+
+      function enterEditMode() {
+        group.classList.add("is-editing");
+        valueEl.setAttribute("contenteditable", "true");
+        const range = document.createRange();
+        range.selectNodeContents(valueEl);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        valueEl.focus();
+      }
+
+      function exitEditMode(save) {
+        group.classList.remove("is-editing");
+        valueEl.setAttribute("contenteditable", "false");
+
+        if (save) {
+          const newValue = valueEl.textContent.trim();
+          saveProfileField(fieldKey, newValue);
+        }
+      }
+
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        group.classList.contains("is-editing")
+          ? exitEditMode(true)
+          : enterEditMode();
+      });
+
+      valueEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          exitEditMode(true);
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          exitEditMode(false);
+        }
+      });
+
+      valueEl.addEventListener("blur", () => {
+        if (group.classList.contains("is-editing")) exitEditMode(true);
+      });
+    });
+  }
+
+  async function saveProfileField(field, value) {
+    try {
+      const res = await fetch("/profil/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ field, value }),
+      });
+
+      if (!res.ok) {
+        const msg = await res.text();
+        console.error("Profil-Update fehlgeschlagen:", msg);
+      }
+    } catch (err) {
+      console.error("Netzwerkfehler beim Profil-Update:", err);
+    }
+  }
+
+  /* =========================================================
      Meine Autos laden + rendern
      ========================================================= */
 
+  const carList = document.querySelector(".car-list");
   let nutzerData = null;
 
   async function loadMeineAutos() {
-    if (!carListEl) return;
+    if (!carList) return;
 
     const nutzerRes = await fetch("/getNutzerInfo", { credentials: "include" });
-    nutzerData = await safeJson(nutzerRes, null);
+    nutzerData = await nutzerRes.json();
 
     if (!nutzerData?.eingeloggt || !nutzerData?.nutzerId) {
       alert("❌ Du bist nicht eingeloggt. Bitte logge dich zuerst ein.");
@@ -897,37 +806,28 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    // Online-Endpunkt robust: erst /meine-inserate, fallback /meineInserate.json
-    const draftReq  = fetch("/getVehicleData", { credentials: "include" });
-    const onlineReq = fetch("/meine-inserate", { credentials: "include" });
+    const [draftRes, onlineRes] = await Promise.all([
+      fetch("/getVehicleData", { credentials: "include" }),
+      fetch("/meine-inserate", { credentials: "include" })
+    ]);
 
-    let [draftRes, onlineRes] = await Promise.all([draftReq, onlineReq]);
-
-    let drafts = asArray(await safeJson(draftRes, []));
-    let online = asArray(await safeJson(onlineRes, []));
-
-    // Fallback falls /meine-inserate HTML liefert
-    if (!online.length) {
-      try {
-        const fallbackRes = await fetch("/meineInserate.json", { credentials: "include" });
-        online = asArray(await safeJson(fallbackRes, []));
-      } catch {}
-    }
+    const drafts = await draftRes.json();
+    const online = await onlineRes.json();
 
     renderProfileSection(nutzerData, drafts, online);
     enableProfileInlineEditing();
 
     const items = [
-      ...drafts.map(d => ({ ...d, __status: "draft" })),
-      ...online.map(o => ({ ...o, __status: "online" })),
+      ...(Array.isArray(drafts) ? drafts.map(d => ({ ...d, __status: "draft" })) : []),
+      ...(Array.isArray(online) ? online.map(o => ({ ...o, __status: "online" })) : [])
     ];
 
     if (!items.length) {
-      carListEl.innerHTML = "<p>Keine Inserate gefunden.</p>";
+      carList.innerHTML = "<p>Keine Inserate gefunden.</p>";
       return;
     }
 
-    carListEl.innerHTML = items.map((inserat) => {
+    carList.innerHTML = items.map(inserat => {
       const realId = extractMongoId(inserat) || "";
       const isOnline = inserat.__status === "online";
 
@@ -949,7 +849,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         "Standort nicht angegeben";
 
       return `
-        <div class="car-card-wrapper" data-id="${realId}" data-status="${inserat.__status}">
+        <div class="car-card-wrapper" data-id="${realId}" data-status="${inserat.__status || ""}">
           <div class="car-card-actions mobile-only">
             <button ${publishBtnAttrs}><i class="fas fa-globe"></i> ${publishBtnLabel}</button>
             <button class="edit-btn"><i class="fas fa-pen"></i> Bearbeiten</button>
@@ -962,8 +862,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <div class="slides">
                   ${generateSlides(inserat)}
                 </div>
-                <button class="media-arrow left"><i class="fas fa-chevron-left"></i></button>
-                <button class="media-arrow right"><i class="fas fa-chevron-right"></i></button>
+                <button class="media-arrow left" type="button"><i class="fas fa-chevron-left"></i></button>
+                <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
               </div>
             </div>
 
@@ -1012,33 +912,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       `;
     }).join("");
 
-    initAllSliders(carListEl);
-
-    // Hochkant-Erkennung
-    carListEl.querySelectorAll(".slide").forEach(media => {
-      if (media.tagName === "VIDEO") {
-        media.addEventListener("loadedmetadata", () => {
-          if (media.videoHeight > media.videoWidth) media.classList.add("portrait-zoom");
-        });
-      } else if (media.tagName === "IMG") {
-        media.addEventListener("load", () => {
-          if (media.naturalHeight > media.naturalWidth) media.classList.add("portrait-zoom");
-        });
-      }
-    });
+    // ✅ WICHTIG: erst NACH dem Rendern!
+    initAllSliders(carList);
+    markPortraitMedia(carList);
   }
 
   /* =========================================================
-     Event Delegation: Edit / Remove / Publish / Card-Click
+     Event Delegation: Publish / Remove / Edit / Card-Click
      ========================================================= */
 
   document.addEventListener("click", async (e) => {
     const wrapper = e.target.closest(".car-card-wrapper");
-    if (!wrapper) return;
 
     // ---- Publish
     const publishBtn = e.target.closest(".publish-btn");
-    if (publishBtn) {
+    if (publishBtn && wrapper) {
       e.preventDefault();
       e.stopPropagation();
 
@@ -1080,7 +968,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // ---- Remove (UI)
     const removeBtn = e.target.closest(".remove-saved-btn");
-    if (removeBtn) {
+    if (removeBtn && wrapper) {
       e.preventDefault();
       e.stopPropagation();
       if (confirm("Möchtest du dieses Fahrzeug wirklich entfernen?")) {
@@ -1091,7 +979,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // ---- Edit
     const editBtn = e.target.closest(".edit-btn");
-    if (editBtn) {
+    if (editBtn && wrapper) {
       e.preventDefault();
       e.stopPropagation();
 
@@ -1103,20 +991,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const [draftRes, onlineRes] = await Promise.all([
           fetch("/getVehicleData", { credentials: "include" }),
-          fetch("/meine-inserate", { credentials: "include" }),
+          fetch("/meine-inserate", { credentials: "include" })
         ]);
-
-        let drafts = asArray(await safeJson(draftRes, []));
-        let online = asArray(await safeJson(onlineRes, []));
-
-        if (!online.length) {
-          try {
-            const fallbackRes = await fetch("/meineInserate.json", { credentials: "include" });
-            online = asArray(await safeJson(fallbackRes, []));
-          } catch {}
-        }
-
-        const all = [...drafts, ...online];
+        const drafts = await draftRes.json();
+        const online = await onlineRes.json();
+        const all = [...(Array.isArray(drafts) ? drafts : []), ...(Array.isArray(online) ? online : [])];
         const inserat = all.find(x => extractMongoId(x) === realId) || null;
 
         if (inserat) {
@@ -1127,14 +1006,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         sessionStorage.setItem("inseratGestartet", "true");
         sessionStorage.setItem("hatGespeichert", "true");
-      } catch (err) {
-        console.warn("Konnte Edit-State nicht speichern:", err);
-      }
+      } catch {}
 
       const roleRaw = String(nutzerData?.role || nutzerData?.rolle || "privat").toLowerCase();
       const isHaendlerUser = roleRaw.includes("haend") || roleRaw.includes("händ");
-      const ziel = isHaendlerUser ? "haendler.html" : "privat.html";
 
+      const ziel = isHaendlerUser ? "haendler.html" : "privat.html";
       window.location.href = realId
         ? `${ziel}?edit=${encodeURIComponent(realId)}`
         : `${ziel}?edit=1`;
@@ -1143,30 +1020,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // ---- Card Click -> Anzeige
-    const isActionButton = e.target.closest(".car-card-actions button");
-    const isArrow = e.target.closest(".media-arrow");
-    if (isActionButton || isArrow) return;
+    if (wrapper) {
+      const isActionButton = e.target.closest(".car-card-actions button");
+      const isArrow = e.target.closest(".media-arrow");
+      if (isActionButton || isArrow) return;
 
-    const realId = wrapper.dataset.id || "";
-
-    // Fallback für alte Anzeige-Logik
-    try {
-      localStorage.setItem("ausgewaehltesInseratId", realId);
-    } catch {}
-
-    // Besser: ID an die Anzeige-Seite geben
-    window.location.href = realId
-      ? `anzeige.html?id=${encodeURIComponent(realId)}`
-      : "anzeige.html";
+      window.location.href = "anzeige.html";
+    }
   });
 
   /* =========================================================
-     Nachrichten-Bereich
+     Nachrichten-Bereich (deine bestehende Logik)
      ========================================================= */
 
   async function getLoggedInUser() {
     const r = await fetch("/getNutzerInfo", { credentials: "include" });
-    const u = await safeJson(r, null);
+    const u = await r.json();
     if (!u?.eingeloggt || !u?.nutzerId) throw new Error("Nicht eingeloggt");
     return u;
   }
@@ -1175,7 +1044,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       const r = await fetch(`/inserat-details/${encodeURIComponent(id)}`, { credentials: "include" });
       if (!r.ok) throw new Error("404");
-      return await safeJson(r, {});
+      return await r.json();
     } catch {
       return {
         titel: "Inserat nicht gefunden",
@@ -1197,13 +1066,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function fetchInbox(empfaengerId) {
     const r = await fetch(`/nachrichten/${encodeURIComponent(empfaengerId)}`, { credentials: "include" });
     if (!r.ok) throw new Error("Fehler beim Abrufen der Nachrichten");
-    return asArray(await safeJson(r, []));
+    return await r.json();
   }
 
   function renderMessageCard(msg, ins, currentUserId) {
     const firstImg = Array.isArray(ins.images) && ins.images[0] ? ins.images[0] : null;
+
     const preis = ins.preis != null
-      ? (typeof ins.preis === "number" ? ins.preis.toLocaleString("de-DE") + " €" : String(ins.preis))
+      ? (typeof ins.preis === "number"
+        ? ins.preis.toLocaleString("de-DE") + " €"
+        : String(ins.preis))
       : "";
 
     const chatUrl =
@@ -1225,18 +1097,6 @@ document.addEventListener("DOMContentLoaded", async () => {
               <p class="car-price">${preis || ""}</p>
             </div>
             <p class="car-subtitle">${ins.verkauf_kurzbeschreibung || ""}</p>
-            <div class="car-info-grid">
-              <p><i class="fas fa-road"></i> ${ins.verkauf_kilometer ?? "—"} km</p>
-              <p><i class="fas fa-calendar-alt"></i> EZ ${ins.verkauf_erstzulassung || "—"}</p>
-              <p><i class="fas fa-gas-pump"></i> ${ins.verkauf_kraftstoff || "—"}</p>
-              <p><i class="fas fa-gauge-high"></i> ${ins.verkauf_leistung ?? "—"} PS</p>
-              <p><i class="fas fa-gears"></i> ${ins.verkauf_getriebe || "—"}</p>
-              ${ins.verkauf_verbrauch_kombiniert ? `<p><i class="fas fa-tint"></i> ${ins.verkauf_verbrauch_kombiniert} l/100 km</p>` : ""}
-            </div>
-            <div class="dealer-info">
-              <strong>${ins.verkauf_name || "Anbieter"}</strong><br>
-              ${ins.standort || ""}
-            </div>
           </div>
         </div>
 
@@ -1276,13 +1136,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       const user = await getLoggedInUser();
       const inbox = await fetchInbox(user.nutzerId);
 
-      if (!inbox.length) {
+      if (!Array.isArray(inbox) || inbox.length === 0) {
         messagesSection.innerHTML = `<p>Keine Nachrichten vorhanden.</p>`;
         return;
       }
 
-      const uniqueFahrzeuge = [...new Set(inbox.map(m => m.fahrzeugId).filter(Boolean))];
       const detailsMap = new Map();
+      const uniqueFahrzeuge = [...new Set(inbox.map(m => m.fahrzeugId))];
 
       await Promise.all(uniqueFahrzeuge.map(async (fid) => {
         const det = await fetchInseratDetails(fid);
@@ -1298,7 +1158,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     } catch (e) {
       console.error(e);
-      messagesSection.innerHTML = `<p>Fehler beim Laden der Nachrichten.</p>`;
+      if (messagesSection) messagesSection.innerHTML = `<p>Fehler beim Laden der Nachrichten.</p>`;
     }
   }
 
@@ -1324,14 +1184,36 @@ document.addEventListener("DOMContentLoaded", async () => {
         const t = await r.text();
         alert("Konnte nicht als gelesen markieren: " + t);
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
       alert("Netzwerkfehler.");
     }
   });
 
+  function applyHash() {
+    const section = sectionFromHash(location.hash);
+    setActiveSidebar(section);
+    showSection(section);
+    updateTitle(section);
+
+    if (section === "messages-list") {
+      loadMessagesSection();
+    }
+  }
+
+  sidebarLinks.forEach(link => {
+    link.addEventListener("click", () => {
+      const selected = link.dataset.section;
+      if (selected && location.hash !== `#${selected}`) {
+        history.replaceState(null, "", `#${selected}`);
+      }
+      applyHash();
+    });
+  });
+
+  window.addEventListener("hashchange", applyHash);
+
   /* =========================================================
-     Initial Boot
+     Boot
      ========================================================= */
 
   try {
@@ -1342,4 +1224,3 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   applyHash();
 });
-
