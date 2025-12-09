@@ -2,6 +2,7 @@
 document.documentElement.classList.remove("no-js");
 
 document.addEventListener("DOMContentLoaded", async () => {
+  "use strict";
 
   /* =========================================================
      Helpers
@@ -15,7 +16,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function sellerInitials(name = "") {
-    const parts = name.trim().split(/\s+/).slice(0, 2);
+    const parts = String(name).trim().split(/\s+/).slice(0, 2);
     const ini = parts.map(p => p[0]?.toUpperCase() || "").join("");
     return ini || "AV";
   }
@@ -29,27 +30,42 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function splitErstzulassung(raw) {
-    // akzeptiert z.B. "2021-05", "05/2021", "2021/05", "2021"
     const s = String(raw || "").trim();
     if (!s) return { monat: "", jahr: "" };
 
-    // YYYY-MM
     let m = s.match(/^(\d{4})-(\d{2})$/);
     if (m) return { jahr: m[1], monat: m[2] };
 
-    // MM/YYYY
     m = s.match(/^(\d{2})\/(\d{4})$/);
     if (m) return { monat: m[1], jahr: m[2] };
 
-    // YYYY/MM
     m = s.match(/^(\d{4})\/(\d{2})$/);
     if (m) return { jahr: m[1], monat: m[2] };
 
-    // Nur Jahr
     m = s.match(/^(\d{4})$/);
     if (m) return { jahr: m[1], monat: "" };
 
     return { monat: "", jahr: "" };
+  }
+
+  async function safeJson(res, fallback = []) {
+    try {
+      const ct = (res.headers.get("content-type") || "").toLowerCase();
+      if (ct.includes("application/json")) return await res.json();
+
+      const text = await res.text();
+      try {
+        return JSON.parse(text);
+      } catch {
+        return fallback;
+      }
+    } catch {
+      return fallback;
+    }
+  }
+
+  function asArray(v) {
+    return Array.isArray(v) ? v : [];
   }
 
   /* =========================================================
@@ -75,7 +91,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       rafId: null,
     };
 
-    // Layout
     slidesWrapper.style.display = "flex";
     slidesWrapper.style.willChange = "transform";
     slides.forEach(slide => {
@@ -97,6 +112,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       state.prevTranslate = state.currentTranslate;
       setTransition(true);
       setSliderPosition();
+    }
+
+    function animation() {
+      setSliderPosition();
+      if (state.isDragging) state.rafId = requestAnimationFrame(animation);
     }
 
     function onPointerDown(e) {
@@ -122,28 +142,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       const movedBy = state.currentTranslate - state.prevTranslate;
       const threshold = Math.min(80, (container.clientWidth || 0) * 0.18);
 
-      if (movedBy < -threshold && state.currentIndex < slides.length - 1) {
-        state.currentIndex++;
-      } else if (movedBy > threshold && state.currentIndex > 0) {
-        state.currentIndex--;
-      }
+      if (movedBy < -threshold && state.currentIndex < slides.length - 1) state.currentIndex++;
+      else if (movedBy > threshold && state.currentIndex > 0) state.currentIndex--;
 
       updateSlidePosition();
     }
 
-    function animation() {
-      setSliderPosition();
-      if (state.isDragging) state.rafId = requestAnimationFrame(animation);
-    }
-
-    // Pointer Events
     slidesWrapper.addEventListener("pointerdown", onPointerDown);
     slidesWrapper.addEventListener("pointermove", onPointerMove);
     slidesWrapper.addEventListener("pointerup", onPointerUp);
     slidesWrapper.addEventListener("pointerleave", onPointerUp);
     slidesWrapper.addEventListener("pointercancel", onPointerUp);
 
-    // Pfeile
     leftBtn?.addEventListener("click", (e) => {
       e.stopPropagation();
       if (state.currentIndex > 0) {
@@ -151,6 +161,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         updateSlidePosition();
       }
     });
+
     rightBtn?.addEventListener("click", (e) => {
       e.stopPropagation();
       if (state.currentIndex < slides.length - 1) {
@@ -304,9 +315,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const sidebarLinks = document.querySelectorAll(".sidebar-link");
   const titleEl      = document.querySelector(".title");
 
+  // LISTE der Karten
+  const carListEl = document.querySelector(".car-list");
+
+  // TAB-SECTIONS (fallbacks)
   const sections = {
-    "car-list":      document.querySelector(".car-list"),
-    "messages-list": document.querySelector("#messages-list"),
+    "car-list":      document.querySelector("#car-list")      || document.querySelector(".car-list-section")      || carListEl,
+    "messages-list": document.querySelector("#messages-list") || document.querySelector(".messages-list"),
     "saved-cars":    document.querySelector("#saved-cars"),
     "sold-cars":     document.querySelector("#sold-cars"),
   };
@@ -403,7 +418,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     showSection(section);
     updateTitle(section);
 
-    // Lazy Load Nachrichten
     if (section === "messages-list") {
       loadMessagesSection();
     }
@@ -555,44 +569,34 @@ document.addEventListener("DOMContentLoaded", async () => {
     const mwstFlag = Boolean(ins.verkauf_mwst || brutto);
 
     return {
-      // ===== Basis =====
-      titel,
-      marke,
-      modell,
+      titel, marke, modell,
 
-      // ===== Preis-Felder (Form-IDs) =====
       preis: preisNet,
       "mwst-ausweisbar": mwstFlag ? "1" : "",
       "brutto-preis": brutto,
       "netto-preis": netto,
 
-      // ===== Legacy/Preview Keys =====
       verkauf_preis:  ins.verkauf_preis  || preisNet || "",
       verkauf_brutto: ins.verkauf_brutto || brutto   || "",
       verkauf_netto:  ins.verkauf_netto  || netto    || "",
       verkauf_mwst:   ins.verkauf_mwst   || (mwstFlag ? "1" : ""),
 
-      // ===== Erstzulassung (split für dein Formular) =====
       verkauf_erstzulassung: ezRaw,
       erstzulassung: ezRaw,
       verkauf_ez_monat: monat,
       verkauf_ez_jahr:  jahr,
 
-      // ===== Laufleistung =====
       kilometer:         ins.kilometer ?? ins.verkauf_kilometer ?? "",
       verkauf_kilometer: ins.verkauf_kilometer ?? ins.kilometer ?? "",
 
-      // ===== Leistung =====
       leistung_ps:        ins.leistung_ps ?? ins.verkauf_leistung ?? ins.leistung ?? "",
       leistung_kw:        ins.leistung_kw ?? ins.verkauf_leistung_kw ?? "",
       verkauf_leistung:    ins.verkauf_leistung ?? ins.leistung_ps ?? ins.leistung ?? "",
       verkauf_leistung_kw: ins.verkauf_leistung_kw ?? ins.leistung_kw ?? "",
 
-      // ===== Hubraum =====
       hubraum:         ins.hubraum ?? ins.verkauf_hubraum ?? "",
       verkauf_hubraum: ins.verkauf_hubraum ?? ins.hubraum ?? "",
 
-      // ===== Kraftstoff / Getriebe / Antrieb =====
       kraftstoff:         ins.kraftstoff || ins.verkauf_kraftstoff || "",
       verkauf_kraftstoff: ins.verkauf_kraftstoff || ins.kraftstoff || "",
 
@@ -602,7 +606,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       antriebsart:        ins.antriebsart || ins.antrieb || ins.verkauf_antrieb || "",
       verkauf_antrieb:    ins.verkauf_antrieb || ins.antriebsart || ins.antrieb || "",
 
-      // ===== Fahrzeugtyp / Türen =====
       fahrzeugtyp:         ins.fahrzeugtyp || ins.verkauf_fahrzeugtyp || "",
       verkauf_fahrzeugtyp: ins.verkauf_fahrzeugtyp || ins.fahrzeugtyp || "",
 
@@ -610,11 +613,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       "türen":        ins["türen"] || ins.türen || ins.tueren || "",
       verkauf_tueren: ins.verkauf_tueren || ins.tueren || ins["türen"] || ins.türen || "",
 
-      // ===== Partikelfilter =====
       partikelfilter:         ins.partikelfilter || ins.verkauf_partikelfilter || "",
       verkauf_partikelfilter: ins.verkauf_partikelfilter || ins.partikelfilter || "",
 
-      // ===== Verbrauch/CO2 =====
       verbrauch_kombiniert: ins.verbrauch_kombiniert || ins.verkauf_verbrauch_kombiniert || "",
       verbrauch_innerorts:  ins.verbrauch_innerorts  || ins.verkauf_verbrauch_innerorts  || "",
       verbrauch_ausserorts: ins.verbrauch_ausserorts || ins.verkauf_verbrauch_ausserorts || "",
@@ -625,7 +626,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       verkauf_verbrauch_ausserorts: ins.verkauf_verbrauch_ausserorts || ins.verbrauch_ausserorts || "",
       verkauf_co2_emission:         ins.verkauf_co2_emission         || ins.co2_emission         || "",
 
-      // ===== Schadstoff/Plakette/Effizienz =====
       schadstoffklasse: ins.schadstoffklasse || ins.verkauf_schadstoffklasse || "",
       umweltplakette:  ins.umweltplakette  || ins.verkauf_umweltplakette  || "",
       emissionsklasse: ins.emissionsklasse || ins.verkauf_emissionsklasse || "",
@@ -634,7 +634,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       verkauf_umweltplakette:   ins.verkauf_umweltplakette   || ins.umweltplakette  || "",
       verkauf_emissionsklasse:  ins.verkauf_emissionsklasse  || ins.emissionsklasse || "",
 
-      // ===== Verkäuferlabel =====
       verkauf_verkaeufer: ins.verkauf_verkaeufer || ""
     };
   }
@@ -694,7 +693,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const section = document.querySelector(".profile-section");
     if (!section || !nutzerData) return;
 
-    const roleRaw = (nutzerData.role || nutzerData.rolle || "privat").toLowerCase();
+    const roleRaw = String(nutzerData.role || nutzerData.rolle || "privat").toLowerCase();
     const isHaendler =
       roleRaw.includes("händ") ||
       roleRaw.includes("haend") ||
@@ -708,14 +707,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       ? (nutzerData.firma || nutzerData.name || "Dein Autohaus")
       : (nutzerData.name || "Dein Profil");
 
-    const initials = sellerInitials(displayName);
-
     section.querySelector(".profile-name")?.textContent = displayName;
-    section.querySelector(".profile-initials")?.textContent = initials;
+    section.querySelector(".profile-initials")?.textContent = sellerInitials(displayName);
 
     const logoWrapper = section.querySelector(".profile-logo-wrapper");
     const logoImg = section.querySelector(".profile-logo");
-    const logoUrl = nutzerData.logoUrl || "";
+    const logoUrl = String(nutzerData.logoUrl || "").trim();
 
     if (logoImg && logoWrapper) {
       if (logoUrl) {
@@ -727,27 +724,28 @@ document.addEventListener("DOMContentLoaded", async () => {
         logoWrapper.classList.remove("has-logo");
       }
     }
-// Standort
-const locParts = [];
-if (nutzerData?.plz) locParts.push(String(nutzerData.plz).trim());
-if (nutzerData?.ort) locParts.push(String(nutzerData.ort).trim());
 
-const location =
-  locParts.filter(Boolean).join(" ") ||
-  String(nutzerData?.standort || "").trim();
+    // Standort
+    const locParts = [];
+    if (nutzerData?.plz) locParts.push(String(nutzerData.plz).trim());
+    if (nutzerData?.ort) locParts.push(String(nutzerData.ort).trim());
 
-const locationEl = section.querySelector('[data-profile-field="location"]');
-if (locationEl) {
-  locationEl.textContent = location || "Ort noch nicht hinterlegt";
-}
+    const location =
+      locParts.filter(Boolean).join(" ") ||
+      String(nutzerData?.standort || "").trim();
 
-// Rolle-Label
-const roleEl = section.querySelector('[data-profile-field="role"]');
-if (roleEl) {
-  roleEl.textContent = isHaendler ? "Händlerkonto" : "Privatkonto";
-}
+    const locationEl = section.querySelector('[data-profile-field="location"]');
+    if (locationEl) {
+      locationEl.textContent = location || "Ort noch nicht hinterlegt";
+    }
 
+    // Rolle-Label
+    const roleEl = section.querySelector('[data-profile-field="role"]');
+    if (roleEl) {
+      roleEl.textContent = isHaendler ? "Händlerkonto" : "Privatkonto";
+    }
 
+    // Mitglied seit
     const memberEl = section.querySelector('[data-profile-field="memberSince"]');
     const createdRaw = nutzerData.erstelltAm || nutzerData.createdAt || nutzerData.created || null;
     if (memberEl && createdRaw) {
@@ -756,9 +754,12 @@ if (roleEl) {
         const month = String(d.getMonth() + 1).padStart(2, "0");
         const year = d.getFullYear();
         memberEl.textContent = `Bei Autovisa seit ${month}/${year}`;
+      } else {
+        memberEl.textContent = "";
       }
     }
 
+    // Adresse
     const addressEl = section.querySelector('[data-profile-field="address"]');
     if (addressEl) {
       const lines = [];
@@ -766,21 +767,30 @@ if (roleEl) {
       if (nutzerData.strasse) streetParts.push(nutzerData.strasse);
       if (nutzerData.hausnummer) streetParts.push(nutzerData.hausnummer);
       if (streetParts.length) lines.push(streetParts.join(" "));
+
       const plzOrt = [];
       if (nutzerData.plz) plzOrt.push(nutzerData.plz);
       if (nutzerData.ort) plzOrt.push(nutzerData.ort);
       if (plzOrt.length) lines.push(plzOrt.join(" "));
+
       if (!lines.length && nutzerData.adresse) lines.push(nutzerData.adresse);
 
       addressEl.textContent = lines.length ? lines.join(", ") : "Noch keine Adresse hinterlegt";
     }
 
+    // Telefon
     const phoneEl = section.querySelector('[data-profile-field="phone"]');
     if (phoneEl) {
-      const phone = nutzerData.telefon || nutzerData.phone || nutzerData.tel || nutzerData.telefonnummer || "";
+      const phone =
+        nutzerData.telefon ||
+        nutzerData.phone ||
+        nutzerData.tel ||
+        nutzerData.telefonnummer ||
+        "";
       phoneEl.textContent = phone || "–";
     }
 
+    // E-Mail
     const emailEl = section.querySelector('[data-profile-field="email"]');
     if (emailEl) {
       const email = nutzerData.email || nutzerData.mail || "";
@@ -795,9 +805,15 @@ if (roleEl) {
       }
     }
 
+    // Website
     const websiteEl = section.querySelector('[data-profile-field="website"]');
     if (websiteEl) {
-      const url = nutzerData.website || nutzerData.webseite || nutzerData.homepage || nutzerData.url || "";
+      const url =
+        nutzerData.website ||
+        nutzerData.webseite ||
+        nutzerData.homepage ||
+        nutzerData.url ||
+        "";
       websiteEl.textContent = "";
       if (url) {
         const a = document.createElement("a");
@@ -811,6 +827,7 @@ if (roleEl) {
       }
     }
 
+    // Öffnungszeiten
     const openingEl = section.querySelector('[data-profile-field="openingHours"]');
     if (openingEl) {
       const text = nutzerData.oeffnungszeiten || nutzerData["öffnungszeiten"] || "";
@@ -821,6 +838,7 @@ if (roleEl) {
       el.style.display = isHaendler ? "" : "none";
     });
 
+    // Bewertungen
     const ratingAvg = typeof nutzerData.ratingAverage === "number" ? nutzerData.ratingAverage : null;
     const ratingCount = typeof nutzerData.ratingCount === "number" ? nutzerData.ratingCount : 0;
 
@@ -865,15 +883,13 @@ if (roleEl) {
      Meine Autos laden + rendern
      ========================================================= */
 
-  const carList = document.querySelector(".car-list");
-
   let nutzerData = null;
 
   async function loadMeineAutos() {
-    if (!carList) return;
+    if (!carListEl) return;
 
     const nutzerRes = await fetch("/getNutzerInfo", { credentials: "include" });
-    nutzerData = await nutzerRes.json();
+    nutzerData = await safeJson(nutzerRes, null);
 
     if (!nutzerData?.eingeloggt || !nutzerData?.nutzerId) {
       alert("❌ Du bist nicht eingeloggt. Bitte logge dich zuerst ein.");
@@ -881,28 +897,37 @@ if (roleEl) {
       return;
     }
 
-    const [draftRes, onlineRes] = await Promise.all([
-      fetch("/getVehicleData", { credentials: "include" }),
-      fetch("/meine-inserate", { credentials: "include" })
-    ]);
+    // Online-Endpunkt robust: erst /meine-inserate, fallback /meineInserate.json
+    const draftReq  = fetch("/getVehicleData", { credentials: "include" });
+    const onlineReq = fetch("/meine-inserate", { credentials: "include" });
 
-    const drafts = await draftRes.json();
-    const online = await onlineRes.json();
+    let [draftRes, onlineRes] = await Promise.all([draftReq, onlineReq]);
+
+    let drafts = asArray(await safeJson(draftRes, []));
+    let online = asArray(await safeJson(onlineRes, []));
+
+    // Fallback falls /meine-inserate HTML liefert
+    if (!online.length) {
+      try {
+        const fallbackRes = await fetch("/meineInserate.json", { credentials: "include" });
+        online = asArray(await safeJson(fallbackRes, []));
+      } catch {}
+    }
 
     renderProfileSection(nutzerData, drafts, online);
     enableProfileInlineEditing();
 
     const items = [
-      ...(Array.isArray(drafts) ? drafts.map(d => ({ ...d, __status: "draft" })) : []),
-      ...(Array.isArray(online) ? online.map(o => ({ ...o, __status: "online" })) : [])
+      ...drafts.map(d => ({ ...d, __status: "draft" })),
+      ...online.map(o => ({ ...o, __status: "online" })),
     ];
 
     if (!items.length) {
-      carList.innerHTML = "<p>Keine Inserate gefunden.</p>";
+      carListEl.innerHTML = "<p>Keine Inserate gefunden.</p>";
       return;
     }
 
-    carList.innerHTML = items.map(inserat => {
+    carListEl.innerHTML = items.map((inserat) => {
       const realId = extractMongoId(inserat) || "";
       const isOnline = inserat.__status === "online";
 
@@ -924,7 +949,7 @@ if (roleEl) {
         "Standort nicht angegeben";
 
       return `
-        <div class="car-card-wrapper" data-id="${realId}" data-status="${inserat.__status || ""}">
+        <div class="car-card-wrapper" data-id="${realId}" data-status="${inserat.__status}">
           <div class="car-card-actions mobile-only">
             <button ${publishBtnAttrs}><i class="fas fa-globe"></i> ${publishBtnLabel}</button>
             <button class="edit-btn"><i class="fas fa-pen"></i> Bearbeiten</button>
@@ -987,11 +1012,10 @@ if (roleEl) {
       `;
     }).join("");
 
-    // Slider nach DOM-Injection initialisieren
-    initAllSliders(carList);
+    initAllSliders(carListEl);
 
     // Hochkant-Erkennung
-    carList.querySelectorAll(".slide").forEach(media => {
+    carListEl.querySelectorAll(".slide").forEach(media => {
       if (media.tagName === "VIDEO") {
         media.addEventListener("loadedmetadata", () => {
           if (media.videoHeight > media.videoWidth) media.classList.add("portrait-zoom");
@@ -1010,10 +1034,11 @@ if (roleEl) {
 
   document.addEventListener("click", async (e) => {
     const wrapper = e.target.closest(".car-card-wrapper");
+    if (!wrapper) return;
 
     // ---- Publish
     const publishBtn = e.target.closest(".publish-btn");
-    if (publishBtn && wrapper) {
+    if (publishBtn) {
       e.preventDefault();
       e.stopPropagation();
 
@@ -1055,7 +1080,7 @@ if (roleEl) {
 
     // ---- Remove (UI)
     const removeBtn = e.target.closest(".remove-saved-btn");
-    if (removeBtn && wrapper) {
+    if (removeBtn) {
       e.preventDefault();
       e.stopPropagation();
       if (confirm("Möchtest du dieses Fahrzeug wirklich entfernen?")) {
@@ -1066,34 +1091,33 @@ if (roleEl) {
 
     // ---- Edit
     const editBtn = e.target.closest(".edit-btn");
-    if (editBtn && wrapper) {
+    if (editBtn) {
       e.preventDefault();
       e.stopPropagation();
 
-      // Inserat-Daten aus DOM-Index über dataset id wiederfinden:
-      // Wir greifen hier auf localStorage-Quelle "ausgewaehltesInserat" NICHT zurück,
-      // sondern bauen aus dem gerenderten Zustand neu.
-      // Einfacher: wir holen das Inserat nochmal aus dem Backend nur für Edit.
       const realId = wrapper.dataset.id || "";
 
       try {
         localStorage.setItem("editMode", "1");
         if (realId) localStorage.setItem("editInseratId", realId);
 
-        // Optional: Falls du einen Endpoint hast:
-        // const insRes = await fetch(`/inserat-details/${encodeURIComponent(realId)}`, { credentials:"include" });
-        // const inserat = insRes.ok ? await insRes.json() : null;
-
-        // Fallback: wir laden die komplette Liste neu und matchen id
-        // (robust ohne neuen Endpoint)
         const [draftRes, onlineRes] = await Promise.all([
           fetch("/getVehicleData", { credentials: "include" }),
-          fetch("/meine-inserate", { credentials: "include" })
+          fetch("/meine-inserate", { credentials: "include" }),
         ]);
-        const drafts = await draftRes.json();
-        const online = await onlineRes.json();
-        const all = [...(Array.isArray(drafts) ? drafts : []), ...(Array.isArray(online) ? online : [])];
-        const inserat = all.find(x => extractMongoId(x) === realId) || all.find(x => x.id === realId) || null;
+
+        let drafts = asArray(await safeJson(draftRes, []));
+        let online = asArray(await safeJson(onlineRes, []));
+
+        if (!online.length) {
+          try {
+            const fallbackRes = await fetch("/meineInserate.json", { credentials: "include" });
+            online = asArray(await safeJson(fallbackRes, []));
+          } catch {}
+        }
+
+        const all = [...drafts, ...online];
+        const inserat = all.find(x => extractMongoId(x) === realId) || null;
 
         if (inserat) {
           localStorage.setItem("fahrzeugdaten", JSON.stringify(buildFahrzeugdatenFromInserat(inserat)));
@@ -1103,15 +1127,14 @@ if (roleEl) {
 
         sessionStorage.setItem("inseratGestartet", "true");
         sessionStorage.setItem("hatGespeichert", "true");
-
       } catch (err) {
         console.warn("Konnte Edit-State nicht speichern:", err);
       }
 
       const roleRaw = String(nutzerData?.role || nutzerData?.rolle || "privat").toLowerCase();
       const isHaendlerUser = roleRaw.includes("haend") || roleRaw.includes("händ");
-
       const ziel = isHaendlerUser ? "haendler.html" : "privat.html";
+
       window.location.href = realId
         ? `${ziel}?edit=${encodeURIComponent(realId)}`
         : `${ziel}?edit=1`;
@@ -1120,16 +1143,21 @@ if (roleEl) {
     }
 
     // ---- Card Click -> Anzeige
-    if (wrapper) {
-      const isActionButton = e.target.closest(".car-card-actions button");
-      const isArrow = e.target.closest(".media-arrow");
-      if (isActionButton || isArrow) return;
+    const isActionButton = e.target.closest(".car-card-actions button");
+    const isArrow = e.target.closest(".media-arrow");
+    if (isActionButton || isArrow) return;
 
-      // Optionales Legacy-Fallback:
-      // localStorage.setItem("ausgewaehltesInserat", JSON.stringify(...))
+    const realId = wrapper.dataset.id || "";
 
-      window.location.href = "anzeige.html";
-    }
+    // Fallback für alte Anzeige-Logik
+    try {
+      localStorage.setItem("ausgewaehltesInseratId", realId);
+    } catch {}
+
+    // Besser: ID an die Anzeige-Seite geben
+    window.location.href = realId
+      ? `anzeige.html?id=${encodeURIComponent(realId)}`
+      : "anzeige.html";
   });
 
   /* =========================================================
@@ -1138,7 +1166,7 @@ if (roleEl) {
 
   async function getLoggedInUser() {
     const r = await fetch("/getNutzerInfo", { credentials: "include" });
-    const u = await r.json();
+    const u = await safeJson(r, null);
     if (!u?.eingeloggt || !u?.nutzerId) throw new Error("Nicht eingeloggt");
     return u;
   }
@@ -1147,7 +1175,7 @@ if (roleEl) {
     try {
       const r = await fetch(`/inserat-details/${encodeURIComponent(id)}`, { credentials: "include" });
       if (!r.ok) throw new Error("404");
-      return await r.json();
+      return await safeJson(r, {});
     } catch {
       return {
         titel: "Inserat nicht gefunden",
@@ -1160,7 +1188,6 @@ if (roleEl) {
         verkauf_leistung: "—",
         verkauf_getriebe: "—",
         verkauf_verbrauch_kombiniert: "—",
-        verkauf_verkaeufer: "",
         verkauf_name: "",
         standort: ""
       };
@@ -1170,16 +1197,13 @@ if (roleEl) {
   async function fetchInbox(empfaengerId) {
     const r = await fetch(`/nachrichten/${encodeURIComponent(empfaengerId)}`, { credentials: "include" });
     if (!r.ok) throw new Error("Fehler beim Abrufen der Nachrichten");
-    return await r.json();
+    return asArray(await safeJson(r, []));
   }
 
   function renderMessageCard(msg, ins, currentUserId) {
     const firstImg = Array.isArray(ins.images) && ins.images[0] ? ins.images[0] : null;
-
     const preis = ins.preis != null
-      ? (typeof ins.preis === "number"
-        ? ins.preis.toLocaleString("de-DE") + " €"
-        : String(ins.preis))
+      ? (typeof ins.preis === "number" ? ins.preis.toLocaleString("de-DE") + " €" : String(ins.preis))
       : "";
 
     const chatUrl =
@@ -1207,9 +1231,7 @@ if (roleEl) {
               <p><i class="fas fa-gas-pump"></i> ${ins.verkauf_kraftstoff || "—"}</p>
               <p><i class="fas fa-gauge-high"></i> ${ins.verkauf_leistung ?? "—"} PS</p>
               <p><i class="fas fa-gears"></i> ${ins.verkauf_getriebe || "—"}</p>
-              ${ins.verkauf_verbrauch_kombiniert
-                ? `<p><i class="fas fa-tint"></i> ${ins.verkauf_verbrauch_kombiniert} l/100 km</p>`
-                : ""}
+              ${ins.verkauf_verbrauch_kombiniert ? `<p><i class="fas fa-tint"></i> ${ins.verkauf_verbrauch_kombiniert} l/100 km</p>` : ""}
             </div>
             <div class="dealer-info">
               <strong>${ins.verkauf_name || "Anbieter"}</strong><br>
@@ -1254,13 +1276,13 @@ if (roleEl) {
       const user = await getLoggedInUser();
       const inbox = await fetchInbox(user.nutzerId);
 
-      if (!Array.isArray(inbox) || inbox.length === 0) {
+      if (!inbox.length) {
         messagesSection.innerHTML = `<p>Keine Nachrichten vorhanden.</p>`;
         return;
       }
 
+      const uniqueFahrzeuge = [...new Set(inbox.map(m => m.fahrzeugId).filter(Boolean))];
       const detailsMap = new Map();
-      const uniqueFahrzeuge = [...new Set(inbox.map(m => m.fahrzeugId))];
 
       await Promise.all(uniqueFahrzeuge.map(async (fid) => {
         const det = await fetchInseratDetails(fid);
@@ -1276,14 +1298,10 @@ if (roleEl) {
 
     } catch (e) {
       console.error(e);
-      const messagesSection =
-        document.querySelector(".messages-list") ||
-        document.querySelector("#messages-list");
-      if (messagesSection) messagesSection.innerHTML = `<p>Fehler beim Laden der Nachrichten.</p>`;
+      messagesSection.innerHTML = `<p>Fehler beim Laden der Nachrichten.</p>`;
     }
   }
 
-  // Als gelesen markieren
   document.addEventListener("click", async (e) => {
     const btn = e.target.closest(".mark-read-btn");
     if (!btn) return;
@@ -1324,5 +1342,4 @@ if (roleEl) {
 
   applyHash();
 });
-
 
