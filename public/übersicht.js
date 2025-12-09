@@ -879,95 +879,171 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
 
+// =========================
+// BEARBEITEN – NEU (Wizard-State setzen)
+// =========================
 
-      // =========================
-      // BEARBEITEN – NEU (Wizard-State setzen)
-      // =========================
+function buildFahrzeugdatenFromInserat(ins) {
+  // Ziel:
+  // 1) FORM-Keys setzen (für fahrzeugdaten.js Vorbelegung)
+  // 2) verkauf_* Keys setzen (für Vorschau/Legacy)
+  // 3) robust gegen alte/uneinheitliche DB-Felder
 
-      function buildFahrzeugdatenFromInserat(ins) {
-        // Step 1 braucht vor allem diese Felder.
-        // Wir nehmen bewusst "mehr" mit – deine Step-JS ignorieren Unbekanntes.
-        const fd = {
-          titel: ins.titel || ins.verkauf_modell || "",
-          marke: ins.marke || "",
-          modell: ins.modell || "",
-          preis: ins.preis || ins.verkauf_preis || "",
+  const marke  = ins.marke || ins.verkauf_marke || "";
+  const modell = ins.modell || ins.verkauf_modell || "";
+  const titel  = ins.titel || ins.verkauf_titel || ins.verkauf_modell || `${marke} ${modell}`.trim();
 
-          "brutto-preis": ins["brutto-preis"] || ins.verkauf_brutto || "",
-          "netto-preis":  ins["netto-preis"]  || ins.verkauf_netto  || "",
+  const fd = {
+    // ===== Basis =====
+    titel,
+    marke,
+    modell,
 
-          verkauf_brutto: ins.verkauf_brutto || "",
-          verkauf_netto:  ins.verkauf_netto  || "",
-          verkauf_preis:  ins.verkauf_preis  || ins.preis || "",
-          verkauf_mwst:   ins.verkauf_mwst   || "",
+    // ===== Preise =====
+    preis: ins.preis || ins.verkauf_preis || "",
+    "brutto-preis": ins["brutto-preis"] || ins.verkauf_brutto || "",
+    "netto-preis":  ins["netto-preis"]  || ins.verkauf_netto  || "",
 
-          erstzulassung: ins.erstzulassung || ins.verkauf_erstzulassung || "",
-          verkauf_erstzulassung: ins.verkauf_erstzulassung || ins.erstzulassung || "",
+    verkauf_preis:  ins.verkauf_preis  || ins.preis || "",
+    verkauf_brutto: ins.verkauf_brutto || ins["brutto-preis"] || "",
+    verkauf_netto:  ins.verkauf_netto  || ins["netto-preis"]  || "",
+    verkauf_mwst:   ins.verkauf_mwst   || "",
 
-          verkauf_kilometer: ins.verkauf_kilometer || "",
-          verkauf_leistung:  ins.verkauf_leistung  || "",
-          verkauf_leistung_kw: ins.verkauf_leistung_kw || "",
+    // ===== Erstzulassung =====
+    erstzulassung:         ins.erstzulassung || ins.verkauf_erstzulassung || "",
+    verkauf_erstzulassung: ins.verkauf_erstzulassung || ins.erstzulassung || "",
 
-          hubraum: ins.hubraum || ins.verkauf_hubraum || "",
-          verkauf_hubraum: ins.verkauf_hubraum || ins.hubraum || "",
+    // ===== KILOMETER =====
+    kilometer:         ins.kilometer ?? ins.verkauf_kilometer ?? "",
+    verkauf_kilometer: ins.verkauf_kilometer ?? ins.kilometer ?? "",
 
-          verkauf_kraftstoff: ins.verkauf_kraftstoff || "",
-          verkauf_getriebe:   ins.verkauf_getriebe   || "",
-          antriebsart:        ins.antriebsart        || ins.verkauf_antrieb || "",
-          verkauf_antrieb:    ins.verkauf_antrieb    || ins.antriebsart || "",
+    // ===== LEISTUNG =====
+    // Form-IDs: leistung_ps + leistung_kw
+    leistung_ps:        ins.leistung_ps ?? ins.verkauf_leistung ?? ins.leistung ?? "",
+    leistung_kw:        ins.leistung_kw ?? ins.verkauf_leistung_kw ?? "",
 
-          fahrzeugtyp:        ins.fahrzeugtyp        || ins.verkauf_fahrzeugtyp || "",
-          verkauf_fahrzeugtyp: ins.verkauf_fahrzeugtyp || ins.fahrzeugtyp || "",
+    verkauf_leistung:    ins.verkauf_leistung ?? ins.leistung_ps ?? ins.leistung ?? "",
+    verkauf_leistung_kw: ins.verkauf_leistung_kw ?? ins.leistung_kw ?? "",
 
-          tueren: ins.tueren || ins["türen"] || ins.türen || "",
-          "türen": ins["türen"] || ins.türen || "",
-          verkauf_tueren: ins.verkauf_tueren || ins.tueren || ins["türen"] || ins.türen || "",
+    // ===== HUBRAUM =====
+    hubraum:         ins.hubraum ?? ins.verkauf_hubraum ?? "",
+    verkauf_hubraum: ins.verkauf_hubraum ?? ins.hubraum ?? "",
 
-          partikelfilter: ins.partikelfilter || ins.verkauf_partikelfilter || "",
-          verkauf_partikelfilter: ins.verkauf_partikelfilter || ins.partikelfilter || "",
+    // ===== KRAFTSTOFF / GETRIEBE / ANTRIEB =====
+    kraftstoff:         ins.kraftstoff || ins.verkauf_kraftstoff || "",
+    verkauf_kraftstoff: ins.verkauf_kraftstoff || ins.kraftstoff || "",
 
-          verbrauch_kombiniert: ins.verbrauch_kombiniert || "",
-          verbrauch_innerorts:  ins.verbrauch_innerorts  || "",
-          verbrauch_ausserorts: ins.verbrauch_ausserorts || "",
-          co2_emission:         ins.co2_emission         || "",
+    getriebe:           ins.getriebe || ins.verkauf_getriebe || "",
+    verkauf_getriebe:   ins.verkauf_getriebe || ins.getriebe || "",
 
-          verkauf_verbrauch_kombiniert: ins.verkauf_verbrauch_kombiniert || ins.verbrauch_kombiniert || "",
-          verkauf_verbrauch_innerorts:  ins.verkauf_verbrauch_innerorts  || ins.verbrauch_innerorts  || "",
-          verkauf_verbrauch_ausserorts: ins.verkauf_verbrauch_ausserorts || ins.verbrauch_ausserorts || "",
-          verkauf_co2_emission:         ins.verkauf_co2_emission         || ins.co2_emission         || "",
+    antriebsart:        ins.antriebsart || ins.antrieb || ins.verkauf_antrieb || "",
+    verkauf_antrieb:    ins.verkauf_antrieb || ins.antriebsart || ins.antrieb || "",
 
-          schadstoffklasse: ins.schadstoffklasse || "",
-          umweltplakette:  ins.umweltplakette  || "",
-          emissionsklasse: ins.emissionsklasse || "",
+    // ===== Fahrzeugtyp =====
+    fahrzeugtyp:         ins.fahrzeugtyp || ins.verkauf_fahrzeugtyp || "",
+    verkauf_fahrzeugtyp: ins.verkauf_fahrzeugtyp || ins.fahrzeugtyp || "",
 
-          verkauf_schadstoffklasse: ins.verkauf_schadstoffklasse || ins.schadstoffklasse || "",
-          verkauf_umweltplakette:   ins.verkauf_umweltplakette   || ins.umweltplakette  || "",
-          verkauf_emissionsklasse:  ins.verkauf_emissionsklasse  || ins.emissionsklasse || "",
+    // ===== Türen =====
+    tueren:         ins.tueren || ins["türen"] || ins.türen || ins.verkauf_tueren || "",
+    "türen":        ins["türen"] || ins.türen || ins.tueren || "",
+    verkauf_tueren: ins.verkauf_tueren || ins.tueren || ins["türen"] || ins.türen || "",
 
-          // Verkäuferlabel
-          verkauf_verkaeufer: ins.verkauf_verkaeufer || ""
-        };
+    // ===== Partikelfilter =====
+    partikelfilter:         ins.partikelfilter || ins.verkauf_partikelfilter || "",
+    verkauf_partikelfilter: ins.verkauf_partikelfilter || ins.partikelfilter || "",
 
-        return fd;
-      }
+    // ===== Verbrauch/CO2 =====
+    verbrauch_kombiniert: ins.verbrauch_kombiniert || ins.verkauf_verbrauch_kombiniert || "",
+    verbrauch_innerorts:  ins.verbrauch_innerorts  || ins.verkauf_verbrauch_innerorts  || "",
+    verbrauch_ausserorts: ins.verbrauch_ausserorts || ins.verkauf_verbrauch_ausserorts || "",
+    co2_emission:         ins.co2_emission         || ins.verkauf_co2_emission         || "",
 
-      function buildFahrzeugdetailsFromInserat(ins) {
-        // Step 2 darf ruhig "fast alles" bekommen
-        // (inkl. Boolean-Felder, Ausstattung, etc.)
-        return {
-          ...ins,
-          ausstattung: Array.isArray(ins.ausstattung)
-            ? ins.ausstattung
-            : (Array.isArray(ins.verkauf_ausstattung) ? ins.verkauf_ausstattung : [])
-        };
-      }
+    verkauf_verbrauch_kombiniert: ins.verkauf_verbrauch_kombiniert || ins.verbrauch_kombiniert || "",
+    verkauf_verbrauch_innerorts:  ins.verkauf_verbrauch_innerorts  || ins.verbrauch_innerorts  || "",
+    verkauf_verbrauch_ausserorts: ins.verkauf_verbrauch_ausserorts || ins.verbrauch_ausserorts || "",
+    verkauf_co2_emission:         ins.verkauf_co2_emission         || ins.co2_emission         || "",
 
-      function buildMedienFromInserat(ins) {
-        return {
-          images: Array.isArray(ins.images) ? ins.images : [],
-          video: ins.video || ""
-        };
-      }
+    // ===== Schadstoff/Plakette/Emission =====
+    schadstoffklasse: ins.schadstoffklasse || ins.verkauf_schadstoffklasse || "",
+    umweltplakette:  ins.umweltplakette  || ins.verkauf_umweltplakette  || "",
+    emissionsklasse: ins.emissionsklasse || ins.verkauf_emissionsklasse || "",
+
+    verkauf_schadstoffklasse: ins.verkauf_schadstoffklasse || ins.schadstoffklasse || "",
+    verkauf_umweltplakette:   ins.verkauf_umweltplakette   || ins.umweltplakette  || "",
+    verkauf_emissionsklasse:  ins.verkauf_emissionsklasse  || ins.emissionsklasse || "",
+
+    // ===== Verkäuferlabel =====
+    verkauf_verkaeufer: ins.verkauf_verkaeufer || ""
+  };
+
+  return fd;
+}
+
+function buildFahrzeugdetailsFromInserat(ins) {
+  // Step 2 sollte konsistent "fahrzeugdetails" bekommen.
+  // Wir normalisieren die wichtigsten erwarteten Keys UND lassen den Rest stehen.
+
+  const merkmale =
+    Array.isArray(ins.merkmale) ? ins.merkmale :
+    Array.isArray(ins.ausstattung) ? ins.ausstattung :
+    Array.isArray(ins.verkauf_ausstattung) ? ins.verkauf_ausstattung :
+    [];
+
+  return {
+    // Normalisierte Kernfelder
+    titel: ins.titel || ins.verkauf_titel || "",
+    kurzbeschreibung: ins.kurzbeschreibung || ins.verkauf_kurzbeschreibung || "",
+    beschreibung: ins.beschreibung || ins.verkauf_beschreibung || "",
+    farbe: ins.farbe || ins.verkauf_farbe || "",
+
+    merkmale,
+    ausstattung: merkmale, // Alias für alte Stellen
+
+    // Restliche Felder mitnehmen (schadet nicht)
+    ...ins,
+
+    // Sicherstellen, dass unsere Normalisierung gewinnt:
+    merkmale,
+    ausstattung: merkmale
+  };
+}
+
+function buildMedienFromInserat(ins) {
+  // Step 3 kann bei dir je nach Version verschiedene Strukturen erwarten.
+  // Deshalb: mehrere Aliases liefern.
+
+  const images =
+    Array.isArray(ins.images) ? ins.images :
+    Array.isArray(ins.bilder) ? ins.bilder :
+    Array.isArray(ins.mediaImages) ? ins.mediaImages :
+    [];
+
+  const videosArr =
+    Array.isArray(ins.videos) ? ins.videos :
+    Array.isArray(ins.mediaVideos) ? ins.mediaVideos :
+    [];
+
+  const singleVideo = ins.video || "";
+
+  const videos = videosArr.length ? videosArr : (singleVideo ? [singleVideo] : []);
+
+  return {
+    // Neue/saubere Struktur
+    images,
+    videos,
+
+    // Aliases für ältere Implementationen
+    bilder: images,
+    video: singleVideo,
+
+    // Optional unified
+    media: [
+      ...images.map(url => ({ type: "image", url })),
+      ...videos.map(url => ({ type: "video", url }))
+    ]
+  };
+}
+
 
       wrapper.querySelectorAll(".edit-btn").forEach((btn) => {
         btn.addEventListener("click", (e) => {
