@@ -1045,28 +1045,39 @@ if (ausstattungContainer) {
           .getElementById("kontaktOrtInput")
           ?.value.trim() || ""}`,
       };
-
       try {
-        const res = await fetch(api("/veroeffentlichen"), {
-          method: "POST",
+        const isEdit = localStorage.getItem("editMode") === "1";
+        const editId = localStorage.getItem("editInseratId");
+        const endpoint = isEdit && editId
+          ? api(`/veroeffentlichen/${encodeURIComponent(editId)}`)
+          : api("/veroeffentlichen");
+        const method = isEdit && editId ? "PUT" : "POST";
+      
+        const res = await fetch(endpoint, {
+          method,
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify(kontaktDaten),
         });
+      
         const text = await res.text();
-
+      
         if (res.ok) {
           sessionStorage.setItem("resetWizard", "1");
           try {
             localStorage.removeItem("haendlerSteps");
             localStorage.removeItem("fahrzeugdaten");
+            localStorage.removeItem("fahrzeugdetails");
+            localStorage.removeItem("medien");
+            localStorage.removeItem("editMode");
+            localStorage.removeItem("editInseratId");
             Object.keys(localStorage).forEach((k) => {
               if (k.startsWith("details_")) localStorage.removeItem(k);
             });
             sessionStorage.removeItem("inseratGestartet");
             sessionStorage.removeItem("hatGespeichert");
           } catch {}
-          alert("✅ Inserat veröffentlicht!");
+          alert(isEdit ? "✅ Inserat aktualisiert!" : "✅ Inserat veröffentlicht!");
           window.location.href = "übersicht.html";
         } else {
           alert("❌ Fehler beim Veröffentlichen:\n" + text);
@@ -1075,6 +1086,7 @@ if (ausstattungContainer) {
         console.error("❌ Netzwerkfehler beim Veröffentlichen:", err);
         alert("Netzwerkfehler beim Veröffentlichen.");
       }
+      
     });
   })();
 

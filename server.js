@@ -2745,6 +2745,111 @@ app.post("/veroeffentlichen", checkLogin, async (req, res) => {
   return publishFromDraft(req, res, { requireId: false });
 });
 
+
+app.put("/veroeffentlichen/:id", checkLogin, async (req, res) => {
+  try {
+    const sellerId = req.nutzer?.id;
+    if (!sellerId) return res.status(401).json({ error: "Nicht eingeloggt." });
+
+    const entwurfColl  = db.collection("fahrzeugeEntwurf");
+    const inserateColl = db.collection("inserate");
+    const nutzerColl   = db.collection("nutzer");
+
+    const insertId = req.params.id;
+    if (!insertId) return res.status(400).json({ error: "ID fehlt" });
+
+    let draft = null;
+    const draftRaw = await entwurfColl.findOne({ nutzerId: sellerId });
+    if (!draftRaw) return res.status(404).json({ error: "Kein Entwurf gefunden" });
+
+    draft = { ...draftRaw };
+
+    const haendler = await nutzerColl.findOne({ id: sellerId });
+    const isHaendler = isHaendlerRole(haendler?.role || "privat");
+
+    const seller = {
+      type:    isHaendler ? "haendler" : "privat",
+      id:      haendler?.id || sellerId,
+      name:    haendler?.firma || haendler?.name || (isHaendler ? "Händler" : "Privatverkäufer"),
+      logoUrl: haendler?.logoUrl || "",
+      strasse:    haendler?.strasse    || "",
+      hausnummer: haendler?.hausnummer || "",
+      plz:        haendler?.plz        || "",
+      ort:        haendler?.ort        || "",
+      land:       haendler?.land       || "",
+    };
+
+    const {
+      _id,
+      updatedAt,
+      erstelltAm,
+      __status,
+      seller: sellerFromDraft,
+      ...payload
+    } = draft;
+
+    const neuesInserat = {
+      ...payload,
+
+      verkaeuferId: sellerId,
+      status: "online",
+      veroeffentlichtAm: new Date(),
+
+      verkauf_kurzbeschreibung: getZufaelligeAusstattung(payload.verkauf_ausstattung || []),
+
+      verkauf_verkaeufer: isHaendler ? "Händler" : "Privatverkäufer",
+      verkauf_name: req.body?.name || payload.verkauf_name || seller.name,
+
+      standort: (req.body?.plz && req.body?.ort)
+        ? `${String(req.body.plz).trim()} ${String(req.body.ort).trim()}`
+        : (payload.standort || "Nicht angegeben"),
+
+      telefon: req.body?.telefon || payload.telefon || "",
+
+      seller,
+      updatedAt: new Date()
+    };
+
+    // Geocoding (optional, wie in publishFromDraft)
+    const locString = (() => {
+      const s = (v) => (v == null ? "" : String(v).trim());
+      const zipCity = [s(haendler?.plz), s(haendler?.ort)].filter(Boolean).join(" ");
+      const country = s(haendler?.land || "Deutschland");
+      const full = [s(haendler?.strasse), s(haendler?.hausnummer), zipCity, country].filter(Boolean).join(", ");
+      return full;
+    })();
+
+    try {
+      const point = await geocodeToPoint(locString);
+      if (point) neuesInserat.standortCoords = point;
+    } catch (e) {
+      console.warn("Geocoding fehlgeschlagen:", e?.message || e);
+    }
+
+    const result = await inserateColl.updateOne(
+      { _id: new ObjectId(insertId), verkaeuferId: sellerId },
+      { $set: neuesInserat }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: "Inserat nicht gefunden oder kein Zugriff" });
+    }
+
+    // ✅ Entwurf löschen
+    await entwurfColl.deleteOne({ _id: draft._id, nutzerId: sellerId });
+
+    return res.json({
+      success: true,
+      message: "Inserat erfolgreich aktualisiert.",
+      inseratId: insertId,
+      draftId: String(draft._id)
+    });
+  } catch (err) {
+    console.error("❌ Fehler beim Aktualisieren:", err);
+    return res.status(500).json({ error: "Fehler beim Aktualisieren des Inserats." });
+  }
+});
+
 app.post("/inserat-veroeffentlichen", checkLogin, async (req, res) => {
   return publishFromDraft(req, res, { requireId: true });
 });
