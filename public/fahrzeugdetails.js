@@ -147,6 +147,27 @@
 
     const form = $id("fahrzeugForm");
     if (!form) return;
+// 🚀 Edit-Modus: Wenn vorhanden, lade vorbereitete Fahrzeugdetails aus localStorage
+const isEdit = localStorage.getItem("editMode") === "1";
+const editDetailsRaw = localStorage.getItem("fahrzeugdetails");
+
+if (isEdit && editDetailsRaw) {
+  try {
+    const detailsData = JSON.parse(editDetailsRaw);
+    Object.entries(detailsData).forEach(([name, val]) => {
+      const field = form.querySelector(`[name="${name}"]`);
+      if (!field) return;
+
+      if (field.type === "checkbox") {
+        field.checked = Boolean(val);
+      } else {
+        field.value = val;
+      }
+    });
+  } catch (err) {
+    console.warn("Fehler beim Einfüllen der bearbeiteten Fahrzeugdetails:", err);
+  }
+}
 
     // 1) Felder aus localStorage vorbelegen
     const allFields = form.querySelectorAll("input, select, textarea");
@@ -191,6 +212,8 @@
     // 3) Submit → Server speichern + Vorschau-kompatible Keys erzeugen
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
+
+
 
       const data = {};
       // a) rohe Werte einsammeln + localStorage schreiben (zur Sicherheit)

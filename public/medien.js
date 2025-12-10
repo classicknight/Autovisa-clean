@@ -29,6 +29,7 @@ async function ensureDraftExists() {
 }
 
 
+
 // ===== Uploader mit Preview, Reorder, Remove =====
 function setupUpload(boxId, inputId, previewId, isVideo = false, maxFiles = 20) {
   const box = document.getElementById(boxId);
@@ -168,13 +169,58 @@ window.addEventListener("DOMContentLoaded", async () => {
     setTimeout(() => { window.location.href = "fahrzeugdaten.html"; }, 900);
     return;
   }
+// 🚀 Edit-Modus: Medien aus localStorage laden, falls vorhanden
+const isEdit = localStorage.getItem("editMode") === "1";
+const storedMedienRaw = localStorage.getItem("medien");
+
+if (isEdit && storedMedienRaw) {
+  try {
+    const stored = JSON.parse(storedMedienRaw);
+
+    // Bilder laden
+    if (Array.isArray(stored.images)) {
+      const imagePreview = document.getElementById("image-preview");
+      stored.images.forEach((imgPath, i) => {
+        const img = document.createElement("img");
+        img.src = imgPath;
+        img.classList.add("preview-thumb");
+        imagePreview?.appendChild(img);
+        globalImageFiles.push({
+          name: `server-image-${i}.jpg`,
+          type: "image/jpeg",
+          serverPath: imgPath
+        });
+      });
+    }
+
+    // Video laden
+    if (stored.video) {
+      const videoPreview = document.getElementById("video-preview");
+      const video = document.createElement("video");
+      video.src = stored.video;
+      video.controls = true;
+      video.classList.add("preview-thumb");
+      videoPreview?.appendChild(video);
+      globalVideoFiles.push({
+        name: "server-video.mp4",
+        type: "video/mp4",
+        serverPath: stored.video
+      });
+    }
+  } catch (err) {
+    console.warn("❌ Fehler beim Einlesen der Medien aus localStorage:", err);
+  }
+}
 
   // Uploader
   setupUpload("image-upload-box", "image-input", "image-preview", false, 20);
   setupUpload("video-upload-box", "video-input", "video-preview", true, 1);
 
-  // Bereits gespeicherte Medien vorladen
+// Nur wenn nicht im Edit-Modus, dann vom Server laden
+if (!isEdit) {
   await preloadExistingMedia();
+}
+
 
   // Speichern
   const saveBtn = document.getElementById("saveMedia");
