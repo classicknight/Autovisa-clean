@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="de" class="no-js">
 <head>
@@ -16,26 +18,35 @@
   <script src="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.min.js"></script>
 </head>
 <body>
-
-
-   
-      
-
 <!-- Navbar -->
 <nav class="navbar">
   <div class="logo-container">
     <img src="AUTOVISA LOGO.PNG" alt="Autovisa Logo" class="logo" />
+
+    <span class="logo-divider" aria-hidden="true"></span>
+
+    <span class="logo-tagline">
+      <span class="tagline-line1">Autos kaufen</span>
+      <span class="tagline-line2">&amp; verkaufen</span>
+    </span>
   </div>
 
   <!-- Mobile Icons + Hamburger -->
   <div class="navbar-right-mobile">
     <div class="mobile-shortcuts">
-      <a href="gespeicherte-autos.html" aria-label="Gespeicherte Autos"><i class="fas fa-heart"></i></a>
-      <a href="nachrichten.html" aria-label="Nachrichten"><i class="fas fa-comments"></i></a>
+      <a href="#" id="mobile-saved" aria-label="Gespeicherte Autos">
+        <i class="fas fa-heart"></i>
+      </a>
+      <a href="#" id="mobile-messages" aria-label="Nachrichten">
+        <i class="fas fa-comments"></i>
+      </a>
     </div>
 
-    <button class="hamburger" id="hamburger" aria-label="Menü öffnen" aria-expanded="false" aria-controls="nav-links">
-      <i class="fas fa-bars"></i>
+    <button class="hamburger" id="hamburger"
+            aria-label="Menü öffnen"
+            aria-expanded="false"
+            aria-controls="nav-links">
+      <i class="fas fa-bars" aria-hidden="true"></i>
     </button>
 
     <!-- Navigationslinks -->
@@ -43,33 +54,75 @@
 
       <!-- Home -->
       <li class="dropdown">
-        <a href="#" id="dropdown-home-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-home">
+        <a href="#" id="dropdown-home-toggle"
+           aria-haspopup="true"
+           aria-expanded="false"
+           aria-controls="dropdown-home">
           Home <span class="nav-arrow" aria-hidden="true"></span>
         </a>
         <ul class="dropdown-menu" id="dropdown-home">
-          <li><a href="index.html"><i class="fas fa-house"></i> Startseite</a></li>
-          <li><a href="#search-section"><i class="fas fa-search"></i> Fahrzeug suchen</a></li>
-          <li><a href="#results-section"><i class="fas fa-car"></i> Inserate anzeigen</a></li>
-          <li id="auth-link"><a href="login.html"><i class="fas fa-sign-in-alt"></i> Login / Registrierung</a></li>
+          <li>
+            <a href="index.html">
+              <i class="fas fa-house"></i> Startseite
+            </a>
+          </li>
+          <li>
+            <!-- von der Detailseite zur Suche auf der Startseite springen -->
+            <a href="index.html#search-section">
+              <i class="fas fa-search"></i> Fahrzeug suchen
+            </a>
+          </li>
+          <li>
+            <a href="index.html#results-section">
+              <i class="fas fa-car"></i> Inserate anzeigen
+            </a>
+          </li>
+          <li id="auth-link">
+            <a href="login.html">
+              <i class="fas fa-sign-in-alt"></i> Login / Registrierung
+            </a>
+          </li>
         </ul>
       </li>
 
       <!-- Meine Autos -->
       <li class="dropdown">
-        <a href="#" id="dropdown-autos-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-autos">
+        <a href="#" id="dropdown-autos-toggle"
+           aria-haspopup="true"
+           aria-expanded="false"
+           aria-controls="dropdown-autos">
           Meine Autos <span class="nav-arrow" aria-hidden="true"></span>
         </a>
         <ul class="dropdown-menu" id="dropdown-autos">
-          <li><a href="#" id="messages-link"><i class="fas fa-comments"></i> Nachrichten</a></li>
-          <li><a href="#" id="saved-cars-link"><i class="fas fa-heart"></i> Gespeicherte Autos</a></li>
-          <li><a href="#" id="my-cars-link"><i class="fas fa-car"></i> Eigene Inserate</a></li>
-          <li><a href="#" id="sold-cars-link"><i class="fas fa-check-circle"></i> Verkaufte Autos</a></li>
+          <li>
+            <a href="übersicht.html#messages-list" id="messages-link">
+              <i class="fas fa-comments"></i> Nachrichten
+            </a>
+          </li>
+          <li>
+            <a href="übersicht.html#saved-cars" id="saved-cars-link">
+              <i class="fas fa-heart"></i> Gespeicherte Autos
+            </a>
+          </li>
+          <li>
+            <a href="übersicht.html#car-list" id="my-cars-link">
+              <i class="fas fa-car"></i> Eigene Inserate
+            </a>
+          </li>
+          <li>
+            <a href="übersicht.html#sold-cars" id="sold-cars-link">
+              <i class="fas fa-check-circle"></i> Verkaufte Autos
+            </a>
+          </li>
         </ul>
       </li>
 
       <!-- Infos -->
       <li class="dropdown">
-        <a href="#" id="dropdown-info-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-info">
+        <a href="#" id="dropdown-info-toggle"
+           aria-haspopup="true"
+           aria-expanded="false"
+           aria-controls="dropdown-info">
           Infos <span class="nav-arrow" aria-hidden="true"></span>
         </a>
         <ul class="dropdown-menu" id="dropdown-info">
@@ -81,7 +134,10 @@
 
       <!-- Kontakt -->
       <li class="dropdown">
-        <a href="#" id="dropdown-contact-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-contact">
+        <a href="#" id="dropdown-contact-toggle"
+           aria-haspopup="true"
+           aria-expanded="false"
+           aria-controls="dropdown-contact">
           Kontakt <span class="nav-arrow" aria-hidden="true"></span>
         </a>
         <ul class="dropdown-menu" id="dropdown-contact">
@@ -91,14 +147,15 @@
         </ul>
       </li>
 
-      <!-- Auto verkaufen (Call to Action) -->
+      <!-- Call to Action -->
       <li class="active">
-        <a href="verkaufen.html" class="highlight-link"><i class="fas fa-plus-circle"></i> Auto verkaufen</a>
+        <a href="verkaufen.html" class="highlight-link">
+          <i class="fas fa-plus-circle"></i> Auto verkaufen
+        </a>
       </li>
     </ul>
   </div>
 </nav>
-
 
 
 <h1 class="verkaufen-title"><i class="fas fa-plus-circle"></i> Auto jetzt einfach verkaufen</h1>
