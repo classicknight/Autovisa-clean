@@ -2564,33 +2564,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (sellerId) {
     ladeBewertung(sellerId);
 
-    document.getElementById("openRatingPanel")?.addEventListener("click", async () => {
-      const rating = prompt("Wie viele Sterne möchtest du geben? (1–5)");
-      const ratingNum = Number(rating);
-
-      if (![1, 2, 3, 4, 5].includes(ratingNum)) {
-        alert("Bitte gib eine gültige Bewertung von 1 bis 5 ein.");
-        return;
-      }
-
-      try {
-        const res = await fetch("/api/bewertung", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ sellerId, rating: ratingNum }),
-        });
-
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error || "Fehler bei Bewertung");
-
-        alert("✅ Bewertung gespeichert!");
-        await ladeBewertung(sellerId);
-      } catch (err) {
-        console.error("❌ Bewertung fehlgeschlagen:", err);
-        alert("Bewertung konnte nicht gespeichert werden.");
-      }
+    document.getElementById("openRatingPanel")?.addEventListener("click", () => {
+      toggleRatingPanel();
     });
+    
   }
 
   // Tastatursteuerung (Slider / Lightbox)
