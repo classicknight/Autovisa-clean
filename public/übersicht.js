@@ -1052,22 +1052,9 @@ wrapper.querySelectorAll(".edit-btn").forEach((btn) => {
     if (!realId) return alert("ID fehlt");
 
     try {
-      // 🟡 1. Server-Request zum Starten des Editiermodus (Draft erzeugen)
-      const r = await fetch(`/api/inserat/${realId}/start-edit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include"
-      });
-
-      const result = await r.json();
-      if (!result?.ok || !result?.draftId) {
-        return alert("Fehler beim Starten des Bearbeitens.");
-      }
-
-      // 🟢 2. Lokale Daten für Bearbeitungsmodus speichern
+      // 🟢 Statt Server-Request: Direkt Bearbeitungsmodus aktivieren
       localStorage.setItem("editMode", "1");
       localStorage.setItem("editInseratId", realId);
-      localStorage.setItem("draftId", result.draftId);
 
       localStorage.setItem("fahrzeugdaten", JSON.stringify(buildFahrzeugdatenFromInserat(inserat)));
       localStorage.setItem("fahrzeugdetails", JSON.stringify(buildFahrzeugdetailsFromInserat(inserat)));
@@ -1077,17 +1064,17 @@ wrapper.querySelectorAll(".edit-btn").forEach((btn) => {
       sessionStorage.setItem("hatGespeichert", "true");
 
       const roleRaw = String(nutzerData?.role || nutzerData?.rolle || "privat").toLowerCase();
-      const isHaendlerUser =
-        roleRaw.includes("haend") || roleRaw.includes("händ");
+      const isHaendlerUser = roleRaw.includes("haend") || roleRaw.includes("händ");
 
       const ziel = isHaendlerUser ? "haendler.html" : "privat.html";
       window.location.href = `${ziel}?edit=${encodeURIComponent(realId)}`;
     } catch (err) {
-      console.warn("Konnte Edit-State nicht speichern oder starten:", err);
+      console.warn("Konnte Edit-State nicht setzen:", err);
       alert("Fehler beim Bearbeiten.");
     }
   });
 });
+
 
 
       // Karte klickbar (außer Buttons/Arrows)
