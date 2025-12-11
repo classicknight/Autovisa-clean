@@ -4120,3 +4120,57 @@ app.get("/api/search", async (req, res) => {
 
 
 
+
+
+
+// Händler bewerten
+app.post("/api/bewertung", checkLogin, async (req, res) => {
+  const { sellerId, rating } = req.body;
+  const userId = req.nutzer?.id;
+
+  if (!sellerId || !rating || rating < 1 || rating > 5) {
+    return res.status(400).json({ error: "Ungültige Bewertung." });
+  }
+
+  const ratingsColl = db.collection("bewertungen");
+
+  // ⛔ Verhindere doppelte Bewertung pro Nutzer & Händler
+  const existing = await ratingsColl.findOne({ sellerId, userId });
+  if (existing) {
+    await ratingsColl.updateOne({ sellerId, userId }, { $set: { rating } });
+  } else {
+    await ratingsColl.insertOne({ sellerId, userId, rating, createdAt: new Date() });
+  }
+
+  return res.json({ success: true });
+});
+
+// Durchschnitt + Anzahl laden
+app.get("/api/bewertung/:sellerId", async (req, res) => {
+  const sellerId = req.params.sellerId;
+  if (!sellerId) return res.status(400).json({ error: "ID fehlt." });
+
+  const ratingsColl = db.collection("bewertungen");
+
+  const result = await ratingsColl
+    .aggregate([
+      { $match: { sellerId } },
+      {
+        $group: {
+          _id: "$sellerId",
+          avg: { $avg: "$rating" },
+          count: { $sum: 1 },
+        },
+      },
+    ])
+    .toArray();
+
+  if (!result.length) {
+    return res.json({ avg: null, count: 0 });
+  }
+
+  return res.json({
+    avg: Math.round(result[0].avg * 10) / 10,
+    count: result[0].count,
+  });
+});

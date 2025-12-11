@@ -2503,8 +2503,9 @@ function setupRatingPanel() {
 }
 function toggleRatingPanel() {
   const panel = document.getElementById("ratingPanel");
-  panel?.classList.toggle("show");
+  if (panel) panel.classList.toggle("show");
 }
+
 /* ------------------------ Boot ------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
   // Navbar / Auth / Panels
@@ -2522,14 +2523,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       const form = document.getElementById("messageForm");
       if (!form) return;
 
-      const offset = 100; // kleiner Abstand zur Navbar
+      const offset = 100;
       const rect = form.getBoundingClientRect();
       const targetY = rect.top + window.pageYOffset - offset;
 
-      window.scrollTo({
-        top: targetY,
-        behavior: "smooth",
-      });
+      window.scrollTo({ top: targetY, behavior: "smooth" });
 
       const firstField = form.querySelector("textarea, input, select");
       if (firstField) {
@@ -2537,9 +2535,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     });
   }
-  // 🔼 Ende Scroll-Logik
 
-  // Navbar-Setup (falls globale Funktion existiert)
+  // Navbar-Setup
   try {
     if (typeof window.setupNavbar === "function") window.setupNavbar();
   } catch {}
@@ -2552,19 +2549,49 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // Obere Bereiche füllen
-  fillTop(inserat);          // Titel + Preis + 6 Hauptinfos
-  fillMedia(inserat);        // Galerie / Slider
-  fillTechnical(inserat);    // Technische Daten
-  fillAusstattung(inserat);  // Ausstattung
-  fillSellerCard(inserat);   // Verkäufer-Box
-  fillDescription(inserat);  // Fahrzeugbeschreibung mit Mehr-anzeigen
-  renderSeller();            // ggf. zusätzliche Seller-Infos
-
-  // Save-Button (Herz) initialisieren
+  fillTop(inserat);
+  fillMedia(inserat);
+  fillTechnical(inserat);
+  fillAusstattung(inserat);
+  fillSellerCard(inserat);
+  fillDescription(inserat);
+  renderSeller();
   initSaveButton(inserat);
-
-  // 👉 NEU: Sticky Summary-Balken oben nach den 6 Hauptinfos
   initStickySummary(inserat);
+
+  // ⭐ Bewertung laden & Klick-Handler aktivieren
+  const sellerId = inserat?.verkaeuferId || inserat?.seller?.id;
+  if (sellerId) {
+    ladeBewertung(sellerId);
+
+    document.getElementById("openRatingPanel")?.addEventListener("click", async () => {
+      const rating = prompt("Wie viele Sterne möchtest du geben? (1–5)");
+      const ratingNum = Number(rating);
+
+      if (![1, 2, 3, 4, 5].includes(ratingNum)) {
+        alert("Bitte gib eine gültige Bewertung von 1 bis 5 ein.");
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/bewertung", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ sellerId, rating: ratingNum }),
+        });
+
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || "Fehler bei Bewertung");
+
+        alert("✅ Bewertung gespeichert!");
+        await ladeBewertung(sellerId);
+      } catch (err) {
+        console.error("❌ Bewertung fehlgeschlagen:", err);
+        alert("Bewertung konnte nicht gespeichert werden.");
+      }
+    });
+  }
 
   // Tastatursteuerung (Slider / Lightbox)
   document.addEventListener("keydown", (e) => {
@@ -2580,16 +2607,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Smooth Scroll (optional) für Link auf die Suchsektion
-  document
-    .querySelector('a[href="#search-section"]')
-    ?.addEventListener("click", (e) => {
-      e.preventDefault();
-      document
-        .querySelector("#search-section")
-        ?.scrollIntoView({ behavior: "smooth" });
-    });
+  // Smooth Scroll
+  document.querySelector('a[href="#search-section"]')?.addEventListener("click", (e) => {
+    e.preventDefault();
+    document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
+  });
 });
+
 
 
 /* ------------------------ Save-Button (Server-basiert) ------------------------ */
@@ -2795,6 +2819,23 @@ function setupNavbar() {
 
 
 
+async function ladeBewertung(sellerId) {
+  try {
+    const res = await fetch(`/api/bewertung/${sellerId}`);
+    const data = await res.json();
+
+    const avg = data.avg ?? "–";
+    const count = data.count ?? 0;
+
+    document.getElementById("sellerRatingValue").textContent = avg === "–" ? "– / 5" : `${avg} / 5`;
+    document.getElementById("sellerRatingCount").textContent = count > 0 ? `(${count})` : "";
+
+    const percent = avg && avg !== "–" ? `${(avg / 5) * 100}%` : "0%";
+    document.getElementById("sellerRatingFill").style.width = percent;
+  } catch (e) {
+    console.warn("Konnte Bewertung nicht laden:", e);
+  }
+}
 
 
 
