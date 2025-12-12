@@ -3269,3 +3269,10 @@ img, video, canvas {
   color: #888;
   font-size: 13px;
 }
+
+
+.rating-list:empty {
+  display: none;
+  border: none;
+  padding: 0;
+}

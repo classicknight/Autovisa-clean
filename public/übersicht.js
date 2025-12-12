@@ -544,36 +544,52 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (typeof doc.id === "string") return doc.id;
     return null;
   }
-
-  async function ladeHändlerBewertung(userId) {
-    if (!userId) return;
-  
+  async function ladeBewertungen(nutzerId) {
     try {
-      const res = await fetch(`/api/bewertung/${userId}`);
+      const res = await fetch(`/api/bewertung/${nutzerId}`);
       if (!res.ok) throw new Error();
       const data = await res.json();
   
-      const avg = data.avg ?? null;
-      const count = data.count ?? 0;
+      const ratingList = document.getElementById("ratingList");
+      const toggleBtn  = document.getElementById("toggleRatingListWrap");
   
-      const avgEl = document.querySelector('[data-profile-field="ratingAverage"]');
-      const countEl = document.querySelector('[data-profile-field="ratingCount"]');
-      const stars = document.querySelectorAll('[data-profile-field="ratingStars"] i');
+      if (!data.items || data.items.length === 0) {
+        toggleBtn.style.display = "none";
+        return;
+      }
   
-      if (avgEl) avgEl.textContent = avg ? `${avg.toFixed(1)} / 5` : "– / 5";
-      if (countEl) countEl.textContent = count > 0 ? `${count} Bewertung${count === 1 ? '' : 'en'}` : "Noch keine Bewertungen";
+      ratingList.innerHTML = data.items.map(rating => {
+        const stars = Array.from({ length: 5 }, (_, i) => {
+          if (rating.sterne >= i + 1) return '<i class="fas fa-star"></i>';
+          if (rating.sterne >= i + 0.5) return '<i class="fas fa-star-half-alt"></i>';
+          return '<i class="far fa-star"></i>';
+        }).join("");
   
-      stars.forEach((star, i) => {
-        star.classList.remove("star-full", "star-half", "star-empty");
-        if (avg >= i + 1) star.classList.add("star-full");
-        else if (avg >= i + 0.5) star.classList.add("star-half");
-        else star.classList.add("star-empty");
+        const kommentar = rating.kommentar ? `<p>${rating.kommentar}</p>` : "";
+  
+        return `
+          <div class="rating-item">
+            <div class="stars">${stars}</div>
+            ${kommentar}
+            <small>${new Date(rating.zeitpunkt).toLocaleDateString("de-DE")}</small>
+          </div>
+        `;
+      }).join("");
+  
+      // Umschalter-Logik
+      document.getElementById("toggleRatingListBtn")?.addEventListener("click", () => {
+        const visible = ratingList.style.display === "block";
+        ratingList.style.display = visible ? "none" : "block";
+        document.getElementById("toggleRatingListBtn").innerHTML = `
+          <i class="fas fa-chevron-${visible ? "down" : "up"}"></i> Bewertungen ${visible ? "anzeigen" : "verbergen"}
+        `;
       });
   
-    } catch (e) {
-      console.warn("Konnte Händlerbewertung nicht laden", e);
+    } catch (err) {
+      console.warn("Bewertungen konnten nicht geladen werden", err);
     }
   }
+  
   
   function renderProfileSection(nutzerData, drafts, online) {
     const section = document.querySelector(".profile-section");
@@ -831,6 +847,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderProfileSection(nutzerData, drafts, online);
 // ⭐ Händlerbewertung laden
 ladeHändlerBewertung(nutzerData.nutzerId);
+ladeBewertungen(nutzerData.nutzerId);
 
     // Vereinheitlichen + Status mitgeben
     const items = [

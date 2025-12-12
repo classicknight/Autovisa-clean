@@ -2372,3 +2372,24 @@ img, video, canvas {
   font-size: 14px;
   color: #444;
 }
+
+
+
+.rating-list:empty {
+  display: none;
+}
+
+.rating-item {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f5f8fc;
+  border: 1px solid #e3e9ef;
+}
+.rating-item p {
+  margin: 6px 0 4px;
+}
+.rating-item small {
+  color: #889;
+  font-size: 12px;
+}
