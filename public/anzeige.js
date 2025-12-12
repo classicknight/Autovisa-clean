@@ -2570,11 +2570,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   const sellerId = inserat?.verkaeuferId || inserat?.seller?.id;
   if (sellerId) {
     ladeBewertung(sellerId);
+    setupToggleRatingList(sellerId); // 👈 HIER NEU
 
     document.getElementById("openRatingPanel")?.addEventListener("click", () => {
       toggleRatingPanel();
     });
-    
   }
 
   // Tastatursteuerung (Slider / Lightbox)
@@ -2597,6 +2597,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
   });
 });
+
 
 
 
@@ -2801,8 +2802,6 @@ function setupNavbar() {
 }
 
 
-
-
 async function ladeBewertung(sellerId) {
   try {
     const res = await fetch(`/api/bewertung/${sellerId}`);
@@ -2822,16 +2821,8 @@ async function ladeBewertung(sellerId) {
 }
 
 async function ladeBewertungenMitText(sellerId) {
-  const containerId = "ratingList";
-  let container = document.getElementById(containerId);
-
-  if (!container) {
-    container = document.createElement("div");
-    container.id = containerId;
-    container.style.marginTop = "16px";
-    container.style.padding = "12px 0";
-    document.querySelector(".seller-rating-wrap")?.after(container);
-  }
+  const container = document.getElementById("ratingList");
+  if (!container) return;
 
   try {
     const res = await fetch(`/api/bewertungen/${sellerId}`);
@@ -2857,6 +2848,29 @@ async function ladeBewertungenMitText(sellerId) {
     console.warn("Bewertungen mit Text konnten nicht geladen werden.", e);
     container.innerHTML = "<p style='color:#777;'>Fehler beim Laden der Bewertungen.</p>";
   }
+}
+
+// ⭐ Toggle-Button zum Ein-/Ausklappen der Bewertungsliste
+function setupToggleRatingList(sellerId) {
+  const btn = document.getElementById("toggleRatingListBtn");
+  const container = document.getElementById("ratingList");
+
+  if (!btn || !container) return;
+
+  let visible = false;
+
+  btn.addEventListener("click", async () => {
+    visible = !visible;
+
+    if (visible) {
+      btn.innerHTML = `<i class="fas fa-chevron-up"></i> Bewertungen verbergen`;
+      container.style.display = "block";
+      await ladeBewertungenMitText(sellerId);
+    } else {
+      btn.innerHTML = `<i class="fas fa-chevron-down"></i> Bewertungen anzeigen`;
+      container.style.display = "none";
+    }
+  });
 }
 
 

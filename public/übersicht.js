@@ -544,6 +544,37 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (typeof doc.id === "string") return doc.id;
     return null;
   }
+
+  async function ladeHändlerBewertung(userId) {
+    if (!userId) return;
+  
+    try {
+      const res = await fetch(`/api/bewertung/${userId}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+  
+      const avg = data.avg ?? null;
+      const count = data.count ?? 0;
+  
+      const avgEl = document.querySelector('[data-profile-field="ratingAverage"]');
+      const countEl = document.querySelector('[data-profile-field="ratingCount"]');
+      const stars = document.querySelectorAll('[data-profile-field="ratingStars"] i');
+  
+      if (avgEl) avgEl.textContent = avg ? `${avg.toFixed(1)} / 5` : "– / 5";
+      if (countEl) countEl.textContent = count > 0 ? `${count} Bewertung${count === 1 ? '' : 'en'}` : "Noch keine Bewertungen";
+  
+      stars.forEach((star, i) => {
+        star.classList.remove("star-full", "star-half", "star-empty");
+        if (avg >= i + 1) star.classList.add("star-full");
+        else if (avg >= i + 0.5) star.classList.add("star-half");
+        else star.classList.add("star-empty");
+      });
+  
+    } catch (e) {
+      console.warn("Konnte Händlerbewertung nicht laden", e);
+    }
+  }
+  
   function renderProfileSection(nutzerData, drafts, online) {
     const section = document.querySelector(".profile-section");
     if (!section || !nutzerData) return;
@@ -774,6 +805,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   
 
+
   const carList = document.querySelector(".car-list");
 
   try {
@@ -797,6 +829,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 👉 Profil-Bereich befüllen
     renderProfileSection(nutzerData, drafts, online);
+// ⭐ Händlerbewertung laden
+ladeHändlerBewertung(nutzerData.nutzerId);
 
     // Vereinheitlichen + Status mitgeben
     const items = [

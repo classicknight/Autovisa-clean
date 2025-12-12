@@ -2343,3 +2343,32 @@ img, video, canvas {
     margin-top: 8px;
   }
 }
+
+
+
+
+
+
+.rating-list {
+  margin-top: 12px;
+  border-top: 1px solid #ccc;
+  padding-top: 10px;
+}
+
+.rating-item {
+  margin-bottom: 12px;
+  padding: 8px;
+  background: #f9f9f9;
+  border-radius: 6px;
+}
+
+.rating-item .stars {
+  color: #f5b301;
+  margin-bottom: 4px;
+  font-size: 16px;
+}
+
+.rating-item .rating-text {
+  font-size: 14px;
+  color: #444;
+}
