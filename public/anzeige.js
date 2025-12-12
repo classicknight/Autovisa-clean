@@ -2482,12 +2482,13 @@ function setupRatingPanel() {
     }
 
     try {
-      const res = await fetch(api("/api/seller/rate"), {
+      const res = await fetch("/api/bewertung", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ sellerId, rating: chosen, text }),
+        body: JSON.stringify({ sellerId, rating: chosen }),
       });
+      
       if (res.status === 401) {
         alert("Bitte einloggen, um zu bewerten.");
         return;
