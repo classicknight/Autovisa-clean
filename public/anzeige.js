@@ -2409,8 +2409,6 @@ async function renderSeller() {
 
 
 
-
-/* ------------------------ Rating Panel ------------------------ */
 function setupRatingPanel() {
   let panel = document.getElementById("ratingPanel");
   if (!panel) {
@@ -2459,8 +2457,10 @@ function setupRatingPanel() {
   document.getElementById("btnRate")?.addEventListener("click", () => {
     panel.style.display = "block";
     chosen = 0;
+    panel.querySelector("#ratingText").value = "";
     [...panel.querySelectorAll("#starRating button i")].forEach((i) => (i.style.color = "#888"));
   });
+
   panel.querySelector("#closeRatingBtn")?.addEventListener("click", () => {
     panel.style.display = "none";
   });
@@ -2486,22 +2486,25 @@ function setupRatingPanel() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ sellerId, rating: chosen }),
+        body: JSON.stringify({ sellerId, rating: chosen, text }),
       });
-      
+
       if (res.status === 401) {
         alert("Bitte einloggen, um zu bewerten.");
         return;
       }
       if (!res.ok) throw new Error();
+
       panel.style.display = "none";
       alert("Danke für deine Bewertung!");
-      renderSeller();
+      renderSeller(); // falls Verkäuferbox aktualisiert werden soll
+      ladeBewertungenMitText(sellerId); // aktualisiert die Anzeige unten
     } catch {
       alert("Bewertung konnte nicht gespeichert werden.");
     }
   });
 }
+
 function toggleRatingPanel() {
   const panel = document.getElementById("ratingPanel");
   if (panel) {
@@ -2818,6 +2821,43 @@ async function ladeBewertung(sellerId) {
   }
 }
 
+async function ladeBewertungenMitText(sellerId) {
+  const containerId = "ratingList";
+  let container = document.getElementById(containerId);
+
+  if (!container) {
+    container = document.createElement("div");
+    container.id = containerId;
+    container.style.marginTop = "16px";
+    container.style.padding = "12px 0";
+    document.querySelector(".seller-rating-wrap")?.after(container);
+  }
+
+  try {
+    const res = await fetch(`/api/bewertungen/${sellerId}`);
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+
+    if (!data.length) {
+      container.innerHTML = "<p style='color:#777;'>Noch keine schriftlichen Bewertungen vorhanden.</p>";
+      return;
+    }
+
+    container.innerHTML = data.map((b) => {
+      const stars = "★".repeat(b.rating) + "☆".repeat(5 - b.rating);
+      const text = b.text ? `<p style="margin:6px 0 0;">${b.text}</p>` : "";
+      const date = b.createdAt ? `<small style="color:#888;">${new Date(b.createdAt).toLocaleDateString()}</small>` : "";
+      return `<div style="border-top:1px solid #e3e9ef;padding:10px 0;">
+        <div style="font-size:14px;color:#00bfa6;">${stars}</div>
+        ${text}
+        ${date}
+      </div>`;
+    }).join("");
+  } catch (e) {
+    console.warn("Bewertungen mit Text konnten nicht geladen werden.", e);
+    container.innerHTML = "<p style='color:#777;'>Fehler beim Laden der Bewertungen.</p>";
+  }
+}
 
 
 

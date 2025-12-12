@@ -4122,10 +4122,9 @@ app.get("/api/search", async (req, res) => {
 
 
 
-
 // Händler bewerten
 app.post("/api/bewertung", checkLogin, async (req, res) => {
-  const { sellerId, rating } = req.body;
+  const { sellerId, rating, text } = req.body;
   const userId = req.nutzer?.id;
 
   if (!sellerId || !rating || rating < 1 || rating > 5) {
@@ -4134,12 +4133,20 @@ app.post("/api/bewertung", checkLogin, async (req, res) => {
 
   const ratingsColl = db.collection("bewertungen");
 
-  // ⛔ Verhindere doppelte Bewertung pro Nutzer & Händler
   const existing = await ratingsColl.findOne({ sellerId, userId });
   if (existing) {
-    await ratingsColl.updateOne({ sellerId, userId }, { $set: { rating } });
+    await ratingsColl.updateOne(
+      { sellerId, userId },
+      { $set: { rating, text, updatedAt: new Date() } }
+    );
   } else {
-    await ratingsColl.insertOne({ sellerId, userId, rating, createdAt: new Date() });
+    await ratingsColl.insertOne({
+      sellerId,
+      userId,
+      rating,
+      text,
+      createdAt: new Date()
+    });
   }
 
   return res.json({ success: true });
@@ -4173,4 +4180,19 @@ app.get("/api/bewertung/:sellerId", async (req, res) => {
     avg: Math.round(result[0].avg * 10) / 10,
     count: result[0].count,
   });
+});
+
+// ⭐ Einzelne Bewertungen abrufen (inkl. Texte)
+app.get("/api/bewertungen/:sellerId", async (req, res) => {
+  const sellerId = req.params.sellerId;
+  if (!sellerId) return res.status(400).json({ error: "ID fehlt." });
+
+  const ratings = await db.collection("bewertungen")
+    .find({ sellerId, text: { $exists: true, $ne: "" } }) // Nur Bewertungen mit Text
+    .sort({ createdAt: -1 })  // Neueste zuerst
+    .limit(20)                // Optional: Maximal 20 Einträge
+    .project({ rating: 1, text: 1, createdAt: 1 }) // Du kannst hier z. B. auch userId mit reinnehmen
+    .toArray();
+
+  res.json(ratings);
 });

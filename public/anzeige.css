@@ -3232,3 +3232,40 @@ img, video, canvas {
   margin-top: 0.5rem;
   background-color: #f0f0f0;
 }
+
+
+
+
+
+
+
+
+
+
+.rating-list {
+  margin-top: 12px;
+  padding: 12px 0;
+  border-top: 1px solid #e3e9ef;
+  font-size: 15px;
+}
+
+.rating-list > div {
+  border-bottom: 1px solid #e3e9ef;
+  padding: 10px 0;
+}
+
+.rating-list .stars {
+  color: #00bfa6;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.rating-list p {
+  margin: 4px 0;
+  color: #333;
+}
+
+.rating-list small {
+  color: #888;
+  font-size: 13px;
+}
