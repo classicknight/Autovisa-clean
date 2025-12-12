@@ -2503,8 +2503,11 @@ function setupRatingPanel() {
 }
 function toggleRatingPanel() {
   const panel = document.getElementById("ratingPanel");
-  if (panel) panel.classList.toggle("show");
+  if (panel) {
+    panel.style.display = panel.style.display === "block" ? "none" : "block";
+  }
 }
+
 
 /* ------------------------ Boot ------------------------ */
 document.addEventListener("DOMContentLoaded", async () => {
