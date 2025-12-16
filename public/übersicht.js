@@ -1584,20 +1584,50 @@ function formatEZ(value) {
   return v || "—";
 }
 
+/**
+ * Erwartung: inserat enthält mindestens:
+ * - fahrzeugId (wenn es ein Saved-Dokument ist)
+ * - oder _id (wenn es direkt das Inserat ist)
+ *
+ * Fürs Rendern brauchst du eigentlich Inserat-Felder (titel, verkauf_*, images, …).
+ * Wenn /saved/list nur Saved-Doks zurückgibt, musst du vorher Inserat-Details holen.
+ */
 function buildSavedCardHTML(inserat, userId) {
-  const id = inserat?._id;
+  const savedDocId = String(inserat?._id || "").trim();
+
+  // WICHTIG: Das ist die echte Inserat-ID, die du öffnen/entfernen willst
+  const fahrzeugId = String(
+    inserat?.fahrzeugId || inserat?._id || ""
+  ).trim();
 
   const title =
+    inserat?.titel ||
     [inserat?.verkauf_marke, inserat?.verkauf_modell, inserat?.verkauf_variante]
       .filter(Boolean)
       .join(" ")
-      .trim() || "Inserat";
+      .trim() ||
+    "Inserat";
 
-  const price = formatEUR(inserat?.verkauf_preis);
-  const ez = formatEZ(inserat?.verkauf_erstzulassung);
-  const km = formatKm(inserat?.verkauf_kilometer);
+  const price =
+    formatEUR(inserat?.verkauf_brutto) ||
+    formatEUR(inserat?.verkauf_preis) ||
+    formatEUR(inserat?.preis) ||
+    "—";
+
+  const ez = formatEZ(inserat?.verkauf_erstzulassung || inserat?.erstzulassung);
+  const km = formatKm(inserat?.verkauf_kilometer ?? inserat?.kilometer);
   const ps = inserat?.verkauf_leistung ? `${inserat.verkauf_leistung} PS` : "— PS";
-  const fuel = inserat?.verkauf_kraftstoff || "—";
+  const fuel = inserat?.verkauf_kraftstoff || inserat?.kraftstoff || "—";
+  const getriebe = inserat?.verkauf_getriebe || inserat?.getriebe || "—";
+
+  const verbrauchRaw = inserat?.verkauf_verbrauch_kombiniert || inserat?.verbrauch_kombiniert || "";
+  const verbrauch = verbrauchRaw
+    ? (String(verbrauchRaw).includes("l/100") ? String(verbrauchRaw) : `${verbrauchRaw} l/100 km`)
+    : "— l/100 km";
+
+  const subtitle =
+    (inserat?.verkauf_kurzbeschreibung || inserat?.kurzbeschreibung || "").trim() ||
+    "Besondere Ausstattung";
 
   const standort = (inserat?.verkauf_standort || inserat?.standort || "").trim();
   const ort = (inserat?.verkauf_ort || inserat?.ort || "").trim();
@@ -1608,55 +1638,105 @@ function buildSavedCardHTML(inserat, userId) {
     inserat?.seller?.name ||
     inserat?.sellerName ||
     inserat?.verkauf_name ||
-    (String(inserat?.verkauf_verkaeufer || "").toLowerCase() === "händler" ? "Händler" : "Privat");
+    (String(inserat?.verkauf_verkaeufer || "").toLowerCase().includes("händ") ? "Händler" : "Privat");
 
   const sellerId = String(inserat?.verkaeuferId || inserat?.seller?.id || "").trim();
-  const chatHref = sellerId
-    ? `chat.html?user1=${encodeURIComponent(userId)}&user2=${encodeURIComponent(sellerId)}&fahrzeugId=${encodeURIComponent(String(id))}`
-    : `anzeige.html?id=${encodeURIComponent(String(id))}`;
+  const uid = String(userId || "").trim();
+
+  const chatHref = (uid && sellerId && fahrzeugId)
+    ? `chat.html?user1=${encodeURIComponent(uid)}&user2=${encodeURIComponent(sellerId)}&fahrzeugId=${encodeURIComponent(fahrzeugId)}`
+    : `anzeige.html?id=${encodeURIComponent(fahrzeugId)}`;
+
+  // Slides: erste Slide "active" wie im alten HTML
+  const slidesHTML = (() => {
+    const out = [];
+    let first = true;
+
+    const imgs = Array.isArray(inserat?.images) ? inserat.images : [];
+    imgs.forEach((url) => {
+      out.push(`<img src="${url}" alt="Bild" class="slide${first ? " active" : ""}" />`);
+      first = false;
+    });
+
+    const video = String(inserat?.video || "").trim();
+    if (video) {
+      out.push(`
+        <video class="slide${first ? " active" : ""}" controls muted playsinline preload="metadata">
+          <source src="${video}" type="video/mp4">
+        </video>
+      `);
+      first = false;
+    }
+
+    if (!out.length) out.push(`<div class="slide active"></div>`);
+
+    return out.join("");
+  })();
 
   return `
-    <div class="car-card">
-      <div class="media-container">
-        <button class="media-arrow left" aria-label="Zurück">
-          <i class="fas fa-chevron-left"></i>
-        </button>
+    <div class="car-card-wrapper"
+         data-saved-id="${savedDocId}"
+         data-fahrzeug-id="${fahrzeugId}">
 
-        <div class="slides">
-          ${generateSlides(inserat)}
-        </div>
-
-        <button class="media-arrow right" aria-label="Weiter">
-          <i class="fas fa-chevron-right"></i>
+      <!-- Mobile: Buttons über dem Inserat -->
+      <div class="car-card-actions mobile-only">
+        <a href="${chatHref}" class="contact-btn">
+          <i class="fas fa-comments"></i> Kontakt aufnehmen
+        </a>
+        <button class="remove-saved-btn" type="button" data-fahrzeug-id="${fahrzeugId}">
+          <i class="fas fa-heart-broken"></i> Entfernen
         </button>
       </div>
 
-      <div class="car-details">
-        <h3>${title}</h3>
-        <p class="price">${price}</p>
-
-        <div class="info-grid">
-          <span><i class="fas fa-calendar-alt"></i> ${ez}</span>
-          <span><i class="fas fa-road"></i> ${km}</span>
-          <span><i class="fas fa-bolt"></i> ${ps}</span>
-          <span><i class="fas fa-gas-pump"></i> ${fuel}</span>
+      <!-- Fahrzeugkarte -->
+      <div class="car-card horizontal">
+        <div class="car-card-media">
+          <div class="media-container">
+            <div class="slides">
+              ${slidesHTML}
+            </div>
+            <button class="media-arrow left" aria-label="Zurück">
+              <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="media-arrow right" aria-label="Weiter">
+              <i class="fas fa-chevron-right"></i>
+            </button>
+          </div>
         </div>
 
-        <div class="dealer-info">
-          <strong>${sellerName}</strong><br>
-          ${location}
+        <div class="car-details">
+          <div class="car-top-row">
+            <h2 class="car-title">${title}</h2>
+            <p class="car-price">${price}</p>
+          </div>
+
+          <p class="car-subtitle">${subtitle}</p>
+
+          <div class="car-info-grid">
+            <p><i class="fas fa-road"></i> ${km}</p>
+            <p><i class="fas fa-calendar-alt"></i> EZ ${ez}</p>
+            <p><i class="fas fa-gas-pump"></i> ${fuel}</p>
+            <p><i class="fas fa-gauge-high"></i> ${ps}</p>
+            <p><i class="fas fa-gears"></i> ${getriebe}</p>
+            <p><i class="fas fa-tint"></i> ${verbrauch}</p>
+          </div>
+
+          <div class="dealer-info">
+            <strong>${sellerName}</strong><br>
+            ${location}
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="saved-actions">
-      <a href="${chatHref}" class="contact-btn">
-        <i class="fas fa-comments"></i> Kontakt aufnehmen
-      </a>
-
-      <button class="remove-saved-btn" type="button" data-id="${String(id)}">
-        <i class="fas fa-trash-alt"></i> Entfernen
-      </button>
+      <!-- Desktop: Buttons rechts neben dem Inserat -->
+      <div class="car-card-actions desktop-only">
+        <a href="${chatHref}" class="contact-btn">
+          <i class="fas fa-comments"></i> Kontakt aufnehmen
+        </a>
+        <button class="remove-saved-btn" type="button" data-fahrzeug-id="${fahrzeugId}">
+          <i class="fas fa-heart-broken"></i> Entfernen
+        </button>
+      </div>
     </div>
   `;
 }
@@ -1676,19 +1756,15 @@ async function loadSavedCarsSection() {
   let user;
   try {
     user = await getLoggedInUser();
-    if (!user?.nutzerId) {
+    const userId = user?.nutzerId || user?.id;
+    if (!userId) {
       window.location.href = "login.html";
       return;
     }
-    
-  } catch {
-    window.location.href = "login.html";
-    return;
-  }
 
-  try {
     const res = await fetch("/saved/list", { credentials: "include" });
     if (!res.ok) throw new Error("saved/list failed");
+
     const inserate = await res.json();
 
     loadingEl?.classList.add("hidden");
@@ -1700,60 +1776,67 @@ async function loadSavedCarsSection() {
 
     inserate.forEach((inserat) => {
       const wrapper = document.createElement("div");
-      wrapper.className = "car-card-wrapper";
-      wrapper.dataset.id = String(inserat?._id || "");
-      wrapper.innerHTML = buildSavedCardHTML(inserat, user.nutzerId);
+      // WICHTIG: buildSavedCardHTML gibt car-card-wrapper zurück, daher wrapper nur als Hülle
+      wrapper.innerHTML = buildSavedCardHTML(inserat, userId);
 
+      // Die echte Card holen
+      const cardWrap = wrapper.firstElementChild;
+      if (!cardWrap) return;
 
-      // Klick auf Karte -> Inserat öffnen
-      wrapper.addEventListener("click", () => {
-        const id = wrapper.dataset.id;
+      // Klick auf Karte -> Inserat öffnen (fahrzeugId!)
+      cardWrap.addEventListener("click", () => {
+        const fahrzeugId = cardWrap.getAttribute("data-fahrzeug-id") || "";
         try { localStorage.setItem("ausgewaehltesInserat", JSON.stringify(inserat)); } catch {}
-        window.location.href = `anzeige.html?id=${encodeURIComponent(id)}`;
+        window.location.href = `anzeige.html?id=${encodeURIComponent(fahrzeugId)}`;
       });
 
-      // Buttons sollen nicht den Card-Klick auslösen
-      const contactBtn = wrapper.querySelector(".contact-btn");
-      contactBtn?.addEventListener("click", (e) => e.stopPropagation());
+      // Links sollen nicht den Card-Klick auslösen
+      cardWrap.querySelectorAll(".contact-btn").forEach((a) => {
+        a.addEventListener("click", (e) => e.stopPropagation());
+      });
 
-      const removeBtn = wrapper.querySelector(".remove-saved-btn");
-      removeBtn?.addEventListener("click", async (e) => {
-        e.stopPropagation();
+      // Entfernen (mobile + desktop Buttons)
+      cardWrap.querySelectorAll(".remove-saved-btn").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+          e.stopPropagation();
 
-        const fahrzeugId = removeBtn.getAttribute("data-id");
-        if (!fahrzeugId) return;
+          const fahrzeugId = btn.getAttribute("data-fahrzeug-id");
+          if (!fahrzeugId) return;
 
-        const r = await fetch("/saved/toggle", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fahrzeugId })
-        });
+          const r = await fetch("/saved/toggle", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fahrzeugId })
+          });
 
-        if (!r.ok) return;
+          if (!r.ok) return;
 
-        const data = await r.json();
-        // Wenn jetzt nicht mehr gespeichert -> aus UI entfernen
-        if (data?.saved === false) {
-          wrapper.remove();
-          if (!listEl?.querySelector(".car-card-wrapper")) {
-            emptyEl?.classList.remove("hidden");
+          const data = await r.json();
+          if (data?.saved === false) {
+            cardWrap.remove();
+
+            // wenn nix mehr übrig
+            if (listEl && !listEl.querySelector(".car-card-wrapper")) {
+              emptyEl?.classList.remove("hidden");
+            }
           }
-        }
+        });
       });
 
-      listEl.appendChild(wrapper);
-      initializeSlider(wrapper);
+      listEl.appendChild(cardWrap);
+
+      // Slider init
+      initializeSlider(cardWrap);
     });
 
   } catch (e) {
     console.error(e);
     loadingEl?.classList.add("hidden");
-    if (listEl) {
-      listEl.innerHTML = `<p>Fehler beim Laden der gespeicherten Inserate.</p>`;
-    }
+    if (listEl) listEl.innerHTML = `<p>Fehler beim Laden der gespeicherten Inserate.</p>`;
   }
 }
+
 
 // Als gelesen markieren (PATCH)
 document.addEventListener("click", async (e) => {
