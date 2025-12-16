@@ -572,52 +572,100 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.warn("Konnte Händlerbewertung nicht laden", e);
     }
   }
+  function escapeHTML(str = "") {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
   
   async function ladeBewertungen(nutzerId) {
-    try {
-      const res = await fetch(`/api/bewertung/${nutzerId}`);
-      if (!res.ok) throw new Error();
-      const data = await res.json();
+    const ratingList = document.getElementById("ratingList");
+    const toggleWrap = document.getElementById("toggleRatingListWrap");
+    const toggleBtn  = document.getElementById("toggleRatingListBtn");
   
-      const ratingList = document.getElementById("ratingList");
-      const toggleBtn  = document.getElementById("toggleRatingListWrap");
+    if (!ratingList || !toggleWrap || !toggleBtn) return;
   
-      if (!data.items || data.items.length === 0) {
-        toggleBtn.style.display = "none";
+    // doppelt binden vermeiden (bei deinem Code gibt es 2x DOMContentLoaded)
+    if (toggleBtn.dataset.bound === "1") return;
+    toggleBtn.dataset.bound = "1";
+  
+    ratingList.style.display = "none";
+  
+    let visible = false;
+    let loaded = false;
+  
+    toggleBtn.innerHTML = `<i class="fas fa-chevron-down"></i> Bewertungen anzeigen`;
+  
+    toggleBtn.addEventListener("click", async () => {
+      visible = !visible;
+  
+      if (!visible) {
+        ratingList.style.display = "none";
+        toggleBtn.innerHTML = `<i class="fas fa-chevron-down"></i> Bewertungen anzeigen`;
         return;
       }
   
-      ratingList.innerHTML = data.items.map(rating => {
-        const stars = Array.from({ length: 5 }, (_, i) => {
-          if (rating.sterne >= i + 1) return '<i class="fas fa-star"></i>';
-          if (rating.sterne >= i + 0.5) return '<i class="fas fa-star-half-alt"></i>';
-          return '<i class="far fa-star"></i>';
+      toggleBtn.innerHTML = `<i class="fas fa-chevron-up"></i> Bewertungen verbergen`;
+      ratingList.style.display = "block";
+  
+      // nur beim ersten Öffnen laden (wie anzeige.js)
+      if (loaded) return;
+      loaded = true;
+  
+      try {
+        // WICHTIG: plural /api/bewertungen/...
+        const res = await fetch(`/api/bewertungen/${encodeURIComponent(nutzerId)}`, {
+          credentials: "include"
+        });
+        if (!res.ok) throw new Error();
+  
+        let data = await res.json(); // erwartet: Array
+        if (!Array.isArray(data)) data = [];
+  
+        // Optional: wirklich nur "geschriebene" Bewertungen anzeigen
+        data = data.filter(r => (r.text || "").trim() !== "");
+  
+        if (data.length === 0) {
+          toggleWrap.style.display = "none";
+          ratingList.style.display = "none";
+          return;
+        }
+  
+        ratingList.innerHTML = data.map(rating => {
+          const sterne = Number(rating.rating ?? rating.sterne ?? 0);
+  
+          const stars = Array.from({ length: 5 }, (_, i) => {
+            if (sterne >= i + 1) return '<i class="fas fa-star"></i>';
+            if (sterne >= i + 0.5) return '<i class="fas fa-star-half-alt"></i>';
+            return '<i class="far fa-star"></i>';
+          }).join("");
+  
+          const kommentarRaw = (rating.text ?? rating.kommentar ?? "").trim();
+          const kommentar = kommentarRaw ? `<p>${escapeHTML(kommentarRaw)}</p>` : "";
+  
+          const ts = rating.updatedAt || rating.createdAt || rating.zeitpunkt;
+          const dateStr = ts ? new Date(ts).toLocaleDateString("de-DE") : "";
+  
+          return `
+            <div class="rating-item">
+              <div class="stars">${stars}</div>
+              ${kommentar}
+              ${dateStr ? `<small>${dateStr}</small>` : ""}
+            </div>
+          `;
         }).join("");
   
-        const kommentar = rating.kommentar ? `<p>${rating.kommentar}</p>` : "";
-  
-        return `
-          <div class="rating-item">
-            <div class="stars">${stars}</div>
-            ${kommentar}
-            <small>${new Date(rating.zeitpunkt).toLocaleDateString("de-DE")}</small>
-          </div>
-        `;
-      }).join("");
-  
-      // Umschalter-Logik
-      document.getElementById("toggleRatingListBtn")?.addEventListener("click", () => {
-        const visible = ratingList.style.display === "block";
-        ratingList.style.display = visible ? "none" : "block";
-        document.getElementById("toggleRatingListBtn").innerHTML = `
-          <i class="fas fa-chevron-${visible ? "down" : "up"}"></i> Bewertungen ${visible ? "anzeigen" : "verbergen"}
-        `;
-      });
-  
-    } catch (err) {
-      console.warn("Bewertungen konnten nicht geladen werden", err);
-    }
+      } catch (err) {
+        console.warn("Bewertungen konnten nicht geladen werden", err);
+        // Button nicht verstecken, aber informatives UI
+        ratingList.innerHTML = `<div class="rating-item"><small>Fehler beim Laden der Bewertungen.</small></div>`;
+      }
+    });
   }
+  
   
   
   function renderProfileSection(nutzerData, drafts, online) {

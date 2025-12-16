@@ -2294,19 +2294,7 @@ img, video, canvas {
   gap: 4px;
   align-items: flex-end;
   text-align: right;
-  margin-left: auto;            /* schiebt den Block im Header nach rechts */
-}
-
-.profile-rating-main {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.profile-rating-score {
-  font-size: 1.3rem;
-  font-weight: 600;
-  color: #1a2733;
+  margin-left: auto; /* schiebt den Block im Header nach rechts */
 }
 
 .profile-rating-stars {
@@ -2315,8 +2303,27 @@ img, video, canvas {
   font-size: 0.95rem;
 }
 
+/* default (empty) */
 .profile-rating-stars i {
-  color: #ffc107;               /* typische Sternefarbe */
+  color: #c9d2db;
+}
+
+/* full */
+.profile-rating-stars i.star-full {
+  color: #ffc107;
+}
+
+/* empty */
+.profile-rating-stars i.star-empty {
+  color: #c9d2db;
+}
+
+/* half: optisch halb/halb */
+.profile-rating-stars i.star-half {
+  background: linear-gradient(90deg, #ffc107 50%, #c9d2db 50%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .profile-rating-count {
@@ -2344,52 +2351,55 @@ img, video, canvas {
   }
 }
 
+/* ===== Toggle-Button + Bewertungsliste ===== */
 
+/* Falls .btn-soft noch nicht existiert */
+.btn-soft {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid #e3e9ef;
+  background: #f5f8fc;
+  color: #1a2733;
+  font-weight: 600;
+  cursor: pointer;
+}
 
-
-
+.btn-soft:hover {
+  border-color: #00b8a9;
+  box-shadow: 0 0 0 3px rgba(0, 184, 169, 0.14);
+}
 
 .rating-list {
   margin-top: 12px;
-  border-top: 1px solid #ccc;
-  padding-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid #e3e9ef;
 }
 
 .rating-item {
-  margin-bottom: 12px;
-  padding: 8px;
-  background: #f9f9f9;
-  border-radius: 6px;
-}
-
-.rating-item .stars {
-  color: #f5b301;
-  margin-bottom: 4px;
-  font-size: 16px;
-}
-
-.rating-item .rating-text {
-  font-size: 14px;
-  color: #444;
-}
-
-
-
-.rating-list:empty {
-  display: none;
-}
-
-.rating-item {
-  margin-bottom: 12px;
-  padding: 8px 10px;
-  border-radius: 8px;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
   background: #f5f8fc;
   border: 1px solid #e3e9ef;
 }
+
+.rating-item .stars {
+  color: #ffc107;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
 .rating-item p {
   margin: 6px 0 4px;
+  color: #37444f;
+  font-size: 14px;
+  line-height: 1.45;
 }
+
 .rating-item small {
-  color: #889;
+  color: #7a8b97;
   font-size: 12px;
 }
