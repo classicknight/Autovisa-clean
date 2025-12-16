@@ -222,136 +222,128 @@ document.addEventListener("DOMContentLoaded", () => {
   soldCarsLink?.addEventListener("click",  (e) => { e.preventDefault(); checkLoginAndRedirect("#sold-cars"); });
   messagesLink?.addEventListener("click",  (e) => { e.preventDefault(); checkLoginAndRedirect("#messages-list"); });
 
-  /* =========================
-     Sidebar/Tabs + Hash-Deep-Link
-     ========================= */
-  const sidebarLinks = document.querySelectorAll(".sidebar-link");
-  const titleEl      = document.querySelector(".title");
-  const sections = {
-    "car-list":      document.querySelector(".car-list"),
-    "messages-list": document.querySelector("#messages-list"),
-    "saved-cars":    document.querySelector("#saved-cars"),
-    "sold-cars":     document.querySelector("#sold-cars")
-  };
-
-  function showSection(sectionName) {
-    // Inhalte-Tabs umschalten
-    Object.values(sections).forEach(section => {
-      if (!section) return;
-      section.classList.add("hidden");
-      section.classList.remove("visible");
-    });
-    if (sections[sectionName]) {
-      sections[sectionName].classList.remove("hidden");
-      sections[sectionName].classList.add("visible");
-    }
-  
-    // Profil-Bereich nur bei "Meine Autos" anzeigen
-    const profileSection = document.querySelector(".profile-section");
-    if (profileSection) {
-      if (sectionName === "car-list") {
-        profileSection.classList.remove("hidden");
-      } else {
-        profileSection.classList.add("hidden");
-      }
-    }
-  
-    // Body-Klasse für evtl. seitenspezifische Styles/Ads
-    const body = document.body;
-    if (body) {
-      body.classList.remove(
-        "meine-autos-seite",
-        "nachrichten-seite",
-        "gespeicherte-autos-seite"
-      );
-      switch (sectionName) {
-        case "messages-list":
-          body.classList.add("nachrichten-seite");
-          break;
-        case "saved-cars":
-          body.classList.add("gespeicherte-autos-seite");
-          break;
-        default:
-          body.classList.add("meine-autos-seite");
-      }
-    }
-  }
-  
-
-  const chatButton = `
-    <a href="chat.html" class="all-chats-btn" style="margin-left:auto;">
-      <i class="fas fa-envelope-open-text"></i> Alle Chats anzeigen
-    </a>`;
-
-  function updateTitle(section) {
-    if (!titleEl) return;
-    switch (section) {
-      case "car-list":
-        titleEl.innerHTML = '<i class="fas fa-car"></i> Meine Autos';
-        break;
-      case "messages-list":
-        titleEl.innerHTML = '<i class="fas fa-comments"></i> Nachrichten' + chatButton;
-        break;
-      case "saved-cars":
-        titleEl.innerHTML = '<i class="fas fa-heart"></i> Gespeicherte Autos';
-        break;
-      case "sold-cars":
-        titleEl.innerHTML = '<i class="fas fa-check-circle"></i> Verkaufte Autos';
-        break;
-      default:
-        titleEl.innerHTML = '<i class="fas fa-car"></i> Meine Autos';
-    }
-  }
-
-  function setActiveSidebar(section) {
-    sidebarLinks.forEach(li => {
-      li.classList.toggle("active", li.dataset.section === section);
-    });
-  }
-
-  function sectionFromHash(h) {
-    switch ((h || "").toLowerCase()) {
-      case "#messages-list":
-      case "#chats":
-      case "#nachrichten":
-        return "messages-list";
-      case "#saved-cars":
-      case "#saved":
-        return "saved-cars";
-      case "#sold-cars":
-      case "#sold":
-        return "sold-cars";
-      case "#car-list":
-      case "#my-cars":
-      default:
-        return "car-list";
-    }
-  }
-
-  function applyHash() {
-    const sectionName = sectionFromHash();
-    setActiveSidebar(sectionName);
-    showSection(sectionName);
-    updateTitle(sectionName);
-  
-    if (sectionName === "messages-list") loadMessagesSection();
-    if (sectionName === "saved-cars") loadSavedCarsSection();
-  }
-  
-
-  // Sidebar-Klicks
-  sidebarLinks.forEach(link => {
-    link.addEventListener("click", () => {
-      const selected = link.dataset.section;
-      // Hash setzen (auch für Back-Button)
-      if (location.hash !== `#${selected}`) history.replaceState(null, "", `#${selected}`);
-      applyHash();
-    });
-  });
-
-  // Beim Laden + bei Hash-Änderung
-  window.addEventListener("hashchange", applyHash);
-  applyHash(); // initial
+/* =========================
+   Sidebar/Tabs + Hash-Deep-Link (FIX)
+   ========================= */
+   const sidebarLinks = document.querySelectorAll(".sidebar-link");
+   const titleEl      = document.querySelector(".title");
+   
+   const sections = {
+     "car-list":      document.querySelector(".car-list"),
+     "messages-list": document.querySelector("#messages-list"),
+     "saved-cars":    document.querySelector("#saved-cars"),
+     "sold-cars":     document.querySelector("#sold-cars")
+   };
+   
+   function showSection(sectionName) {
+     Object.values(sections).forEach(section => {
+       if (!section) return;
+       section.classList.add("hidden");
+       section.classList.remove("visible");
+     });
+   
+     if (sections[sectionName]) {
+       sections[sectionName].classList.remove("hidden");
+       sections[sectionName].classList.add("visible");
+     }
+   
+     const profileSection = document.querySelector(".profile-section");
+     if (profileSection) {
+       if (sectionName === "car-list") profileSection.classList.remove("hidden");
+       else profileSection.classList.add("hidden");
+     }
+   
+     const body = document.body;
+     if (body) {
+       body.classList.remove("meine-autos-seite", "nachrichten-seite", "gespeicherte-autos-seite");
+       if (sectionName === "messages-list") body.classList.add("nachrichten-seite");
+       else if (sectionName === "saved-cars") body.classList.add("gespeicherte-autos-seite");
+       else body.classList.add("meine-autos-seite");
+     }
+   }
+   
+   const chatButton = `
+     <a href="chat.html" class="all-chats-btn" style="margin-left:auto;">
+       <i class="fas fa-envelope-open-text"></i> Alle Chats anzeigen
+     </a>`;
+   
+   function updateTitle(section) {
+     if (!titleEl) return;
+     switch (section) {
+       case "car-list":
+         titleEl.innerHTML = '<i class="fas fa-car"></i> Meine Autos';
+         break;
+       case "messages-list":
+         titleEl.innerHTML = '<i class="fas fa-comments"></i> Nachrichten' + chatButton;
+         break;
+       case "saved-cars":
+         titleEl.innerHTML = '<i class="fas fa-heart"></i> Gespeicherte Autos';
+         break;
+       case "sold-cars":
+         titleEl.innerHTML = '<i class="fas fa-check-circle"></i> Verkaufte Autos';
+         break;
+       default:
+         titleEl.innerHTML = '<i class="fas fa-car"></i> Meine Autos';
+     }
+   }
+   
+   function setActiveSidebar(section) {
+     sidebarLinks.forEach(link => {
+       const host = link.closest("[data-section]") || link; // robust, falls data-section am <li> sitzt
+       const key = host.dataset.section || link.dataset.section;
+       host.classList.toggle("active", key === section);
+     });
+   }
+   
+   function sectionFromHash(h = location.hash) {
+     switch (String(h || "").toLowerCase()) {
+       case "#messages-list":
+       case "#chats":
+       case "#nachrichten":
+         return "messages-list";
+       case "#saved-cars":
+       case "#saved":
+         return "saved-cars";
+       case "#sold-cars":
+       case "#sold":
+         return "sold-cars";
+       case "#car-list":
+       case "#my-cars":
+       default:
+         return "car-list";
+     }
+   }
+   
+   function applyHash() {
+     const sectionName = sectionFromHash(location.hash); // <<< WICHTIG: location.hash übergeben
+     setActiveSidebar(sectionName);
+     showSection(sectionName);
+     updateTitle(sectionName);
+   
+     if (sectionName === "messages-list") loadMessagesSection();
+     if (sectionName === "saved-cars") loadSavedCarsSection();
+   }
+   
+   // Sidebar-Klicks (mit echtem Hash -> Back-Button funktioniert)
+   sidebarLinks.forEach(link => {
+     link.addEventListener("click", (e) => {
+       e.preventDefault();
+   
+       const host = link.closest("[data-section]") || link;
+       const selected = host.dataset.section || link.dataset.section;
+       if (!selected) return;
+   
+       if (location.hash !== `#${selected}`) {
+         location.hash = selected;   // triggert hashchange + History-Eintrag
+       } else {
+         applyHash();                // falls man den gleichen Tab nochmal klickt
+       }
+     });
+   });
+   
+   window.addEventListener("hashchange", applyHash);
+   applyHash(); // initial
+   
 
 
     /* =========================
@@ -1534,7 +1526,8 @@ function renderMessageCard(msg, ins, currentUserId) {
 
 // Haupt-Funktion zum Laden + Anzeigen
 async function loadMessagesSection() {
-  const messagesSection = document.querySelector(".messages-list");
+  const messagesSection = document.getElementById("messages-list");
+
   if (!messagesSection) return;
 
   try {
@@ -1787,14 +1780,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-document.querySelectorAll(".sidebar-link").forEach((link) => {
-  link.addEventListener("click", () => {
-    const target = link.getAttribute("data-section");
-    if (target === "messages-list") {
-      loadMessagesSection();
-    }
-  });
-});
+
 
 
 // Optional: auch direkt beim Laden, falls du „Nachrichten“ als Start-Tab nutzt
