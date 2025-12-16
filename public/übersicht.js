@@ -1676,10 +1676,11 @@ async function loadSavedCarsSection() {
   let user;
   try {
     user = await getLoggedInUser();
-    if (!user?.id) {
+    if (!user?.nutzerId) {
       window.location.href = "login.html";
       return;
     }
+    
   } catch {
     window.location.href = "login.html";
     return;
@@ -1701,7 +1702,8 @@ async function loadSavedCarsSection() {
       const wrapper = document.createElement("div");
       wrapper.className = "car-card-wrapper";
       wrapper.dataset.id = String(inserat?._id || "");
-      wrapper.innerHTML = buildSavedCardHTML(inserat, user.id);
+      wrapper.innerHTML = buildSavedCardHTML(inserat, user.nutzerId);
+
 
       // Klick auf Karte -> Inserat öffnen
       wrapper.addEventListener("click", () => {
