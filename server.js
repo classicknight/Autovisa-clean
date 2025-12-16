@@ -1433,17 +1433,19 @@ app.get("/saved/status/:fahrzeugId", checkLogin, async (req, res) => {
 // Liste gespeicherter Inserate (online) – inkl. Seller-Fallback
 app.get("/saved/list", checkLogin, async (req, res) => {
   try {
-    const savedColl = db.collection("savedInserate");
+    const savedColl    = db.collection("savedInserate");
     const inserateColl = db.collection("inserate");
 
+    // ✅ WICHTIG: userId (und optional legacy nutzerId als Fallback)
     const savedDocs = await savedColl
-      .find({ nutzerId: req.nutzer.id })
+      .find({ $or: [{ userId: req.nutzer.id }, { nutzerId: req.nutzer.id }] })
       .project({ fahrzeugId: 1, _id: 0 })
       .toArray();
 
     const ids = (savedDocs || [])
       .map(d => {
-        try { return new ObjectId(d.fahrzeugId); } catch { return null; }
+        try { return new ObjectId(String(d.fahrzeugId)); }
+        catch { return null; }
       })
       .filter(Boolean);
 
@@ -1452,7 +1454,9 @@ app.get("/saved/list", checkLogin, async (req, res) => {
     const inserate = await inserateColl.aggregate([
       { $match: { _id: { $in: ids }, status: "online" } },
       { $sort: { veroeffentlichtAm: -1, _id: -1 } },
-      ...projectWithSeller
+
+      // ✅ WICHTIG: Funktion AUFRUFEN
+      ...projectWithSeller()
     ]).toArray();
 
     res.json(inserate);
@@ -1461,6 +1465,7 @@ app.get("/saved/list", checkLogin, async (req, res) => {
     res.status(500).json({ error: "Fehler beim Laden gespeicherter Inserate" });
   }
 });
+
 
 /* =========================
    Nutzer-Info aus Session (Privat + Händler)
