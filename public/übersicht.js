@@ -1787,6 +1787,14 @@ document.addEventListener("click", async (e) => {
   }
 });
 
+document.querySelectorAll(".sidebar-link").forEach((link) => {
+  link.addEventListener("click", () => {
+    const target = link.getAttribute("data-section");
+    if (target === "messages-list") {
+      loadMessagesSection();
+    }
+  });
+});
 
 
 // Optional: auch direkt beim Laden, falls du „Nachrichten“ als Start-Tab nutzt
