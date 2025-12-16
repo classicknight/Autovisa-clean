@@ -1430,37 +1430,35 @@ app.get("/saved/status/:fahrzeugId", checkLogin, async (req, res) => {
     res.status(500).json({ error: "Serverfehler beim Status." });
   }
 });
-
+// Liste gespeicherter Inserate (online) – inkl. Seller-Fallback
 app.get("/saved/list", checkLogin, async (req, res) => {
   try {
-    const userId = req.nutzer.id;
-    const coll = db.collection("savedInserate");
-
-    const saved = await coll
-      .find({ userId })
-      .sort({ createdAt: -1 })
-      .toArray();
-
-    const ids = [];
-    for (const s of saved) {
-      try {
-        ids.push(new ObjectId(String(s.fahrzeugId)));
-      } catch {}
-    }
-
-    if (!ids.length) {
-      return res.json([]);
-    }
-
+    const savedColl = db.collection("savedInserate");
     const inserateColl = db.collection("inserate");
-    const inserate = await inserateColl
-      .find({ _id: { $in: ids }, status: "online" })
+
+    const savedDocs = await savedColl
+      .find({ nutzerId: req.nutzer.id })
+      .project({ fahrzeugId: 1, _id: 0 })
       .toArray();
+
+    const ids = (savedDocs || [])
+      .map(d => {
+        try { return new ObjectId(d.fahrzeugId); } catch { return null; }
+      })
+      .filter(Boolean);
+
+    if (!ids.length) return res.json([]);
+
+    const inserate = await inserateColl.aggregate([
+      { $match: { _id: { $in: ids }, status: "online" } },
+      { $sort: { veroeffentlichtAm: -1, _id: -1 } },
+      ...projectWithSeller
+    ]).toArray();
 
     res.json(inserate);
-  } catch (err) {
-    console.error("❌ Fehler bei /saved/list:", err);
-    res.status(500).json({ error: "Fehler beim Laden der gespeicherten Inserate." });
+  } catch (e) {
+    console.error("saved/list error:", e);
+    res.status(500).json({ error: "Fehler beim Laden gespeicherter Inserate" });
   }
 });
 

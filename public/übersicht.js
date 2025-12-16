@@ -329,11 +329,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function applyHash() {
-    const section = sectionFromHash(location.hash);
-    setActiveSidebar(section);
-    showSection(section);
-    updateTitle(section);
+    const sectionName = sectionFromHash();
+    setActiveSidebar(sectionName);
+    showSection(sectionName);
+    updateTitle(sectionName);
+  
+    if (sectionName === "messages-list") loadMessagesSection();
+    if (sectionName === "saved-cars") loadSavedCarsSection();
   }
+  
 
   // Sidebar-Klicks
   sidebarLinks.forEach(link => {
@@ -1565,6 +1569,197 @@ async function loadMessagesSection() {
   }
 }
 
+
+function formatEUR(value) {
+  if (value == null || value === "") return "—";
+  const num = parseFloat(String(value).replace(/\./g, "").replace(",", "."));
+  if (!isNaN(num)) return num.toLocaleString("de-DE") + " €";
+  return String(value) + " €";
+}
+
+function formatKm(value) {
+  if (value == null || value === "") return "— km";
+  const n = Number(String(value).replace(/\./g, "").replace(",", "."));
+  if (!isNaN(n)) return n.toLocaleString("de-DE") + " km";
+  return String(value) + " km";
+}
+
+function formatEZ(value) {
+  const v = String(value || "").trim();
+  const m = v.match(/^(\d{4})-(\d{2})$/);
+  if (m) return `${m[2]}/${m[1]}`; // MM/YYYY
+  return v || "—";
+}
+
+function buildSavedCardHTML(inserat, userId) {
+  const id = inserat?._id;
+
+  const title =
+    [inserat?.verkauf_marke, inserat?.verkauf_modell, inserat?.verkauf_variante]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || "Inserat";
+
+  const price = formatEUR(inserat?.verkauf_preis);
+  const ez = formatEZ(inserat?.verkauf_erstzulassung);
+  const km = formatKm(inserat?.verkauf_kilometer);
+  const ps = inserat?.verkauf_leistung ? `${inserat.verkauf_leistung} PS` : "— PS";
+  const fuel = inserat?.verkauf_kraftstoff || "—";
+
+  const standort = (inserat?.verkauf_standort || inserat?.standort || "").trim();
+  const ort = (inserat?.verkauf_ort || inserat?.ort || "").trim();
+  const plz = (inserat?.verkauf_plz || inserat?.plz || "").trim();
+  const location = standort || [plz, ort].filter(Boolean).join(" ").trim() || "—";
+
+  const sellerName =
+    inserat?.seller?.name ||
+    inserat?.sellerName ||
+    inserat?.verkauf_name ||
+    (String(inserat?.verkauf_verkaeufer || "").toLowerCase() === "händler" ? "Händler" : "Privat");
+
+  const sellerId = String(inserat?.verkaeuferId || inserat?.seller?.id || "").trim();
+  const chatHref = sellerId
+    ? `chat.html?user1=${encodeURIComponent(userId)}&user2=${encodeURIComponent(sellerId)}&fahrzeugId=${encodeURIComponent(String(id))}`
+    : `anzeige.html?id=${encodeURIComponent(String(id))}`;
+
+  return `
+    <div class="car-card">
+      <div class="media-container">
+        <button class="media-arrow left" aria-label="Zurück">
+          <i class="fas fa-chevron-left"></i>
+        </button>
+
+        <div class="slides">
+          ${generateSlides(inserat)}
+        </div>
+
+        <button class="media-arrow right" aria-label="Weiter">
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+
+      <div class="car-details">
+        <h3>${title}</h3>
+        <p class="price">${price}</p>
+
+        <div class="info-grid">
+          <span><i class="fas fa-calendar-alt"></i> ${ez}</span>
+          <span><i class="fas fa-road"></i> ${km}</span>
+          <span><i class="fas fa-bolt"></i> ${ps}</span>
+          <span><i class="fas fa-gas-pump"></i> ${fuel}</span>
+        </div>
+
+        <div class="dealer-info">
+          <strong>${sellerName}</strong><br>
+          ${location}
+        </div>
+      </div>
+    </div>
+
+    <div class="saved-actions">
+      <a href="${chatHref}" class="contact-btn">
+        <i class="fas fa-comments"></i> Kontakt aufnehmen
+      </a>
+
+      <button class="remove-saved-btn" type="button" data-id="${String(id)}">
+        <i class="fas fa-trash-alt"></i> Entfernen
+      </button>
+    </div>
+  `;
+}
+
+async function loadSavedCarsSection() {
+  const section = document.getElementById("saved-cars");
+  if (!section) return;
+
+  const loadingEl = document.getElementById("savedCarsLoading");
+  const listEl = document.getElementById("savedCarsList");
+  const emptyEl = document.getElementById("savedCarsEmpty");
+
+  if (listEl) listEl.innerHTML = "";
+  emptyEl?.classList.add("hidden");
+  loadingEl?.classList.remove("hidden");
+
+  let user;
+  try {
+    user = await getLoggedInUser();
+    if (!user?.id) {
+      window.location.href = "login.html";
+      return;
+    }
+  } catch {
+    window.location.href = "login.html";
+    return;
+  }
+
+  try {
+    const res = await fetch("/saved/list", { credentials: "include" });
+    if (!res.ok) throw new Error("saved/list failed");
+    const inserate = await res.json();
+
+    loadingEl?.classList.add("hidden");
+
+    if (!Array.isArray(inserate) || inserate.length === 0) {
+      emptyEl?.classList.remove("hidden");
+      return;
+    }
+
+    inserate.forEach((inserat) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "car-card-wrapper";
+      wrapper.dataset.id = String(inserat?._id || "");
+      wrapper.innerHTML = buildSavedCardHTML(inserat, user.id);
+
+      // Klick auf Karte -> Inserat öffnen
+      wrapper.addEventListener("click", () => {
+        const id = wrapper.dataset.id;
+        try { localStorage.setItem("ausgewaehltesInserat", JSON.stringify(inserat)); } catch {}
+        window.location.href = `anzeige.html?id=${encodeURIComponent(id)}`;
+      });
+
+      // Buttons sollen nicht den Card-Klick auslösen
+      const contactBtn = wrapper.querySelector(".contact-btn");
+      contactBtn?.addEventListener("click", (e) => e.stopPropagation());
+
+      const removeBtn = wrapper.querySelector(".remove-saved-btn");
+      removeBtn?.addEventListener("click", async (e) => {
+        e.stopPropagation();
+
+        const fahrzeugId = removeBtn.getAttribute("data-id");
+        if (!fahrzeugId) return;
+
+        const r = await fetch("/saved/toggle", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fahrzeugId })
+        });
+
+        if (!r.ok) return;
+
+        const data = await r.json();
+        // Wenn jetzt nicht mehr gespeichert -> aus UI entfernen
+        if (data?.saved === false) {
+          wrapper.remove();
+          if (!listEl?.querySelector(".car-card-wrapper")) {
+            emptyEl?.classList.remove("hidden");
+          }
+        }
+      });
+
+      listEl.appendChild(wrapper);
+      initializeSlider(wrapper);
+    });
+
+  } catch (e) {
+    console.error(e);
+    loadingEl?.classList.add("hidden");
+    if (listEl) {
+      listEl.innerHTML = `<p>Fehler beim Laden der gespeicherten Inserate.</p>`;
+    }
+  }
+}
+
 // Als gelesen markieren (PATCH)
 document.addEventListener("click", async (e) => {
   const btn = e.target.closest(".mark-read-btn");
@@ -1592,13 +1787,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 
-// Beim Tab-Wechsel „Nachrichten“ laden
-document.querySelectorAll(".sidebar-link").forEach(link => {
-  link.addEventListener("click", () => {
-    const target = link.getAttribute("data-section");
-    if (target === "messages-list") loadMessagesSection();
-  });
-});
+
 
 // Optional: auch direkt beim Laden, falls du „Nachrichten“ als Start-Tab nutzt
 // loadMessagesSection();
