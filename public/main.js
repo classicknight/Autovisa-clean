@@ -1199,169 +1199,159 @@ function initMediaSlider(mediaContainer) {
   window.addEventListener("resize", updateSlidePosition);
   updateSlidePosition();
 }
-let __avUserCache = null;
 
-async function getLoggedInUserSafe() {
-  if (__avUserCache?.eingeloggt && __avUserCache?.nutzerId) return __avUserCache;
-
-  try {
-    const r = await fetch("/getNutzerInfo", { credentials: "include" });
-    if (!r.ok) return null;
-
-    const u = await r.json();
-    __avUserCache = u;
-    if (u?.eingeloggt && u?.nutzerId) return u;
-  } catch {}
-  return null;
-}
-
-async function fetchSavedIdSetSafe() {
-  try {
-    const r = await fetch("/saved/list", { credentials: "include" });
-    if (!r.ok) return new Set();
-
-    const arr = await r.json();
-    const ids = (Array.isArray(arr) ? arr : [])
-      .map((x) => String(x?._id || x?.fahrzeugId || x?.id || ""))
-      .filter(Boolean);
-
-    return new Set(ids);
-  } catch {
-    return new Set();
-  }
-}
-
-function setSaveBtnUI(btn, saved) {
-  if (!btn) return;
-
-  btn.classList.toggle("is-saved", !!saved);
-  btn.setAttribute("aria-pressed", saved ? "true" : "false");
-  btn.title = saved ? "Gespeichert" : "Auto speichern";
-
-  const icon = btn.querySelector("i");
-  if (icon) {
-    icon.classList.toggle("fas", !!saved);
-    icon.classList.toggle("far", !saved);
-  }
-}
-
-function buildRedirectAfterLogin() {
-  const file = (location.pathname || "").split("/").pop() || "index.html";
-  const base = file + (location.search || "");
-  return base.includes("#") ? base : `${base}#results-section`;
-}
 async function loadHomeListings() {
   const container = document.getElementById("homeResults");
   if (!container) return;
 
-  container.innerHTML = `<p style="text-align:center; opacity:.7;">Lade Inserate…</p>`;
-
-  // Login + Saved-IDs (nur wenn eingeloggt)
-  const user = await getLoggedInUserSafe();
-  const savedIdSet = user ? await fetchSavedIdSetSafe() : new Set();
+  container.innerHTML = "<p style='opacity:.7'>Lade Inserate…</p>";
 
   try {
-    const response = await fetch("/inserate?limit=8&sort=neueste");
-    const inserate = await response.json();
+    const { items } = await fetchInserate(1, 9);
+    const list = Array.isArray(items) ? items : [];
 
-    container.innerHTML = "";
-
-    if (!Array.isArray(inserate) || inserate.length === 0) {
-      container.innerHTML = `<p style="text-align:center; opacity:.7;">Keine Inserate gefunden.</p>`;
+    if (!list.length) {
+      container.innerHTML = "<p>Aktuell sind keine Fahrzeuge online.</p>";
       return;
     }
 
-    inserate.forEach(ins => {
-      const id = getDocId(ins._id);
-      const media = findHomeMedia(ins);
-      const mediaUrl = media?.url;
+    container.innerHTML = "";
+    list.forEach(inserat => {
+      const imgs  = Array.isArray(inserat.images) ? inserat.images : [];
+      const tel   = sanitizePhone(inserat.telefon);
+      const titel = inserat.titel || "Unbekanntes Fahrzeug";
 
-      // Saved-State (Herz)
-      const isSaved = id && savedIdSet.has(String(id));
-      const heartClass = isSaved ? "fas" : "far";
-      const savedClass = isSaved ? "is-saved" : "";
+      // ✅ Preis robust (Brutto > Einzelpreis > Netto), leere Strings ignorieren
+      const preisNum = pickPrice(
+        inserat["brutto-preis"],
+        inserat.brutto_preis,
+        inserat.verkauf_brutto,
+        inserat.preis,
+        inserat.verkauf_preis, // wichtig für „Keine MwSt.“
+        inserat.verkauf_netto  // Fallback: nur Netto vorhanden
+      );
+      const preis = fmtEUR(preisNum);
+
+      const kurz  = inserat.verkauf_kurzbeschreibung || "";
+      const _id   = getDocId(inserat) || "";
+
+      // Verkäuferdaten (mit Fallbacks)
+      const rawType = String(inserat.seller?.type || inserat.verkauf_verkaeufer || "").toLowerCase();
+      const isHaendler =
+        rawType === "haendler" || rawType === "händler" || rawType.includes("händ") || rawType.includes("haend");
+      const sellerName =
+        inserat.seller?.name || inserat.verkauf_name || (isHaendler ? "Händler" : "Privatanbieter");
+      const sellerLogo =
+        inserat.seller?.logoUrl ||
+        inserat.raw?.seller?.logoUrl ||
+        inserat.logoUrl ||
+        "";
+      const sellerLocation =
+        inserat.standort || [inserat.plz, inserat.ort].filter(Boolean).join(" ") || "Standort nicht angegeben";
 
       const card = document.createElement("div");
-      card.className = "home-card";
-
+      card.className = "car-card"; // vertikale Karte auf der Startseite
       card.innerHTML = `
-        <div class="home-media">
-          ${mediaUrl ? `<img src="${mediaUrl}" alt="">` : ""}
-
-          <button class="save-btn ${savedClass}" type="button"
-                  data-id="${id}"
-                  aria-pressed="${isSaved ? "true" : "false"}"
-                  title="${isSaved ? "Gespeichert" : "Auto speichern"}">
-            <i class="${heartClass} fa-heart"></i>
-          </button>
+        <div class="car-card-media">
+          <div class="card-actions mobile-only">
+            <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
+            <a href="${tel ? `tel:${tel}` : '#'}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${tel ? "" : "aria-disabled='true'"} >
+              <i class="fas fa-phone"></i>
+            </a>
+          </div>
+          <div class="media-container">
+            <div class="slides">
+              ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
+              ${inserat.video ? `<video class="slide" controls muted playsinline preload="metadata"><source src="${inserat.video}" type="video/mp4"></video>` : ""}
+            </div>
+            <button class="media-arrow left"  type="button"><i class="fas fa-chevron-left"></i></button>
+            <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
+          </div>
         </div>
 
-        <div class="home-content">
-          <div class="home-title-row">
-            <h3 class="home-title">${(ins.verkauf_marke || "")} ${(ins.verkauf_modell || "")}</h3>
-            <div class="home-price">${ins.verkauf_preis ? fmtEUR(ins.verkauf_preis) : ""}</div>
+        <div class="car-details">
+          <div class="car-top-row">
+            <h2 class="car-title">${titel}</h2>
+            <p class="car-price">${preis}</p>
           </div>
 
-          <div class="home-meta">
-            <span><i class="fas fa-location-dot"></i> ${ins.verkauf_ort || ""}</span>
-            <span><i class="fas fa-circle-info"></i> ${(ins.verkauf_erstzulassung || "")} · ${(ins.verkauf_kilometer || "")} km · ${(ins.verkauf_leistung || "")} PS</span>
+          <p class="car-subtitle">${kurz}</p>
+
+          <div class="car-info-grid">
+            <p><i class="fas fa-road"></i> ${inserat.verkauf_kilometer ?? "—"} km</p>
+            <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.verkauf_erstzulassung || "—"}</p>
+            <p><i class="fas fa-gas-pump"></i> ${inserat.verkauf_kraftstoff || "—"}</p>
+            <p><i class="fas fa-gauge-high"></i> ${inserat.verkauf_leistung ?? "—"} PS</p>
+            <p><i class="fas fa-gears"></i> ${inserat.verkauf_getriebe || "—"}</p>
+            <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "—"} l/100 km</p>
+          </div>
+
+          <!-- Händlerzeile mit Logo/Initialen -->
+          <div class="dealer-info">
+            <div class="dealer-row">
+              <div class="dealer-avatar">
+                <img alt="${sellerName} Logo">
+                <span class="dealer-initials">${sellerInitials(sellerName)}</span>
+              </div>
+              <div class="dealer-meta">
+                <div class="dealer-name">${sellerName}</div>
+                <div class="dealer-location">${sellerLocation}</div>
+              </div>
+            </div>
           </div>
         </div>
       `;
 
-      // Karte klick -> Anzeige öffnen
-      card.addEventListener("click", () => {
-        const payload = encodeURIComponent(JSON.stringify(toAnzeigePayload(ins)));
-        window.location.href = `anzeige.html?data=${payload}`;
-      });
-
-      // Herz klick -> speichern/entfernen
-      const saveBtn = card.querySelector(".save-btn");
-      saveBtn?.addEventListener("click", async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        const fahrzeugId = saveBtn.getAttribute("data-id");
-        if (!fahrzeugId) return;
-
-        const u = await getLoggedInUserSafe();
-        if (!u) {
-          localStorage.setItem("redirectAfterLogin", buildRedirectAfterLogin());
-          window.location.href = "login.html";
-          return;
-        }
-
-        saveBtn.disabled = true;
+      // Karte klickbar (aber nicht die Buttons/Arrows)
+      card.addEventListener("click", (e) => {
+        const isAction = e.target.closest(".card-actions button, .card-actions a, .media-arrow");
+        if (isAction) return;
         try {
-          const r = await fetch("/saved/toggle", {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ fahrzeugId })
-          });
-
-          if (!r.ok) throw new Error("saved/toggle failed");
-
-          const data = await r.json();
-          const savedNow = data?.saved === true;
-
-          // UI + lokales Set updaten
-          setSaveBtnUI(saveBtn, savedNow);
-          if (savedNow) savedIdSet.add(String(fahrzeugId));
-          else savedIdSet.delete(String(fahrzeugId));
-        } catch (err) {
-          console.error(err);
-        } finally {
-          saveBtn.disabled = false;
-        }
+          // robustes Payload für die Detailseite speichern
+          const payload = toAnzeigePayload(inserat);
+          localStorage.setItem("ausgewaehltesInserat", JSON.stringify(payload));
+        } catch {}
+        if (_id) window.location.href = `anzeige.html?id=${encodeURIComponent(_id)}`;
+        else     window.location.href = `anzeige.html`;
       });
 
       container.appendChild(card);
-    });
+      initMediaSlider(card.querySelector(".media-container"));
 
+      // --- Avatar/Logo (Safari-safe, kein loading="lazy", nie display:none fürs <img>) ---
+      const avatar = card.querySelector(".dealer-avatar");
+      const img    = avatar.querySelector("img");
+      avatar.classList.remove("has-logo");
+      img.removeAttribute("src");
+
+      if (sellerLogo) {
+        try { img.loading = "eager"; } catch {}
+        img.addEventListener("load", () => { if (img.naturalWidth > 0) avatar.classList.add("has-logo"); }, { once: true });
+        img.addEventListener("error", () => {
+          avatar.classList.remove("has-logo");
+          img.removeAttribute("src");
+        }, { once: true });
+        img.src = sellerLogo;
+        // Cache-Fall
+        if (img.complete && img.naturalWidth > 0) avatar.classList.add("has-logo");
+      }
+
+      // Hochformat-Erkennung (optional)
+      card.querySelectorAll(".slide").forEach((m) => {
+        if (m.tagName === "VIDEO") {
+          m.addEventListener("loadedmetadata", () => {
+            if (m.videoHeight > m.videoWidth) m.classList.add("portrait-zoom");
+          });
+        } else if (m.tagName === "IMG") {
+          m.addEventListener("load", () => {
+            if (m.naturalHeight > m.naturalWidth) m.classList.add("portrait-zoom");
+          });
+        }
+      });
+    });
   } catch (err) {
-    console.error(err);
-    container.innerHTML = `<p style="text-align:center;">Fehler beim Laden der Inserate.</p>`;
+    console.error("Fehler beim Laden der Start-Inserate:", err);
+    container.innerHTML = "<p>🚫 Fehler beim Laden der Inserate.</p>";
   }
 }
 
@@ -1370,6 +1360,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const y = document.getElementById("year");
   if (y) y.textContent = new Date().getFullYear();
 });
+
+
 
 
 
