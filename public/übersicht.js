@@ -1210,11 +1210,9 @@ function buildFahrzeugdatenFromInserat(ins) {
           const typeRaw = String(inserat?.seller?.type || inserat?.verkauf_verkaeufer || "").toLowerCase();
           const isHaendlerInserat = typeRaw.includes("haend") || typeRaw.includes("händ");
           
-          const ziel = "fahrzeugdaten.html"; 
-          // Falls du wirklich getrennte Startseiten hast, dann z.B.:
-          // const ziel = isHaendlerInserat ? "verkaufen-haendler.html" : "verkaufen-privat.html";
-          
+          const ziel = (isHaendlerUser || isHaendlerInserat) ? "haendler.html" : "privat.html";
           window.location.href = `${ziel}?edit=${encodeURIComponent(realId)}`;
+          
           
         } catch (err) {
           console.warn("Konnte Edit-State nicht setzen:", err);
@@ -1662,3 +1660,4 @@ async function loadSavedCarsSection() {
 
 
 
+window.location.href
