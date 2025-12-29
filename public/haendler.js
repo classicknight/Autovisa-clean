@@ -111,7 +111,6 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("resize", repositionOpen);
   window.addEventListener("scroll", repositionOpen);
 
-
   /* =========================
      Edit-Mode Bootstrap (Händler)
      - kompatibel zu übersicht.js
@@ -132,17 +131,16 @@ document.addEventListener("DOMContentLoaded", () => {
       sessionStorage.setItem("editInseratId", editId);
     }
 
- // Edit-Mode aktiv, aber Wizard noch NICHT "starten"
-localStorage.setItem("editMode", "1");
+    // Edit-Mode aktiv, aber Wizard noch NICHT "starten"
+    localStorage.setItem("editMode", "1");
 
-// Merker: Wir sind im Edit-Flow, aber bleiben auf haendler.html,
-// bis der User einen Schritt anklickt.
-sessionStorage.setItem("editPending", "1");
+    // Merker: Wir sind im Edit-Flow, aber bleiben auf haendler.html,
+    // bis der User einen Schritt anklickt.
+    sessionStorage.setItem("editPending", "1");
 
-// wichtig: diese beiden NICHT hier setzen (sonst springst du zu früh weiter)
-sessionStorage.removeItem("inseratGestartet");
-sessionStorage.removeItem("hatGespeichert");
-
+    // wichtig: diese beiden NICHT hier setzen (sonst springst du zu früh weiter)
+    sessionStorage.removeItem("inseratGestartet");
+    sessionStorage.removeItem("hatGespeichert");
 
     // Wenn Daten schon aus übersicht.js da sind → nichts überschreiben
     const hasAny =
@@ -156,7 +154,6 @@ sessionStorage.removeItem("hatGespeichert");
     // kannst du später einen Endpoint anbieten.
     // Aktuell: bewusst leer lassen, um keine falschen Mappings reinzuschreiben.
   })();
-
 
   /* =========================
      Auth / Händler-Pflicht
@@ -196,10 +193,9 @@ sessionStorage.removeItem("hatGespeichert");
 
       // Nach Auth erst UI/Wizard initialisieren
       initStepsAndTarifUI();
-      initWizard(user);
+      initWizard();
     })
     .catch(err => console.error("❌ Fehler beim Login-Check:", err));
-
 
   function initAuthDisplay(user) {
     if (!authDisplayEl) return;
@@ -216,7 +212,6 @@ sessionStorage.removeItem("hatGespeichert");
 
     authDisplayEl.innerHTML = `<i class="fas fa-user-check"></i> ${label}`;
   }
-
 
   /* =========================
      Wizard / Steps / Tarif
@@ -241,6 +236,11 @@ sessionStorage.removeItem("hatGespeichert");
   async function initWizard() {
     if (!document.getElementById("toast-container")) setupToasts();
 
+    const isEditFlow =
+      localStorage.getItem("editMode") === "1" ||
+      sessionStorage.getItem("editPending") === "1" ||
+      new URLSearchParams(location.search).has("edit");
+
     // A) Direkt nach dem Veröffentlichen?
     if (sessionStorage.getItem("resetWizard") === "1") {
       clearWizardState();
@@ -250,12 +250,15 @@ sessionStorage.removeItem("hatGespeichert");
     }
 
     // B) Kein Draft mehr vorhanden? → zurücksetzen
-    try {
-      const drafts = await fetch("/getVehicleData", { credentials: "include" }).then(r => r.json());
-      const hasDraft = Array.isArray(drafts) && drafts.some(v => !v.status || v.status === "draft");
-      if (!hasDraft) clearWizardState();
-    } catch (e) {
-      console.warn("Entwurfs-Check fehlgeschlagen:", e);
+    //    ABER: NICHT im Edit-Flow, sonst werden die edit-Daten aus localStorage gelöscht.
+    if (!isEditFlow) {
+      try {
+        const drafts = await fetch("/getVehicleData", { credentials: "include" }).then(r => r.json());
+        const hasDraft = Array.isArray(drafts) && drafts.some(v => !v.status || v.status === "draft");
+        if (!hasDraft) clearWizardState();
+      } catch (e) {
+        console.warn("Entwurfs-Check fehlgeschlagen:", e);
+      }
     }
   }
 
@@ -265,19 +268,19 @@ sessionStorage.removeItem("hatGespeichert");
         localStorage.getItem("editMode") === "1" ||
         sessionStorage.getItem("editPending") === "1" ||
         new URLSearchParams(location.search).has("edit");
-  
+
       // Wizard ist gestartet, sobald man einen Schritt verlässt
       sessionStorage.setItem("inseratGestartet", "true");
-  
+
       // im Edit-Fall darf "hatGespeichert" gesetzt sein (deine Guards/Abbruchlogik)
       if (isEdit) sessionStorage.setItem("hatGespeichert", "true");
       else sessionStorage.removeItem("hatGespeichert");
-  
+
       // pending ist ab jetzt erledigt
       sessionStorage.removeItem("editPending");
     } catch {}
   }
-  
+
   function wireStepNavigation() {
     document.querySelectorAll(".step-box").forEach((box) => {
       box.addEventListener("click", () => {
@@ -292,11 +295,9 @@ sessionStorage.removeItem("hatGespeichert");
           ensureWizardFlagsBeforeLeavingHaendler();
           window.location.href = targets[step];
         }
-        
       });
     });
   }
-
 
   /* ---------- Tarif ---------- */
   function setupTarif() {
@@ -362,14 +363,13 @@ sessionStorage.removeItem("hatGespeichert");
     const badge = document.getElementById("tarifAnzeige");
     if (!badge) return;
 
-    const code  = safeGet(TARIF_KEY, "");
+    const code = safeGet(TARIF_KEY, "");
     if (!code) { badge.textContent = ""; return; }
 
     const label = humanTarifLabel(code);
     const price = tarifPrice(label);
     badge.innerHTML = `<i class="fas fa-tag"></i> Aktiver Tarif: ${label}${price ? " – " + price : ""}`;
   }
-
 
   /* ---------- Steps ---------- */
   function markStepDone(step) {
@@ -403,7 +403,6 @@ sessionStorage.removeItem("hatGespeichert");
     try { localStorage.setItem(STEP_STATE_KEY, JSON.stringify(stepsState)); } catch {}
   }
 
-
   /* ---------- Toasts ---------- */
   function setupToasts() {
     let c = document.getElementById("toast-container");
@@ -431,7 +430,6 @@ sessionStorage.removeItem("hatGespeichert");
     }, 3000);
   }
 
-
   /* ---------- Mobile Tarife Toggle ---------- */
   function toggleTarife() {
     document.querySelectorAll(".tarif-grid .hide-mobile")
@@ -444,7 +442,6 @@ sessionStorage.removeItem("hatGespeichert");
         : "Mehr Tarife anzeigen";
     }
   }
-
 
   /* ---------- Helpers ---------- */
   function humanTarifLabel(code) {
@@ -485,7 +482,6 @@ sessionStorage.removeItem("hatGespeichert");
   }
 });
 
-
 /* =========================
    Wizard & lokale Draft-Daten zurücksetzen (global)
    ========================= */
@@ -511,11 +507,10 @@ function clearWizardState() {
   try { localStorage.removeItem("editMode"); } catch {}
   try { localStorage.removeItem("editInseratId"); } catch {}
 
-// Flow-Flags
-try { sessionStorage.removeItem("inseratGestartet"); } catch {}
-try { sessionStorage.removeItem("hatGespeichert"); } catch {}
-try { sessionStorage.removeItem("editPending"); } catch {}   // <<< hinzufügen
-
+  // Flow-Flags
+  try { sessionStorage.removeItem("inseratGestartet"); } catch {}
+  try { sessionStorage.removeItem("hatGespeichert"); } catch {}
+  try { sessionStorage.removeItem("editPending"); } catch {}
 
   // UI sofort neutralisieren (falls haendler.html offen ist)
   document.querySelectorAll(".step-box").forEach(b => {
@@ -524,7 +519,6 @@ try { sessionStorage.removeItem("editPending"); } catch {}   // <<< hinzufügen
     if (s) s.textContent = "";
   });
 }
-
 
 
 

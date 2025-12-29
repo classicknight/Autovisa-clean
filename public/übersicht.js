@@ -1659,5 +1659,3 @@ async function loadSavedCarsSection() {
 
 
 
-
-window.location.href
