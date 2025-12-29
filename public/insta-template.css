@@ -224,3 +224,74 @@
       max-width: 100%;
     }
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  /* Specs mit Icons */
+.info-specs{
+    margin-top: 6px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  
+  .spec{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 999px;
+  
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.18);
+    backdrop-filter: blur(6px);
+  
+    box-shadow: 0 10px 20px rgba(0,0,0,0.22);
+  }
+  
+  .spec-ico{
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.92);
+  }
+  
+  .spec-ico svg{
+    width: 18px;
+    height: 18px;
+  }
+  
+  .spec-val{
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: #ffffff;
+    text-shadow: 0 0 10px rgba(0,0,0,0.65);
+  }
+  
+  .spec-unit{
+    font-size: 12px;
+    font-weight: 500;
+    opacity: 0.92;
+    color: rgba(255,255,255,0.92);
+  }
+  
+  /* Falls es auf sehr schmalen Screens eng wird */
+  @media (max-width: 420px){
+    .info-specs{ gap: 8px; }
+    .spec{ padding: 6px 9px; }
+  }
+  
