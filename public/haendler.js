@@ -132,10 +132,17 @@ document.addEventListener("DOMContentLoaded", () => {
       sessionStorage.setItem("editInseratId", editId);
     }
 
-    // Flags wie bei deinem Wizard-Flow
-    localStorage.setItem("editMode", "1");
-    sessionStorage.setItem("inseratGestartet", "true");
-    sessionStorage.setItem("hatGespeichert", "true");
+ // Edit-Mode aktiv, aber Wizard noch NICHT "starten"
+localStorage.setItem("editMode", "1");
+
+// Merker: Wir sind im Edit-Flow, aber bleiben auf haendler.html,
+// bis der User einen Schritt anklickt.
+sessionStorage.setItem("editPending", "1");
+
+// wichtig: diese beiden NICHT hier setzen (sonst springst du zu früh weiter)
+sessionStorage.removeItem("inseratGestartet");
+sessionStorage.removeItem("hatGespeichert");
+
 
     // Wenn Daten schon aus übersicht.js da sind → nichts überschreiben
     const hasAny =
@@ -252,6 +259,25 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function ensureWizardFlagsBeforeLeavingHaendler() {
+    try {
+      const isEdit =
+        localStorage.getItem("editMode") === "1" ||
+        sessionStorage.getItem("editPending") === "1" ||
+        new URLSearchParams(location.search).has("edit");
+  
+      // Wizard ist gestartet, sobald man einen Schritt verlässt
+      sessionStorage.setItem("inseratGestartet", "true");
+  
+      // im Edit-Fall darf "hatGespeichert" gesetzt sein (deine Guards/Abbruchlogik)
+      if (isEdit) sessionStorage.setItem("hatGespeichert", "true");
+      else sessionStorage.removeItem("hatGespeichert");
+  
+      // pending ist ab jetzt erledigt
+      sessionStorage.removeItem("editPending");
+    } catch {}
+  }
+  
   function wireStepNavigation() {
     document.querySelectorAll(".step-box").forEach((box) => {
       box.addEventListener("click", () => {
@@ -262,7 +288,11 @@ document.addEventListener("DOMContentLoaded", () => {
           "3": "medien.html",
           "4": "vorschau.html",
         };
-        if (targets[step]) window.location.href = targets[step];
+        if (targets[step]) {
+          ensureWizardFlagsBeforeLeavingHaendler();
+          window.location.href = targets[step];
+        }
+        
       });
     });
   }
@@ -481,9 +511,11 @@ function clearWizardState() {
   try { localStorage.removeItem("editMode"); } catch {}
   try { localStorage.removeItem("editInseratId"); } catch {}
 
-  // Flow-Flags
-  try { sessionStorage.removeItem("inseratGestartet"); } catch {}
-  try { sessionStorage.removeItem("hatGespeichert"); } catch {}
+// Flow-Flags
+try { sessionStorage.removeItem("inseratGestartet"); } catch {}
+try { sessionStorage.removeItem("hatGespeichert"); } catch {}
+try { sessionStorage.removeItem("editPending"); } catch {}   // <<< hinzufügen
+
 
   // UI sofort neutralisieren (falls haendler.html offen ist)
   document.querySelectorAll(".step-box").forEach(b => {

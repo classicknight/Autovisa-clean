@@ -1,16 +1,22 @@
-// privat.js
-document.documentElement.classList.remove('no-js');
+// privat.js — EINHEITLICH (inkl. Edit-Flow wie haendler.js)
+document.documentElement.classList.remove("no-js");
 
 document.addEventListener("DOMContentLoaded", () => {
   // Verkäufertyp merken
   try { localStorage.setItem("verkaeuferTyp", "Privat"); } catch {}
 
-  // ===== Navbar / Dropdowns (wie neue Navbar) =====
+  /* =========================
+     Navbar / Dropdown (Klick)
+     ========================= */
   const navLinks      = document.getElementById("nav-links");
   const hamburger     = document.getElementById("hamburger");
   const dropdownLinks = document.querySelectorAll(".dropdown > a");
   const dropdownLis   = document.querySelectorAll(".dropdown");
   const authDisplayEl = document.getElementById("auth-display");
+
+  // Navbar-Shortcuts
+  const savedCarsLink = document.getElementById("saved-cars-link");
+  const myCarsLink    = document.getElementById("my-cars-link");
 
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
@@ -32,56 +38,53 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function positionMenu(li) {
     const trigger = li.querySelector('a[aria-haspopup="true"]');
-    const menu    = li.querySelector('.dropdown-menu');
+    const menu    = li.querySelector(".dropdown-menu");
     if (!trigger || !menu) return;
 
-    const tRect = trigger.getBoundingClientRect();
-    const mRect = menu.getBoundingClientRect();
+    const tRect  = trigger.getBoundingClientRect();
+    const mRect  = menu.getBoundingClientRect();
     const liRect = li.getBoundingClientRect();
-    const vw = window.innerWidth;
+    const vw     = window.innerWidth;
 
     const center  = tRect.left + tRect.width / 2;
     let leftAbs   = center - mRect.width / 2;
     leftAbs       = clamp(leftAbs, 16, vw - mRect.width - 16);
-    const relLeft = leftAbs - liRect.left;
 
-    menu.style.left = `${relLeft}px`;
+    menu.style.left = `${leftAbs - liRect.left}px`;
   }
 
   function openDropdown(trigger) {
     const li   = trigger.closest(".dropdown");
     const menu = trigger.nextElementSibling;
-    closeAllDropdowns(li);
+    if (!li || !menu) return;
 
+    closeAllDropdowns(li);
     li.classList.add("open");
     trigger.setAttribute("aria-expanded", "true");
     menu.classList.add("show");
 
-    // leichte Stagger-Animation
     [...menu.children].forEach((item, i) => {
       item.style.transitionDelay = `${i * 25}ms`;
     });
 
-    // nur Desktop zentrieren
     const isMobile = window.matchMedia("(max-width: 900px)").matches;
     if (!isMobile) requestAnimationFrame(() => positionMenu(li));
   }
 
   function toggleDropdown(trigger) {
     const li = trigger.closest(".dropdown");
+    if (!li) return;
     li.classList.contains("open") ? closeAllDropdowns() : openDropdown(trigger);
   }
 
-  // Hamburger
   hamburger?.addEventListener("click", (e) => {
     e.stopPropagation();
-    const willOpen = !navLinks.classList.contains("active");
-    navLinks.classList.toggle("active");
+    const willOpen = !navLinks?.classList.contains("active");
+    navLinks?.classList.toggle("active");
     closeAllDropdowns();
     hamburger.setAttribute("aria-expanded", willOpen ? "true" : "false");
   });
 
-  // Dropdowns nur per Klick
   dropdownLinks.forEach(link => {
     link.setAttribute("aria-expanded", "false");
     link.addEventListener("click", (e) => {
@@ -91,9 +94,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // kein Hover-Open (absichtlich entfernt)
-
-  // außerhalb klicken / ESC
   document.addEventListener("click", (e) => {
     if (!e.target.closest(".navbar")) {
       navLinks?.classList.remove("active");
@@ -101,6 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
       closeAllDropdowns();
     }
   });
+
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       navLinks?.classList.remove("active");
@@ -109,119 +110,340 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Reposition bei Resize/Scroll
-  const repositionOpen = () => document.querySelectorAll(".dropdown.open").forEach(positionMenu);
+  const repositionOpen = () =>
+    document.querySelectorAll(".dropdown.open").forEach(positionMenu);
+
   window.addEventListener("resize", repositionOpen);
   window.addEventListener("scroll", repositionOpen);
 
-  // ===== Login-Pflicht + Rollencheck (Privat) =====
+
+  /* =========================
+     Edit-Mode Bootstrap (Privat)
+     - kompatibel zu übersicht.js
+     - WICHTIG: bleibt auf privat.html, bis User einen Step klickt
+     ========================= */
+  (function initEditModePrivat() {
+    const params = new URLSearchParams(location.search);
+    const editParam = params.get("edit");
+    if (!editParam) return;
+
+    const editId =
+      editParam !== "1"
+        ? editParam
+        : (localStorage.getItem("editInseratId") || sessionStorage.getItem("editInseratId") || "");
+
+    if (editId) {
+      localStorage.setItem("editInseratId", editId);
+      sessionStorage.setItem("editInseratId", editId);
+    }
+
+    // Edit-Mode aktiv, aber Wizard noch NICHT "starten"
+    localStorage.setItem("editMode", "1");
+    sessionStorage.setItem("editPending", "1");
+
+    // Diese beiden NICHT hier setzen (sonst startest du den Flow zu früh)
+    sessionStorage.removeItem("inseratGestartet");
+    sessionStorage.removeItem("hatGespeichert");
+
+    // Wenn Daten schon aus übersicht.js da sind → nichts überschreiben
+    const hasAny =
+      localStorage.getItem("fahrzeugdaten") ||
+      localStorage.getItem("fahrzeugdetails") ||
+      localStorage.getItem("medien");
+
+    if (hasAny) return;
+
+    // Optionaler Fallback bei Direktaufruf privat.html?edit=<id>:
+    // aktuell bewusst leer lassen, damit wir nichts falsch mappen.
+  })();
+
+
+  /* =========================
+     Auth / Privat-Pflicht
+     ========================= */
   fetch("/getNutzerInfo", { credentials: "include" })
     .then(res => res.json())
     .then(user => {
       if (!user?.eingeloggt) {
-        try { localStorage.setItem("redirectAfterLogin", "privat.html"); } catch {}
+        try {
+          const url = location.search ? `privat.html${location.search}` : "privat.html";
+          localStorage.setItem("redirectAfterLogin", url);
+        } catch {}
         window.location.href = "login.html";
         return;
       }
-      if (user.rolle !== "privat") {
+
+      const roleRaw = String(user?.role || user?.rolle || "").toLowerCase();
+      const isPrivat = roleRaw === "privat" || roleRaw.includes("privat");
+      const isHaendler = roleRaw.includes("haend") || roleRaw.includes("händ");
+
+      if (!isPrivat || isHaendler) {
         alert("Dieser Bereich ist nur für Privatverkäufer zugänglich.");
         window.location.href = "verkaufen.html";
         return;
       }
 
-      // Eingeloggt: Anzeige (ohne Logout-Link)
       initAuthDisplay(user);
 
-      // interne Links
-      const savedCarsLink = document.getElementById("saved-cars-link");
-      const myCarsLink    = document.getElementById("my-cars-link");
-      savedCarsLink?.addEventListener("click", (e) => { e.preventDefault(); window.location.href = "gespeicherte-autos.html"; });
-      myCarsLink?.addEventListener("click", (e) => { e.preventDefault(); window.location.href = "meine-autos.html"; });
+      // Navbar-Shortcuts → neue Übersicht-Hashes
+      savedCarsLink?.addEventListener("click", (e) => {
+        e.preventDefault();
+        window.location.href = "übersicht.html#saved-cars";
+      });
+      myCarsLink?.addEventListener("click", (e) => {
+        e.preventDefault();
+        window.location.href = "übersicht.html#car-list";
+      });
 
-      // Steps + Tarife
-      initStepsAndTariffs(user);
+      // Nach Auth erst UI/Wizard initialisieren
+      initStepsAndTarifUI();
+      initWizard();
     })
     .catch(() => {
       if (authDisplayEl) authDisplayEl.innerHTML = `<i class="fas fa-user-slash"></i> Fehler beim Laden`;
     });
 
+
   function initAuthDisplay(user) {
     if (!authDisplayEl) return;
-    const name  = user?.name || user?.email || "";
+
+    const name = user?.name || user?.email || "";
     const label = name ? `Eingeloggt – Privat: ${name}` : `Eingeloggt – Privat`;
+
     authDisplayEl.innerHTML = `<i class="fas fa-user-check"></i> ${label}`;
   }
 
-  function initStepsAndTariffs(user) {
-    // Schritt-Boxen Navigation
-    document.querySelectorAll(".step-box").forEach((box) => {
-      box.addEventListener("click", () => {
-        const step = box.dataset.step;
-        if      (step === "1") window.location.href = "fahrzeugdaten.html";
-        else if (step === "2") window.location.href = "fahrzeugdetails.html";
-        else if (step === "3") window.location.href = "medien.html";
-        else if (step === "4") window.location.href = "vorschau.html";
-      });
-    });
 
-    // Schrittstatus (bei Bedarf anpassen)
-    updateStepStatus(1);
+  /* =========================
+     Wizard / Steps / Tarif (Privat)
+     ========================= */
+  const STEP_STATE_KEY = "privatSteps";
+  const TARIF_KEY      = "privatTarif"; // intern (code), Anzeige weiterhin "nutzerTarif"
 
-    // Inserat neu gestartet?
-    const ref = document.referrer || "";
-    const neutral = ["index.html", "verkaufen.html", "privat.html"].some(p => ref.includes(p));
-    if (neutral) {
-      try {
-        sessionStorage.setItem("inseratGestartet", "true");
-        sessionStorage.removeItem("hatGespeichert");
-      } catch {}
+  let stepsState = {};
+
+  // Mini-APIs für andere Seiten (optional)
+  window.markStepDonePrivat = (step) => markStepDone(step);
+  window.togglePrivatTarife = () => togglePrivatTarife();
+
+  function initStepsAndTarifUI() {
+    stepsState = loadSteps();
+    setupToasts();
+    renderStepsFromState();
+    wireStepNavigation();
+    setupTarif();
+    updateNavbarTarif();
+  }
+
+  async function initWizard() {
+    if (!document.getElementById("toast-container")) setupToasts();
+
+    // A) Direkt nach dem Veröffentlichen?
+    if (sessionStorage.getItem("resetWizard") === "1") {
+      clearWizardStatePrivat();
+      sessionStorage.removeItem("resetWizard");
+      showToast("Inserat veröffentlicht – Assistent zurückgesetzt");
+      return;
     }
 
-    // Tarif-Grid (Privat: „Inserat(e)“)
-    const boxes = document.querySelectorAll("#privatTarifGrid .tarif-box");
+    // B) Kein Draft mehr vorhanden? → zurücksetzen
+    // (Wenn du Privat-Drafts anders speicherst, hier anpassen.)
+    try {
+      const drafts = await fetch("/getVehicleData", { credentials: "include" }).then(r => r.json());
+      const hasDraft = Array.isArray(drafts) && drafts.some(v => !v.status || v.status === "draft");
+      if (!hasDraft) clearWizardStatePrivat();
+    } catch (e) {
+      // nicht hart abbrechen – UI soll weiter funktionieren
+      console.warn("Entwurfs-Check fehlgeschlagen:", e);
+    }
+  }
 
-    fetch("/getTarif", { credentials: "include" })
-      .then(res => res.json())
-      .then(data => {
-        let tarif = data?.tarif || "";
-        if (tarif) {
-          boxes.forEach(box => {
-            box.classList.toggle("selected", box.dataset.tarif + " Inserat(e)" === tarif);
-          });
-          try { localStorage.setItem("nutzerTarif", tarif); } catch {}
-        } else if (boxes.length) {
-          const first = boxes[0];
-          first.classList.add("selected");
-          const initialTarif = first.dataset.tarif + " Inserat(e)";
-          try { localStorage.setItem("nutzerTarif", initialTarif); } catch {}
-          fetch("/saveTarif", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ tarif: initialTarif })
-          });
-        }
-        updateNavbarTarif();
-      });
+  function ensureWizardFlagsBeforeLeavingPrivat() {
+    try {
+      const isEdit =
+        localStorage.getItem("editMode") === "1" ||
+        sessionStorage.getItem("editPending") === "1" ||
+        new URLSearchParams(location.search).has("edit");
 
-    boxes.forEach(box => {
+      // Wizard startet erst, wenn man privat.html verlässt (Step-Klick)
+      sessionStorage.setItem("inseratGestartet", "true");
+
+      // im Edit-Fall darf "hatGespeichert" gesetzt sein (deine Guards/Abbruchlogik)
+      if (isEdit) sessionStorage.setItem("hatGespeichert", "true");
+      else sessionStorage.removeItem("hatGespeichert");
+
+      // pending ist ab jetzt erledigt
+      sessionStorage.removeItem("editPending");
+    } catch {}
+  }
+
+  function wireStepNavigation() {
+    document.querySelectorAll(".step-box").forEach((box) => {
       box.addEventListener("click", () => {
-        boxes.forEach(b => b.classList.remove("selected"));
-        box.classList.add("selected");
-        const tarifWert = box.dataset.tarif + " Inserat(e)";
-        try { localStorage.setItem("nutzerTarif", tarifWert); } catch {}
-        fetch("/saveTarif", {
+        const step = String(box.dataset.step || "");
+        const targets = {
+          "1": "fahrzeugdaten.html",
+          "2": "fahrzeugdetails.html",
+          "3": "medien.html",
+          "4": "vorschau.html",
+        };
+
+        if (targets[step]) {
+          ensureWizardFlagsBeforeLeavingPrivat();
+          window.location.href = targets[step];
+        }
+      });
+    });
+  }
+
+
+  /* ---------- Tarif (Privat) ---------- */
+  async function setupTarif() {
+    const grid = document.getElementById("privatTarifGrid");
+    if (!grid) return;
+
+    const boxes = Array.from(grid.querySelectorAll(".tarif-box"));
+    if (!boxes.length) return;
+
+    // 1) Server-Tarif bevorzugen
+    let serverTarif = "";
+    try {
+      const r = await fetch("/getTarif", { credentials: "include" });
+      const data = await r.json().catch(() => ({}));
+      serverTarif = String(data?.tarif || "").trim(); // z.B. "1 Inserat(e)"
+    } catch {}
+
+    // 2) Fallback LocalStorage
+    let localTarif = "";
+    try { localTarif = String(localStorage.getItem("nutzerTarif") || "").trim(); } catch {}
+
+    const effectiveTarif = serverTarif || localTarif;
+
+    // Selektieren
+    if (effectiveTarif) {
+      boxes.forEach(b => {
+        const label = `${String(b.dataset.tarif || "").trim()} Inserat(e)`;
+        b.classList.toggle("selected", label === effectiveTarif);
+      });
+      try { localStorage.setItem("nutzerTarif", effectiveTarif); } catch {}
+    } else {
+      // Default: erstes Paket
+      const first = boxes[0];
+      first.classList.add("selected");
+      const initialTarif = `${String(first.dataset.tarif || "").trim()} Inserat(e)`;
+      try { localStorage.setItem("nutzerTarif", initialTarif); } catch {}
+
+      // direkt serverseitig speichern
+      fetch("/saveTarif", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ tarif: initialTarif })
+      }).catch(() => {});
+    }
+
+    updateNavbarTarif();
+
+    // Klick speichern
+    grid.addEventListener("click", async (e) => {
+      const box = e.target.closest(".tarif-box");
+      if (!box) return;
+
+      boxes.forEach(b => b.classList.remove("selected"));
+      box.classList.add("selected");
+
+      const tarifWert = `${String(box.dataset.tarif || "").trim()} Inserat(e)`;
+      try { localStorage.setItem("nutzerTarif", tarifWert); } catch {}
+      updateNavbarTarif();
+
+      try {
+        await fetch("/saveTarif", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ tarif: tarifWert })
         });
-        updateNavbarTarif();
-      });
+        showToast("Tarif gespeichert");
+      } catch {
+        showToast("Tarif konnte nicht gespeichert werden", "error");
+      }
     });
   }
 
-  // Smooth Scroll (falls vorhanden)
+
+  /* ---------- Steps-State ---------- */
+  function markStepDone(step) {
+    const s = String(step);
+    stepsState[s] = true;
+    saveSteps();
+
+    const box = document.querySelector(`.step-box[data-step="${cssEscape(s)}"]`);
+    if (!box) return;
+
+    box.classList.add("completed");
+    const status = box.querySelector(".step-status");
+    if (status) status.textContent = "✔️";
+  }
+
+  function renderStepsFromState() {
+    Object.entries(stepsState).forEach(([step, val]) => {
+      if (!val) return;
+      const box = document.querySelector(`.step-box[data-step="${cssEscape(step)}"]`);
+      if (!box) return;
+      box.classList.add("completed");
+      const status = box.querySelector(".step-status");
+      if (status) status.textContent = "✔️";
+    });
+  }
+
+  function loadSteps() {
+    try { return JSON.parse(localStorage.getItem(STEP_STATE_KEY)) || {}; }
+    catch { return {}; }
+  }
+
+  function saveSteps() {
+    try { localStorage.setItem(STEP_STATE_KEY, JSON.stringify(stepsState)); } catch {}
+  }
+
+
+  /* ---------- Toasts ---------- */
+  function setupToasts() {
+    let c = document.getElementById("toast-container");
+    if (!c) {
+      c = document.createElement("div");
+      c.id = "toast-container";
+      document.body.appendChild(c);
+    }
+  }
+
+  function showToast(message, type = "success") {
+    const c = document.getElementById("toast-container");
+    if (!c) return;
+
+    const t = document.createElement("div");
+    t.className = `toast ${type}`;
+    t.textContent = message;
+    c.appendChild(t);
+
+    requestAnimationFrame(() => t.classList.add("show"));
+
+    setTimeout(() => {
+      t.classList.remove("show");
+      t.addEventListener("transitionend", () => t.remove(), { once: true });
+    }, 3000);
+  }
+
+
+  /* ---------- Helpers ---------- */
+  function cssEscape(value) {
+    if (window.CSS && CSS.escape) return CSS.escape(value);
+    return String(value).replace(/["\\]/g, "\\$&");
+  }
+
+
+  /* =========================
+     Smooth Scroll (falls vorhanden)
+     ========================= */
   const searchLink = document.querySelector('a[href="#search-section"]');
   searchLink?.addEventListener("click", (e) => {
     e.preventDefault();
@@ -229,7 +451,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-// ===== Schritt-Visualisierung (shared) =====
+
+/* =========================
+   Kompat: alte Funktion (falls irgendwo noch genutzt)
+   ========================= */
 function updateStepStatus(currentStep) {
   const steps = document.querySelectorAll(".step-box");
   steps.forEach((step, idx) => {
@@ -244,18 +469,26 @@ function updateStepStatus(currentStep) {
   });
 }
 
-// ===== Mobiles Tarif-Ausklappen (Privat) =====
-function togglePrivatTarife() {
-  const hiddenTarife = document.querySelectorAll("#privatTarifGrid .hide-mobile");
-  const btn = document.querySelector(".tarif-toggle-btn");
-  if (!btn || !hiddenTarife.length) return;
 
-  const currentlyHidden = Array.from(hiddenTarife).some(el => el.style.display === "none" || !el.style.display);
-  hiddenTarife.forEach(el => { el.style.display = currentlyHidden ? "block" : "none"; });
-  btn.textContent = currentlyHidden ? "Weniger anzeigen" : "Mehr Tarife anzeigen";
+/* =========================
+   Mobiles Tarif-Ausklappen (Privat)
+   ========================= */
+function togglePrivatTarife() {
+  document.querySelectorAll("#privatTarifGrid .hide-mobile")
+    .forEach(el => el.classList.toggle("hide-mobile"));
+
+  const btn = document.querySelector(".tarif-toggle-btn");
+  if (btn) {
+    btn.textContent = btn.textContent.includes("Mehr")
+      ? "Weniger anzeigen"
+      : "Mehr Tarife anzeigen";
+  }
 }
 
-// ===== Tarif-Badge in Navbar =====
+
+/* =========================
+   Tarif-Badge in Navbar
+   ========================= */
 function updateNavbarTarif() {
   const tarifBadge = document.getElementById("tarifAnzeige");
   if (!tarifBadge) return;
@@ -267,10 +500,49 @@ function updateNavbarTarif() {
     "4-5 Inserat(e)": "9,90 € einmalig"
   };
 
-  let gespeicherterTarif = "";
-  try { gespeicherterTarif = localStorage.getItem("nutzerTarif"); } catch {}
-  if (gespeicherterTarif) {
-    const preis = tarifPreise[gespeicherterTarif] || "";
-    tarifBadge.innerHTML = `<i class="fas fa-tag"></i> Aktiver Tarif: ${gespeicherterTarif} – ${preis}`;
-  }
+  let tarif = "";
+  try { tarif = String(localStorage.getItem("nutzerTarif") || "").trim(); } catch {}
+
+  if (!tarif) { tarifBadge.textContent = ""; return; }
+
+  const preis = tarifPreise[tarif] || "";
+  tarifBadge.innerHTML =
+    `<i class="fas fa-tag"></i> Aktiver Tarif: ${tarif}${preis ? " – " + preis : ""}`;
+}
+
+
+/* =========================
+   Wizard & lokale Draft-Daten zurücksetzen (Privat)
+   ========================= */
+function clearWizardStatePrivat() {
+  // Steps
+  try { localStorage.removeItem("privatSteps"); } catch {}
+
+  // Step-Daten
+  try { localStorage.removeItem("fahrzeugdaten"); } catch {}
+  try { localStorage.removeItem("fahrzeugdetails"); } catch {}
+  try { localStorage.removeItem("medien"); } catch {}
+
+  // Legacy (falls vorhanden)
+  try {
+    Object.keys(localStorage).forEach(k => {
+      if (k.startsWith("details_")) localStorage.removeItem(k);
+    });
+  } catch {}
+
+  // Edit-Flags
+  try { localStorage.removeItem("editMode"); } catch {}
+  try { localStorage.removeItem("editInseratId"); } catch {}
+
+  // Flow-Flags (inkl. editPending!)
+  try { sessionStorage.removeItem("inseratGestartet"); } catch {}
+  try { sessionStorage.removeItem("hatGespeichert"); } catch {}
+  try { sessionStorage.removeItem("editPending"); } catch {}
+
+  // UI neutralisieren
+  document.querySelectorAll(".step-box").forEach(b => {
+    b.classList.remove("completed");
+    const s = b.querySelector(".step-status");
+    if (s) s.textContent = "";
+  });
 }

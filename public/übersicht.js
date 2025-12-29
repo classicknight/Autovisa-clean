@@ -1201,8 +1201,8 @@ function buildFahrzeugdatenFromInserat(ins) {
           localStorage.setItem("fahrzeugdetails", JSON.stringify(buildFahrzeugdetailsFromInserat(inserat)));
           localStorage.setItem("medien", JSON.stringify(buildMedienFromInserat(inserat)));
 
-          sessionStorage.setItem("inseratGestartet", "true");
-          sessionStorage.setItem("hatGespeichert", "true");
+          sessionStorage.setItem("editPending", "1"); // erst auf haendler/privat landen, dann Schritt wählen
+
 
           const roleRaw = String(nutzerData?.role || nutzerData?.rolle || "privat").toLowerCase();
           const isHaendlerUser = roleRaw.includes("haend") || roleRaw.includes("händ");
