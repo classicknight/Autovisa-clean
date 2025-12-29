@@ -1,205 +1,695 @@
 
-
-
 /* ==== Reset & Base ==== */
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Poppins',sans-serif;background:#f5f8fc;padding-top:120px}
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
+body {
+  font-family: 'Poppins', sans-serif;
+  background: #f5f8fc;
+  padding-top: 0;
+}
+
+/* ==== NAVBAR DESKTOP ==== */
 .navbar {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  height: 120px;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 40px;
+  /* NICHT fixed – normal oben, scrollt mit */
+  position: relative;
+  width: 100%;
+  height: 96px;        /* kompakte Höhe */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
   z-index: 1000;
 
-  /* Vertikal (oben hell → unten dunkel) + horizontal gespiegelt */
   background: linear-gradient(180deg, #2c5364 0%, #203a43 60%, #0f2027 100%),
               linear-gradient(270deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 100%);
   box-shadow: 0 4px 20px rgba(0,0,0,.35);
 }
-.logo-container{display:flex;align-items:flex-end;height:100%;margin-left:-10px}
-.logo{height:120px;width:auto}
 
-/* ==== Links (Layout) ==== */
-.nav-links{display:flex;align-items:center;gap:24px;list-style:none}
-.nav-links li{position:relative}
-.nav-links a{
-  display:inline-flex;align-items:center;gap:6px;
-  text-decoration:none;color:#fff;font-weight:500;font-size:18.5px;
-  transition:color .25s ease
+/* Logo + Linie + Text nebeneinander */
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 14px;              /* Abstand Logo – Linie – Text */
+  height: 100%;
+  margin-left: 0;
 }
-.nav-links a:hover{color:#00ffcc}
-.nav-links .active>a{color:#00ffcc;border-bottom:2px solid #00ffcc}
 
-/* ==== Pill-Stil + Hover / Press ==== */
-.nav-links>li:not(.active)>a{
-  position:relative;overflow:hidden;
-  padding:7px 14px;border-radius:14px;
-  background:rgba(0,0,0,.2);
-  border:1px solid rgba(255,255,255,.08);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
-  -webkit-backdrop-filter:saturate(120%) blur(2px);
-  backdrop-filter:saturate(120%) blur(2px);
-  transition:background-color .25s ease,box-shadow .25s ease,transform .18s ease,color .25s ease;
+/* Logo-Größe */
+.logo {
+  height: 95px;   /* etwas kleiner als ganz am Anfang */
+  width: auto;
 }
-.nav-links>li:not(.active)>a:hover,
-.nav-links>li:not(.active)>a:focus{
-  background:rgba(0,0,0,.3);
-  color:#00ffcc;
-  box-shadow:0 8px 22px rgba(0,184,169,.18), inset 0 1px 0 rgba(255,255,255,.14);
-  outline:none;
+
+/* Container für die Linie */
+.logo-divider {
+  position: relative;
+  width: 26px;            /* „Breite“ des Bereichs */
+  height: 46px;           /* „Höhe“ des Bereichs */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: -25px;
 }
-.nav-links>li:not(.active)>a:active{transform:translateY(1px) scale(.985)}
+
+/* Eigentliche schräge Linie */
+.logo-divider::before {
+  content: "";
+  width: 2px;
+  height: 65px;
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 184, 169, 0.0),
+    #00b8a9,
+    rgba(0, 184, 169, 0.0)
+  );
+  box-shadow: 0 0 10px rgba(0, 184, 169, 0.7);
+  transform: rotate(-25deg);   /* Neigung der Linie */
+  transform-origin: center;
+}
+
+/* Tagline rechts vom Logo in zwei Zeilen */
+.logo-tagline {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-left: -12px;
+  margin-bottom: 4px;    /* schiebt den Text leicht nach oben */
+
+  font-family: 'Poppins', sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  color: #e8f2f8;
+  text-transform: none;
+  white-space: normal;   /* Zeilenumbruch erlaubt */
+  line-height: 1.1;
+  opacity: 0.95;
+}
+
+.tagline-line1,
+.tagline-line2 {
+  display: block;
+}
+
+/* leichte Einrückung der zweiten Zeile */
+.tagline-line2 {
+  margin-left: 10px;
+}
+
+/* ==== Links (Layout Desktop) ==== */
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  list-style: none;
+}
+
+.nav-links li {
+  position: relative;
+}
+
+.nav-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  color: #fff;
+  font-weight: 500;
+  font-size: 18.5px;
+  transition: color .25s ease;
+}
+
+.nav-links a:hover {
+  color: #00ffcc;
+}
+
+.nav-links .active > a {
+  color: #00ffcc;
+  border-bottom: 2px solid #00ffcc;
+}
+
+/* ==== Pill-Stil + Hover / Press (Desktop) ==== */
+.nav-links > li:not(.active) > a {
+  position: relative;
+  overflow: hidden;
+  padding: 7px 14px;
+  border-radius: 14px;
+  background: rgba(0,0,0,.2);
+  border: 1px solid rgba(255,255,255,.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+  -webkit-backdrop-filter: saturate(120%) blur(2px);
+  backdrop-filter: saturate(120%) blur(2px);
+  transition:
+    background-color .25s ease,
+    box-shadow .25s ease,
+    transform .18s ease,
+    color .25s ease;
+}
+
+.nav-links > li:not(.active) > a:hover,
+.nav-links > li:not(.active) > a:focus {
+  background: rgba(0,0,0,.3);
+  color: #00ffcc;
+  box-shadow:
+    0 8px 22px rgba(0,184,169,.18),
+    inset 0 1px 0 rgba(255,255,255,.14);
+  outline: none;
+}
+
+.nav-links > li:not(.active) > a:active {
+  transform: translateY(1px) scale(.985);
+}
+
 /* Glanz-Sweep */
-.nav-links>li:not(.active)>a::before{
-  content:"";position:absolute;inset:0;left:-130%;
-  background:linear-gradient(120deg,transparent 0%,rgba(255,255,255,.15) 50%,transparent 100%);
-  transform:skewX(-20deg);opacity:0;transition:transform .55s ease,opacity .35s ease;pointer-events:none
+.nav-links > li:not(.active) > a::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  left: -130%;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(255,255,255,.15) 50%,
+    transparent 100%
+  );
+  transform: skewX(-20deg);
+  opacity: 0;
+  transition: transform .55s ease, opacity .35s ease;
+  pointer-events: none;
 }
-.nav-links>li:not(.active)>a:hover::before,
-.nav-links>li:not(.active)>a:focus::before{transform:translateX(230%) skewX(-20deg);opacity:.9}
+
+.nav-links > li:not(.active) > a:hover::before,
+.nav-links > li:not(.active) > a:focus::before {
+  transform: translateX(230%) skewX(-20deg);
+  opacity: .9;
+}
+
 /* Ripple */
-.nav-links>li:not(.active)>a::after{
-  content:"";position:absolute;top:50%;left:50%;width:10px;height:10px;border-radius:999px;
-  background:radial-gradient(circle at center,rgba(0,184,169,.45),transparent 70%);
-  transform:translate(-50%,-50%) scale(0);transition:transform .35s ease;pointer-events:none
+.nav-links > li:not(.active) > a::after {
+  content: "";
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 10px; height: 10px;
+  border-radius: 999px;
+  background: radial-gradient(circle at center, rgba(0,184,169,.45), transparent 70%);
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform .35s ease;
+  pointer-events: none;
 }
-.nav-links>li:not(.active)>a:active::after{transform:translate(-50%,-50%) scale(14)}
 
-/* ==== Neuer Pfeil (näher am Text + Animationen) ==== */
-.nav-arrow{
-  display:inline-block;margin-left:2px;width:.9em;text-align:center;line-height:1;opacity:.9;
-  transform:translateY(1px) rotate(0deg);transition:
+.nav-links > li:not(.active) > a:active::after {
+  transform: translate(-50%, -50%) scale(14);
+}
+
+/* ==== Pfeil für Dropdown ==== */
+.nav-arrow {
+  display: inline-block;
+  margin-left: 2px;
+  width: .9em;
+  text-align: center;
+  line-height: 1;
+  opacity: .9;
+  transform: translateY(1px) rotate(0deg);
+  transition:
     transform .22s cubic-bezier(.3,.7,.2,1.2),
-    opacity .2s ease,color .2s ease, letter-spacing .2s ease
+    opacity .2s ease,
+    color .2s ease,
+    letter-spacing .2s ease;
 }
-.nav-arrow::before{content:"❯"}              /* schlanker Rechts-Pfeil */
-.dropdown>a:hover .nav-arrow,
-.dropdown>a:focus .nav-arrow{color:#00ffcc;opacity:1;letter-spacing:.5px}
-.dropdown>a:active .nav-arrow{transform:translateY(2px) rotate(10deg) scale(1.08)}
-.dropdown>a[aria-expanded="true"] .nav-arrow{transform:translateY(2px) rotate(90deg)} /* nach unten */
 
-/* ==== Dropdown (connected) ==== */
-.dropdown-menu{
-  position:absolute;top:calc(100% + 12px);left:0;min-width:230px;
-  background:#1b2a37;border-radius:14px;border:1px solid rgba(255,255,255,.08);
-  box-shadow:0 16px 40px rgba(0,0,0,.35);
-  list-style:none;padding:8px 0;
-  opacity:0;transform:translateY(6px) scale(.98);
-  pointer-events:none;transition:opacity .22s ease, transform .22s ease;
-  z-index:2000
+.nav-arrow::before {
+  content: "❯";              /* schlanker Rechts-Pfeil */
 }
+
+.dropdown > a:hover .nav-arrow,
+.dropdown > a:focus .nav-arrow {
+  color: #00ffcc;
+  opacity: 1;
+  letter-spacing: .5px;
+}
+
+.dropdown > a:active .nav-arrow {
+  transform: translateY(2px) rotate(10deg) scale(1.08);
+}
+
+.dropdown > a[aria-expanded="true"] .nav-arrow {
+  transform: translateY(2px) rotate(90deg); /* nach unten */
+}
+
+/* ==== Dropdown (Desktop, verbunden) ==== */
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 0;
+  min-width: 230px;
+  background: #1b2a37;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.08);
+  box-shadow: 0 16px 40px rgba(0,0,0,.35);
+  list-style: none;
+  padding: 8px 0;
+  opacity: 0;
+  transform: translateY(6px) scale(.98);
+  pointer-events: none;
+  transition: opacity .22s ease, transform .22s ease;
+  z-index: 2000;
+}
+
 /* Connector unter dem Pill – perfekt zentriert */
-.dropdown.open > a::after{
-  content:"";position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);
-  width:22px;height:12px;border-radius:0 0 10px 10px;background:#1b2a37;
-  border-left:1px solid rgba(255,255,255,.08);
-  border-right:1px solid rgba(255,255,255,.08);
-  border-bottom:1px solid rgba(255,255,255,.08);
-  box-shadow:0 6px 12px rgba(0,0,0,.22);pointer-events:none
+.dropdown.open > a::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  transform: translateX(-50%);
+  width: 22px;
+  height: 12px;
+  border-radius: 0 0 10px 10px;
+  background: #1b2a37;
+  border-left: 1px solid rgba(255,255,255,.08);
+  border-right: 1px solid rgba(255,255,255,.08);
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  box-shadow: 0 6px 12px rgba(0,0,0,.22);
+  pointer-events: none;
 }
+
 /* wenn offen, Pill optisch verbinden */
-.dropdown.open > a{
-  background:rgba(0,0,0,.34);
-  border-color:rgba(0,255,204,.22);
-  box-shadow:0 12px 26px rgba(0,184,169,.16), inset 0 1px 0 rgba(255,255,255,.18);
+.dropdown.open > a {
+  background: rgba(0,0,0,.34);
+  border-color: rgba(0,255,204,.22);
+  box-shadow:
+    0 12px 26px rgba(0,184,169,.16),
+    inset 0 1px 0 rgba(255,255,255,.18);
 }
 
-.dropdown-menu.show{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
-
-.dropdown-menu li{width:100%}
-.dropdown-menu a{
-  display:block;padding:12px 16px;color:#fff;font-size:15px;
-  transition:background .18s ease, padding-left .18s ease
+.dropdown-menu.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
 }
+
+.dropdown-menu li {
+  width: 100%;
+}
+
+.dropdown-menu a {
+  display: block;
+  padding: 12px 16px;
+  color: #fff;
+  font-size: 15px;
+  transition: background .18s ease, padding-left .18s ease;
+}
+
 .dropdown-menu a:hover,
-.dropdown-menu a:focus{background:#2a3a48;color:#00ffcc;outline:none;padding-left:20px}
-
-/* ==== CTA ==== */
-.highlight-link{
-  color:#00ffcc;border:2px solid #00ffcc;border-radius:12px;padding:6px 14px;transition:all .3s ease
+.dropdown-menu a:focus {
+  background: #2a3a48;
+  color: #00ffcc;
+  outline: none;
+  padding-left: 20px;
 }
-.highlight-link:hover{background:#00ffcc;color:#003344}
 
-/* ==== Mobile ==== */
-.hamburger{display:none;font-size:26px;color:#fff;background:none;border:none;cursor:pointer}
-.mobile-shortcuts{display:none}
-
-@media (max-width:900px){
-  body{padding-top:80px}
-
-  .navbar{height:80px;padding:0 20px}
-  .logo{height:70px}
-  .logo-container{margin-left:-10px;margin-bottom:8px}
-
-  .navbar-right-mobile{display:flex;align-items:center;gap:12px}
-
-  .mobile-shortcuts{display:flex;gap:12px;align-items:center}
-  .mobile-shortcuts a{
-    display:flex;align-items:center;justify-content:center;width:40px;height:40px;
-    background:rgba(0,184,169,.12);border-radius:50%;color:#00b8a9;font-size:18px;
-    transition:transform .2s ease, background-color .2s ease, color .2s ease
-  }
-  .mobile-shortcuts a:hover{background:rgba(0,184,169,.2);color:#009e92;transform:scale(1.1)}
-
-  .hamburger{display:block}
-
-  /* Burger-Menü Panel */
-  .nav-links{
-    display:none;flex-direction:column;position:absolute;top:80px;left:0;right:0;
-    background:#1a2733;padding:20px;gap:15px;border-radius:0px;
-    box-shadow:0 4px 12px rgba(0,0,0,.2);z-index:999
-  }
-  .nav-links.active{display:flex}
-
-  /* Zentrierte Links (CTA bleibt rund, weil wir gleich nur .dropdown überschreiben) */
-  .nav-links a{
-    font-size:16px;
-    padding:14px 16px;
-    display:flex;align-items:center;justify-content:center;gap:8px;
-    border-radius:12px;
-    background:rgba(255,255,255,.04);
-    transition:background-color .25s ease, transform .15s ease, color .25s ease
-  }
-  .nav-links a:hover{background:rgba(255,255,255,.08);transform:scale(1.03)}
-  .nav-links a:active{transform:scale(.97);background:rgba(0,184,169,.15)}
-  .dropdown > a{width:100%} /* volle Klickfläche */
-
-  /* >>> Nur DROPDOWN kantig (Trigger + Menü + Items) <<< */
-  .dropdown > a{ border-radius:0; }
-  .dropdown.open > a{ border-radius:0; }
-  .dropdown-menu{ border-radius:0; }
-  .dropdown-menu a{ border-radius:0; } /* falls später abgerundet wird, hier hart auf 0 */
-
-  /* Pfeil näher am Text + Rotation beim Öffnen */
-  .nav-arrow{
-    display:inline-block;margin-left:6px;line-height:1;opacity:.95;
-    transition:transform .22s cubic-bezier(.3,.7,.2,1.2), color .2s ease
-  }
-  .dropdown > a:hover .nav-arrow{color:#00ffcc}
-  .dropdown > a[aria-expanded="true"] .nav-arrow{transform:rotate(90deg)} /* nach unten */
-
-  /* Mobile-Dropdown: standardmäßig zu, weich ausfahren */
-  .dropdown-menu{
-    position:static;min-width:unset;border:none;
-    background:#253544;box-shadow:none;margin-top:8px;
-
-    display:block;max-height:0;opacity:0;overflow:hidden;pointer-events:none;padding:0;
-    transform:none;
-    transition:max-height .28s ease, opacity .22s ease, padding .22s ease
-  }
-  .dropdown.open .dropdown-menu{
-    max-height:1000px;opacity:1;pointer-events:auto;padding:6px 0
-  }
-
-  /* Mobile: kein Connector unter dem Pill */
-  .dropdown.open > a::after{display:none}
+/* ==== CTA (Desktop) ==== */
+.highlight-link {
+  color: #00ffcc;
+  border: 2px solid #00ffcc;
+  border-radius: 12px;
+  padding: 6px 14px;
+  transition: all .3s ease;
 }
+
+.highlight-link:hover {
+  background: #00ffcc;
+  color: #003344;
+}
+
+/* ==== MOBILE: Hamburger-Button – nur Icon, kein Kreis ==== */
+.hamburger {
+  display: none;              /* Desktop: unsichtbar */
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+
+  align-items: center;
+  justify-content: center;
+}
+
+.hamburger i {
+  font-size: 25px;            /* vorher 16px → jetzt größer, aber nicht riesig */
+  color: #ffffff;
+}
+
+.hamburger:hover i {
+  color: #00ffcc;
+}
+
+.hamburger[aria-expanded="true"] i {
+  color: #00ffcc;
+}
+
+.hamburger:focus-visible {
+  outline: 2px solid #00ffcc;
+  outline-offset: 3px;
+}
+
+.mobile-shortcuts {
+  display: none;
+}
+
+
+@media (max-width: 900px) {
+
+  .navbar {
+    height: 70px;
+    padding: 0 10px;          /* etwas weniger Rand rechts/links */
+    justify-content: flex-start;
+  }
+
+  .logo-container {
+    margin-left: -4px;
+    margin-bottom: 0;
+    gap: 8px;
+    flex: 1 1 auto;           /* Logo nimmt den Platz dazwischen ein */
+  }
+
+  /* nur EINE Definition! */
+  .navbar-right-mobile {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-left: auto;        /* schiebt Icons + Burger nach rechts */
+    margin-right: 2px;          /* falls woanders was gesetzt wurde */
+  }
+
+  .logo {
+    height: 60px;
+  }
+
+  .logo-divider {
+    margin-left: -12px;
+    height: 38px;
+  }
+
+  .logo-divider::before {
+    height: 48px;
+    box-shadow: 0 0 6px rgba(0, 184, 169, 0.6);
+  }
+
+  .logo-tagline {
+    margin-left: -4px;
+    margin-bottom: 0;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    line-height: 1.1;
+  }
+
+  .tagline-line2 {
+    margin-left: 6px;
+  }
+
+  .mobile-shortcuts {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .mobile-shortcuts a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: rgba(0,184,169,.12);
+    border-radius: 50%;
+    color: #00b8a9;
+    font-size: 17px;
+    transition:
+      transform .2s ease,
+      background-color .2s ease,
+      color .2s ease;
+  }
+
+  .mobile-shortcuts a:hover {
+    background: rgba(0,184,169,.2);
+    color: #009e92;
+    transform: scale(1.08);
+  }
+
+  .hamburger {
+    display: flex;
+  }
+
+  /* Burger-Menü Panel – zentriert, einheitliche Breite */
+  .nav-links {
+    display: none;
+    flex-direction: column;
+    position: absolute;
+    top: 70px;
+    left: 0;
+    right: 0;
+    width: 100vw;
+    max-width: 420px;
+    margin: 0 auto;
+    background: #111b24;
+    padding: 14px 14px 18px;
+    gap: 10px;
+    border-radius: 0 0 18px 18px;
+    box-shadow: 0 14px 30px rgba(0,0,0,.35);
+    z-index: 999;
+    overflow-x: hidden;
+  }
+
+  .nav-links.active {
+    display: flex;
+  }
+
+  .nav-links > li {
+    width: 100%;
+  }
+
+  .nav-links > li > a {
+    width: 100%;
+    font-size: 16px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    border-radius: 10px;
+    background: rgba(255,255,255,.04);
+    transition:
+      background-color .25s ease,
+      transform .15s ease,
+      color .25s ease;
+  }
+
+  .nav-links > li > a:hover {
+    background: rgba(255,255,255,.08);
+    transform: scale(1.02);
+  }
+
+  .nav-links > li > a:active {
+    transform: scale(.97);
+    background: rgba(0,184,169,.15);
+  }
+
+  .dropdown > a {
+    width: 100%;
+  }
+
+  .nav-links > li > a.highlight-link {
+    justify-content: center;
+    gap: 8px;
+    border-radius: 999px;
+    border: 1px solid #00ffcc;
+    background: linear-gradient(135deg, #00b8a9, #00e6c3);
+    color: #021b24;
+    font-weight: 600;
+  }
+
+  .nav-links > li > a.highlight-link i {
+    font-size: 17px;
+    margin: 0;
+  }
+
+  .nav-links > li > a.highlight-link:hover {
+    background: linear-gradient(135deg, #00e6c3, #00b8a9);
+    transform: scale(1.02);
+  }
+
+  .dropdown-menu {
+    position: static;
+    min-width: unset;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    margin-top: 4px;
+
+    display: block;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    pointer-events: none;
+    padding: 0;
+    transform: none;
+    transition:
+      max-height .28s ease,
+      opacity .22s ease,
+      padding .22s ease;
+  }
+
+  .dropdown.open .dropdown-menu {
+    max-height: 1000px;
+    opacity: 1;
+    pointer-events: auto;
+    padding: 4px 0 2px;
+  }
+
+  .dropdown-menu a {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    font-size: 15px;
+    color: #dde7f2;
+    padding: 8px 10px 8px 30px;
+    border-radius: 8px;
+    background: transparent;
+    position: relative;
+  }
+
+  .dropdown-menu a::before {
+    content: "";
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 999px;
+    background: #00b8a9;
+    opacity: 0.75;
+  }
+
+  .dropdown-menu a:hover,
+  .dropdown-menu a:focus {
+    background: rgba(255,255,255,.06);
+    color: #00ffcc;
+    padding-left: 32px;
+  }
+
+  .dropdown.open > a::after {
+    display: none;
+  }
+
+  .nav-arrow {
+    display: inline-block;
+    margin-left: 6px;
+    line-height: 1;
+    opacity: .95;
+    transition:
+      transform .22s cubic-bezier(.3,.7,.2,1.2),
+      color .2s ease;
+  }
+
+  .dropdown > a:hover .nav-arrow {
+    color: #00ffcc;
+  }
+
+  .dropdown > a[aria-expanded="true"] .nav-arrow {
+    transform: rotate(90deg);
+  }
+}
+
+/* sorgt dafür, dass Anker-Ziele unter einer (ursprünglich fixen) Navbar korrekt einrasten */
+#results-section,
+#search-section {
+  scroll-margin-top: 110px; /* Desktop (Navbar ~96px) */
+}
+
+@media (max-width: 900px) {
+  #results-section,
+  #search-section {
+    scroll-margin-top: 90px; /* Mobile (Navbar ~70px) */
+  }
+}
+
+/* optional für weiches Scrollen */
+html {
+  scroll-behavior: smooth;
+}
+
+/* === Anti-Overscroll (Seite) === */
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;           /* kein horizontales Scrollen */
+  overscroll-behavior-x: none;  /* verhindert iOS/Android "Seitwärts-Ziehen" */
+  touch-action: pan-y;          /* nur vertikales Scrollen auf der Seite */
+}
+
+/* Clip alles, was ggf. aus dem Viewport ragen könnte */
+.navbar,
+.homepage-main,
+.hero-with-image,
+.search-section {
+  overflow-x: clip;            /* moderner als hidden, clippt ohne Scrollbar */
+}
+
+/* Bilder/Videos niemals breiter als der Viewport */
+img, video, canvas {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ==== ULTRA-WIDE SCREENS (z.B. ab 1400px) ==== */
+@media (min-width: 1400px) {
+  .navbar {
+    /* Inhalt auf ~1280px begrenzen und zentrieren */
+    padding-left: calc(50vw - 640px);
+    padding-right: calc(50vw - 640px);
+  }
+}
+
+/* === Sprechblasen-Connector für das Dropdown (Desktop) === */
+@media (min-width: 901px) {
+  .dropdown-menu::before {
+    content: "";
+    position: absolute;
+    top: -9px;                /* sitzt knapp über dem Panel */
+    left: 40px;               /* Abstand von links – an dein Pill anpassen */
+    width: 16px;
+    height: 16px;
+    background: #1b2a37;      /* gleiche Farbe wie .dropdown-menu */
+    transform: rotate(45deg); /* macht aus dem Quadrat ein „Dreieck“ */
+    
+    /* leichte Outline wie das Panel */
+    border-left: 1px solid rgba(255,255,255,.08);
+    border-top: 1px solid rgba(255,255,255,.08);
+    box-shadow: -2px -2px 4px rgba(0,0,0,.25);
+    z-index: -1;              /* zieht sich unter den Panel-Radius */
+  }
+}
+
+
   
-  
-  
-  
+/* Force: gleiche Ausrichtung wie anzeige.html (Menü startet am linken Pill-Rand) */
+.navbar .dropdown { position: relative; }           /* falls nicht schon so */
+.navbar .dropdown-menu{
+  left: 0 !important;
+  right: auto !important;
+  transform: translateY(6px) scale(.98) !important; /* X-Übersetzung entfernen */
+}
+
   
   
   
