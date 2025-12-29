@@ -811,81 +811,117 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (draftsEl) draftsEl.textContent = String(draftCount);
     if (totalEl)  totalEl.textContent  = String(totalCount);
   }
+// Builder (Edit-State) – vollständig korrigiert
+function buildFahrzeugdatenFromInserat(ins) {
+  const marke    = ins?.marke || ins?.verkauf_marke || "";
+  const modell   = ins?.modell || ins?.verkauf_modell || "";
+  const variante = ins?.variante || ins?.verkauf_variante || ins?.verkauf_ausstattung_variante || "";
+  const titel    =
+    ins?.titel ||
+    ins?.verkauf_titel ||
+    (ins?.verkauf_modell ? String(ins.verkauf_modell) : "") ||
+    `${marke} ${modell}`.trim();
 
-  // Builder (Edit-State)
-  function buildFahrzeugdatenFromInserat(ins) {
-    const marke  = ins.marke || ins.verkauf_marke || "";
-    const modell = ins.modell || ins.verkauf_modell || "";
-    const titel  = ins.titel || ins.verkauf_titel || ins.verkauf_modell || `${marke} ${modell}`.trim();
+  // kleine Helfer
+  const pick = (...vals) => {
+    for (const v of vals) {
+      if (v === 0) return 0;
+      if (v == null) continue;
+      const s = String(v).trim();
+      if (s !== "") return v;
+    }
+    return "";
+  };
 
-    return {
-      titel,
-      marke,
-      modell,
+  return {
+    // ===== neue/„Form“-Keys =====
+    titel,
+    marke,
+    modell,
+    variante,
 
-      preis: ins.preis || ins.verkauf_preis || "",
-      "brutto-preis": ins["brutto-preis"] || ins.verkauf_brutto || "",
-      "netto-preis":  ins["netto-preis"]  || ins.verkauf_netto  || "",
+    // ===== WICHTIG: verkauf_* Keys immer mitschreiben (Wizard/Legacy) =====
+    verkauf_titel: titel,
+    verkauf_marke: marke,
+    verkauf_modell: modell,
+    verkauf_variante: variante,
 
-      verkauf_preis:  ins.verkauf_preis  || ins.preis || "",
-      verkauf_brutto: ins.verkauf_brutto || ins["brutto-preis"] || "",
-      verkauf_netto:  ins.verkauf_netto  || ins["netto-preis"]  || "",
-      verkauf_mwst:   ins.verkauf_mwst   || "",
+    // ===== Preise =====
+    preis: pick(ins?.preis, ins?.verkauf_preis),
+    "brutto-preis": pick(ins?.["brutto-preis"], ins?.verkauf_brutto),
+    "netto-preis":  pick(ins?.["netto-preis"],  ins?.verkauf_netto),
 
-      erstzulassung:         ins.erstzulassung || ins.verkauf_erstzulassung || "",
-      verkauf_erstzulassung: ins.verkauf_erstzulassung || ins.erstzulassung || "",
+    verkauf_preis:  pick(ins?.verkauf_preis, ins?.preis),
+    verkauf_brutto: pick(ins?.verkauf_brutto, ins?.["brutto-preis"]),
+    verkauf_netto:  pick(ins?.verkauf_netto,  ins?.["netto-preis"]),
+    verkauf_mwst:   pick(ins?.verkauf_mwst),
 
-      kilometer:         ins.kilometer ?? ins.verkauf_kilometer ?? "",
-      verkauf_kilometer: ins.verkauf_kilometer ?? ins.kilometer ?? "",
+    // ===== Erstzulassung =====
+    erstzulassung:         pick(ins?.erstzulassung, ins?.verkauf_erstzulassung),
+    verkauf_erstzulassung: pick(ins?.verkauf_erstzulassung, ins?.erstzulassung),
 
-      leistung_ps:        ins.leistung_ps ?? ins.verkauf_leistung ?? ins.leistung ?? "",
-      leistung_kw:        ins.leistung_kw ?? ins.verkauf_leistung_kw ?? "",
-      verkauf_leistung:    ins.verkauf_leistung ?? ins.leistung_ps ?? ins.leistung ?? "",
-      verkauf_leistung_kw: ins.verkauf_leistung_kw ?? ins.leistung_kw ?? "",
+    // ===== Kilometer =====
+    kilometer:         (ins?.kilometer ?? ins?.verkauf_kilometer ?? ""),
+    verkauf_kilometer: (ins?.verkauf_kilometer ?? ins?.kilometer ?? ""),
 
-      hubraum:         ins.hubraum ?? ins.verkauf_hubraum ?? "",
-      verkauf_hubraum: ins.verkauf_hubraum ?? ins.hubraum ?? "",
+    // ===== Leistung =====
+    leistung_ps:         (ins?.leistung_ps ?? ins?.verkauf_leistung ?? ins?.leistung ?? ""),
+    leistung_kw:         (ins?.leistung_kw ?? ins?.verkauf_leistung_kw ?? ""),
+    verkauf_leistung:    (ins?.verkauf_leistung ?? ins?.leistung_ps ?? ins?.leistung ?? ""),
+    verkauf_leistung_kw: (ins?.verkauf_leistung_kw ?? ins?.leistung_kw ?? ""),
 
-      kraftstoff:         ins.kraftstoff || ins.verkauf_kraftstoff || "",
-      verkauf_kraftstoff: ins.verkauf_kraftstoff || ins.kraftstoff || "",
+    // ===== Hubraum =====
+    hubraum:         (ins?.hubraum ?? ins?.verkauf_hubraum ?? ""),
+    verkauf_hubraum: (ins?.verkauf_hubraum ?? ins?.hubraum ?? ""),
 
-      getriebe:           ins.getriebe || ins.verkauf_getriebe || "",
-      verkauf_getriebe:   ins.verkauf_getriebe || ins.getriebe || "",
+    // ===== Kraftstoff / Getriebe / Antrieb =====
+    kraftstoff:         pick(ins?.kraftstoff, ins?.verkauf_kraftstoff),
+    verkauf_kraftstoff: pick(ins?.verkauf_kraftstoff, ins?.kraftstoff),
 
-      antriebsart:        ins.antriebsart || ins.antrieb || ins.verkauf_antrieb || "",
-      verkauf_antrieb:    ins.verkauf_antrieb || ins.antriebsart || ins.antrieb || "",
+    getriebe:           pick(ins?.getriebe, ins?.verkauf_getriebe),
+    verkauf_getriebe:   pick(ins?.verkauf_getriebe, ins?.getriebe),
 
-      fahrzeugtyp:         ins.fahrzeugtyp || ins.verkauf_fahrzeugtyp || "",
-      verkauf_fahrzeugtyp: ins.verkauf_fahrzeugtyp || ins.fahrzeugtyp || "",
+    antriebsart:     pick(ins?.antriebsart, ins?.antrieb, ins?.verkauf_antrieb),
+    verkauf_antrieb: pick(ins?.verkauf_antrieb, ins?.antriebsart, ins?.antrieb),
 
-      tueren:         ins.tueren || ins["türen"] || ins.türen || ins.verkauf_tueren || "",
-      "türen":        ins["türen"] || ins.türen || ins.tueren || "",
-      verkauf_tueren: ins.verkauf_tueren || ins.tueren || ins["türen"] || ins.türen || "",
+    // ===== Fahrzeugtyp =====
+    fahrzeugtyp:         pick(ins?.fahrzeugtyp, ins?.verkauf_fahrzeugtyp),
+    verkauf_fahrzeugtyp: pick(ins?.verkauf_fahrzeugtyp, ins?.fahrzeugtyp),
 
-      partikelfilter:         ins.partikelfilter || ins.verkauf_partikelfilter || "",
-      verkauf_partikelfilter: ins.verkauf_partikelfilter || ins.partikelfilter || "",
+    // ===== Türen (tueren/türen) =====
+    tueren:         pick(ins?.tueren, ins?.["türen"], ins?.türen, ins?.verkauf_tueren),
+    "türen":        pick(ins?.["türen"], ins?.türen, ins?.tueren),
+    verkauf_tueren: pick(ins?.verkauf_tueren, ins?.tueren, ins?.["türen"], ins?.türen),
 
-      verbrauch_kombiniert: ins.verbrauch_kombiniert || ins.verkauf_verbrauch_kombiniert || "",
-      verbrauch_innerorts:  ins.verbrauch_innerorts  || ins.verkauf_verbrauch_innerorts  || "",
-      verbrauch_ausserorts: ins.verbrauch_ausserorts || ins.verkauf_verbrauch_ausserorts || "",
-      co2_emission:         ins.co2_emission         || ins.verkauf_co2_emission         || "",
+    // ===== Partikelfilter =====
+    partikelfilter:         pick(ins?.partikelfilter, ins?.verkauf_partikelfilter),
+    verkauf_partikelfilter: pick(ins?.verkauf_partikelfilter, ins?.partikelfilter),
 
-      verkauf_verbrauch_kombiniert: ins.verkauf_verbrauch_kombiniert || ins.verbrauch_kombiniert || "",
-      verkauf_verbrauch_innerorts:  ins.verkauf_verbrauch_innerorts  || ins.verbrauch_innerorts  || "",
-      verkauf_verbrauch_ausserorts: ins.verkauf_verbrauch_ausserorts || ins.verbrauch_ausserorts || "",
-      verkauf_co2_emission:         ins.verkauf_co2_emission         || ins.co2_emission         || "",
+    // ===== Verbrauch / CO2 =====
+    verbrauch_kombiniert: pick(ins?.verbrauch_kombiniert, ins?.verkauf_verbrauch_kombiniert),
+    verbrauch_innerorts:  pick(ins?.verbrauch_innerorts,  ins?.verkauf_verbrauch_innerorts),
+    verbrauch_ausserorts: pick(ins?.verbrauch_ausserorts, ins?.verkauf_verbrauch_ausserorts),
+    co2_emission:         pick(ins?.co2_emission,         ins?.verkauf_co2_emission),
 
-      schadstoffklasse: ins.schadstoffklasse || ins.verkauf_schadstoffklasse || "",
-      umweltplakette:  ins.umweltplakette  || ins.verkauf_umweltplakette  || "",
-      emissionsklasse: ins.emissionsklasse || ins.verkauf_emissionsklasse || "",
+    verkauf_verbrauch_kombiniert: pick(ins?.verkauf_verbrauch_kombiniert, ins?.verbrauch_kombiniert),
+    verkauf_verbrauch_innerorts:  pick(ins?.verkauf_verbrauch_innerorts,  ins?.verbrauch_innerorts),
+    verkauf_verbrauch_ausserorts: pick(ins?.verkauf_verbrauch_ausserorts, ins?.verbrauch_ausserorts),
+    verkauf_co2_emission:         pick(ins?.verkauf_co2_emission,         ins?.co2_emission),
 
-      verkauf_schadstoffklasse: ins.verkauf_schadstoffklasse || ins.schadstoffklasse || "",
-      verkauf_umweltplakette:   ins.verkauf_umweltplakette   || ins.umweltplakette  || "",
-      verkauf_emissionsklasse:  ins.verkauf_emissionsklasse  || ins.emissionsklasse || "",
+    // ===== Schadstoff / Plakette / Emission =====
+    schadstoffklasse: pick(ins?.schadstoffklasse, ins?.verkauf_schadstoffklasse),
+    umweltplakette:   pick(ins?.umweltplakette,   ins?.verkauf_umweltplakette),
+    emissionsklasse:  pick(ins?.emissionsklasse,  ins?.verkauf_emissionsklasse),
 
-      verkauf_verkaeufer: ins.verkauf_verkaeufer || ""
-    };
-  }
+    verkauf_schadstoffklasse: pick(ins?.verkauf_schadstoffklasse, ins?.schadstoffklasse),
+    verkauf_umweltplakette:   pick(ins?.verkauf_umweltplakette,   ins?.umweltplakette),
+    verkauf_emissionsklasse:  pick(ins?.verkauf_emissionsklasse,  ins?.emissionsklasse),
+
+    // ===== Verkäuferlabel (für Legacy/UI) =====
+    verkauf_verkaeufer: pick(ins?.verkauf_verkaeufer)
+  };
+}
+
 
   function buildFahrzeugdetailsFromInserat(ins) {
     const merkmale =
@@ -1171,8 +1207,15 @@ document.addEventListener("DOMContentLoaded", async () => {
           const roleRaw = String(nutzerData?.role || nutzerData?.rolle || "privat").toLowerCase();
           const isHaendlerUser = roleRaw.includes("haend") || roleRaw.includes("händ");
 
-          const ziel = isHaendlerUser ? "haendler.html" : "privat.html";
+          const typeRaw = String(inserat?.seller?.type || inserat?.verkauf_verkaeufer || "").toLowerCase();
+          const isHaendlerInserat = typeRaw.includes("haend") || typeRaw.includes("händ");
+          
+          const ziel = "fahrzeugdaten.html"; 
+          // Falls du wirklich getrennte Startseiten hast, dann z.B.:
+          // const ziel = isHaendlerInserat ? "verkaufen-haendler.html" : "verkaufen-privat.html";
+          
           window.location.href = `${ziel}?edit=${encodeURIComponent(realId)}`;
+          
         } catch (err) {
           console.warn("Konnte Edit-State nicht setzen:", err);
           alert("Fehler beim Bearbeiten.");
@@ -1613,7 +1656,6 @@ async function loadSavedCarsSection() {
     if (listEl) listEl.innerHTML = `<p>Fehler beim Laden der gespeicherten Inserate.</p>`;
   }
 }
-
 
 
 

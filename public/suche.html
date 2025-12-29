@@ -5,11 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Autovisa – Fahrzeuge kaufen & verkaufen</title>
 
-  <link rel="stylesheet" href="suche.css" />
+  <link rel="stylesheet" href="style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
+
+
+    <!-- Font: Inter -->
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+    <!-- Icons (optional) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+  
+
+  <link rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+  integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkfYV9Z8HfC1Fe1ZC1vZ1tcHTul3e8Dqg3Oq2v5E3WfWUE+Kf4Z5qXQ2A=="
+  crossorigin="anonymous" referrerpolicy="no-referrer" />
 
   <!-- Slim Select v2.6.0 – für korrektes Custom-Styling -->
   <link href="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.css" rel="stylesheet">
@@ -19,25 +33,50 @@
 
 
     
-   
+    <div id="password-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a2733; color: white; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+        <h2>Autovisa – Geschützte Vorschau</h2>
+        <input type="password" id="password-input" placeholder="Passwort eingeben" style="padding: 10px; font-size: 1rem; border-radius: 5px; border: none;">
+        <button onclick="checkPassword()" style="margin-top: 10px; padding: 8px 16px; font-size: 1rem;">Weiter</button>
+        <p id="wrong-password" style="color: red; display: none; margin-top: 10px;">Falsches Passwort</p>
+      </div>
+
+      
 
 
 <!-- Navbar -->
 <nav class="navbar">
   <div class="logo-container">
     <img src="AUTOVISA LOGO.PNG" alt="Autovisa Logo" class="logo" />
+    
+    <span class="logo-divider" aria-hidden="true"></span>
+    
+    <span class="logo-tagline">
+      <span class="tagline-line1">Autos kaufen</span>
+      <span class="tagline-line2">&amp; verkaufen</span>
+    </span>
   </div>
 
-  <!-- Mobile Icons + Hamburger -->
-  <div class="navbar-right-mobile">
-    <div class="mobile-shortcuts">
-      <a href="gespeicherte-autos.html" aria-label="Gespeicherte Autos"><i class="fas fa-heart"></i></a>
-      <a href="nachrichten.html" aria-label="Nachrichten"><i class="fas fa-comments"></i></a>
-    </div>
 
-    <button class="hamburger" id="hamburger" aria-label="Menü öffnen" aria-expanded="false" aria-controls="nav-links">
-      <i class="fas fa-bars"></i>
-    </button>
+<!-- Mobile Icons + Hamburger -->
+<div class="navbar-right-mobile">
+  <div class="mobile-shortcuts">
+    <!-- vorher: href="gespeicherte-autos.html" / "nachrichten.html" -->
+    <a href="#" id="mobile-saved" aria-label="Gespeicherte Autos">
+      <i class="fas fa-heart"></i>
+    </a>
+    <a href="#" id="mobile-messages" aria-label="Nachrichten">
+      <i class="fas fa-comments"></i>
+    </a>
+  </div>
+
+  <button class="hamburger" id="hamburger"
+  aria-label="Menü öffnen"
+  aria-expanded="false"
+  aria-controls="nav-links">
+<i class="fas fa-bars" aria-hidden="true"></i>
+</button>
+ 
+
 
     <!-- Navigationslinks -->
     <ul class="nav-links" id="nav-links">
@@ -55,18 +94,19 @@
         </ul>
       </li>
 
-      <!-- Meine Autos -->
-      <li class="dropdown">
-        <a href="#" id="dropdown-autos-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-autos">
-          Meine Autos <span class="nav-arrow" aria-hidden="true"></span>
-        </a>
-        <ul class="dropdown-menu" id="dropdown-autos">
-          <li><a href="#" id="messages-link"><i class="fas fa-comments"></i> Nachrichten</a></li>
-          <li><a href="#" id="saved-cars-link"><i class="fas fa-heart"></i> Gespeicherte Autos</a></li>
-          <li><a href="#" id="my-cars-link"><i class="fas fa-car"></i> Eigene Inserate</a></li>
-          <li><a href="#" id="sold-cars-link"><i class="fas fa-check-circle"></i> Verkaufte Autos</a></li>
-        </ul>
-      </li>
+   <!-- Meine Autos -->
+<li class="dropdown">
+  <a href="#" id="dropdown-autos-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="dropdown-autos">
+    Meine Autos <span class="nav-arrow" aria-hidden="true"></span>
+  </a>
+  <ul class="dropdown-menu" id="dropdown-autos">
+    <li><a href="übersicht.html#messages-list" id="messages-link"><i class="fas fa-comments"></i> Nachrichten</a></li>
+    <li><a href="übersicht.html#saved-cars"     id="saved-cars-link"><i class="fas fa-heart"></i> Gespeicherte Autos</a></li>
+    <li><a href="übersicht.html#car-list"       id="my-cars-link"><i class="fas fa-car"></i> Eigene Inserate</a></li>
+    <li><a href="übersicht.html#sold-cars"      id="sold-cars-link"><i class="fas fa-check-circle"></i> Verkaufte Autos</a></li>
+  </ul>
+</li>
+
 
       <!-- Infos -->
       <li class="dropdown">
@@ -99,7 +139,6 @@
     </ul>
   </div>
 </nav>
-
 
 
 <!-- Filterbutton für Mobilgeräte -->
