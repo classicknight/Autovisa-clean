@@ -354,3 +354,54 @@
 @media (max-width: 420px){
   .brand-logo{ height: 90px; }
 }
+
+
+
+
+
+
+
+
+
+/* Cinematic Top-Fade (macht den oberen Bereich edler/ruhiger) */
+.post-frame::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  z-index: 1;
+
+  background: linear-gradient(
+    180deg,
+    rgba(0,0,0,0.55) 0%,
+    rgba(0,0,0,0.18) 22%,
+    rgba(0,0,0,0.00) 45%
+  );
+}
+
+
+
+
+
+
+
+
+
+/* Subtiles Grain (optional – wirkt sehr premium) */
+.post-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  
+  opacity: 0.14;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+
+
+
+
+
