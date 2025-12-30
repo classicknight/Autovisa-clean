@@ -314,47 +314,43 @@
 
 
 
-/* Autovisa Logo – groß, oben zentriert, ohne Umrandungen */
+/* Default (Landscape): Logo oben mittig */
 .brand-badge{
   position: absolute;
-  top: -35px;                 /* weiter oben */
+  top: 0;
   left: 50%;
   transform: translateX(-50%);
   z-index: 6;
 
   background: transparent;
-  border: 0;
-  box-shadow: none;
-  backdrop-filter: none;
-
   padding: 0;
+  border: 0;
+  border-radius: 0;
   line-height: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* Logo selbst – OHNE Rahmen/Clip */
 .brand-logo{
-  height: 220px;             /* groß */
+  height: 140px;            /* Landscape-Größe */
   width: auto;
   display: block;
 
-  /* schützt vor .post-frame img-Regeln */
   position: relative;
-  top: auto;
-  left: auto;
   transform: none;
   max-width: none;
 
-  /* keine Umrandung / kein Abschneiden */
-  border-radius: 0;
-  overflow: visible;
-  clip-path: none;
-
-  /* optional: nur Lesbarkeit, kein "Ring-Look" */
-  filter: drop-shadow(0 18px 30px rgba(0,0,0,0.45));
+  filter: drop-shadow(0 10px 18px rgba(0,0,0,0.40));
 }
 
-/* Responsive */
+/* NUR Hochkant: Logo komplett ausblenden */
+.post-frame.is-portrait .brand-badge{
+  display: none;
+}
+
+/* Responsive (Landscape) */
 @media (max-width: 420px){
-  .brand-badge{ top: 6px; }
-  .brand-logo{ height: 160px; }
+  .brand-logo{ height: 90px; }
 }

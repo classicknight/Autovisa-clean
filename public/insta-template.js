@@ -18,19 +18,30 @@ document.addEventListener("DOMContentLoaded", () => {
   
     const downloadBtn = document.getElementById("downloadBtn");
   
-    // === Bild-Ausrichtung (Hoch/Quer) setzen ===
-    function updateImageFit() {
-      if (!carImage || !carImage.naturalWidth || !carImage.naturalHeight) return;
+const postFrame = document.querySelector(".post-frame");
+
+// === Bild-Ausrichtung (Hoch/Quer) setzen ===
+function updateImageFit() {
+  if (!carImage || !carImage.naturalWidth || !carImage.naturalHeight) return;
   
-      const portrait = carImage.naturalHeight >= carImage.naturalWidth;
-      carImage.classList.toggle("portrait", portrait);
-      carImage.classList.toggle("landscape", !portrait);
-    }
+  const portrait = carImage.naturalHeight >= carImage.naturalWidth;
   
-    if (carImage) {
-      if (carImage.complete) updateImageFit();
-      else carImage.addEventListener("load", updateImageFit);
-    }
+  // Klassen am Bild (falls du sie noch brauchst)
+  carImage.classList.toggle("portrait", portrait);
+  carImage.classList.toggle("landscape", !portrait);
+  
+  // NEU: robuste Klassen am Frame (für CSS)
+  if (postFrame) {
+    postFrame.classList.toggle("is-portrait", portrait);
+    postFrame.classList.toggle("is-landscape", !portrait);
+  }
+}
+
+// WICHTIG: immer load-Listener setzen (auch wenn das Startbild schon complete ist)
+if (carImage) {
+  carImage.addEventListener("load", updateImageFit);
+  if (carImage.complete && carImage.naturalWidth) updateImageFit();
+}
   
     // ==== Bild hochladen ====
     if (imageInput && carImage) {
@@ -162,3 +173,4 @@ if (downloadBtn) {
   });
   
   
+
