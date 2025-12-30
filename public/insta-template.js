@@ -10,63 +10,77 @@ document.addEventListener("DOMContentLoaded", () => {
   
     const infoPrice  = document.getElementById("infoPrice");
     const infoMain   = document.getElementById("infoMain");
-    const infoSub    = document.getElementById("infoSub");
+  
+    // NEU: statt infoSub jetzt die drei Spec-Felder
+    const infoPower  = document.getElementById("infoPower");
+    const infoYear   = document.getElementById("infoYear");
+    const infoKm     = document.getElementById("infoKm");
   
     const downloadBtn = document.getElementById("downloadBtn");
   
-  // === Bild-Ausrichtung (Hoch/Quer) setzen ===
-function updateImageFit() {
-    if (!carImage || !carImage.naturalWidth || !carImage.naturalHeight) return;
+    // === Bild-Ausrichtung (Hoch/Quer) setzen ===
+    function updateImageFit() {
+      if (!carImage || !carImage.naturalWidth || !carImage.naturalHeight) return;
   
-    const portrait = carImage.naturalHeight >= carImage.naturalWidth;
-    carImage.classList.toggle("portrait", portrait);
-    carImage.classList.toggle("landscape", !portrait);
-  }
+      const portrait = carImage.naturalHeight >= carImage.naturalWidth;
+      carImage.classList.toggle("portrait", portrait);
+      carImage.classList.toggle("landscape", !portrait);
+    }
   
-  // bei initialem Beispielbild
-  if (carImage.complete) {
-    updateImageFit();
-  } else {
-    carImage.addEventListener("load", updateImageFit);
-  }
-  
-  // im FileReader.onload ist nichts weiter nötig – das load-Event triggert updateImageFit
+    if (carImage) {
+      if (carImage.complete) updateImageFit();
+      else carImage.addEventListener("load", updateImageFit);
+    }
   
     // ==== Bild hochladen ====
-    if (imageInput) {
+    if (imageInput && carImage) {
       imageInput.addEventListener("change", (e) => {
         const file = e.target.files && e.target.files[0];
         if (!file) return;
   
         const reader = new FileReader();
         reader.onload = () => {
-          carImage.src = reader.result;
-          // wenn neues Bild geladen ist, Ausrichtung prüfen
-          // (load-Event wird erneut ausgelöst und ruft updateImageFit auf)
+          carImage.src = reader.result; // load-event triggert updateImageFit()
         };
         reader.readAsDataURL(file);
       });
     }
   
-    // ==== Text in der Leiste aktualisieren ====
+    // Kleine Helfer (optional, aber sauber)
+    function formatEUR(input) {
+      const v = (input || "").trim();
+      if (!v) return "";
+      // lässt "28.990" oder "28990" zu
+      const cleaned = v.replace(/[^\d]/g, "");
+      if (!cleaned) return v;
+      return Number(cleaned).toLocaleString("de-DE");
+    }
+  
+    function formatKM(input) {
+      const v = (input || "").trim();
+      if (!v) return "";
+      const cleaned = v.replace(/[^\d]/g, "");
+      if (!cleaned) return v;
+      return Number(cleaned).toLocaleString("de-DE");
+    }
+  
+    // ==== Overlay aktualisieren ====
     function updateOverlay() {
-      const price = priceInput.value.trim();
-      const model = modelInput.value.trim();
-      const power = powerInput.value.trim();
-      const year  = yearInput.value.trim();
-      const km    = kmInput.value.trim();
+      const priceRaw = priceInput?.value || "";
+      const model = (modelInput?.value || "").trim();
+      const power = (powerInput?.value || "").trim();
+      const year  = (yearInput?.value || "").trim();
+      const kmRaw = kmInput?.value || "";
   
-      infoPrice.textContent = price ? `${price} €` : "Preis auf Anfrage";
-      infoMain.textContent  = model || "Modell";
+      const price = formatEUR(priceRaw);
+      const km    = formatKM(kmRaw);
   
-      const subParts = [];
-      if (power) subParts.push(`${power} PS`);
-      if (year)  subParts.push(year);
-      if (km)    subParts.push(`${km} km`);
+      if (infoPrice) infoPrice.textContent = price ? `${price} €` : "Preis auf Anfrage";
+      if (infoMain)  infoMain.textContent  = model || "Modell";
   
-      infoSub.textContent = subParts.length
-        ? subParts.join(" · ")
-        : "Leistung · Baujahr · Kilometerstand";
+      if (infoPower) infoPower.textContent = power || "—";
+      if (infoYear)  infoYear.textContent  = year  || "—";
+      if (infoKm)    infoKm.textContent    = km    || "—";
     }
   
     [priceInput, modelInput, powerInput, yearInput, kmInput].forEach((el) => {
@@ -74,20 +88,33 @@ function updateImageFit() {
       el.addEventListener("input", updateOverlay);
     });
   
-    // einmal initial
     updateOverlay();
   
-    // ==== Bild als PNG direkt herunterladen (mit runden Ecken) ====
+    // ==== Download ====
     if (downloadBtn) {
       downloadBtn.addEventListener("click", async () => {
         const post = document.querySelector(".post-frame");
         if (!post || !window.html2canvas) return;
   
+        const oldText = downloadBtn.textContent;
+        downloadBtn.disabled = true;
+        downloadBtn.textContent = "Export…";
+  
         try {
+          // warten bis Bild wirklich geladen ist
+          if (carImage && !carImage.complete) {
+            await new Promise((res) => carImage.addEventListener("load", res, { once: true }));
+          }
+  
+          // warten bis Fonts geladen sind (verhindert manchmal leere/komische Exporte)
+          if (document.fonts && document.fonts.ready) {
+            await document.fonts.ready;
+          }
+  
           const canvas = await html2canvas(post, {
             useCORS: true,
-            backgroundColor: null, // wichtig für transparente Ecken
-            scale: 2               // höhere Qualität
+            backgroundColor: null,
+            scale: 2
           });
   
           canvas.toBlob((blob) => {
@@ -99,9 +126,13 @@ function updateImageFit() {
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
   
-            const modelName = (modelInput.value || "autovisa-post").replace(/\s+/g, "_");
+            const modelName = (modelInput?.value || "autovisa-post")
+              .trim()
+              .replace(/\s+/g, "_")
+              .replace(/[^\w\-]/g, "");
+  
             link.href = url;
-            link.download = `${modelName}.png`; // PNG-Datei mit Transparenz
+            link.download = `${modelName || "autovisa-post"}.png`;
   
             document.body.appendChild(link);
             link.click();
@@ -111,7 +142,10 @@ function updateImageFit() {
           }, "image/png");
         } catch (err) {
           console.error("Fehler beim Erstellen des Bildes:", err);
-          alert("Das Bild konnte nicht generiert werden. Bitte lade die Seite neu und versuche es erneut.");
+          alert("Das Bild konnte nicht generiert werden. Bitte Seite neu laden und erneut versuchen.");
+        } finally {
+          downloadBtn.disabled = false;
+          downloadBtn.textContent = oldText;
         }
       });
     }
