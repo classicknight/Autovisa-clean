@@ -963,27 +963,55 @@ img, video, canvas {
   
   
   
-  
-  .search-submit {
-    position: sticky;
-    bottom: 20px;
-    z-index: 10;
-    text-align: center;
-    margin-top: 40px;
-  }
-  
-  .submit-btn {
-    background: #00ffcc;
-    color: #0f2027;
-    border: none;
-    padding: 14px 36px;
-    font-size: 17px;
-    border-radius: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: 0 4px 20px rgba(0, 255, 204, 0.3);
-    transition: background 0.3s ease;
-  }
+  /* Platz schaffen, damit die Bottom-Bar keine Inhalte überdeckt */
+body{
+  padding-bottom: 130px;
+}
+
+/* CTA-Leiste immer sichtbar unten */
+.search-submit{
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+
+  display: flex;
+  justify-content: center;
+
+  padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+  margin-top: 0;
+
+  background: linear-gradient(
+    180deg,
+    rgba(18,28,38,0) 0%,
+    rgba(18,28,38,0.70) 35%,
+    rgba(18,28,38,0.95) 100%
+  );
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  backdrop-filter: blur(10px) saturate(120%);
+  border-top: 1px solid rgba(255,255,255,0.10);
+}
+
+/* Button: behält deinen Look, skaliert aber sauber */
+.submit-btn{
+  width: min(560px, 100%);
+  background: #00ffcc;
+  color: #0f2027;
+  border: none;
+  padding: 14px 36px;
+  font-size: 17px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0, 255, 204, 0.3);
+  transition: background 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
   
   .submit-btn:hover {
     background: #3ff0d3;
