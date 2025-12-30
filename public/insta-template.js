@@ -90,65 +90,75 @@ document.addEventListener("DOMContentLoaded", () => {
   
     updateOverlay();
   
-    // ==== Download ====
-    if (downloadBtn) {
-      downloadBtn.addEventListener("click", async () => {
-        const post = document.querySelector(".post-frame");
-        if (!post || !window.html2canvas) return;
+ // ==== Download ====
+if (downloadBtn) {
+    downloadBtn.addEventListener("click", async () => {
+      const post = document.querySelector(".post-frame");
+      if (!post || !window.html2canvas) {
+        alert("Export nicht möglich: html2canvas oder Post-Element fehlt.");
+        return;
+      }
   
-        const oldText = downloadBtn.textContent;
-        downloadBtn.disabled = true;
-        downloadBtn.textContent = "Export…";
+      const oldText = downloadBtn.textContent;
+      downloadBtn.disabled = true;
+      downloadBtn.textContent = "Export…";
   
-        try {
-          // warten bis Bild wirklich geladen ist
-          if (carImage && !carImage.complete) {
-            await new Promise((res) => carImage.addEventListener("load", res, { once: true }));
-          }
-  
-          // warten bis Fonts geladen sind (verhindert manchmal leere/komische Exporte)
-          if (document.fonts && document.fonts.ready) {
-            await document.fonts.ready;
-          }
-  
-          const canvas = await html2canvas(post, {
-            useCORS: true,
-            backgroundColor: null,
-            scale: 2
-          });
-  
-          canvas.toBlob((blob) => {
-            if (!blob) {
-              alert("Das Bild konnte nicht erstellt werden.");
-              return;
-            }
-  
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-  
-            const modelName = (modelInput?.value || "autovisa-post")
-              .trim()
-              .replace(/\s+/g, "_")
-              .replace(/[^\w\-]/g, "");
-  
-            link.href = url;
-            link.download = `${modelName || "autovisa-post"}.png`;
-  
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-  
-            URL.revokeObjectURL(url);
-          }, "image/png");
-        } catch (err) {
-          console.error("Fehler beim Erstellen des Bildes:", err);
-          alert("Das Bild konnte nicht generiert werden. Bitte Seite neu laden und erneut versuchen.");
-        } finally {
-          downloadBtn.disabled = false;
-          downloadBtn.textContent = oldText;
+      try {
+        // warten bis Auto-Bild wirklich geladen ist
+        if (carImage && (!carImage.complete || !carImage.naturalWidth)) {
+          await new Promise((res) => carImage.addEventListener("load", res, { once: true }));
         }
-      });
-    }
+  
+        // warten bis Logo geladen ist
+        const logoImg = document.querySelector(".brand-logo");
+        if (logoImg && (!logoImg.complete || !logoImg.naturalWidth)) {
+          await new Promise((res) => logoImg.addEventListener("load", res, { once: true }));
+        }
+  
+        // warten bis Fonts geladen sind
+        if (document.fonts && document.fonts.ready) {
+          await document.fonts.ready;
+        }
+  
+        const canvas = await html2canvas(post, {
+          useCORS: true,
+          backgroundColor: null,
+          scale: 2
+        });
+  
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            alert("Das Bild konnte nicht erstellt werden.");
+            return;
+          }
+  
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+  
+          const modelName = (modelInput?.value || "autovisa-post")
+            .trim()
+            .replace(/\s+/g, "_")
+            .replace(/[^\w\-]/g, "");
+  
+          link.href = url;
+          link.download = `${modelName || "autovisa-post"}.png`;
+  
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+  
+          URL.revokeObjectURL(url);
+        }, "image/png");
+      } catch (err) {
+        console.error("Fehler beim Erstellen des Bildes:", err);
+        alert("Das Bild konnte nicht generiert werden. Bitte Seite neu laden und erneut versuchen.");
+      } finally {
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = oldText;
+      }
+    });
+  }
+  
   });
   
   
