@@ -273,45 +273,47 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
     const n = parseFloat(t);
     return Number.isFinite(n) ? n : NaN;
   };
-
   const QP = {
     marke: sp.get("marke") || "",
     modell: splitCsv(sp.get("modell")),
     modellausfuehrung: sp.get("modellausfuehrung") || "",
-
+  
     ezFrom: sp.get("ezFrom") || "",
     ezTo:   sp.get("ezTo")   || "",
-
+  
+    km_min:    sp.get("km_min")    || "",
     km_max:    sp.get("km_max")    || "",
+  
+    price_min: sp.get("price_min") || "",
     price_max: sp.get("price_max") || "",
-
+  
     // Mehrfach (CSV)
     kraftstoff: splitCsv(sp.get("kraftstoff")).map(fuelCanon),
     antrieb:    splitCsv(sp.get("antriebsart") || sp.get("antrieb")).map(driveCanon),
-
+  
     getriebe: (sp.get("getriebe") || "").toLowerCase(),
-
+  
     // Mehrfach (CSV)
     fahrzeugtyp: splitCsv(sp.get("fahrzeugtyp")),
     farbe:       splitCsv(sp.get("farbe")),
     tueren:      splitCsv(sp.get("tueren")),
-
+  
     sort: sp.get("sort") || "",
-
+  
     partikelfilter: sp.get("partikelfilter"),
     scheckheft:     sp.get("scheckheft"),
     unfallfrei:     sp.get("unfallfrei"),
-
+  
     // akzeptiert ?umweltplakette=… oder ?plakette=…
     umweltplakette:  badgeCanon(sp.get("umweltplakette") || sp.get("plakette")),
     schadstoffklasse: emissionCanon(sp.get("schadstoffklasse")),
-
+  
     // HU: Text und strukturierte Varianten
     hu_text: sp.get("hu") || "",
     hu_bis:  sp.get("hu_bis") || sp.get("inspectionUntil") || "",
     hu_min:  sp.get("hu_min_monate") || sp.get("hu_min_months") || ""
   };
-
+  
   // --- DOM Refs ---
   const markeEl   = document.getElementById("marke");
   const modellEl  = document.getElementById("modell");
@@ -1074,7 +1076,10 @@ function getCombinedConsumption(item) {
   const transmissionEl    = document.getElementById("transmission") || document.getElementById("gear");
   const driveEl           = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
 
-  const accidentFreeEl    = document.getElementById("accidentFree");
+  const accidentFreeEl =
+  document.getElementById("unfallfrei") ||
+  document.getElementById("accidentFree");
+
   const inspectionUntilEl = document.getElementById("inspectionUntil");     // HU bis (YYYY-MM)
   const huMinMonthsEl     = document.getElementById("huMinMonths")          // optionales Feld "HU mind. (Monate)"
                           || document.getElementById("inspectionMinMonths");
@@ -1758,12 +1763,18 @@ if (ortParam && !hasRadius) {
     setOrDelete(params, "ezFrom", ezFrom);
     setOrDelete(params, "ezTo",   ezTo);
   
-    // Preis / KM (max)
-    const pMax  = parseInt(document.getElementById("priceTo")?.value || "", 10);
-    const kmMax = parseInt(document.getElementById("mileageTo")?.value || "", 10);
-    if (!Number.isNaN(pMax)  && pMax  > 0) params.set("price_max", String(pMax));  else params.delete("price_max");
-    if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max",   String(kmMax)); else params.delete("km_max");
-  
+// Preis / KM (min + max)
+const pMin  = parseInt(document.getElementById("priceFrom")?.value || "", 10);
+const pMax  = parseInt(document.getElementById("priceTo")?.value   || "", 10);
+const kmMin = parseInt(document.getElementById("mileageFrom")?.value || "", 10);
+const kmMax = parseInt(document.getElementById("mileageTo")?.value   || "", 10);
+
+if (!Number.isNaN(pMin)  && pMin  > 0) params.set("price_min", String(pMin)); else params.delete("price_min");
+if (!Number.isNaN(pMax)  && pMax  > 0) params.set("price_max", String(pMax)); else params.delete("price_max");
+
+if (!Number.isNaN(kmMin) && kmMin > 0) params.set("km_min", String(kmMin));   else params.delete("km_min");
+if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   else params.delete("km_max");
+
     // Leistung (PS)
     const psMin = parseInt(document.getElementById("powerFrom")?.value || "", 10);
     const psMax = parseInt(document.getElementById("powerTo")?.value   || "", 10);
@@ -2102,14 +2113,37 @@ if (ortParam && !hasRadius) {
       hu_text: sp.get("hu") || ""
     };
   
-    // Effektive Werte (UI > URL, wenn befüllt)
-    const priceMin = toInt(priceFromEl?.value ?? "");
-    const priceMax = (() => { const n = toInt(priceToEl?.value ?? ""); return Number.isFinite(n) && n > 0 ? n : toInt(qp.price_max); })();
-    const kmMin    = toInt(mileageFromEl?.value ?? "");
-    const kmMax    = (() => { const n = toInt(mileageToEl?.value ?? ""); return Number.isFinite(n) && n > 0 ? n : toInt(qp.km_max); })();
-    const psMinEff = (() => { const n = toInt(powerFromEl?.value ?? ""); return Number.isFinite(n) && n > 0 ? n : toInt(qp.ps_min); })();
-    const psMaxEff = (() => { const n = toInt(powerToEl?.value   ?? ""); return Number.isFinite(n) && n > 0 ? n : toInt(qp.ps_max); })();
-  
+  // Effektive Werte (UI > URL, wenn befüllt)
+const priceMin = (() => {
+  const n = toInt(priceFromEl?.value ?? "");
+  return Number.isFinite(n) && n > 0 ? n : toInt(qp.price_min);
+})();
+
+const priceMax = (() => {
+  const n = toInt(priceToEl?.value ?? "");
+  return Number.isFinite(n) && n > 0 ? n : toInt(qp.price_max);
+})();
+
+const kmMin = (() => {
+  const n = toInt(mileageFromEl?.value ?? "");
+  return Number.isFinite(n) && n > 0 ? n : toInt(qp.km_min);
+})();
+
+const kmMax = (() => {
+  const n = toInt(mileageToEl?.value ?? "");
+  return Number.isFinite(n) && n > 0 ? n : toInt(qp.km_max);
+})();
+
+const psMinEff = (() => {
+  const n = toInt(powerFromEl?.value ?? "");
+  return Number.isFinite(n) && n > 0 ? n : toInt(qp.ps_min);
+})();
+
+const psMaxEff = (() => {
+  const n = toInt(powerToEl?.value ?? "");
+  return Number.isFinite(n) && n > 0 ? n : toInt(qp.ps_max);
+})();
+
     // Max. Halter – effektiv
     const halterMaxEff = (() => {
       const ui = toInt(halterMaxEl?.value ?? "");
