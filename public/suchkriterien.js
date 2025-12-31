@@ -182,8 +182,27 @@ document.addEventListener("DOMContentLoaded", () => {
   /* =========================
      Marken/Modelle (SlimSelect + JSON)
      ========================= */
-  const brandDropdown = document.getElementById("marke");
-  const modelDropdown = document.getElementById("modell");
+     const brandDropdown = document.getElementById("marke");
+     const modelDropdown = document.getElementById("modell");
+     
+     const FILTER_OUT_BELIEBIG = true;
+     const ALL_MODELS_VALUE = "__ALL_MODELS__";
+     
+     let slimMarke = null;
+     let slimModell = null;
+     
+     function setModelEnabled(enabled) {
+       if (!modelDropdown) return;
+     
+       modelDropdown.disabled = !enabled;
+     
+       // SlimSelect UI mitziehen
+       if (slimModell) {
+         if (!enabled && typeof slimModell.disable === "function") slimModell.disable();
+         if ( enabled && typeof slimModell.enable  === "function") slimModell.enable();
+       }
+     }
+     
 
   // ⬇️⬇️ NEU: GUARD – nur initialisieren, wenn SlimSelect hier noch NICHT aktiv ist
   const _isSlim = el => !!(el && el.nextElementSibling && el.nextElementSibling.classList.contains('ss-main'));
@@ -264,68 +283,79 @@ document.addEventListener("DOMContentLoaded", () => {
       "T6 (Alle)":     /^T6(?!\s*\(Alle\))(\s|$)/i
     };
 
-    // SlimSelect-Helfer
-    const initSlim = (selector, opts) => {
-      const el = document.querySelector(selector);
-      if (!el) return null;
-      return new SlimSelect({ select: selector, ...opts });
-    };
+ // SlimSelect-Helfer (im Guard-Block weiterhin ok)
+const initSlim = (selector, opts) => {
+  const el = document.querySelector(selector);
+  if (!el) return null;
+  return new SlimSelect({ select: selector, ...opts });
+};
 
-    // SlimSelect für Dropdowns
-    const slimMarke = initSlim('#marke', {
-      closeOnSelect: true,
-      placeholder: 'Marke wählen',
-      allowDeselect: true,
-      showSearch: true
-    });
-    let slimModell = initSlim('#modell', {
-      closeOnSelect: false,
-      placeholder: 'Modell wählen',
-      allowDeselect: true,
-      hideSelected: false,
-      showSearch: true,
-      data: [
-        { text: "Bitte zuerst Marke wählen", value: "", disabled: true, selected: true }
-      ],
-      events: {
-        afterChange: (newSelected) => {
-          const brand       = brandDropdown?.value || "";
-          const allowGroups = ALLOW_GROUPS_FOR[brand] || [];
-          const currentVals = (newSelected || []).map(s => s.value);
+// WICHTIG: slimMarke/slimModell NICHT neu als const/let deklarieren,
+// sondern die äußeren Variablen befüllen (die du vorher oben definiert hast):
+// let slimMarke = null;
+// let slimModell = null;
 
-          // "Beliebig" exklusiv
-          let vals = (currentVals.includes(ALL_MODELS_VALUE) && currentVals.length > 1)
-            ? currentVals.filter(v => v !== ALL_MODELS_VALUE)
-            : currentVals;
-          if (vals.length === 1 && vals[0] === ALL_MODELS_VALUE) return;
+slimMarke = initSlim('#marke', {
+  closeOnSelect: true,
+  placeholder: 'Beliebig (alle Marken)',
+  allowDeselect: false,   // weil du Option value="" hast
+  showSearch: true
+});
 
-          const fullList = sanitizeModelList((brandToModels[brand] || []).map(String));
-          const nextSet  = new Set();
+slimModell = initSlim('#modell', {
+  closeOnSelect: false,
+  placeholder: 'Bitte zuerst Marke wählen',
+  allowDeselect: true,
+  hideSelected: false,
+  showSearch: true,
+  data: [], // wird erst nach Markenwahl gefüllt
+  events: {
+    afterChange: (newSelected) => {
+      const brand = (brandDropdown?.value || "").trim();
+      if (!brand) return; // Marke "Beliebig" -> keine Modell-Logik
 
-          vals.forEach(v => {
-            const rx = modelGroups[v];
-            const isAllowedGroup = rx && allowGroups.includes(v);
-            if (isAllowedGroup) {
-              fullList.forEach(m => {
-                if (/\(alle\)/i.test(m)) return;
-                if (rx.test(m)) nextSet.add(m);
-              });
-            } else if (v && v !== ALL_MODELS_VALUE) {
-              nextSet.add(v);
-            }
+      const allowGroups = ALLOW_GROUPS_FOR[brand] || [];
+      const currentVals = (newSelected || []).map(s => s.value);
+
+      // "Beliebig (alle Modelle)" exklusiv
+      let vals = (currentVals.includes(ALL_MODELS_VALUE) && currentVals.length > 1)
+        ? currentVals.filter(v => v !== ALL_MODELS_VALUE)
+        : currentVals;
+
+      if (vals.length === 1 && vals[0] === ALL_MODELS_VALUE) return;
+
+      const fullList = sanitizeModelList((brandToModels[brand] || []).map(String));
+      const nextSet  = new Set();
+
+      vals.forEach(v => {
+        const rx = modelGroups[v];
+        const isAllowedGroup = rx && allowGroups.includes(v);
+
+        if (isAllowedGroup) {
+          fullList.forEach(m => {
+            if (/\(alle\)/i.test(m)) return;
+            if (rx.test(m)) nextSet.add(m);
           });
-
-          const next = nextSet.size ? [...nextSet] : [ALL_MODELS_VALUE];
-          const nowKey  = currentVals.slice().sort().join("|");
-          const nextKey = next.slice().sort().join("|");
-          if (nowKey !== nextKey) slimModell.setSelected(next);
+        } else if (v && v !== ALL_MODELS_VALUE) {
+          nextSet.add(v);
         }
-      }
-    });
+      });
 
-    // Modelle aus JSON
-    const FILTER_OUT_BELIEBIG = true;
-    const ALL_MODELS_VALUE = "__ALL_MODELS__";
+      const next = nextSet.size ? [...nextSet] : [ALL_MODELS_VALUE];
+      const nowKey  = currentVals.slice().sort().join("|");
+      const nextKey = next.slice().sort().join("|");
+      if (nowKey !== nextKey) slimModell.setSelected(next);
+    }
+  }
+});
+
+// Ganz wichtig: Modell soll auch in SlimSelect optisch disabled starten
+setModelEnabled(false);
+
+// ❌ Diese beiden Zeilen HIER entfernen (Duplikate!)
+// const FILTER_OUT_BELIEBIG = true;
+// const ALL_MODELS_VALUE = "__ALL_MODELS__";
+
 
     // Nur diese Marken bekommen Gruppen
     const ALLOW_GROUPS_FOR = {
@@ -389,20 +419,36 @@ document.addEventListener("DOMContentLoaded", () => {
         brandToModels = {};
       }
     }
-
     function rebuildModelOptions(brand) {
       if (!modelDropdown) return;
-
-      const rawList = (brandToModels && brandToModels[brand]) || [];
+    
+      const b = (brand || "").trim();
+    
+      // Marke = Beliebig -> Modell komplett deaktivieren und leeren
+      if (!b) {
+        if (slimModell) {
+          slimModell.setData([]);
+          slimModell.setSelected([]);
+        } else {
+          modelDropdown.innerHTML = "";
+          modelDropdown.value = "";
+        }
+        setModelEnabled(false);
+        return;
+      }
+    
+      setModelEnabled(true);
+    
+      const rawList = (brandToModels && brandToModels[b]) || [];
       const models  = sanitizeModelList(rawList);
-
+    
       const data = [
         { text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE },
         ...models.map(m => ({ text: m, value: m }))
       ];
-
+    
       if (slimModell) {
-        slimModell.setData(data.length ? data : [{ text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE }]);
+        slimModell.setData(data);
         slimModell.setSelected([ALL_MODELS_VALUE]);
       } else {
         modelDropdown.innerHTML = "";
@@ -415,6 +461,7 @@ document.addEventListener("DOMContentLoaded", () => {
         modelDropdown.value = ALL_MODELS_VALUE;
       }
     }
+    
 
     // Lade Daten & initialisiere
     (async () => {
@@ -478,68 +525,81 @@ document.addEventListener("DOMContentLoaded", () => {
         new SlimSelect({ select: `#${selYear.id}`,  placeholder: 'Jahr',  showSearch: true  });
       }
 
-      // Marke -> Modelle
       brandDropdown?.addEventListener("change", () => {
-        const val = brandDropdown.value;
-        rebuildModelOptions(val);
-        if (slimModell) slimModell.setSelected([ALL_MODELS_VALUE]);
-        else modelDropdown.value = ALL_MODELS_VALUE;
+        const brand = (brandDropdown.value || "").trim();
+        rebuildModelOptions(brand); // handled auch brand="" sauber
       });
+      
 
-      // URL-Parameter übernehmen
-      const qs = new URLSearchParams(location.search);
+    // URL-Parameter übernehmen
+const qs = new URLSearchParams(location.search);
 
-      const qBrand = qs.get("marke") || "";
-      if (qBrand && brandDropdown) {
-        // Wenn es ein SlimSelect für Marke geben sollte (hier im Guard meist ja):
-        const maybeSlim = brandDropdown.nextElementSibling?.classList.contains('ss-main');
-        if (maybeSlim) {
-          // setSelected geht nur auf der Instanz – hier notfalls direkt Wert setzen:
-          brandDropdown.value = qBrand;
-          brandDropdown.dispatchEvent(new Event('change'));
-        } else {
-          brandDropdown.value = qBrand;
-          rebuildModelOptions(qBrand);
-        }
-      } else if (brandDropdown?.value) {
-        rebuildModelOptions(brandDropdown.value);
+// 1) Marke aus URL
+const qBrand = (qs.get("marke") || "").trim();
+
+if (brandDropdown) {
+  if (qBrand) {
+    // Marke setzen (SlimSelect oder nicht ist egal – wir setzen den echten <select>-Value)
+    brandDropdown.value = qBrand;
+
+    // Modelle passend zur Marke neu aufbauen (und dabei "Beliebig Modelle" setzen)
+    rebuildModelOptions(qBrand);
+
+    // Falls SlimSelect für Marke existiert: UI synchronisieren
+    if (slimMarke && typeof slimMarke.setSelected === "function") {
+      slimMarke.setSelected(qBrand);
+    }
+  } else {
+    // Keine Marke in URL => wenn aktuell eine Marke gewählt ist, Modelle passend aufbauen,
+    // sonst Modell deaktiviert lassen (macht rebuildModelOptions bei brand="" sowieso)
+    const current = (brandDropdown.value || "").trim();
+    rebuildModelOptions(current);
+  }
+}
+
+const qModels = (qs.get("modell") || "")
+  .split(",")
+  .map(s => s.trim())
+  .filter(Boolean);
+
+if (qModels.length) {
+  const brand = (qBrand || brandDropdown?.value || "").trim();
+
+  // Wenn keine Marke -> Modelle ignorieren (Modell ist dann sowieso disabled)
+  if (brand) {
+    const list  = sanitizeModelList((brandToModels[brand] || []).map(String));
+    const allowedForBrand = ALLOW_GROUPS_FOR[brand] || [];
+    const expanded = new Set();
+
+    for (const item of qModels) {
+      if (allowedForBrand.includes(item) && modelGroups[item]) {
+        const rx = modelGroups[item];
+        list.forEach(m => { if (!/\(alle\)/i.test(m) && rx.test(m)) expanded.add(m); });
+      } else if (list.includes(item)) {
+        expanded.add(item);
       }
+    }
 
-      const qModels = (qs.get("modell") || "")
-        .split(",")
-        .map(s => s.trim())
-        .filter(Boolean);
+    const vals = expanded.size ? [...expanded] : [ALL_MODELS_VALUE];
 
-      if (qModels.length) {
-        const brand = qBrand || brandDropdown?.value || "";
-        const list  = sanitizeModelList((brandToModels[brand] || []).map(String));
-        const allowedForBrand = ALLOW_GROUPS_FOR[brand] || [];
-        const expanded = new Set();
+    // ✅ SlimSelect korrekt setzen
+    if (slimModell && typeof slimModell.setSelected === "function") {
+      slimModell.setSelected(vals);
+    } else if (modelDropdown) {
+      for (const opt of modelDropdown.options) opt.selected = vals.includes(opt.value);
+      modelDropdown.dispatchEvent(new Event("change"));
+    }
+  }
+} else {
+  // ✅ Default: "Beliebig (alle Modelle)"
+  if (slimModell && typeof slimModell.setSelected === "function") {
+    slimModell.setSelected([ALL_MODELS_VALUE]);
+  } else if (modelDropdown) {
+    for (const opt of modelDropdown.options) opt.selected = (opt.value === ALL_MODELS_VALUE);
+    modelDropdown.dispatchEvent(new Event("change"));
+  }
+}
 
-        for (const item of qModels) {
-          if (allowedForBrand.includes(item) && modelGroups[item]) {
-            const rx = modelGroups[item];
-            list.forEach(m => { if (!/\(alle\)/i.test(m) && rx.test(m)) expanded.add(m); });
-          } else if (list.includes(item)) {
-            expanded.add(item);
-          }
-        }
-
-        const vals = [...expanded];
-        if (vals.length && modelDropdown) {
-          // direkt setzen (falls SlimSelect-Instanz vorhanden wurde sie oben erzeugt)
-          for (const opt of modelDropdown.options) {
-            opt.selected = vals.includes(opt.value);
-          }
-          modelDropdown.dispatchEvent(new Event('change'));
-        }
-      } else {
-        // Beliebig, wenn nichts in URL
-        if (modelDropdown) {
-          for (const opt of modelDropdown.options) opt.selected = (opt.value === "__ALL_MODELS__");
-          modelDropdown.dispatchEvent(new Event('change'));
-        }
-      }
 
       // EZ aus URL
       const ezFrom = qs.get("ezFrom");
@@ -729,14 +789,20 @@ if (kraftValues.length) {
     (function collectModels() {
       const sel = document.getElementById("modell");
       if (!sel) return;
+    
+      // NEU: wenn Marke Beliebig, niemals modell mitsenden
+      const brand = (document.getElementById("marke")?.value || "").trim();
+      if (!brand) return;
+    
       let vals = Array.from(sel.selectedOptions || [])
         .map(o => (o.value || "").trim())
         .filter(Boolean);
+    
       vals = vals.filter(v => v !== "__ALL_MODELS__" && !/^beliebig/i.test(v) && !/\(alle\)$/i.test(v));
       vals = Array.from(new Set(vals));
       if (vals.length) qs.set("modell", vals.join(","));
     })();
-  
+    
     // Modellvariante
     const modVar = document.getElementById("modellausfuehrung")?.value?.trim();
     if (modVar) qs.set("modellausfuehrung", modVar);
