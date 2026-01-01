@@ -2547,9 +2547,6 @@ app.get("/meine-nachrichten", checkLogin, async (req, res) => {
 });
 
 
-// ------------------------------------------------------------
-// === Geocoding mit einfachem Mongo-Cache
-// ------------------------------------------------------------
 async function geocodeToPoint(query) {
   const q = String(query || "").trim();
   if (!q) return null;
@@ -2559,38 +2556,67 @@ async function geocodeToPoint(query) {
   const cached = await cacheColl.findOne({ key });
   if (cached?.coords?.type === "Point") return cached.coords;
 
-  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`;
+  const headers = {
+    "User-Agent": "autovisa/1.0 (contact: info@autovisa.de)",
+    "Accept-Language": "de-DE,de;q=0.9,en;q=0.6",
+  };
 
-  const res = await fetch(url, {
-    headers: { "User-Agent": "autovisa/1.0 (contact: info@autovisa.de)" }
-  }).catch(() => null);
+  const fetchJson = async (url, timeoutMs = 4000) => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const r = await fetch(url, { headers, signal: ctrl.signal });
+      if (!r.ok) return null;
+      return await r.json().catch(() => null);
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(t);
+    }
+  };
 
-  if (!res || !res.ok) return null;
+  // 1) Nominatim (DE, limit 1)
+  const nomUrl =
+    `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=de&q=${encodeURIComponent(q)}`;
 
-  const arr = await res.json().catch(() => []);
-  const first = Array.isArray(arr) && arr[0];
-  if (!first) return null;
+  let lat = null;
+  let lon = null;
+  let display = q;
 
-  const lon = parseFloat(first.lon), lat = parseFloat(first.lat);
-  if (!Number.isFinite(lon) || !Number.isFinite(lat)) return null;
+  const arr = await fetchJson(nomUrl, 4000);
+  if (Array.isArray(arr) && arr[0]) {
+    lat = Number(arr[0].lat);
+    lon = Number(arr[0].lon);
+    display = arr[0].display_name || q;
+  }
 
-  const coords = { type: "Point", coordinates: [lon, lat] };
+  // 2) Photon Fallback
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    const phoUrl =
+      `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&lang=de&limit=1`;
+    const pj = await fetchJson(phoUrl, 4000);
+    const feat = pj?.features?.[0];
+    const coords = feat?.geometry?.coordinates;
+    if (Array.isArray(coords) && coords.length >= 2) {
+      lon = Number(coords[0]);
+      lat = Number(coords[1]);
+      display = feat?.properties?.name || q;
+    }
+  }
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+  const point = { type: "Point", coordinates: [lon, lat] };
 
   await cacheColl.updateOne(
     { key },
-    {
-      $set: {
-        key,
-        coords,
-        display_name: first.display_name || q,
-        updatedAt: new Date()
-      }
-    },
+    { $set: { key, coords: point, display_name: display, updatedAt: new Date() } },
     { upsert: true }
   );
 
-  return coords;
+  return point;
 }
+
 
 function isHaendlerRole(role) {
   const r = String(role || "").toLowerCase();

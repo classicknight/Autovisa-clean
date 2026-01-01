@@ -131,7 +131,157 @@ document.addEventListener("DOMContentLoaded", () => {
       })
       .catch(() => {});
   }
-
+  /* =========================
+     Ort/PLZ – GeoSuggest Autocomplete (setzt ort-lat/ort-lon)
+     ========================= */
+     const ortInput = document.getElementById("ort");
+     const ortLatEl = document.getElementById("ort-lat");
+     const ortLonEl = document.getElementById("ort-lon");
+   
+     function setupOrtGeoSuggest() {
+       if (!ortInput || !ortLatEl || !ortLonEl) return;
+   
+       const group = ortInput.closest(".search-group") || ortInput.parentElement;
+       if (group) group.style.position = "relative";
+   
+       const box = document.createElement("div");
+       box.className = "av-geo-suggest";
+       box.style.cssText = `
+         position:absolute; left:0; right:0; top:100%;
+         margin-top:8px; z-index:9999; display:none;
+         background:#0f2027; color:#fff;
+         border:1px solid rgba(227,233,239,.22);
+         border-radius:12px; overflow:hidden;
+         box-shadow:0 18px 40px rgba(0,0,0,.35);
+       `;
+       group.appendChild(box);
+   
+       let items = [];
+       let active = -1;
+       let abortCtrl = null;
+   
+       const close = () => {
+         box.style.display = "none";
+         box.innerHTML = "";
+         items = [];
+         active = -1;
+       };
+   
+       const highlight = () => {
+         const btns = box.querySelectorAll("button[data-idx]");
+         btns.forEach((b, i) => (b.style.background = i === active ? "rgba(0,184,169,.14)" : "transparent"));
+       };
+   
+       const select = (idx) => {
+         const it = items[idx];
+         if (!it) return;
+         ortInput.value = it.value || it.label;
+         ortLatEl.value = String(it.lat);
+         ortLonEl.value = String(it.lon);
+         close();
+       };
+   
+       const render = () => {
+         if (!items.length) return close();
+   
+         box.innerHTML = items
+           .map((it, idx) => {
+             const secondary = it.secondary ? `<div style="opacity:.75;font-size:.9em">${it.secondary}</div>` : "";
+             return `
+               <button type="button" data-idx="${idx}"
+                 style="display:block;width:100%;text-align:left;padding:10px 12px;border:0;background:transparent;color:inherit;cursor:pointer;font:inherit">
+                 <div style="font-weight:600">${it.label}</div>
+                 ${secondary}
+               </button>
+             `;
+           })
+           .join("");
+   
+         box.querySelectorAll("button[data-idx]").forEach((btn) => {
+           btn.addEventListener("click", () => select(Number(btn.dataset.idx)));
+           btn.addEventListener("mouseenter", () => {
+             active = Number(btn.dataset.idx);
+             highlight();
+           });
+         });
+   
+         active = 0;
+         highlight();
+         box.style.display = "block";
+       };
+   
+       const fetchSuggest = async (q) => {
+         const query = String(q || "").trim();
+         if (query.length < 2) return close();
+   
+         if (abortCtrl) abortCtrl.abort();
+         abortCtrl = new AbortController();
+   
+         try {
+           const res = await fetch(`/api/geosuggest?q=${encodeURIComponent(query)}&limit=8`, { signal: abortCtrl.signal });
+           if (!res.ok) return close();
+   
+           const data = await res.json();
+           items = (Array.isArray(data?.items) ? data.items : [])
+             .map((x) => ({
+               label: x.label || x.display_name || "",
+               value: x.value || x.label || "",
+               secondary: x.secondary || "",
+               lat: x.lat,
+               lon: x.lon,
+             }))
+             .filter((it) => it.label && Number.isFinite(it.lat) && Number.isFinite(it.lon));
+   
+           render();
+         } catch (e) {
+           if (e?.name !== "AbortError") close();
+         }
+       };
+   
+       // mini-debounce
+       let t = null;
+       const debounced = (val) => {
+         clearTimeout(t);
+         t = setTimeout(() => fetchSuggest(val), 220);
+       };
+   
+       ortInput.addEventListener("input", () => {
+         // sobald der User frei tippt: Koordinaten invalidieren (bis er wieder auswählt)
+         ortLatEl.value = "";
+         ortLonEl.value = "";
+         debounced(ortInput.value);
+       });
+   
+       ortInput.addEventListener("focus", () => debounced(ortInput.value));
+   
+       ortInput.addEventListener("keydown", (e) => {
+         if (box.style.display === "none") return;
+   
+         if (e.key === "ArrowDown") {
+           e.preventDefault();
+           active = Math.min(items.length - 1, active + 1);
+           highlight();
+         } else if (e.key === "ArrowUp") {
+           e.preventDefault();
+           active = Math.max(0, active - 1);
+           highlight();
+         } else if (e.key === "Enter") {
+           if (active >= 0) {
+             e.preventDefault();
+             select(active);
+           }
+         } else if (e.key === "Escape") {
+           close();
+         }
+       });
+   
+       document.addEventListener("click", (e) => {
+         if (!group.contains(e.target)) close();
+       });
+     }
+   
+     setupOrtGeoSuggest();
+   
   /* =========================
      Login-abhängige Navigationsziele
      ========================= */
@@ -1056,15 +1206,59 @@ if (kraftValues.length) {
 
   function hyphenate(s){ return String(s).replace(/\s+/g,' ').replace(/\s*-\s*/g,'-'); }
 
-  function goToSearch() {
+  async function ensureOrtCoordsIfNeeded() {
+    const ortEl = document.getElementById("ort");
+    const latEl = document.getElementById("ort-lat");
+    const lonEl = document.getElementById("ort-lon");
+    const umkreisSel = document.getElementById("umkreis");
+    const customEl = document.getElementById("custom-umkreis");
+  
+    const ort = (ortEl?.value || "").trim();
+    if (!ort) return;
+  
+    // Umkreis nur prüfen, wenn wirklich gesetzt
+    let radius = (umkreisSel?.value || "").trim();
+    if (radius === "custom") radius = String(customEl?.value || "").trim();
+    if (!radius) return;
+  
+    // Wenn schon Koordinaten vorhanden -> fertig
+    const lat = parseFloat(latEl?.value);
+    const lon = parseFloat(lonEl?.value);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) return;
+  
+    // Nachladen über /api/geosuggest
+    try {
+      const res = await fetch(`/api/geosuggest?q=${encodeURIComponent(ort)}&limit=1`);
+      if (!res.ok) throw new Error("geosuggest not ok");
+      const data = await res.json();
+      const it = data?.items?.[0];
+  
+      if (it && Number.isFinite(it.lat) && Number.isFinite(it.lon)) {
+        latEl.value = String(it.lat);
+        lonEl.value = String(it.lon);
+  
+        // optional: Ort auf "sauberen" Wert setzen (Label/Value aus Suggest)
+        if (it.value || it.label) ortEl.value = it.value || it.label;
+        return;
+      }
+    } catch {}
+  
+    // Wenn Umkreis gesetzt ist, aber wir keine Koordinaten bekommen: erzwinge Auswahl aus Liste
+    alert("Bitte wähle den Ort aus der Vorschlagsliste aus, damit der Umkreis korrekt funktioniert.");
+  }
+  
+  async function goToSearch() {
+    await ensureOrtCoordsIfNeeded();          // <<< DAS ist der fehlende Teil
     const qs = buildAdvancedQuery();
     window.location.href = `suche.html?${qs.toString()}`;
   }
+  
 
-  document.querySelector(".search-submit .submit-btn")?.addEventListener("click", e => {
+  document.querySelector(".search-submit .submit-btn")?.addEventListener("click", async (e) => {
     e.preventDefault();
-    goToSearch();
+    await goToSearch();
   });
+  
 });
 
 /* =========================
