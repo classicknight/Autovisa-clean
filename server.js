@@ -3107,8 +3107,7 @@ async function geocodeToPoint(query) {
        seen.add(k);
        return true;
      });
-   }
-   // ============================================================
+   }// ============================================================
 // /api/geosuggest  —  schnelle Ortsvorschläge (DE, OSM → Photon Fallback)
 // Voraussetzungen (oben im File vorhanden):
 //  - const GEO_TTL_MS, const NOMINATIM_TIMEOUT_MS
@@ -3117,19 +3116,25 @@ async function geocodeToPoint(query) {
 //  - globale "db" Verbindung
 // ============================================================
 app.get("/api/geosuggest", async (req, res) => {
+  // ✅ wichtig: damit catch nicht crasht
+  let suggestions = [];
+
   try {
     const qRaw = String(req.query.q || "").trim();
-    if (!qRaw) return res.json({ suggestions: [] });
+    if (!qRaw) return res.json({ suggestions: [], items: [] });
 
     const key = qRaw.toLowerCase();
     const reqLimit = parseInt(req.query.limit, 10);
-    const lim = Math.min(Math.max(Number.isFinite(reqLimit) ? reqLimit : (key.length <= 3 ? 20 : 10), 1), 25);
+    const lim = Math.min(
+      Math.max(Number.isFinite(reqLimit) ? reqLimit : (key.length <= 3 ? 20 : 10), 1),
+      25
+    );
 
     // 1) Memory-Cache
     const mem = getGeoMem(key);
     if (mem && mem.length) {
       res.set("Cache-Control", "public, max-age=120");
-      return res.json({ suggestions: mem.slice(0, lim) });
+      return res.json({ suggestions: mem.slice(0, lim), items: mem.slice(0, lim) });
     }
 
     // 2) Mongo-Cache (keine leeren Ergebnisse nutzen)
@@ -3143,7 +3148,10 @@ app.get("/api/geosuggest", async (req, res) => {
     ) {
       setGeoMem(key, cached.suggestions);
       res.set("Cache-Control", "public, max-age=120");
-      return res.json({ suggestions: cached.suggestions.slice(0, lim) });
+      return res.json({
+        suggestions: cached.suggestions.slice(0, lim),
+        items: cached.suggestions.slice(0, lim),
+      });
     }
 
     // Einheitliches Suggest-Format
@@ -3159,37 +3167,46 @@ app.get("/api/geosuggest", async (req, res) => {
         postcode: postcode || "",
         state: state || "",
         lat: latNum,
-        lon: lonNum
+        lon: lonNum,
       };
     };
 
     // 3) Quelle 1: Nominatim
-    let suggestions = [];
     try {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), NOMINATIM_TIMEOUT_MS);
+
       const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&countrycodes=de&limit=${lim}&q=${encodeURIComponent(qRaw)}`;
       const r = await fetch(url, {
         headers: {
           "User-Agent": "autovisa/1.0 (contact: info@autovisa.de)",
-          "Accept-Language": "de-DE,de;q=0.9"
+          "Accept-Language": "de-DE,de;q=0.9",
         },
-        signal: ctrl.signal
+        signal: ctrl.signal,
       }).catch(() => null);
+
       clearTimeout(timer);
 
       if (r && r.ok) {
         const arr = await r.json().catch(() => []);
         suggestions = (Array.isArray(arr) ? arr : [])
-          .map(it => {
+          .map((it) => {
             const a = it.address || {};
-            const city = a.city || a.town || a.village || a.hamlet || a.suburb || a.neighbourhood || a.locality || "";
+            const city =
+              a.city ||
+              a.town ||
+              a.village ||
+              a.hamlet ||
+              a.suburb ||
+              a.neighbourhood ||
+              a.locality ||
+              "";
             const postcode = a.postcode || "";
             const state = a.state || a.county || "";
             return mapToSuggestion(postcode, city, state, it.lat, it.lon, it.display_name);
           })
-          .filter(Boolean)            // filtere nulls raus (NaN lat/lon)
-          .filter(s => s.label);      // sinnvolle Einträge
+          .filter(Boolean)
+          .filter((s) => s.label);
       } else {
         console.warn("Nominatim not ok / blocked");
       }
@@ -3202,22 +3219,27 @@ app.get("/api/geosuggest", async (req, res) => {
       try {
         const url2 = `https://photon.komoot.io/api/?q=${encodeURIComponent(qRaw)}&lang=de&limit=${lim}`;
         const r2 = await fetch(url2, {
-          headers: { "User-Agent": "autovisa/1.0 (contact: info@autovisa.de)" }
+          headers: { "User-Agent": "autovisa/1.0 (contact: info@autovisa.de)" },
         }).catch(() => null);
+
         if (r2 && r2.ok) {
           const data = await r2.json().catch(() => null);
           const feats = Array.isArray(data?.features) ? data.features : [];
+
           suggestions = feats
-            .map(f => {
+            .map((f) => {
               const p = f.properties || {};
               const city = p.city || p.name || p.locality || p.town || p.village || "";
               const postcode = p.postcode || "";
               const state = p.state || p.county || p.district || "";
-              const [lon, lat] = Array.isArray(f.geometry?.coordinates) ? f.geometry.coordinates : [null, null];
+              const [lon, lat] = Array.isArray(f.geometry?.coordinates)
+                ? f.geometry.coordinates
+                : [null, null];
+
               return mapToSuggestion(postcode, city, state, lat, lon, p.name);
             })
             .filter(Boolean)
-            .filter(s => s.label);
+            .filter((s) => s.label);
         } else {
           console.warn("Photon not ok");
         }
@@ -3229,15 +3251,15 @@ app.get("/api/geosuggest", async (req, res) => {
     // 5) Dedupe + leichtes Scoring (Prefix bevorzugen)
     const q = key;
     suggestions = dedupeByLabel(suggestions)
-      .map(s => {
+      .map((s) => {
         const lc = s.label.toLowerCase();
         const score =
-          (s.postcode.startsWith(q) ? 3 : 0) +
-          (s.city.toLowerCase().startsWith(q) ? 3 : 0) +
+          (String(s.postcode || "").startsWith(q) ? 3 : 0) +
+          (String(s.city || "").toLowerCase().startsWith(q) ? 3 : 0) +
           (lc.startsWith(q) ? 1 : 0);
         return { ...s, _score: score };
       })
-      .sort((a, b) => (b._score - a._score) || (a.label.length - b.label.length))
+      .sort((a, b) => b._score - a._score || a.label.length - b.label.length)
       .slice(0, lim)
       .map(({ _score, ...rest }) => rest);
 
@@ -3252,12 +3274,15 @@ app.get("/api/geosuggest", async (req, res) => {
       res.set("Cache-Control", "public, max-age=120");
     }
 
-    return res.json({ suggestions });
+    // ✅ Response: suggestions + items (Frontend-Kompatibilität)
+    return res.json({ suggestions, items: suggestions });
   } catch (err) {
     console.error("❌ /api/geosuggest fatal:", err);
-    return res.json({ suggestions: [] });
+    // ✅ niemals auf undefinierte Variablen zugreifen
+    return res.status(500).json({ suggestions: [], items: [] });
   }
 });
+
 // ============================================================
 // /api/search — Suche mit optionalem Geo-Radius & vielen Filtern
 // Voraussetzungen (oben im File vorhanden):

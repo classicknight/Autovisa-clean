@@ -222,16 +222,22 @@ document.addEventListener("DOMContentLoaded", () => {
            if (!res.ok) return close();
    
            const data = await res.json();
-           items = (Array.isArray(data?.items) ? data.items : [])
+
+           const list =
+             (Array.isArray(data?.items) && data.items) ||
+             (Array.isArray(data?.suggestions) && data.suggestions) ||
+             [];
+           
+           items = list
              .map((x) => ({
                label: x.label || x.display_name || "",
                value: x.value || x.label || "",
                secondary: x.secondary || "",
-               lat: x.lat,
-               lon: x.lon,
+               lat: Number(x.lat),
+               lon: Number(x.lon),
              }))
              .filter((it) => it.label && Number.isFinite(it.lat) && Number.isFinite(it.lon));
-   
+           
            render();
          } catch (e) {
            if (e?.name !== "AbortError") close();
