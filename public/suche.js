@@ -319,8 +319,11 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   const modellEl  = document.getElementById("modell");
   const modVarEl  = document.getElementById("modellausfuehrung");
 
-  const priceToEl = document.getElementById("priceTo");
-  const kmToEl    = document.getElementById("mileageTo");
+  const priceFromEl = document.getElementById("priceFrom");
+  const priceToEl   = document.getElementById("priceTo");
+  const kmFromEl    = document.getElementById("mileageFrom");
+  const kmToEl      = document.getElementById("mileageTo");
+  
 
   const fuelEl  = document.getElementById("fuelType") || document.getElementById("fuel");
   const gearEl  = document.getElementById("transmission") || document.getElementById("gear");
@@ -382,9 +385,12 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
 
   if (modVarEl && QP.modellausfuehrung) modVarEl.value = QP.modellausfuehrung;
 
-  if (priceToEl && QP.price_max) priceToEl.value = QP.price_max;
-  if (kmToEl   && QP.km_max)     kmToEl.value    = QP.km_max;
-
+  if (priceFromEl && QP.price_min) priceFromEl.value = QP.price_min;
+  if (priceToEl   && QP.price_max) priceToEl.value   = QP.price_max;
+  
+  if (kmFromEl && QP.km_min) kmFromEl.value = QP.km_min;
+  if (kmToEl   && QP.km_max) kmToEl.value   = QP.km_max;
+  
   // --- Verbrauch (optional, falls vorhanden) ---
   (function () {
     const v = sp.get("verbrauch_max");
@@ -2077,10 +2083,16 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
   
       ezFrom: sp.get("ezFrom") || "",
       ezTo:   sp.get("ezTo")   || "",
+      
+      km_min: sp.get("km_min") || "",
       km_max: sp.get("km_max") || "",
+      
+      price_min: sp.get("price_min") || "",
       price_max: sp.get("price_max") || "",
+      
       ps_min: sp.get("ps_min") || "",
       ps_max: sp.get("ps_max") || "",
+      
   
       getriebe: (sp.get("getriebe") || "").toLowerCase(),
       kraftstoff: (sp.get("kraftstoff") || "").split(",").map(fuelCanon).filter(Boolean),
