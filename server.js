@@ -3365,15 +3365,16 @@ app.get("/api/search", async (req, res) => {
       ["1", "true", "ja", "yes", "on"]
         .includes(String(unfallfrei).trim().toLowerCase());
 
-    if (wantsAccidentFree) {
-      baseMatch.$or = [
-        { unfall: { $exists: false } },
-        { unfall: null },
-        { unfall: "" },
-        { unfall: { $regex: /^keine$/i } },
-        { unfall: { $regex: /unfallfrei/i } }
-      ];
-    }
+        if (wantsAccidentFree) {
+          baseMatch.$or = [
+            { unfall: { $regex: /^keine$/i } },
+            { unfall: { $regex: /unfallfrei/i } },
+            { unfall: { $regex: /^nein$/i } },
+            { unfall: false },
+            { unfall: 0 }
+          ];
+        }
+        
 
     // ---- Zahlen aus Query
     const priceMaxNum  = parseInt(price_max, 10);
@@ -4250,3 +4251,9 @@ app.get("/api/bewertungen/:sellerId", async (req, res) => {
 
   res.json(ratings);
 });
+
+
+
+
+
+

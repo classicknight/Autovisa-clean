@@ -2323,8 +2323,7 @@ const psMaxEff = (() => {
     if (qp.fahrtauglich)
       chips.push({ key: "fahrtauglich", label: "Fahrtauglich" });
   
-    if (isTruthyRaw(qp.unfallfrei))
-      chips.push({ key: "accidentFree", label: "Unfallfrei" });
+ 
   
     // Render
     if (!chips.length) {
@@ -2485,10 +2484,7 @@ function removeFilterChip(key, val = "") {
       break;
     }
 
-    case "accidentFree":
-      if (mapEl.accidentFree) mapEl.accidentFree.checked = false;
-      params.delete("accidentFree");
-      break;
+  
 
     // Scheckheft – Flag und Merkmals-CSV säubern + UI entchecken
     case "scheckheft": {
@@ -2601,16 +2597,20 @@ function removeFilterChip(key, val = "") {
     case "partikelfilter":
       params.delete("partikelfilter");
       break;
-
-    // ✅ NEU: Unfallfrei-Filter löschen
-    case "accidentFree": {
-      ["unfallfrei", "accidentFree"].forEach(k => params.delete(k));
-      const ufEl =
-        document.getElementById("unfallfrei") ||
-        document.getElementById("accidentFree");
-      if (ufEl && "checked" in ufEl) ufEl.checked = false;
-      break;
-    }
+      case "accidentFree": {
+        // URL-Parameter entfernen (beide Varianten, falls irgendwo noch accidentFree genutzt wurde)
+        ["unfallfrei", "accidentFree"].forEach(k => params.delete(k));
+      
+        // Checkbox im UI zurücksetzen (id kann bei dir "unfallfrei" ODER "accidentFree" sein)
+        const ufEl =
+          document.getElementById("unfallfrei") ||
+          document.getElementById("accidentFree");
+      
+        if (ufEl && "checked" in ufEl) ufEl.checked = false;
+      
+        break;
+      }
+      
 
     case "fahrtauglich":
       params.delete("fahrtauglich");
