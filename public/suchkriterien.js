@@ -1121,11 +1121,15 @@ if (kraftValues.length) {
   }
 })();
 
-    // Schadstoffe / Umwelt / HU / Halter
-    const schad       = document.getElementById("schadstoffklasse")?.value;
-    const schadCustom = document.getElementById("custom-schadstoff")?.value?.trim();
-    const schadFinal  = schadCustom || schad;
-    if (schadFinal) qs.set("schadstoffklasse", schadFinal);
+const schadSel = (document.getElementById("schadstoffklasse")?.value || "").trim();
+const schadCustom = (document.getElementById("custom-schadstoff")?.value || "").trim();
+
+if (schadSel === "custom") {
+  if (schadCustom) qs.set("schadstoffklasse", schadCustom);
+} else if (schadSel) {
+  qs.set("schadstoffklasse", schadSel);
+}
+
   
     const plakette = document.getElementById("plakette")?.value;
     if (plakette && plakette !== "Beliebig") qs.set("plakette", plakette);

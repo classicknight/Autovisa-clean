@@ -532,32 +532,36 @@
     
   </div>
   
+  <div class="search-group">
+    <label for="schadstoffklasse">Schadstoffklasse</label>
   
-    <div class="search-group">
-  <label for="schadstoffklasse">Schadstoffklasse</label>
-  <select id="schadstoffklasse" onchange="toggleCustomSchadstoff(this.value)">
-    <option value="" disabled selected>Bitte wählen</option>
-    <option>Euro 1</option>
-    <option>Euro 2</option>
-    <option>Euro 3</option>
-    <option>Euro 4</option>
-    <option>Euro 5</option>
-    <option>Euro 6</option>
-    <option>Euro 6c</option>
-    <option>Euro 6d-TEMP</option>
-    <option>Euro 6d</option>
-    <option value="custom">Benutzerdefiniert…</option>
-  </select>
+    <select id="schadstoffklasse" onchange="toggleCustomSchadstoff(this.value)">
+      <!-- ✅ wichtig: wieder auf "Beliebig" zurückwechselbar -->
+      <option value="" selected>Beliebig</option>
   
-  <input
-    type="text"
-    id="custom-schadstoff"
-    placeholder="Eigener Eintrag z. B. Euro 7"
-    style="display: none; margin-top: 10px"
-    class="modern-input"
-  />
-</div>
-   
+      <!-- ✅ mit value=... (sauber für JS/URL/Server) -->
+      <option value="Euro 1">Euro 1</option>
+      <option value="Euro 2">Euro 2</option>
+      <option value="Euro 3">Euro 3</option>
+      <option value="Euro 4">Euro 4</option>
+      <option value="Euro 5">Euro 5</option>
+      <option value="Euro 6">Euro 6</option>
+      <option value="Euro 6c">Euro 6c</option>
+      <option value="Euro 6d-TEMP">Euro 6d-TEMP</option>
+      <option value="Euro 6d">Euro 6d</option>
+  
+      <option value="custom">Benutzerdefiniert…</option>
+    </select>
+  
+    <input
+      type="text"
+      id="custom-schadstoff"
+      placeholder="Eigener Eintrag z. B. Euro 7"
+      style="display: none; margin-top: 10px"
+      class="modern-input"
+    />
+  </div>
+  
    
    
    
