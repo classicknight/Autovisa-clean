@@ -1711,3 +1711,165 @@ img, video, canvas {
     }
   }
   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  /* =========================================================
+   MOBILE TUNING — einfach GANZ UNTEN anhängen
+   ========================================================= */
+
+/* iOS: verhindert Zoom bei Focus (Font < 16px) */
+@media (max-width: 900px){
+  input, select, textarea { font-size: 16px; }
+  * { -webkit-tap-highlight-color: transparent; }
+}
+
+/* ===== NAVBAR / BURGER PANEL ===== */
+@media (max-width: 900px){
+  .navbar{
+    height: 70px;                 /* hast du schon, hier als „sicherer“ Override */
+    padding: 0 12px;
+  }
+
+  .logo{ height: 58px; }          /* minimal kompakter */
+  .logo-divider{ margin-left:-10px; height: 34px; }
+  .logo-divider::before{ height: 44px; }
+
+  .logo-tagline{
+    font-size: 11px;              /* i.d.R. ok auf Mobile */
+    letter-spacing: .07em;
+    line-height: 1.05;
+    margin-left: -2px;
+  }
+
+  /* Burger-Panel: NICHT 100vw (macht oft Overflow),
+     sondern sauber im Viewport mit Insets */
+  .nav-links{
+    top: 70px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-width: none;
+    border-radius: 18px;
+    padding: 14px 14px 16px;
+
+    /* Safe-Area (iPhone Notch etc.) */
+    padding-left: calc(14px + env(safe-area-inset-left));
+    padding-right: calc(14px + env(safe-area-inset-right));
+  }
+
+  .nav-links > li > a{
+    font-size: 16px;
+    padding: 12px 12px;           /* größere Tap-Zone */
+    border-radius: 12px;
+  }
+
+  .dropdown-menu a{
+    padding: 10px 10px 10px 34px; /* etwas luftiger */
+    border-radius: 10px;
+  }
+}
+
+/* Sehr kleine Handys: Tagline ausblenden (wirkt sonst gequetscht) */
+@media (max-width: 420px){
+  .logo-tagline{ display:none; }
+  .logo-divider{ display:none; }
+  .logo-container{ gap: 0; }
+}
+
+/* ===== CONTENT / FORM ===== */
+@media (max-width: 768px){
+  .search-section{
+    /* Du hast die Mobile-Regel schon, aber das hier macht es „Premium“: */
+    margin: 14px 10px 20px;
+    padding: 26px 16px;
+    border-radius: 16px;
+  }
+
+  .search-section h2{
+    font-size: 20px;
+    margin-bottom: 18px;
+  }
+
+  .search-group{
+    margin-bottom: 20px;
+  }
+
+  .search-group label{
+    font-size: 13.5px;
+    margin-bottom: 8px;
+  }
+
+  .search-group input,
+  .search-group select{
+    padding: 14px 14px;
+    border-radius: 12px;
+  }
+
+  /* Range-Felder auf schmalen Geräten lieber untereinander */
+  .range-inputs{
+    gap: 10px;
+  }
+}
+
+@media (max-width: 520px){
+  .range-inputs,
+  .month-range,
+  .month-year{
+    flex-direction: column;
+  }
+
+  .month-range .range-item,
+  .range-inputs input,
+  .range-inputs select{
+    min-width: 0;
+  }
+}
+
+/* ===== Sticky Submit Button ===== */
+@media (max-width: 900px){
+  .search-submit{
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    margin-top: 24px;
+  }
+
+  .submit-btn{
+    width: 100%;
+    max-width: none;
+    padding: 14px 18px;
+    border-radius: 14px;
+    font-size: 16px;
+  }
+}
+
+/* ===== Active Filterbar ===== */
+@media (max-width: 700px){
+  .av-filterbar{
+    width: calc(100% - 18px);
+    /* Safe-Area Top berücksichtigen (Notch) */
+    top: calc(var(--av-filterbar-top, 12px) + env(safe-area-inset-top));
+  }
+
+  .av-chip{
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .av-chip__x{
+    width: 24px;
+    height: 24px;
+  }
+}
