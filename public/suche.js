@@ -1239,48 +1239,58 @@ function getCombinedConsumption(item) {
   const vMax  = Number.isFinite(uiMax) && uiMax > 0 ? uiMax
               : Number.isFinite(qpMax) && qpMax > 0 ? qpMax
               : NaN;
-              function isItemAccidentFree(raw = {}) {
-                // 1) Explizite boolean-Felder (falls irgendwo so gespeichert)
-                const boolTrue =
-                  isTruthyRaw(raw.unfallfrei) ||
-                  isTruthyRaw(raw.verkauf_unfallfrei) ||
-                  isTruthyRaw(raw.accidentFree) ||
-                  isTruthyRaw(raw.verkauf_accidentFree);
-              
-                if (boolTrue) return true;
-              
-                // 2) Unfall-Textfeld (bei dir ist es praktisch "unfall", z.B. "keine")
-                const hist =
-                  raw.unfall ??
-                  raw.unfallhistorie ??
-                  raw.unfallHistorie ??
-                  raw.verkauf_unfallhistorie ??
-                  raw.verkauf_unfallHistorie ??
-                  "";
-              
-                const s0 = String(hist || "").trim();
-                if (!s0) return false;
-              
-                const s = norm(s0).replace(/\s+/g, " ").trim();
-                if (!s) return false;
-              
-                // "keine Angabe" / unbekannt NICHT als unfallfrei werten
-                if (/(keine angabe|unbekannt|nicht bekannt|\bk\.?\s*a\.?\b)/.test(s)) return false;
-              
-                // 3) WICHTIG: "keine" alleine => unfallfrei (dein Hauptfall)
-                if (/^(keine|nein)$/i.test(s0.trim())) return true;
-              
-                // 4) Fälle wie "Unfallhistorie: keine"
-                if (/\bkeine\b/.test(s) && /(unfall|historie|schaden)/.test(s)) return true;
-              
-                // 5) Allgemeine unfallfrei-Formulierungen
-                if (/\bunfallfrei\b/.test(s)) return true;
-                if (/\bohne\b.*\b(unfall|schaden)\b/.test(s)) return true;
-                if (/\bkein(e)?\b.*\b(unfall|schaden)\b/.test(s)) return true;
-              
-                return false;
-              }
-              
+
+  // ------------------------------------------------------------
+  // KORREKTUR: Unfallfrei-Erkennung muss mit item (i) arbeiten
+  // und i.raw.unfall === "keine" als unfallfrei akzeptieren.
+  // ------------------------------------------------------------
+  function isItemAccidentFree(item) {
+    const raw = item?.raw ?? item ?? {};
+
+    // 1) Explizite Bool-Felder
+    const boolTrue =
+      isTruthyRaw(raw.unfallfrei) ||
+      isTruthyRaw(raw.verkauf_unfallfrei) ||
+      isTruthyRaw(raw.accidentFree) ||
+      isTruthyRaw(raw.verkauf_accidentFree);
+
+    if (boolTrue) return true;
+
+    // 2) Unfall-Textfeld (bei dir typischerweise: unfall = "keine")
+    const hist =
+      raw.unfall ??
+      raw.verkauf_unfall ??
+      raw.unfallhistorie ??
+      raw.unfallHistorie ??
+      raw.verkauf_unfallhistorie ??
+      raw.verkauf_unfallHistorie ??
+      "";
+
+    const s0 = String(hist || "").trim();
+    if (!s0) return false;
+
+    const s = norm(s0).replace(/\s+/g, " ").trim();
+    if (!s) return false;
+
+    // "keine Angabe" / unbekannt NICHT als unfallfrei werten
+    if (/(keine angabe|unbekannt|nicht bekannt|\bk\.?\s*a\.?\b|n\/a)/i.test(s)) return false;
+
+    // WICHTIG: "keine" alleine => unfallfrei (dein Hauptfall)
+    if (/^(keine|nein|unfallfrei)$/i.test(s0)) return true;
+
+    // Fälle wie "Unfallhistorie: keine"
+    if (/\bkeine\b/i.test(s) && /(unfall|historie|schaden)/i.test(s)) return true;
+
+    // Allgemeine unfallfrei-Formulierungen
+    if (/\bunfallfrei\b/i.test(s)) return true;
+    if (/\bohne\b.*\b(unfall|schaden)\b/i.test(s)) return true;
+    if (/\bkein(e)?\b.*\b(unfall|schaden)\b/i.test(s)) return true;
+
+    // negative Hinweise => nicht unfallfrei
+    if (/(unfall(?!frei)|unfallschaden|schaden|besch(a|ä)digt|repariert|accident)/i.test(s)) return false;
+
+    return false;
+  }
 
   // --- Filtern ---
   return items.filter(i => {
@@ -1341,7 +1351,7 @@ function getCombinedConsumption(item) {
       if (!dt || !driveSet.has(dt)) return false;
     }
 
-    // Unfallfrei (inkl. "Unfallhistorie: keine")
+    // Unfallfrei
     if (accidentFree) {
       if (!isItemAccidentFree(i)) return false;
     }
@@ -1428,7 +1438,6 @@ function getCombinedConsumption(item) {
     return true;
   });
 }
-
 
 
 
