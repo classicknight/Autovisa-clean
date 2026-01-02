@@ -1212,6 +1212,490 @@ if (schadSel === "custom") {
     qs.delete("page");
     return qs;
   }
+    /* =========================
+     Active Filters Bar (Chips)
+     ========================= */
+     (function initActiveFiltersBar(){
+      const section = document.querySelector('.search-section');
+      if (!section) return;
+  
+      // Bar DOM
+      const bar = document.createElement('div');
+      bar.className = 'av-filterbar';
+      bar.innerHTML = `
+        <div class="av-filterbar__head">
+          <div class="av-filterbar__title">
+            <span class="av-filterbar__badge" id="avFilterCount">0</span>
+            <span>Aktive Filter</span>
+          </div>
+          <button type="button" class="av-filterbar__reset" id="avFilterReset">Zurücksetzen</button>
+        </div>
+        <div class="av-filterbar__chips" id="avFilterChips" aria-label="Aktive Filter"></div>
+      `;
+      document.body.appendChild(bar);
+  
+      const countEl = bar.querySelector('#avFilterCount');
+      const chipsEl = bar.querySelector('#avFilterChips');
+      const resetBtn = bar.querySelector('#avFilterReset');
+  
+      const fmtInt = (n) => {
+        const x = Number(n);
+        return Number.isFinite(x) ? x.toLocaleString('de-DE') : '';
+      };
+      const fmtEUR = (n) => {
+        const x = Number(n);
+        return Number.isFinite(x) ? `${x.toLocaleString('de-DE')} €` : '';
+      };
+      const fmtYM = (ym) => {
+        const s = String(ym || '').trim();
+        if (!/^\d{4}-\d{2}$/.test(s)) return s;
+        const [y,m] = s.split('-');
+        return `${m}/${y}`;
+      };
+  
+      // Anzeige-Mappings
+      const fuelLabel = (t) => {
+        const k = String(t || '').trim().toLowerCase();
+        const map = {
+          'benzin':'Benzin',
+          'diesel':'Diesel',
+          'elektro':'Elektro',
+          'hybrid':'Hybrid',
+          'hybrid-benzin':'Hybrid (Benzin)',
+          'hybrid-diesel':'Hybrid (Diesel)',
+          'plug-in-hybrid':'Plug-in-Hybrid',
+          'plug-in-hybrid-benzin':'Plug-in-Hybrid (Benzin)',
+          'wasserstoff':'Wasserstoff',
+          'autogas':'Autogas (LPG)',
+          'lpg':'Autogas (LPG)',
+          'cng':'Erdgas (CNG)',
+          'ethanol':'Ethanol (E85)',
+          'andere':'Andere'
+        };
+        return map[k] || t;
+      };
+  
+      const getriebeLabel = (t) => {
+        const k = String(t || '').trim().toLowerCase();
+        if (k === 'automatik') return 'Automatik';
+        if (k === 'schaltgetriebe' || k === 'schalter' || k === 'manuell') return 'Schaltgetriebe';
+        return t;
+      };
+  
+      const deHyphen = (s) => String(s || '').replace(/\s*-\s*/g, '-').replace(/-/g, ' ');
+  
+      function setSelectToDefault(sel){
+        if (!sel) return;
+        // bevorzugt: "" falls vorhanden, sonst 0
+        const hasEmpty = Array.from(sel.options || []).some(o => o.value === '');
+        if (hasEmpty) sel.value = '';
+        else sel.selectedIndex = 0;
+        sel.dispatchEvent(new Event('change', { bubbles:true }));
+      }
+  
+      function clearMultiSelect(sel){
+        if (!sel) return;
+        Array.from(sel.options || []).forEach(o => o.selected = false);
+        sel.dispatchEvent(new Event('change', { bubbles:true }));
+      }
+  
+      function uncheckAll(selector){
+        document.querySelectorAll(selector).forEach(cb => {
+          if (cb && cb.checked) cb.checked = false;
+        });
+      }
+  
+      function hideAndClear(idWrap, idInput){
+        const w = document.getElementById(idWrap);
+        const i = document.getElementById(idInput);
+        if (w) w.style.display = 'none';
+        if (i) i.value = '';
+      }
+  
+      // Gruppen-Clear (für Chip-X)
+      function clearGroup(group){
+        switch(group){
+  
+          case 'price':
+            (document.getElementById('preis-von') || {}).value = '';
+            (document.getElementById('preis-bis') || {}).value = '';
+            break;
+  
+          case 'km':
+            (document.getElementById('km-von') || {}).value = '';
+            (document.getElementById('km-bis') || {}).value = '';
+            break;
+  
+          case 'ps':
+            (document.getElementById('leistung-von') || {}).value = '';
+            (document.getElementById('leistung-bis') || {}).value = '';
+            break;
+  
+          case 'ccm':
+            (document.getElementById('hubraum-von') || {}).value = '';
+            (document.getElementById('hubraum-bis') || {}).value = '';
+            break;
+  
+          case 'ez':
+            (document.getElementById('ez-von') || {}).value = '';
+            (document.getElementById('ez-bis') || {}).value = '';
+            setSelectToDefault(document.getElementById('ez-von-year'));
+            setSelectToDefault(document.getElementById('ez-von-month'));
+            setSelectToDefault(document.getElementById('ez-bis-year'));
+            setSelectToDefault(document.getElementById('ez-bis-month'));
+            break;
+  
+          case 'marke': {
+            const brandSel = document.getElementById('marke');
+            // SlimSelect (falls vorhanden)
+            if (typeof slimMarke !== 'undefined' && slimMarke && typeof slimMarke.setSelected === 'function') {
+              slimMarke.setSelected('');
+            } else {
+              if (brandSel) brandSel.value = '';
+              brandSel?.dispatchEvent(new Event('change', { bubbles:true }));
+            }
+  
+            // Modelle zurück + disable
+            if (typeof setModelEnabled === 'function') setModelEnabled(false);
+            if (typeof slimModell !== 'undefined' && slimModell && typeof slimModell.setSelected === 'function') {
+              try { slimModell.setSelected([ALL_MODELS_VALUE]); } catch {}
+            } else {
+              const mSel = document.getElementById('modell');
+              if (mSel) clearMultiSelect(mSel);
+            }
+            break;
+          }
+  
+          case 'modell': {
+            if (typeof slimModell !== 'undefined' && slimModell && typeof slimModell.setSelected === 'function') {
+              try { slimModell.setSelected([ALL_MODELS_VALUE]); } catch {}
+            } else {
+              const mSel = document.getElementById('modell');
+              if (mSel) clearMultiSelect(mSel);
+            }
+            break;
+          }
+  
+          case 'modVar':
+            (document.getElementById('modellausfuehrung') || {}).value = '';
+            break;
+  
+          case 'tueren':
+            setSelectToDefault(document.getElementById('tueren'));
+            break;
+  
+          case 'ort':
+            (document.getElementById('ort') || {}).value = '';
+            (document.getElementById('ort-lat') || {}).value = '';
+            (document.getElementById('ort-lon') || {}).value = '';
+            // Umkreis direkt mit leeren
+            setSelectToDefault(document.getElementById('umkreis'));
+            hideAndClear('custom-umkreis-wrap', 'custom-umkreis'); // falls du Wrapper hast
+            window.toggleCustomUmkreis?.('');
+            break;
+  
+          case 'umkreis':
+            setSelectToDefault(document.getElementById('umkreis'));
+            window.toggleCustomUmkreis?.('');
+            (document.getElementById('custom-umkreis') || {}).value = '';
+            break;
+  
+          case 'verbrauch':
+            setSelectToDefault(document.getElementById('verbrauch-select'));
+            (document.getElementById('verbrauch') || {}).value = '';
+            // Wrapper korrekt ausblenden
+            const vbWrap = document.getElementById('verbrauch-custom-wrap');
+            if (vbWrap) vbWrap.style.display = 'none';
+            break;
+  
+          case 'getriebe':
+            uncheckAll('input[type="checkbox"][value="Automatik"], input[type="checkbox"][value="Schaltgetriebe"]');
+            break;
+  
+          case 'antrieb':
+            uncheckAll('input[type="checkbox"][value="Frontantrieb"], input[type="checkbox"][value="Heckantrieb"], input[type="checkbox"][value="Allradantrieb"]');
+            break;
+  
+          case 'kraftstoff':
+            uncheckAll('.fuel-type-grid input[type="checkbox"]');
+            break;
+  
+          case 'schadstoff':
+            setSelectToDefault(document.getElementById('schadstoffklasse'));
+            window.toggleCustomSchadstoff?.('');
+            hideAndClear('', 'custom-schadstoff');
+            break;
+  
+          case 'plakette':
+            setSelectToDefault(document.getElementById('plakette'));
+            break;
+  
+          case 'partikelfilter':
+            const pf = document.getElementById('partikelfilter');
+            if (pf) pf.checked = false;
+            break;
+  
+          case 'merkmale':
+            const sh = document.getElementById('scheckheft');
+            if (sh) sh.checked = false;
+            break;
+  
+          case 'unfallfrei':
+            const uf = document.getElementById('unfallfrei');
+            if (uf) uf.checked = false;
+            break;
+  
+          case 'hu':
+            setSelectToDefault(document.getElementById('hu-gueltig'));
+            hideAndClear('custom-hu-wrapper', 'custom-hu');
+            break;
+  
+          case 'halter':
+            setSelectToDefault(document.getElementById('fahrzeughalter'));
+            break;
+  
+          case 'fahrzeugtyp':
+            uncheckAll('input[type="checkbox"][name="fahrzeugtyp"]');
+            break;
+  
+          case 'farbe':
+            uncheckAll('.color-selection input[type="checkbox"]');
+            break;
+  
+          default:
+            break;
+        }
+  
+        // Events auslösen, damit SlimSelect/Logik/UI sauber nachzieht
+        section.dispatchEvent(new Event('change', { bubbles:true }));
+        section.dispatchEvent(new Event('input',  { bubbles:true }));
+        update();
+      }
+  
+      function resetAll(){
+        // Inputs leeren
+        [
+          'preis-von','preis-bis','km-von','km-bis','leistung-von','leistung-bis',
+          'hubraum-von','hubraum-bis',
+          'modellausfuehrung','ort','ort-lat','ort-lon',
+          'custom-umkreis','verbrauch','custom-schadstoff','custom-hu',
+          'ez-von','ez-bis'
+        ].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.value = '';
+        });
+  
+        // Selects zurücksetzen (marke/modell separat sauber)
+        clearGroup('marke');
+  
+        document.querySelectorAll('.search-section select').forEach(sel => {
+          if (!sel || sel.id === 'marke' || sel.id === 'modell') return;
+          if (sel.multiple) clearMultiSelect(sel);
+          else setSelectToDefault(sel);
+        });
+  
+        // Checkboxen aus
+        uncheckAll('.search-section input[type="checkbox"]');
+  
+        // Wrapper / Custom-Felder schließen
+        window.toggleCustomUmkreis?.('');
+        window.toggleCustomSchadstoff?.('');
+        hideAndClear('custom-hu-wrapper', 'custom-hu');
+  
+        // Verbrauch-Custom zu
+        const vbWrap = document.getElementById('verbrauch-custom-wrap');
+        if (vbWrap) vbWrap.style.display = 'none';
+  
+        // Umkreis disabled-sync wird ohnehin über Ort-IIFE unten getriggert
+        const ortEl = document.getElementById('ort');
+        ortEl?.dispatchEvent(new Event('input', { bubbles:true }));
+  
+        update();
+      }
+  
+      function addChip(text, group){
+        const chip = document.createElement('div');
+        chip.className = 'av-chip';
+        chip.innerHTML = `
+          <span class="av-chip__text">${text}</span>
+          <button type="button" class="av-chip__x" aria-label="Filter entfernen">×</button>
+        `;
+        chip.querySelector('.av-chip__x')?.addEventListener('click', () => clearGroup(group));
+        chipsEl.appendChild(chip);
+      }
+  
+      function update(){
+        const qs = buildAdvancedQuery();
+        // Keys, die wir NICHT anzeigen wollen
+        qs.delete('ort_lat');
+        qs.delete('ort_lon');
+  
+        const get = (k) => qs.get(k);
+  
+        // Kombinations-Chips
+        chipsEl.innerHTML = '';
+        let count = 0;
+  
+        // Preis
+        const pMin = get('price_min');
+        const pMax = get('price_max');
+        if (pMin || pMax){
+          const left  = pMin ? fmtEUR(pMin) : '';
+          const right = pMax ? fmtEUR(pMax) : '';
+          addChip(`Preis: ${left || '…'} – ${right || '…'}`, 'price');
+          count++;
+        }
+  
+        // Kilometer
+        const kmMin = get('km_min');
+        const kmMax = get('km_max');
+        if (kmMin || kmMax){
+          const left  = kmMin ? `${fmtInt(kmMin)} km` : '';
+          const right = kmMax ? `${fmtInt(kmMax)} km` : '';
+          addChip(`Kilometer: ${left || '…'} – ${right || '…'}`, 'km');
+          count++;
+        }
+  
+        // Leistung
+        const psMin = get('ps_min');
+        const psMax = get('ps_max');
+        if (psMin || psMax){
+          const left  = psMin ? `${fmtInt(psMin)} PS` : '';
+          const right = psMax ? `${fmtInt(psMax)} PS` : '';
+          addChip(`Leistung: ${left || '…'} – ${right || '…'}`, 'ps');
+          count++;
+        }
+  
+        // Hubraum (falls vorhanden)
+        const cMin = get('ccm_min');
+        const cMax = get('ccm_max');
+        if (cMin || cMax){
+          const left  = cMin ? `${fmtInt(cMin)} cm³` : '';
+          const right = cMax ? `${fmtInt(cMax)} cm³` : '';
+          addChip(`Hubraum: ${left || '…'} – ${right || '…'}`, 'ccm');
+          count++;
+        }
+  
+        // Erstzulassung
+        const ezFrom = get('ezFrom');
+        const ezTo   = get('ezTo');
+        if (ezFrom || ezTo){
+          addChip(`Erstzulassung: ${ezFrom ? fmtYM(ezFrom) : '…'} – ${ezTo ? fmtYM(ezTo) : '…'}`, 'ez');
+          count++;
+        }
+  
+        // Einzel-Chips
+        const brand = get('marke');
+        if (brand){ addChip(`Marke: ${brand}`, 'marke'); count++; }
+  
+        const modell = get('modell');
+        if (modell){
+          const parts = modell.split(',').map(s => s.trim()).filter(Boolean);
+          const nice = parts.length > 3 ? `${parts.slice(0,3).join(', ')} +${parts.length-3}` : parts.join(', ');
+          addChip(`Modell: ${nice}`, 'modell'); count++;
+        }
+  
+        const modVar = get('modellausfuehrung');
+        if (modVar){ addChip(`Variante: ${modVar}`, 'modVar'); count++; }
+  
+        const tueren = get('tueren');
+        if (tueren){ addChip(`Türen: ${tueren}`, 'tueren'); count++; }
+  
+        const ort = get('ort');
+        if (ort){ addChip(`Ort: ${ort}`, 'ort'); count++; }
+  
+        const umkreis = get('umkreis');
+        if (umkreis){ addChip(`Umkreis: ${umkreis} km`, 'umkreis'); count++; }
+  
+        const vMax = get('verbrauch_max');
+        if (vMax){ addChip(`Verbrauch: ≤ ${String(vMax).replace('.', ',')} l/100 km`, 'verbrauch'); count++; }
+  
+        const getr = get('getriebe');
+        if (getr){ addChip(`Getriebe: ${getriebeLabel(getr)}`, 'getriebe'); count++; }
+  
+        const antrieb = get('antrieb');
+        if (antrieb){
+          const parts = antrieb.split(',').map(s => s.trim()).filter(Boolean);
+          addChip(`Antrieb: ${parts.join(', ')}`, 'antrieb');
+          count++;
+        }
+  
+        const kf = get('kraftstoff');
+        if (kf){
+          const parts = kf.split(',').map(s => s.trim()).filter(Boolean).map(fuelLabel);
+          const nice = parts.length > 3 ? `${parts.slice(0,3).join(', ')} +${parts.length-3}` : parts.join(', ');
+          addChip(`Kraftstoff: ${nice}`, 'kraftstoff');
+          count++;
+        }
+  
+        const sk = get('schadstoffklasse');
+        if (sk){ addChip(`Schadstoff: ${sk}`, 'schadstoff'); count++; }
+  
+        const pl = get('plakette');
+        if (pl){ addChip(`Plakette: ${pl}`, 'plakette'); count++; }
+  
+        const pf = get('partikelfilter');
+        if (pf){ addChip(`Partikelfilter`, 'partikelfilter'); count++; }
+  
+        const merkmale = get('merkmale');
+        if (merkmale){
+          const parts = merkmale.split(',').map(s => s.trim()).filter(Boolean);
+          addChip(`Merkmale: ${parts.join(', ')}`, 'merkmale');
+          count++;
+        }
+  
+        const uf = get('unfallfrei');
+        if (uf){ addChip(`Unfallfrei`, 'unfallfrei'); count++; }
+  
+        const hu = get('hu');
+        if (hu){ addChip(`HU: ${deHyphen(hu)}`, 'hu'); count++; }
+  
+        const halter = get('halter_max');
+        if (halter){ addChip(`Halter: ≤ ${halter}`, 'halter'); count++; }
+  
+        const ft = get('fahrzeugtyp');
+        if (ft){
+          const parts = ft.split(',').map(s => s.trim()).filter(Boolean);
+          const nice = parts.length > 3 ? `${parts.slice(0,3).join(', ')} +${parts.length-3}` : parts.join(', ');
+          addChip(`Fahrzeugtyp: ${nice}`, 'fahrzeugtyp');
+          count++;
+        }
+  
+        const farbe = get('farbe');
+        if (farbe){
+          const parts = farbe.split(',').map(s => s.trim()).filter(Boolean);
+          const nice = parts.length > 5 ? `${parts.slice(0,5).join(', ')} +${parts.length-5}` : parts.join(', ');
+          addChip(`Farbe: ${nice}`, 'farbe');
+          count++;
+        }
+  
+        // Anzeige
+        countEl.textContent = String(count);
+        if (count > 0){
+          bar.classList.add('is-visible');
+          document.body.classList.add('av-has-filterbar');
+        } else {
+          bar.classList.remove('is-visible');
+          document.body.classList.remove('av-has-filterbar');
+        }
+      }
+  
+      // Live-Updates
+      let raf = 0;
+      const schedule = () => {
+        cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(update);
+      };
+  
+      section.addEventListener('input', schedule, true);
+      section.addEventListener('change', schedule, true);
+  
+      // Reset Button
+      resetBtn.addEventListener('click', resetAll);
+  
+      // Initial
+      update();
+    })();
   
 
   function hyphenate(s){ return String(s).replace(/\s+/g,' ').replace(/\s*-\s*/g,'-'); }
