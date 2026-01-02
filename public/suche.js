@@ -1239,53 +1239,48 @@ function getCombinedConsumption(item) {
   const vMax  = Number.isFinite(uiMax) && uiMax > 0 ? uiMax
               : Number.isFinite(qpMax) && qpMax > 0 ? qpMax
               : NaN;
-
-  // Unfallfrei-Erkennung pro Item
-  function isItemAccidentFree(i) {
-    const raw = i?.raw || {};
-
-    // (1) Explizite Boolean-Felder
-    if (raw.unfallfrei === true || raw.verkauf_unfallfrei === true) return true;
-    if (raw.unfallfrei === false || raw.verkauf_unfallfrei === false) return false;
-
-    // (2) Unfallhistorie-Text (dein Ziel: "Unfallhistorie: keine" => TRUE)
-    const hist =
-      raw.unfallhistorie ??
-      raw.verkauf_unfallhistorie ??
-      raw.unfallHistorie ??
-      raw.accidentHistory ??
-      raw.accident_history ??
-      "";
-
-    if (hist) {
-      const s = norm(hist);
-
-      // "keine Angabe" / unbekannt => NICHT als unfallfrei zählen
-      if (/(keine\s*angabe|unbekannt|k\.a|n\/a)/.test(s)) return false;
-
-      // "Unfallhistorie: keine" / "Schadenhistorie: keine"
-      if (/\bkeine\b/.test(s) && /(unfall|historie|schaden)/.test(s)) return true;
-
-      // weitere positive Schreibweisen
-      if (/(unfallfrei|ohne\s*unfall|kein\s*unfall)/.test(s)) return true;
-
-      // negative Hinweise
-      if (/(unfall(?!frei)|unfallschaden|schaden|beschadigt|beschädigt|repariert|accident)/.test(s)) return false;
-    }
-
-    // (3) Fallback: Beschreibung/Ausstattung scannen
-    const text = norm([
-      raw.beschreibung,
-      ...(Array.isArray(raw.verkauf_ausstattung) ? raw.verkauf_ausstattung : []),
-      ...(Array.isArray(raw.ausstattung) ? raw.ausstattung : [])
-    ].filter(Boolean).join(" "));
-
-    if (/(unfallfrei|ohne\s*unfall|kein\s*unfall)/.test(text)) return true;
-    if (/(unfall(?!frei)|unfallschaden|schaden)/.test(text)) return false;
-
-    // unbekannt -> bei aktivem Unfallfrei-Filter ausschließen
-    return false;
-  }
+              function isItemAccidentFree(raw = {}) {
+                // 1) Explizite boolean-Felder (falls irgendwo so gespeichert)
+                const boolTrue =
+                  isTruthyRaw(raw.unfallfrei) ||
+                  isTruthyRaw(raw.verkauf_unfallfrei) ||
+                  isTruthyRaw(raw.accidentFree) ||
+                  isTruthyRaw(raw.verkauf_accidentFree);
+              
+                if (boolTrue) return true;
+              
+                // 2) Unfall-Textfeld (bei dir ist es praktisch "unfall", z.B. "keine")
+                const hist =
+                  raw.unfall ??
+                  raw.unfallhistorie ??
+                  raw.unfallHistorie ??
+                  raw.verkauf_unfallhistorie ??
+                  raw.verkauf_unfallHistorie ??
+                  "";
+              
+                const s0 = String(hist || "").trim();
+                if (!s0) return false;
+              
+                const s = norm(s0).replace(/\s+/g, " ").trim();
+                if (!s) return false;
+              
+                // "keine Angabe" / unbekannt NICHT als unfallfrei werten
+                if (/(keine angabe|unbekannt|nicht bekannt|\bk\.?\s*a\.?\b)/.test(s)) return false;
+              
+                // 3) WICHTIG: "keine" alleine => unfallfrei (dein Hauptfall)
+                if (/^(keine|nein)$/i.test(s0.trim())) return true;
+              
+                // 4) Fälle wie "Unfallhistorie: keine"
+                if (/\bkeine\b/.test(s) && /(unfall|historie|schaden)/.test(s)) return true;
+              
+                // 5) Allgemeine unfallfrei-Formulierungen
+                if (/\bunfallfrei\b/.test(s)) return true;
+                if (/\bohne\b.*\b(unfall|schaden)\b/.test(s)) return true;
+                if (/\bkein(e)?\b.*\b(unfall|schaden)\b/.test(s)) return true;
+              
+                return false;
+              }
+              
 
   // --- Filtern ---
   return items.filter(i => {
