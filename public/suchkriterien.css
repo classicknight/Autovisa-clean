@@ -1569,13 +1569,12 @@ img, video, canvas {
 
 
 
-
 /* =========================
-   Active Filters Bar (Chips) – Autovisa (TOP / sticky unter Navbar)
+   Active Filters Bar (Chips) – Autovisa (TOP / sticky dynamisch)
    ========================= */
    .av-filterbar{
     position: sticky;
-    top: calc(var(--av-nav-height, 96px) + 12px);
+    top: var(--av-filterbar-top, 12px); /* ✅ dynamisch: unter Navbar ODER ganz oben */
     margin: 12px auto 16px;
   
     width: min(1100px, calc(100% - 28px));

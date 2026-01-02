@@ -1213,7 +1213,7 @@ if (schadSel === "custom") {
     return qs;
   }
 /* =========================
-   Active Filters Bar (Chips) – TOP sticky unter Navbar
+   Active Filters Bar (Chips) – TOP sticky dynamisch (unter Navbar wenn sichtbar)
    ========================= */
    (function initActiveFiltersBar(){
     const section = document.querySelector('.search-section');
@@ -1238,14 +1238,44 @@ if (schadSel === "custom") {
     if (nav) nav.insertAdjacentElement('afterend', bar);
     else document.body.prepend(bar);
   
-    // ✅ Navbar-Höhe als CSS-Variable setzen, damit top exakt stimmt
-    function syncNavHeight(){
-      const n = document.querySelector('.navbar');
-      const h = n ? Math.round(n.getBoundingClientRect().height) : 96;
-      document.documentElement.style.setProperty('--av-nav-height', h + 'px');
+    // ✅ Dynamischer "top"-Offset:
+    // - Navbar sichtbar: unter Navbar
+    // - Navbar weg: ganz oben (12px)
+    const BASE_TOP_GAP = 12;
+  
+    function setFilterbarTop(navVisible){
+      if (!nav || !navVisible){
+        document.documentElement.style.setProperty('--av-filterbar-top', BASE_TOP_GAP + 'px');
+        return;
+      }
+      const h = Math.round(nav.getBoundingClientRect().height) || 96;
+      document.documentElement.style.setProperty('--av-filterbar-top', (h + BASE_TOP_GAP) + 'px');
     }
-    syncNavHeight();
-    window.addEventListener('resize', syncNavHeight);
+  
+    // Initial setzen (falls Navbar da ist)
+    setFilterbarTop(!!nav);
+  
+    // Bei Resize neu berechnen (Navbar-Höhe kann variieren)
+    window.addEventListener('resize', () => setFilterbarTop(true));
+  
+    // Navbar-Sichtbarkeit beobachten
+    if (nav && 'IntersectionObserver' in window){
+      const io = new IntersectionObserver((entries) => {
+        const e = entries[0];
+        const visible = !!(e && e.isIntersecting);
+        setFilterbarTop(visible);
+      }, { threshold: [0, 0.01] });
+  
+      io.observe(nav);
+    } else {
+      // Fallback: scroll-check
+      window.addEventListener('scroll', () => {
+        if (!nav) return;
+        const r = nav.getBoundingClientRect();
+        const visible = r.bottom > 0 && r.top < window.innerHeight;
+        setFilterbarTop(visible);
+      }, { passive: true });
+    }
   
     const countEl = bar.querySelector('#avFilterCount');
     const chipsEl = bar.querySelector('#avFilterChips');
@@ -1266,7 +1296,6 @@ if (schadSel === "custom") {
       return `${m}/${y}`;
     };
   
-    // Anzeige-Mappings
     const fuelLabel = (t) => {
       const k = String(t || '').trim().toLowerCase();
       const map = {
@@ -1324,7 +1353,6 @@ if (schadSel === "custom") {
       if (i) i.value = '';
     }
   
-    // Gruppen-Clear (für Chip-X)
     function clearGroup(group){
       switch(group){
   
@@ -1433,7 +1461,6 @@ if (schadSel === "custom") {
         case 'schadstoff':
           setSelectToDefault(document.getElementById('schadstoffklasse'));
           window.toggleCustomSchadstoff?.('');
-          // falls du nur input hast:
           (document.getElementById('custom-schadstoff') || {}).value = '';
           break;
   
@@ -1660,13 +1687,10 @@ if (schadSel === "custom") {
         count++;
       }
   
-      // Anzeige (ohne body padding-class)
+      // Anzeige
       countEl.textContent = String(count);
-      if (count > 0){
-        bar.classList.add('is-visible');
-      } else {
-        bar.classList.remove('is-visible');
-      }
+      if (count > 0) bar.classList.add('is-visible');
+      else bar.classList.remove('is-visible');
     }
   
     // Live-Updates
@@ -1685,6 +1709,7 @@ if (schadSel === "custom") {
     // Initial
     update();
   })();
+  
   
 
   function hyphenate(s){ return String(s).replace(/\s+/g,' ').replace(/\s*-\s*/g,'-'); }
