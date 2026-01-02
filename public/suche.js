@@ -1083,8 +1083,8 @@ function getCombinedConsumption(item) {
   const driveEl           = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
 
   const accidentFreeEl =
-  document.getElementById("unfallfrei") ||
-  document.getElementById("accidentFree");
+    document.getElementById("unfallfrei") ||
+    document.getElementById("accidentFree");
 
   const inspectionUntilEl = document.getElementById("inspectionUntil");     // HU bis (YYYY-MM)
   const huMinMonthsEl     = document.getElementById("huMinMonths")          // optionales Feld "HU mind. (Monate)"
@@ -1127,7 +1127,7 @@ function getCombinedConsumption(item) {
     const y = parseInt(yStr, 10), m = parseInt(mStr, 10);
     if (!Number.isFinite(y) || !Number.isFinite(m)) return NaN;
     const now = new Date();
-   return (y - now.getFullYear()) * 12 + (m - (now.getMonth() + 1));
+    return (y - now.getFullYear()) * 12 + (m - (now.getMonth() + 1));
   }
 
   // URL aktuell lesen (für Fallbacks + CSV)
@@ -1180,20 +1180,22 @@ function getCombinedConsumption(item) {
     splitCsv(sp.get("antriebsart") || sp.get("antrieb")).map(driveCanon).forEach(t => t && driveSet.add(t));
   }
 
-  const accidentFree = !!accidentFreeEl?.checked;
+  // Unfallfrei: UI-Checkbox ODER URL-Param (unfallfrei=1 / accidentFree=1)
+  const accidentFree =
+    !!accidentFreeEl?.checked ||
+    isTruthyRaw(sp.get("unfallfrei") || sp.get("accidentFree"));
 
   // HU: UI & URL-Fallbacks
   const inspectionUntilUI = inspectionUntilEl?.value || ""; // erwartet YYYY-MM
-  // - hu_bis oder inspectionUntil aus URL → mind. gültig bis Datum
-// - hu_bis / inspectionUntil / hu (Text) -> mind. gültig bis Datum
-const huUntilEff = normalizeYMAny(
-  inspectionUntilUI ||
-  sp.get("hu_bis") ||
-  sp.get("inspectionUntil") ||
-  sp.get("hu") ||        // falls als Freitext gesetzt
-  "",
-  12 // Jahresangabe -> Dezember
-);
+  // - hu_bis / inspectionUntil / hu (Text) -> mind. gültig bis Datum
+  const huUntilEff = normalizeYMAny(
+    inspectionUntilUI ||
+    sp.get("hu_bis") ||
+    sp.get("inspectionUntil") ||
+    sp.get("hu") ||        // falls als Freitext gesetzt
+    "",
+    12 // Jahresangabe -> Dezember
+  );
 
   // - hu_min_monate (UI oder URL)
   const huMinMonths = (() => {
@@ -1237,6 +1239,53 @@ const huUntilEff = normalizeYMAny(
   const vMax  = Number.isFinite(uiMax) && uiMax > 0 ? uiMax
               : Number.isFinite(qpMax) && qpMax > 0 ? qpMax
               : NaN;
+
+  // Unfallfrei-Erkennung pro Item
+  function isItemAccidentFree(i) {
+    const raw = i?.raw || {};
+
+    // (1) Explizite Boolean-Felder
+    if (raw.unfallfrei === true || raw.verkauf_unfallfrei === true) return true;
+    if (raw.unfallfrei === false || raw.verkauf_unfallfrei === false) return false;
+
+    // (2) Unfallhistorie-Text (dein Ziel: "Unfallhistorie: keine" => TRUE)
+    const hist =
+      raw.unfallhistorie ??
+      raw.verkauf_unfallhistorie ??
+      raw.unfallHistorie ??
+      raw.accidentHistory ??
+      raw.accident_history ??
+      "";
+
+    if (hist) {
+      const s = norm(hist);
+
+      // "keine Angabe" / unbekannt => NICHT als unfallfrei zählen
+      if (/(keine\s*angabe|unbekannt|k\.a|n\/a)/.test(s)) return false;
+
+      // "Unfallhistorie: keine" / "Schadenhistorie: keine"
+      if (/\bkeine\b/.test(s) && /(unfall|historie|schaden)/.test(s)) return true;
+
+      // weitere positive Schreibweisen
+      if (/(unfallfrei|ohne\s*unfall|kein\s*unfall)/.test(s)) return true;
+
+      // negative Hinweise
+      if (/(unfall(?!frei)|unfallschaden|schaden|beschadigt|beschädigt|repariert|accident)/.test(s)) return false;
+    }
+
+    // (3) Fallback: Beschreibung/Ausstattung scannen
+    const text = norm([
+      raw.beschreibung,
+      ...(Array.isArray(raw.verkauf_ausstattung) ? raw.verkauf_ausstattung : []),
+      ...(Array.isArray(raw.ausstattung) ? raw.ausstattung : [])
+    ].filter(Boolean).join(" "));
+
+    if (/(unfallfrei|ohne\s*unfall|kein\s*unfall)/.test(text)) return true;
+    if (/(unfall(?!frei)|unfallschaden|schaden)/.test(text)) return false;
+
+    // unbekannt -> bei aktivem Unfallfrei-Filter ausschließen
+    return false;
+  }
 
   // --- Filtern ---
   return items.filter(i => {
@@ -1297,11 +1346,9 @@ const huUntilEff = normalizeYMAny(
       if (!dt || !driveSet.has(dt)) return false;
     }
 
-    // Unfallfrei
+    // Unfallfrei (inkl. "Unfallhistorie: keine")
     if (accidentFree) {
-      const flag = i.raw?.unfallfrei === true ||
-        (Array.isArray(i.raw?.verkauf_ausstattung) && i.raw.verkauf_ausstattung.some(a => norm(a).includes("unfall")));
-      if (!flag) return false;
+      if (!isItemAccidentFree(i)) return false;
     }
 
     // --- HU-Filter ---
@@ -1330,16 +1377,15 @@ const huUntilEff = normalizeYMAny(
       }
     }
 
-  // Ort: nur clientseitiger Textabgleich, WENN KEIN Umkreis gesetzt ist.
-// Mit Umkreis übernimmt das Backend das komplette Geo-Filtering.
-const ortParam = sp.get("ort") || "";
-const hasRadius = !!sp.get("umkreis");
+    // Ort: nur clientseitiger Textabgleich, WENN KEIN Umkreis gesetzt ist.
+    // Mit Umkreis übernimmt das Backend das komplette Geo-Filtering.
+    const ortParam = sp.get("ort") || "";
+    const hasRadius = !!sp.get("umkreis");
 
-if (ortParam && !hasRadius) {
-  const standort = norm(i.standort || "");
-  if (!standort.includes(norm(ortParam))) return false;
-}
-
+    if (ortParam && !hasRadius) {
+      const standort = norm(i.standort || "");
+      if (!standort.includes(norm(ortParam))) return false;
+    }
 
     // Verbrauch (max)
     if (Number.isFinite(vMax) && vMax > 0) {
@@ -1387,6 +1433,7 @@ if (ortParam && !hasRadius) {
     return true;
   });
 }
+
 
 
 
