@@ -1131,74 +1131,163 @@ async function fetchInserate(page = 1, limit = 9) {
   return res.json(); // { page, limit, total, items }
 }
 
-// ===== Medien-Slider (wie auf Suche) =====
 function initMediaSlider(mediaContainer) {
   if (!mediaContainer) return;
+  if (mediaContainer.dataset.sliderInit === "1") return;   // ✅ verhindert doppelte Listener
+  mediaContainer.dataset.sliderInit = "1";
+
   const slidesWrapper = mediaContainer.querySelector(".slides");
   if (!slidesWrapper) return;
 
   const slides = Array.from(slidesWrapper.children);
+  if (slides.length <= 1) return; // nichts zu swipen
+
+  // Basics
+  slidesWrapper.style.display = "flex";
+  slidesWrapper.style.willChange = "transform";
+  slides.forEach(s => { s.style.flex = "0 0 100%"; s.style.minWidth = "100%"; });
+
+  // iOS: Image-Drag verhindern
+  slidesWrapper.querySelectorAll("img").forEach(img => {
+    img.draggable = false;
+    img.addEventListener("dragstart", (e) => e.preventDefault());
+  });
+
   const state = {
-    currentIndex: 0,
-    isDragging: false,
-    startPos: 0,
-    currentTranslate: 0,
+    index: 0,
+    dragging: false,
+    axis: null,            // null | "x" | "y"
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    startT: 0,
     prevTranslate: 0,
-    animationID: null,
+    currentTranslate: 0,
+    suppressClick: false,
   };
 
-  slidesWrapper.style.display = "flex";
-  slidesWrapper.style.transition = "transform 0.3s ease";
-  slidesWrapper.style.willChange = "transform";
-  slides.forEach(slide => { slide.style.flex = "0 0 100%"; slide.style.minWidth = "100%"; });
+  const width = () => Math.max(1, mediaContainer.clientWidth);
 
-  const getX = (ev) => (typeof ev.clientX === "number" ? ev.clientX : (ev.touches && ev.touches[0]?.clientX) || 0);
+  function setTranslate(x, animate) {
+    // CSS-Transition nutzen, nur während Drag deaktivieren
+    slidesWrapper.style.transition = animate ? "" : "none";
+    slidesWrapper.style.transform = `translateX(${x}px)`;
+  }
 
-  function setSliderPosition() { slidesWrapper.style.transform = `translateX(${state.currentTranslate}px)`; }
-  function animation() { setSliderPosition(); if (state.isDragging) requestAnimationFrame(animation); }
-
-  function pointerDown(ev) {
-    state.isDragging = true;
-    state.startPos = getX(ev);
-    state.animationID = requestAnimationFrame(animation);
-  }
-  function pointerMove(ev) {
-    if (!state.isDragging) return;
-    const currentPosition = getX(ev);
-    state.currentTranslate = state.prevTranslate + currentPosition - state.startPos;
-  }
-  function pointerUp() {
-    if (!state.isDragging) return;
-    state.isDragging = false;
-    cancelAnimationFrame(state.animationID);
-    const movedBy = state.currentTranslate - state.prevTranslate;
-    if (movedBy < -50 && state.currentIndex < slides.length - 1) state.currentIndex++;
-    else if (movedBy > 50 && state.currentIndex > 0) state.currentIndex--;
-    updateSlidePosition();
-  }
-  function updateSlidePosition() {
-    const width = mediaContainer.clientWidth;
-    state.currentTranslate = -state.currentIndex * width;
+  function snap() {
+    state.currentTranslate = -state.index * width();
     state.prevTranslate = state.currentTranslate;
-    setSliderPosition();
+    setTranslate(state.currentTranslate, true);
   }
 
-  ["pointerdown", "touchstart", "mousedown"].forEach(ev => slidesWrapper.addEventListener(ev, pointerDown));
-  ["pointermove", "touchmove", "mousemove"].forEach(ev => slidesWrapper.addEventListener(ev, pointerMove));
-  ["pointerup", "pointerleave", "pointercancel", "touchend", "mouseup", "mouseleave"].forEach(ev => slidesWrapper.addEventListener(ev, pointerUp));
+  function onDown(e) {
+    // nur linke Maustaste (Desktop)
+    if (e.pointerType === "mouse" && e.button !== 0) return;
 
+    // Buttons/Pfeile sollen nicht drag starten
+    if (e.target.closest(".media-arrow")) return;
+
+    state.dragging = true;
+    state.axis = null;
+    state.pointerId = e.pointerId;
+    state.startX = e.clientX;
+    state.startY = e.clientY;
+    state.startT = performance.now();
+    state.suppressClick = false;
+
+    try { slidesWrapper.setPointerCapture(e.pointerId); } catch {}
+    setTranslate(state.prevTranslate, false);
+  }
+
+  function onMove(e) {
+    if (!state.dragging) return;
+    if (state.pointerId != null && e.pointerId !== state.pointerId) return;
+
+    const dx = e.clientX - state.startX;
+    const dy = e.clientY - state.startY;
+
+    // ✅ Direction Lock
+    if (!state.axis) {
+      const ax = Math.abs(dx);
+      const ay = Math.abs(dy);
+      if (ax < 8 && ay < 8) return;
+
+      if (ax > ay * 1.2) state.axis = "x";
+      else {
+        state.axis = "y";
+        // vertikal scrollen -> Drag abbrechen
+        state.dragging = false;
+        state.pointerId = null;
+        return;
+      }
+    }
+
+    if (state.axis === "x") {
+      // ✅ wichtig für iOS: nicht-passiv + preventDefault
+      e.preventDefault();
+
+      state.currentTranslate = state.prevTranslate + dx;
+      setTranslate(state.currentTranslate, false);
+
+      if (Math.abs(dx) > 10) state.suppressClick = true;
+    }
+  }
+
+  function onUp() {
+    if (!state.dragging) return;
+
+    state.dragging = false;
+
+    const dx = state.currentTranslate - state.prevTranslate;
+    const dt = Math.max(1, performance.now() - state.startT);
+    const v = dx / dt;                 // px/ms
+    const flick = Math.abs(v) > 0.6;   // ✅ “Flick” Schwelle
+    const thresh = width() * 0.18;     // ✅ prozentual, fühlt sich auf iPad besser an
+
+    if ((dx < -thresh || (flick && v < -0.6)) && state.index < slides.length - 1) state.index++;
+    else if ((dx > thresh || (flick && v > 0.6)) && state.index > 0) state.index--;
+
+    snap();
+
+    // Click-Suppression kurz halten (sonst öffnet die Karte beim Swipen)
+    if (state.suppressClick) {
+      const until = Date.now() + 350;
+      state._blockUntil = until;
+      setTimeout(() => { state._blockUntil = 0; }, 360);
+    }
+  }
+
+  // Pointer Events only (sauber auf iOS/iPadOS)
+  slidesWrapper.addEventListener("pointerdown", onDown);
+  slidesWrapper.addEventListener("pointermove", onMove, { passive: false });
+  slidesWrapper.addEventListener("pointerup", onUp);
+  slidesWrapper.addEventListener("pointercancel", onUp);
+  slidesWrapper.addEventListener("pointerleave", onUp);
+
+  // ✅ verhindert “Karte öffnet” nach Swipe
+  slidesWrapper.addEventListener("click", (e) => {
+    if (state._blockUntil && Date.now() < state._blockUntil) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
+
+  // Pfeile (stopPropagation ist wichtig wegen Card-Click)
   mediaContainer.querySelector(".media-arrow.right")?.addEventListener("click", (e) => {
     e.stopPropagation();
-    if (state.currentIndex < slides.length - 1) { state.currentIndex++; updateSlidePosition(); }
+    if (state.index < slides.length - 1) { state.index++; snap(); }
   });
   mediaContainer.querySelector(".media-arrow.left")?.addEventListener("click", (e) => {
     e.stopPropagation();
-    if (state.currentIndex > 0) { state.currentIndex--; updateSlidePosition(); }
+    if (state.index > 0) { state.index--; snap(); }
   });
 
-  window.addEventListener("resize", updateSlidePosition);
-  updateSlidePosition();
-}async function loadHomeListings() {
+  window.addEventListener("resize", snap);
+  snap();
+}
+
+
+async function loadHomeListings() {
   const container = document.getElementById("homeResults");
   if (!container) return;
 

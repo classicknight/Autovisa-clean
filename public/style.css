@@ -2147,3 +2147,30 @@ img, video, canvas {
     font-size: 12.5px;
   }
 }
+
+
+
+
+
+
+
+
+
+
+/* iOS/iPad: bessere Swipe-Priorität */
+.media-container,
+.media-container .slides,
+.media-container .slide{
+  touch-action: pan-y;              /* vertikales Scrollen ok, horizontal wird custom */
+}
+
+/* kein “Bild ziehen” */
+.media-container img{
+  -webkit-user-drag: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* optional (Desktop-Feeling) */
+.media-container .slides{ cursor: grab; }
+.media-container .slides:active{ cursor: grabbing; }
