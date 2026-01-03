@@ -1199,7 +1199,6 @@ function initMediaSlider(mediaContainer) {
   window.addEventListener("resize", updateSlidePosition);
   updateSlidePosition();
 }
-
 async function loadHomeListings() {
   const container = document.getElementById("homeResults");
   if (!container) return;
@@ -1215,8 +1214,48 @@ async function loadHomeListings() {
       return;
     }
 
+    // =========================
+    // Dealer Rating Helpers (nur Startseite)
+    // =========================
+    const fmtRating = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n.toFixed(1).replace(".", ",") : "";
+    };
+
+    const starsHTML = (avg) => {
+      const a = Number(avg);
+      if (!Number.isFinite(a) || a <= 0) return "";
+
+      let out = `<span class="stars" aria-hidden="true">`;
+      for (let i = 1; i <= 5; i++) {
+        // simple Thresholds für full/half/empty
+        if (a >= i - 0.25) out += `<i class="fa-solid fa-star"></i>`;
+        else if (a >= i - 0.75) out += `<i class="fa-solid fa-star-half-stroke"></i>`;
+        else out += `<i class="fa-regular fa-star"></i>`;
+      }
+      out += `</span>`;
+      return out;
+    };
+
+    const ratingBlock = ({ isHaendler, avg, count }) => {
+      const c = Number(count);
+      const a = Number(avg);
+      if (!isHaendler) return "";
+      if (!Number.isFinite(c) || c <= 0) return "";
+      if (!Number.isFinite(a) || a <= 0) return "";
+
+      const label = `Bewertung ${fmtRating(a)} von 5 Sternen (${c} Bewertungen)`;
+      return `
+        <div class="dealer-rating" aria-label="${label}">
+          ${starsHTML(a)}
+          <span class="dealer-rating__value">${fmtRating(a)}</span>
+          <span class="dealer-rating__count">(${c})</span>
+        </div>
+      `;
+    };
+
     container.innerHTML = "";
-    list.forEach(inserat => {
+    list.forEach((inserat) => {
       const imgs  = Array.isArray(inserat.images) ? inserat.images : [];
       const tel   = sanitizePhone(inserat.telefon);
       const titel = inserat.titel || "Unbekanntes Fahrzeug";
@@ -1239,15 +1278,23 @@ async function loadHomeListings() {
       const rawType = String(inserat.seller?.type || inserat.verkauf_verkaeufer || "").toLowerCase();
       const isHaendler =
         rawType === "haendler" || rawType === "händler" || rawType.includes("händ") || rawType.includes("haend");
+
       const sellerName =
         inserat.seller?.name || inserat.verkauf_name || (isHaendler ? "Händler" : "Privatanbieter");
+
       const sellerLogo =
         inserat.seller?.logoUrl ||
         inserat.raw?.seller?.logoUrl ||
         inserat.logoUrl ||
         "";
+
       const sellerLocation =
         inserat.standort || [inserat.plz, inserat.ort].filter(Boolean).join(" ") || "Standort nicht angegeben";
+
+      // ✅ NEU: Rating-Daten (vom Backend mitgeliefert)
+      const ratingAvg   = inserat.seller?.ratingAvg;
+      const ratingCount = inserat.seller?.ratingCount;
+      const dealerRatingHTML = ratingBlock({ isHaendler, avg: ratingAvg, count: ratingCount });
 
       const card = document.createElement("div");
       card.className = "car-card"; // vertikale Karte auf der Startseite
@@ -1295,6 +1342,7 @@ async function loadHomeListings() {
               </div>
               <div class="dealer-meta">
                 <div class="dealer-name">${sellerName}</div>
+                ${dealerRatingHTML}
                 <div class="dealer-location">${sellerLocation}</div>
               </div>
             </div>
@@ -1326,11 +1374,15 @@ async function loadHomeListings() {
 
       if (sellerLogo) {
         try { img.loading = "eager"; } catch {}
-        img.addEventListener("load", () => { if (img.naturalWidth > 0) avatar.classList.add("has-logo"); }, { once: true });
+        img.addEventListener("load", () => {
+          if (img.naturalWidth > 0) avatar.classList.add("has-logo");
+        }, { once: true });
+
         img.addEventListener("error", () => {
           avatar.classList.remove("has-logo");
           img.removeAttribute("src");
         }, { once: true });
+
         img.src = sellerLogo;
         // Cache-Fall
         if (img.complete && img.naturalWidth > 0) avatar.classList.add("has-logo");
@@ -1354,6 +1406,7 @@ async function loadHomeListings() {
     container.innerHTML = "<p>🚫 Fehler beim Laden der Inserate.</p>";
   }
 }
+
 
 // Footer-Jahr sicher setzen
 document.addEventListener("DOMContentLoaded", () => {

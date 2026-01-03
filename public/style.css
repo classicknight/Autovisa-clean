@@ -2096,3 +2096,60 @@ img, video, canvas {
   transform: translateX(2px);
   transition: transform .18s ease;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ===== Dealer Rating (Stars) ===== */
+.dealer-rating{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 2px;
+  font-size: 13px;
+  line-height: 1;
+  color: rgba(255,255,255,0.85);
+}
+
+.dealer-rating .stars{
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: rgba(0,255,204,0.95);
+}
+
+.dealer-rating .stars i{
+  font-size: 13px;
+  transform: translateY(0.5px);
+}
+
+.dealer-rating__value{
+  font-weight: 700;
+  color: rgba(255,255,255,0.92);
+}
+
+.dealer-rating__count{
+  color: rgba(255,255,255,0.70);
+}
+
+@media (max-width: 700px){
+  .dealer-rating{
+    font-size: 12.5px;
+    gap: 6px;
+  }
+  .dealer-rating .stars i{
+    font-size: 12.5px;
+  }
+}

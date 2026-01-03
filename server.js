@@ -1303,52 +1303,95 @@ app.post("/reset-password", async (req, res) => {
     return res.status(500).json({ error: "Interner Fehler." });
   }
 });
-
-/* =========================
-   Helper: Seller-Fallback für Aggregationen
-========================= */
 function projectWithSeller() {
   return [
     {
       $lookup: {
         from: "nutzer",
-        let: { vid: "$verkaeuferId" },
-        pipeline: [
-          { $match: { $expr: { $eq: ["$id", "$$vid"] } } },
-          { $project: { _id: 0, id: 1, role: 1, firma: 1, name: 1, logoUrl: 1 } }
-        ],
-        as: "sellerUser"
-      }
+        localField: "sellerId",
+        foreignField: "_id",
+        as: "_sellerDoc",
+      },
     },
-    { $unwind: { path: "$sellerUser", preserveNullAndEmptyArrays: true } },
+
+    // ✅ NEU: Bewertungen für den Seller laden (falls vorhanden)
+    {
+      $lookup: {
+        from: "bewertungen",
+        let: { sid: "$sellerId" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$haendlerId", "$$sid"] },
+                  { $gte: ["$rating", 1] },
+                  { $lte: ["$rating", 5] },
+                ],
+              },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              avg: { $avg: "$rating" },
+              count: { $sum: 1 },
+            },
+          },
+        ],
+        as: "_sellerRating",
+      },
+    },
+
     {
       $addFields: {
         seller: {
-          $ifNull: [
-            "$seller",
-            {
-              type:   { $ifNull: ["$sellerUser.role", "privat"] },
-              id:     { $ifNull: ["$sellerUser.id",   "" ] },
-              name:   {
-                $ifNull: [
-                  "$sellerUser.firma",
-                  { $ifNull: ["$sellerUser.name", "Händler"] }
-                ]
+          $let: {
+            vars: {
+              s: { $arrayElemAt: ["$_sellerDoc", 0] },
+              r: { $arrayElemAt: ["$_sellerRating", 0] },
+            },
+            in: {
+              type: {
+                $cond: [
+                  {
+                    $eq: [
+                      { $toLower: { $ifNull: ["$$s.role", "privat"] } },
+                      "haendler",
+                    ],
+                  },
+                  "haendler",
+                  "privat",
+                ],
               },
-              logoUrl:{ $ifNull: ["$sellerUser.logoUrl", ""] }
-            }
-          ]
-        }
-      }
+              id: "$sellerId",
+              name: { $ifNull: ["$$s.name", "$verkauf_name"] },
+              logoUrl: { $ifNull: ["$$s.logoUrl", "$seller.logoUrl"] },
+
+              // ✅ NEU:
+              ratingCount: { $ifNull: ["$$r.count", 0] },
+              ratingAvg: {
+                $cond: [
+                  { $gt: [{ $ifNull: ["$$r.count", 0] }, 0] },
+                  { $round: ["$$r.avg", 1] },
+                  null,
+                ],
+              },
+            },
+          },
+        },
+      },
     },
+
     {
       $project: {
-        token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0,
-        sellerUser: 0
-      }
-    }
+        _sellerDoc: 0,
+        _sellerRating: 0,
+      },
+    },
   ];
 }
+
 
 /* =========================
    Private Liste veröffentlichter Inserate des Verkäufers
