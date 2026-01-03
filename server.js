@@ -1304,7 +1304,7 @@ app.post("/reset-password", async (req, res) => {
   }
 });function projectWithSeller() {
   return [
-    // 1) ✅ Seller-ID robust einsammeln (deine Inserate haben oft "verkaeuferId")
+    // 1) Seller-ID robust einsammeln
     {
       $addFields: {
         _sellerIdRaw: {
@@ -1313,36 +1313,26 @@ app.post("/reset-password", async (req, res) => {
             "$seller.id",
             "$seller._id",
             "$sellerIdObj",
-            "$verkaeuferId",   // ✅ wichtig (Publish speichert das so)
-            "$nutzerId"        // optionaler Alt-/Fallback
+            "$verkaeuferId",  // wichtig (Publish speichert oft so)
+            "$nutzerId"       // optionaler Alt-Fallback
           ]
         }
       }
     },
 
-    // 2) ✅ in ObjectId + String umwandeln (für Lookups & String-Fälle)
+    // 2) In ObjectId + String umwandeln (robust, ohne Pipeline-Crash)
     {
       $addFields: {
         sellerIdObj: {
-          $convert: {
-            input: "$_sellerIdRaw",
-            to: "objectId",
-            onError: null,
-            onNull: null
-          }
+          $convert: { input: "$_sellerIdRaw", to: "objectId", onError: null, onNull: null }
         },
         sellerIdStr: {
-          $convert: {
-            input: "$_sellerIdRaw",
-            to: "string",
-            onError: "",
-            onNull: ""
-          }
+          $convert: { input: "$_sellerIdRaw", to: "string", onError: "", onNull: "" }
         }
       }
     },
 
-    // 3) ✅ Seller-Dokument laden (nutzer._id ist ObjectId)
+    // 3) Seller-Dokument laden (nutzer._id ist ObjectId)
     {
       $lookup: {
         from: "nutzer",
@@ -1355,11 +1345,11 @@ app.post("/reset-password", async (req, res) => {
       }
     },
 
-    // 4) ✅ Bewertungen laden (NEU: sellerId ODER haendlerId, robust für String/ObjectId)
+    // 4) Bewertungen laden (robust: sellerId/haendlerId können String oder ObjectId sein)
     {
       $lookup: {
         from: "bewertungen",
-        let: { sidObj: "$sellerIdObj", sidStr: "$sellerIdStr" },
+        let: { sidStr: "$sellerIdStr" },
         pipeline: [
           {
             $match: {
@@ -1367,22 +1357,36 @@ app.post("/reset-password", async (req, res) => {
                 $and: [
                   {
                     $or: [
-                      // ✅ aktueller Standard: bewertungen.sellerId ist String
-                      { $eq: ["$sellerId", "$$sidStr"] },
-
-                      // ✅ Fallback: ältere Daten könnten haendlerId haben (ObjectId)
-                      { $eq: ["$haendlerId", "$$sidObj"] },
-
-                      // ✅ Fallback: haendlerId als String gespeichert
-                      { $eq: [{ $toString: "$haendlerId" }, "$$sidStr"] },
-
-                      // ✅ ganz selten: sellerId doch als ObjectId gespeichert
-                      { $eq: ["$sellerId", "$$sidObj"] },
-                      { $eq: [{ $toString: "$sellerId" }, "$$sidStr"] }
+                      // Neues Schema: sellerId
+                      {
+                        $eq: [
+                          { $convert: { input: "$sellerId", to: "string", onError: "", onNull: "" } },
+                          "$$sidStr"
+                        ]
+                      },
+                      // Altes Schema: haendlerId
+                      {
+                        $eq: [
+                          { $convert: { input: "$haendlerId", to: "string", onError: "", onNull: "" } },
+                          "$$sidStr"
+                        ]
+                      }
                     ]
                   },
-                  { $gte: ["$rating", 1] },
-                  { $lte: ["$rating", 5] }
+
+                  // rating 1..5 (robust konvertiert)
+                  {
+                    $gte: [
+                      { $convert: { input: "$rating", to: "double", onError: null, onNull: null } },
+                      1
+                    ]
+                  },
+                  {
+                    $lte: [
+                      { $convert: { input: "$rating", to: "double", onError: null, onNull: null } },
+                      5
+                    ]
+                  }
                 ]
               }
             }
@@ -1390,7 +1394,7 @@ app.post("/reset-password", async (req, res) => {
           {
             $group: {
               _id: null,
-              avg: { $avg: "$rating" },
+              avg: { $avg: { $convert: { input: "$rating", to: "double", onError: null, onNull: null } } },
               count: { $sum: 1 }
             }
           }
@@ -1399,44 +1403,56 @@ app.post("/reset-password", async (req, res) => {
       }
     },
 
-    // 5) ✅ seller-Snapshot bauen (inkl. ratingAvg/ratingCount)
+    // 5) seller-Snapshot bauen (inkl. ratingAvg/ratingCount)
     {
       $addFields: {
         seller: {
           $let: {
             vars: {
               s: { $arrayElemAt: ["$_sellerDoc", 0] },
-              r: { $arrayElemAt: ["$_sellerRating", 0] },
-              typeRaw: {
-                $toLower: {
-                  $ifNull: [
-                    "$seller.type",
-                    "$verkauf_verkaeufer",
-                    "$$s.role",
-                    "privat"
-                  ]
-                }
-              }
+              r: { $arrayElemAt: ["$_sellerRating", 0] }
             },
             in: {
               type: {
-                $cond: [
-                  {
-                    $or: [
-                      { $eq: ["$$typeRaw", "haendler"] },
-                      { $eq: ["$$typeRaw", "händler"] }
-                    ]
+                $let: {
+                  vars: {
+                    typeRaw: {
+                      $toLower: {
+                        $convert: {
+                          input: {
+                            $ifNull: [
+                              "$seller.type",
+                              "$verkauf_verkaeufer",
+                              "$$s.role",
+                              "privat"
+                            ]
+                          },
+                          to: "string",
+                          onError: "privat",
+                          onNull: "privat"
+                        }
+                      }
+                    }
                   },
-                  "haendler",
-                  "privat"
-                ]
+                  in: {
+                    $cond: [
+                      {
+                        $or: [
+                          { $eq: ["$$typeRaw", "haendler"] },
+                          { $eq: ["$$typeRaw", "händler"] },
+                          { $regexMatch: { input: "$$typeRaw", regex: "händ|haend" } }
+                        ]
+                      },
+                      "haendler",
+                      "privat"
+                    ]
+                  }
+                }
               },
 
-              // ids (für Frontend gern String behalten)
               id: "$sellerIdObj",
               idStr: "$sellerIdStr",
 
-              // meta
               name: { $ifNull: ["$$s.name", "$verkauf_name"] },
               logoUrl: {
                 $ifNull: [
@@ -1447,7 +1463,6 @@ app.post("/reset-password", async (req, res) => {
                 ]
               },
 
-              // ✅ Bewertungen
               ratingCount: { $ifNull: ["$$r.count", 0] },
               ratingAvg: {
                 $cond: [
