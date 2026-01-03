@@ -2102,45 +2102,25 @@ img, video, canvas {
 
 
 
-
-
-/* ===== Dealer Meta Row (Location links, Rating rechts) ===== */
-.dealer-meta-row{
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 6px; /* Abstand unter dem Namen */
-}
-
-/* Location bekommt den flexiblen Platz */
-.dealer-meta-row .dealer-location{
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ===== Dealer Rating (Stars) ===== */
+/* ===== Dealer Rating (Stars) – unter dem Namen ===== */
 .dealer-rating{
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin: 0;
+  margin: 6px 0 2px;         /* wieder wie vorher: eigener Abstand */
   font-size: 13px;
   line-height: 1;
   white-space: nowrap;
-  flex: 0 0 auto;
-  margin-left: auto;     /* bleibt rechts */
-  color: inherit;        /* passt sich deinem aktuellen Text-Farbkonzept an */
+
+  /* sichtbar und passend: nicht "inherit", sondern gezielt wie dein Text */
+  color: rgba(255,255,255,0.88);
 }
 
 .dealer-rating .stars{
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  color: var(--accent, #00b8a9); /* Autovisa Accent */
+  color: var(--accent, #00b8a9);
 }
 
 .dealer-rating .stars i{
@@ -2150,34 +2130,22 @@ img, video, canvas {
 
 .dealer-rating__value{
   font-weight: 700;
-  color: inherit;
+  color: rgba(255,255,255,0.95);
 }
 
+/* ✅ Count besser sichtbar */
 .dealer-rating__count{
-  opacity: 0.75;
+  color: rgba(255,255,255,0.85);
+  font-weight: 600;
 }
 
-/* ===== Responsive ===== */
+/* Responsive */
 @media (max-width: 700px){
-  .dealer-meta-row{
-    gap: 10px;
-  }
   .dealer-rating{
     font-size: 12.5px;
     gap: 6px;
   }
   .dealer-rating .stars i{
     font-size: 12.5px;
-  }
-}
-
-/* Wenn es ganz eng wird: umbrechen erlauben */
-@media (max-width: 420px){
-  .dealer-meta-row{
-    flex-wrap: wrap;
-    align-items: flex-start;
-  }
-  .dealer-rating{
-    margin-left: 0;
   }
 }

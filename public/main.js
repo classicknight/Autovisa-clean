@@ -1238,11 +1238,13 @@ function initMediaSlider(mediaContainer) {
     const ratingBlock = ({ isHaendler, avg, count }) => {
       const c = Number(count);
       const a = Number(avg);
+    
       if (!isHaendler) return "";
       if (!Number.isFinite(c) || c <= 0) return "";
       if (!Number.isFinite(a) || a <= 0) return "";
     
       const label = `Bewertung ${fmtRating(a)} von 5 Sternen (${c} Bewertungen)`;
+    
       return `
         <div class="dealer-rating" aria-label="${label}">
           ${starsHTML(a)}
@@ -1251,6 +1253,7 @@ function initMediaSlider(mediaContainer) {
         </div>
       `;
     };
+    
     
 
     container.innerHTML = "";
@@ -1303,7 +1306,7 @@ function initMediaSlider(mediaContainer) {
               <i class="fas fa-phone"></i>
             </a>
           </div>
-
+      
           <div class="media-container">
             <div class="slides">
               ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
@@ -1313,15 +1316,15 @@ function initMediaSlider(mediaContainer) {
             <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
           </div>
         </div>
-
+      
         <div class="car-details">
           <div class="car-top-row">
             <h2 class="car-title">${titel}</h2>
             <p class="car-price">${preis}</p>
           </div>
-
+      
           <p class="car-subtitle">${kurz}</p>
-
+      
           <div class="car-info-grid">
             <p><i class="fas fa-road"></i> ${inserat.verkauf_kilometer ?? "—"} km</p>
             <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.verkauf_erstzulassung || "—"}</p>
@@ -1330,27 +1333,28 @@ function initMediaSlider(mediaContainer) {
             <p><i class="fas fa-gears"></i> ${inserat.verkauf_getriebe || "—"}</p>
             <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "—"} l/100 km</p>
           </div>
-
+      
           <div class="dealer-info">
             <div class="dealer-row">
               <div class="dealer-avatar">
                 <img alt="${sellerName} Logo">
                 <span class="dealer-initials">${sellerInitials(sellerName)}</span>
               </div>
-
+      
               <div class="dealer-meta">
                 <div class="dealer-name">${sellerName}</div>
-
-                <!-- ✅ NEU: Location links, Rating rechts (gleiche Zeile) -->
-                <div class="dealer-meta-row">
-                  <div class="dealer-location">${sellerLocation}</div>
-                  ${dealerRatingHTML}
-                </div>
+      
+                <!-- ✅ Bewertung wieder wie vorher UNTER dem Namen -->
+                ${dealerRatingHTML}
+      
+                <!-- ✅ Standort wieder darunter -->
+                <div class="dealer-location">${sellerLocation}</div>
               </div>
             </div>
           </div>
         </div>
       `;
+      
 
       // Karte klickbar (aber nicht die Buttons/Arrows)
       card.addEventListener("click", (e) => {
