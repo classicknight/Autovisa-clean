@@ -2101,19 +2101,18 @@ img, video, canvas {
 
 
 
-
 /* ===== Dealer Rating (Stars) – unter dem Namen ===== */
 .dealer-rating{
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin: 6px 0 2px;         /* wieder wie vorher: eigener Abstand */
+  margin: 6px 0 2px;
   font-size: 13px;
   line-height: 1;
   white-space: nowrap;
 
-  /* sichtbar und passend: nicht "inherit", sondern gezielt wie dein Text */
-  color: rgba(255,255,255,0.88);
+  /* ✅ sichtbar auf hellem Card-Hintergrund */
+  color: #37444f;
 }
 
 .dealer-rating .stars{
@@ -2129,14 +2128,14 @@ img, video, canvas {
 }
 
 .dealer-rating__value{
-  font-weight: 700;
-  color: rgba(255,255,255,0.95);
+  font-weight: 800;      /* etwas stärker, damit klar im Blick */
+  color: #1a2a33;
 }
 
-/* ✅ Count besser sichtbar */
+/* ✅ Count wirklich sichtbar + deutlich */
 .dealer-rating__count{
-  color: rgba(255,255,255,0.85);
-  font-weight: 600;
+  color: #6b7a88;
+  font-weight: 700;
 }
 
 /* Responsive */
