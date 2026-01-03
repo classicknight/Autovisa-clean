@@ -2189,3 +2189,13 @@ img, video, canvas {
   .media-container .slides{ cursor: grab; }
   .media-container .slides:active{ cursor: grabbing; }
 }
+
+
+
+
+
+
+.media-container{
+  /* ... dein bestehendes ... */
+  touch-action: pan-y; /* vertikal scrollen ok, horizontal steuert der Slider */
+}

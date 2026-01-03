@@ -1221,12 +1221,12 @@ async function fetchInserate(page = 1, limit = 9) {
     // Während Drag keine Transition (sonst fühlt sich iOS „klebrig“ an)
     slidesWrapper.style.transition = "none";
 
-    // Pointer Capture ist der iOS-Fix für „1x geht, danach hängt/cancelt es“
-    if (e.pointerId != null && slidesWrapper.setPointerCapture) {
+    if (e.pointerId != null && container.setPointerCapture) {
       try {
-        slidesWrapper.setPointerCapture(e.pointerId);
+        container.setPointerCapture(e.pointerId);
       } catch {}
     }
+    
   };
 
   const moveDrag = (e) => {
@@ -1292,12 +1292,13 @@ async function fetchInserate(page = 1, limit = 9) {
     state.axis = null;
   };
 
-  // Pointer Events (primär)
-  slidesWrapper.addEventListener("pointerdown", startDrag, { passive: false });
-  slidesWrapper.addEventListener("pointermove", moveDrag, { passive: false });
-  slidesWrapper.addEventListener("pointerup", endDrag, { passive: true });
-  slidesWrapper.addEventListener("pointercancel", endDrag, { passive: true });
-  slidesWrapper.addEventListener("pointerleave", endDrag, { passive: true });
+// Pointer Events (primär) – auf dem statischen Viewport, nicht auf .slides
+container.addEventListener("pointerdown", startDrag, { passive: false });
+container.addEventListener("pointermove", moveDrag, { passive: false });
+container.addEventListener("pointerup", endDrag, { passive: true });
+container.addEventListener("pointercancel", endDrag, { passive: true });
+container.addEventListener("pointerleave", endDrag, { passive: true });
+
 
   // Pfeile
   btnRight?.addEventListener("click", (e) => {
