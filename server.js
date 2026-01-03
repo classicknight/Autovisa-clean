@@ -1304,9 +1304,6 @@ app.post("/reset-password", async (req, res) => {
   }
 });
 
-/* =========================
-   Helper: Seller-Fallback für Aggregationen
-========================= */
 function projectWithSeller() {
   return [
     {
@@ -1321,34 +1318,88 @@ function projectWithSeller() {
       }
     },
     { $unwind: { path: "$sellerUser", preserveNullAndEmptyArrays: true } },
+
+    // seller-Fallback, falls im Inserat kein seller Snapshot steckt
     {
       $addFields: {
         seller: {
           $ifNull: [
             "$seller",
             {
-              type:   { $ifNull: ["$sellerUser.role", "privat"] },
-              id:     { $ifNull: ["$sellerUser.id",   "" ] },
-              name:   {
+              type: { $ifNull: ["$sellerUser.role", "privat"] },
+              id: { $ifNull: ["$sellerUser.id", ""] },
+              name: {
                 $ifNull: [
                   "$sellerUser.firma",
                   { $ifNull: ["$sellerUser.name", "Händler"] }
                 ]
               },
-              logoUrl:{ $ifNull: ["$sellerUser.logoUrl", ""] }
+              logoUrl: { $ifNull: ["$sellerUser.logoUrl", ""] }
             }
           ]
         }
       }
     },
+
+    // ✅ Händler-Bewertung (avg + count) nur wenn vorhanden
+    {
+      $lookup: {
+        from: "bewertungen",
+        let: { sid: "$seller.id", stype: "$seller.type" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$$stype", "haendler"] },
+                  {
+                    $or: [
+                      { $eq: ["$sellerId", "$$sid"] },
+                      { $eq: ["$haendlerId", "$$sid"] }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            $project: {
+              _id: 0,
+              ratingNum: {
+                $convert: { input: "$rating", to: "double", onError: null, onNull: null }
+              }
+            }
+          },
+          { $match: { ratingNum: { $gt: 0 } } },
+          { $group: { _id: null, avg: { $avg: "$ratingNum" }, count: { $sum: 1 } } }
+        ],
+        as: "sellerRatingAgg"
+      }
+    },
+    { $unwind: { path: "$sellerRatingAgg", preserveNullAndEmptyArrays: true } },
+    {
+      $addFields: {
+        "seller.ratingAvg": {
+          $cond: [
+            { $gt: ["$sellerRatingAgg.count", 0] },
+            { $round: ["$sellerRatingAgg.avg", 1] },
+            null
+          ]
+        },
+        "seller.ratingCount": { $ifNull: ["$sellerRatingAgg.count", 0] }
+      }
+    },
+
     {
       $project: {
         token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0,
-        sellerUser: 0
+        sellerUser: 0,
+        sellerRatingAgg: 0
       }
     }
   ];
 }
+
 
 /* =========================
    Private Liste veröffentlichter Inserate des Verkäufers
