@@ -1320,7 +1320,7 @@ app.post("/reset-password", async (req, res) => {
       }
     },
 
-    // 2) ✅ in ObjectId + String umwandeln (für Lookups & mögliche String-Fälle)
+    // 2) ✅ in ObjectId + String umwandeln (für Lookups & String-Fälle)
     {
       $addFields: {
         sellerIdObj: {
@@ -1332,12 +1332,17 @@ app.post("/reset-password", async (req, res) => {
           }
         },
         sellerIdStr: {
-          $toString: "$_sellerIdRaw"
+          $convert: {
+            input: "$_sellerIdRaw",
+            to: "string",
+            onError: "",
+            onNull: ""
+          }
         }
       }
     },
 
-    // 3) ✅ Seller-Dokument laden (nutzer._id ist ObjectId → pipeline-lookup)
+    // 3) ✅ Seller-Dokument laden (nutzer._id ist ObjectId)
     {
       $lookup: {
         from: "nutzer",
@@ -1350,7 +1355,7 @@ app.post("/reset-password", async (req, res) => {
       }
     },
 
-    // 4) ✅ Bewertungen laden (robust: haendlerId kann ObjectId oder String sein)
+    // 4) ✅ Bewertungen laden (NEU: sellerId ODER haendlerId, robust für String/ObjectId)
     {
       $lookup: {
         from: "bewertungen",
@@ -1362,8 +1367,18 @@ app.post("/reset-password", async (req, res) => {
                 $and: [
                   {
                     $or: [
+                      // ✅ aktueller Standard: bewertungen.sellerId ist String
+                      { $eq: ["$sellerId", "$$sidStr"] },
+
+                      // ✅ Fallback: ältere Daten könnten haendlerId haben (ObjectId)
                       { $eq: ["$haendlerId", "$$sidObj"] },
-                      { $eq: [{ $toString: "$haendlerId" }, "$$sidStr"] }
+
+                      // ✅ Fallback: haendlerId als String gespeichert
+                      { $eq: [{ $toString: "$haendlerId" }, "$$sidStr"] },
+
+                      // ✅ ganz selten: sellerId doch als ObjectId gespeichert
+                      { $eq: ["$sellerId", "$$sidObj"] },
+                      { $eq: [{ $toString: "$sellerId" }, "$$sidStr"] }
                     ]
                   },
                   { $gte: ["$rating", 1] },
@@ -1417,7 +1432,7 @@ app.post("/reset-password", async (req, res) => {
                 ]
               },
 
-              // ids
+              // ids (für Frontend gern String behalten)
               id: "$sellerIdObj",
               idStr: "$sellerIdStr",
 
@@ -1459,6 +1474,7 @@ app.post("/reset-password", async (req, res) => {
     }
   ];
 }
+
 
 
 /* =========================
