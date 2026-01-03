@@ -1419,6 +1419,7 @@ function initMediaSlider(mediaContainer) {
 }
 
 
+
 // Footer-Jahr sicher setzen
 document.addEventListener("DOMContentLoaded", () => {
   const y = document.getElementById("year");
