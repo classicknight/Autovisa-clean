@@ -1130,25 +1130,29 @@ async function fetchInserate(page = 1, limit = 9) {
   if (!res.ok) throw new Error("Fetch /inserate fehlgeschlagen");
   return res.json(); // { page, limit, total, items }
 }
-
 function initMediaSlider(mediaContainer) {
   if (!mediaContainer) return;
-  if (mediaContainer.dataset.sliderInit === "1") return;   // ✅ verhindert doppelte Listener
+
+  // ✅ Guard: nicht doppelt initialisieren
+  if (mediaContainer.dataset.sliderInit === "1") return;
   mediaContainer.dataset.sliderInit = "1";
 
   const slidesWrapper = mediaContainer.querySelector(".slides");
   if (!slidesWrapper) return;
 
   const slides = Array.from(slidesWrapper.children);
-  if (slides.length <= 1) return; // nichts zu swipen
+  if (slides.length <= 1) return;
 
-  // Basics
+  // Layout
   slidesWrapper.style.display = "flex";
   slidesWrapper.style.willChange = "transform";
-  slides.forEach(s => { s.style.flex = "0 0 100%"; s.style.minWidth = "100%"; });
+  slides.forEach((slide) => {
+    slide.style.flex = "0 0 100%";
+    slide.style.minWidth = "100%";
+  });
 
-  // iOS: Image-Drag verhindern
-  slidesWrapper.querySelectorAll("img").forEach(img => {
+  // iOS: Bild draggen verhindern
+  slidesWrapper.querySelectorAll("img").forEach((img) => {
     img.draggable = false;
     img.addEventListener("dragstart", (e) => e.preventDefault());
   });
@@ -1156,22 +1160,21 @@ function initMediaSlider(mediaContainer) {
   const state = {
     index: 0,
     dragging: false,
-    axis: null,            // null | "x" | "y"
+    axis: null,              // null | "x" | "y"
     pointerId: null,
     startX: 0,
     startY: 0,
     startT: 0,
     prevTranslate: 0,
     currentTranslate: 0,
-    suppressClick: false,
+    blockClickUntil: 0,
   };
 
-  const width = () => Math.max(1, mediaContainer.clientWidth);
+  const width = () => Math.max(1, mediaContainer.getBoundingClientRect().width);
 
-  function setTranslate(x, animate) {
-    // CSS-Transition nutzen, nur während Drag deaktivieren
-    slidesWrapper.style.transition = animate ? "" : "none";
-    slidesWrapper.style.transform = `translateX(${x}px)`;
+  function setTranslate(px, animate) {
+    slidesWrapper.style.transition = animate ? "transform 0.3s ease" : "none";
+    slidesWrapper.style.transform = `translateX(${px}px)`;
   }
 
   function snap() {
@@ -1180,33 +1183,23 @@ function initMediaSlider(mediaContainer) {
     setTranslate(state.currentTranslate, true);
   }
 
-  function onDown(e) {
-    // nur linke Maustaste (Desktop)
-    if (e.pointerType === "mouse" && e.button !== 0) return;
-
-    // Buttons/Pfeile sollen nicht drag starten
-    if (e.target.closest(".media-arrow")) return;
-
+  function startDrag(clientX, clientY, pointerId = null) {
     state.dragging = true;
     state.axis = null;
-    state.pointerId = e.pointerId;
-    state.startX = e.clientX;
-    state.startY = e.clientY;
+    state.pointerId = pointerId;
+    state.startX = clientX;
+    state.startY = clientY;
     state.startT = performance.now();
-    state.suppressClick = false;
-
-    try { slidesWrapper.setPointerCapture(e.pointerId); } catch {}
     setTranslate(state.prevTranslate, false);
   }
 
-  function onMove(e) {
+  function moveDrag(clientX, clientY, evForPrevent = null) {
     if (!state.dragging) return;
-    if (state.pointerId != null && e.pointerId !== state.pointerId) return;
 
-    const dx = e.clientX - state.startX;
-    const dy = e.clientY - state.startY;
+    const dx = clientX - state.startX;
+    const dy = clientY - state.startY;
 
-    // ✅ Direction Lock
+    // ✅ Direction lock (wichtig für iOS: Scroll vs Swipe)
     if (!state.axis) {
       const ax = Math.abs(dx);
       const ay = Math.abs(dy);
@@ -1215,7 +1208,6 @@ function initMediaSlider(mediaContainer) {
       if (ax > ay * 1.2) state.axis = "x";
       else {
         state.axis = "y";
-        // vertikal scrollen -> Drag abbrechen
         state.dragging = false;
         state.pointerId = null;
         return;
@@ -1223,60 +1215,85 @@ function initMediaSlider(mediaContainer) {
     }
 
     if (state.axis === "x") {
-      // ✅ wichtig für iOS: nicht-passiv + preventDefault
-      e.preventDefault();
-
+      if (evForPrevent) evForPrevent.preventDefault();
       state.currentTranslate = state.prevTranslate + dx;
       setTranslate(state.currentTranslate, false);
-
-      if (Math.abs(dx) > 10) state.suppressClick = true;
     }
   }
 
-  function onUp() {
+  function endDrag() {
     if (!state.dragging) return;
-
     state.dragging = false;
 
     const dx = state.currentTranslate - state.prevTranslate;
     const dt = Math.max(1, performance.now() - state.startT);
     const v = dx / dt;                 // px/ms
-    const flick = Math.abs(v) > 0.6;   // ✅ “Flick” Schwelle
-    const thresh = width() * 0.18;     // ✅ prozentual, fühlt sich auf iPad besser an
+
+    const thresh = width() * 0.18;     // fühlt sich auf iPad besser an
+    const flick = Math.abs(v) > 0.6;
 
     if ((dx < -thresh || (flick && v < -0.6)) && state.index < slides.length - 1) state.index++;
     else if ((dx > thresh || (flick && v > 0.6)) && state.index > 0) state.index--;
 
     snap();
 
-    // Click-Suppression kurz halten (sonst öffnet die Karte beim Swipen)
-    if (state.suppressClick) {
-      const until = Date.now() + 350;
-      state._blockUntil = until;
-      setTimeout(() => { state._blockUntil = 0; }, 360);
-    }
+    // ✅ Klicks kurz blocken (sonst öffnet die Karte beim Swipe)
+    if (Math.abs(dx) > 10) state.blockClickUntil = Date.now() + 350;
   }
 
-  // Pointer Events only (sauber auf iOS/iPadOS)
-  slidesWrapper.addEventListener("pointerdown", onDown);
-  slidesWrapper.addEventListener("pointermove", onMove, { passive: false });
-  slidesWrapper.addEventListener("pointerup", onUp);
-  slidesWrapper.addEventListener("pointercancel", onUp);
-  slidesWrapper.addEventListener("pointerleave", onUp);
+  const supportsPointer = "PointerEvent" in window;
 
-  // ✅ verhindert “Karte öffnet” nach Swipe
+  if (supportsPointer) {
+    slidesWrapper.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      if (e.target.closest(".media-arrow")) return;
+
+      startDrag(e.clientX, e.clientY, e.pointerId);
+      try { slidesWrapper.setPointerCapture(e.pointerId); } catch {}
+    });
+
+    slidesWrapper.addEventListener("pointermove", (e) => {
+      if (!state.dragging) return;
+      if (state.pointerId != null && e.pointerId !== state.pointerId) return;
+      moveDrag(e.clientX, e.clientY, e);
+    }, { passive: false });
+
+    ["pointerup", "pointercancel", "pointerleave"].forEach((t) => {
+      slidesWrapper.addEventListener(t, () => endDrag());
+    });
+  } else {
+    // Fallback (alte iOS/Browser)
+    slidesWrapper.addEventListener("touchstart", (e) => {
+      if (e.target.closest(".media-arrow")) return;
+      const t = e.touches[0];
+      if (!t) return;
+      startDrag(t.clientX, t.clientY);
+    }, { passive: true });
+
+    slidesWrapper.addEventListener("touchmove", (e) => {
+      if (!state.dragging) return;
+      const t = e.touches[0];
+      if (!t) return;
+      moveDrag(t.clientX, t.clientY, e);
+    }, { passive: false });
+
+    slidesWrapper.addEventListener("touchend", () => endDrag());
+  }
+
+  // ✅ verhindert „Swipe → Klick → Karte öffnet“
   slidesWrapper.addEventListener("click", (e) => {
-    if (state._blockUntil && Date.now() < state._blockUntil) {
+    if (state.blockClickUntil && Date.now() < state.blockClickUntil) {
       e.preventDefault();
       e.stopPropagation();
     }
   }, true);
 
-  // Pfeile (stopPropagation ist wichtig wegen Card-Click)
+  // Pfeile
   mediaContainer.querySelector(".media-arrow.right")?.addEventListener("click", (e) => {
     e.stopPropagation();
     if (state.index < slides.length - 1) { state.index++; snap(); }
   });
+
   mediaContainer.querySelector(".media-arrow.left")?.addEventListener("click", (e) => {
     e.stopPropagation();
     if (state.index > 0) { state.index--; snap(); }
@@ -1394,25 +1411,33 @@ async function loadHomeListings() {
               <i class="fas fa-phone"></i>
             </a>
           </div>
-
+      
           <div class="media-container">
             <div class="slides">
               ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
-              ${inserat.video ? `<video class="slide" controls muted playsinline preload="metadata"><source src="${inserat.video}" type="video/mp4"></video>` : ""}
+      
+              ${
+                inserat.video
+                  ? `<video class="slide" muted playsinline preload="metadata" tabindex="-1" aria-hidden="true">
+                       <source src="${inserat.video}" type="video/mp4">
+                     </video>`
+                  : ""
+              }
             </div>
+      
             <button class="media-arrow left"  type="button"><i class="fas fa-chevron-left"></i></button>
             <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
           </div>
         </div>
-
+      
         <div class="car-details">
           <div class="car-top-row">
             <h2 class="car-title">${titel}</h2>
             <p class="car-price">${preis}</p>
           </div>
-
+      
           <p class="car-subtitle">${kurz}</p>
-
+      
           <div class="car-info-grid">
             <p><i class="fas fa-road"></i> ${inserat.verkauf_kilometer ?? "—"} km</p>
             <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.verkauf_erstzulassung || "—"}</p>
@@ -1421,14 +1446,14 @@ async function loadHomeListings() {
             <p><i class="fas fa-gears"></i> ${inserat.verkauf_getriebe || "—"}</p>
             <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "—"} l/100 km</p>
           </div>
-
+      
           <div class="dealer-info">
             <div class="dealer-row">
               <div class="dealer-avatar">
                 <img alt="${sellerName} Logo">
                 <span class="dealer-initials">${sellerInitials(sellerName)}</span>
               </div>
-
+      
               <div class="dealer-meta">
                 <div class="dealer-name">${sellerName}</div>
                 ${dealerRatingHTML}
@@ -1438,6 +1463,7 @@ async function loadHomeListings() {
           </div>
         </div>
       `;
+      
 
       card.addEventListener("click", (e) => {
         const isAction = e.target.closest(".card-actions button, .card-actions a, .media-arrow");

@@ -2155,22 +2155,37 @@ img, video, canvas {
 
 
 
+/* =========================
+   iOS/iPad: Swipe-Optimierung
+   ========================= */
 
-
-/* iOS/iPad: bessere Swipe-Priorität */
+/* Vertikales Scrollen bleibt erlaubt, horizontales Swipe steuert dein JS */
 .media-container,
-.media-container .slides,
-.media-container .slide{
-  touch-action: pan-y;              /* vertikales Scrollen ok, horizontal wird custom */
+.media-container .slides{
+  touch-action: pan-y;
 }
 
-/* kein “Bild ziehen” */
-.media-container img{
-  -webkit-user-drag: none;
+/* Slides: keine Text-/Bild-Selektion, kein iOS "Drag Image" */
+.media-container .slide,
+.media-container img,
+.media-container video{
   user-select: none;
+  -webkit-user-drag: none;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* optional (Desktop-Feeling) */
-.media-container .slides{ cursor: grab; }
-.media-container .slides:active{ cursor: grabbing; }
+/* Wichtig: verhindert Ghost-Drag / Long-press */
+.media-container img{
+  pointer-events: none; /* Touch geht über den Wrapper (slidesWrapper) */
+}
+
+/* Video ist der häufigste Grund, warum iOS nach 1 Swipe "hängt" */
+.car-card video.slide{
+  pointer-events: none; /* Startseite: Video soll nicht interaktiv sein */
+}
+
+/* Optional (Desktop-Feeling) */
+@media (hover: hover) and (pointer: fine){
+  .media-container .slides{ cursor: grab; }
+  .media-container .slides:active{ cursor: grabbing; }
+}
