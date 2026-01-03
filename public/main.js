@@ -1129,21 +1129,35 @@ async function fetchInserate(page = 1, limit = 9) {
   const res = await fetch(url, { credentials: "omit" });
   if (!res.ok) throw new Error("Fetch /inserate fehlgeschlagen");
   return res.json(); // { page, limit, total, items }
-}
-function initMediaSlider(mediaContainer) {
-  if (!mediaContainer) return;
+}function initMediaSlider(container) {
+  if (!container) return;
 
-  // ✅ Guard: nicht doppelt initialisieren
-  if (mediaContainer.dataset.sliderInit === "1") return;
-  mediaContainer.dataset.sliderInit = "1";
+  // Guard: nicht doppelt initialisieren
+  if (container.dataset.sliderInit === "1") return;
+  container.dataset.sliderInit = "1";
 
-  const slidesWrapper = mediaContainer.querySelector(".slides");
+  const slidesWrapper = container.querySelector(".slides");
   if (!slidesWrapper) return;
 
-  const slides = Array.from(slidesWrapper.children);
-  if (slides.length <= 1) return;
+  const slides = Array.from(slidesWrapper.children || []);
+  if (!slides.length) return;
 
-  // Layout
+  const state = {
+    index: 0,
+    dragging: false,
+    axis: null,
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    prevTranslate: 0,
+    currentTranslate: 0,
+    blockClickUntil: 0,
+  };
+
+  // Debug (optional): in Konsole inspizierbar
+  container._sliderState = state;
+
+  // Basis-Styles (sicher und konsistent)
   slidesWrapper.style.display = "flex";
   slidesWrapper.style.willChange = "transform";
   slides.forEach((slide) => {
@@ -1151,156 +1165,160 @@ function initMediaSlider(mediaContainer) {
     slide.style.minWidth = "100%";
   });
 
-  // iOS: Bild draggen verhindern
-  slidesWrapper.querySelectorAll("img").forEach((img) => {
-    img.draggable = false;
-    img.addEventListener("dragstart", (e) => e.preventDefault());
-  });
+  const btnLeft = container.querySelector(".media-arrow.left");
+  const btnRight = container.querySelector(".media-arrow.right");
 
-  const state = {
-    index: 0,
-    dragging: false,
-    axis: null,              // null | "x" | "y"
-    pointerId: null,
-    startX: 0,
-    startY: 0,
-    startT: 0,
-    prevTranslate: 0,
-    currentTranslate: 0,
-    blockClickUntil: 0,
+  const width = () => {
+    const w = container.getBoundingClientRect().width || container.clientWidth;
+    return w > 0 ? w : 1;
   };
 
-  const width = () => Math.max(1, mediaContainer.getBoundingClientRect().width);
+  const setTranslate = (x, animate) => {
+    slidesWrapper.style.transition = animate
+      ? "transform 0.28s cubic-bezier(.2,.8,.2,1)"
+      : "none";
+    slidesWrapper.style.transform = `translateX(${x}px)`;
+  };
 
-  function setTranslate(px, animate) {
-    slidesWrapper.style.transition = animate ? "transform 0.3s ease" : "none";
-    slidesWrapper.style.transform = `translateX(${px}px)`;
-  }
+  const updateArrows = () => {
+    if (btnLeft) btnLeft.disabled = state.index <= 0;
+    if (btnRight) btnRight.disabled = state.index >= slides.length - 1;
+  };
 
-  function snap() {
-    state.currentTranslate = -state.index * width();
-    state.prevTranslate = state.currentTranslate;
-    setTranslate(state.currentTranslate, true);
-  }
+  const snapTo = (i, animate = true) => {
+    state.index = Math.max(0, Math.min(i, slides.length - 1));
+    state.prevTranslate = -state.index * width();
+    state.currentTranslate = state.prevTranslate;
+    setTranslate(state.currentTranslate, animate);
+    updateArrows();
+  };
 
-  function startDrag(clientX, clientY, pointerId = null) {
+  // Verhindert „Swipe → Click → Karte öffnet“ (iOS macht sonst gerne einen Click)
+  container.addEventListener(
+    "click",
+    (e) => {
+      if (Date.now() < state.blockClickUntil) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    },
+    true // capture
+  );
+
+  const startDrag = (e) => {
+    // nur Primary / linker Button
+    if (e.button != null && e.button !== 0) return;
+
+    // nicht starten, wenn Pfeil gedrückt wird
+    if (e.target && e.target.closest && e.target.closest(".media-arrow")) return;
+
     state.dragging = true;
     state.axis = null;
-    state.pointerId = pointerId;
-    state.startX = clientX;
-    state.startY = clientY;
-    state.startT = performance.now();
-    setTranslate(state.prevTranslate, false);
-  }
+    state.pointerId = e.pointerId ?? null;
+    state.startX = e.clientX;
+    state.startY = e.clientY;
 
-  function moveDrag(clientX, clientY, evForPrevent = null) {
+    // Während Drag keine Transition (sonst fühlt sich iOS „klebrig“ an)
+    slidesWrapper.style.transition = "none";
+
+    // Pointer Capture ist der iOS-Fix für „1x geht, danach hängt/cancelt es“
+    if (e.pointerId != null && slidesWrapper.setPointerCapture) {
+      try {
+        slidesWrapper.setPointerCapture(e.pointerId);
+      } catch {}
+    }
+  };
+
+  const moveDrag = (e) => {
     if (!state.dragging) return;
 
-    const dx = clientX - state.startX;
-    const dy = clientY - state.startY;
+    if (
+      state.pointerId != null &&
+      e.pointerId != null &&
+      e.pointerId !== state.pointerId
+    ) return;
 
-    // ✅ Direction lock (wichtig für iOS: Scroll vs Swipe)
-    if (!state.axis) {
-      const ax = Math.abs(dx);
-      const ay = Math.abs(dy);
-      if (ax < 8 && ay < 8) return;
+    const dx = e.clientX - state.startX;
+    const dy = e.clientY - state.startY;
 
-      if (ax > ay * 1.2) state.axis = "x";
-      else {
-        state.axis = "y";
+    // Axis-Lock (damit vertikales Scrollen nicht alles killt)
+    if (state.axis == null) {
+      const adx = Math.abs(dx);
+      const ady = Math.abs(dy);
+      if (adx < 6 && ady < 6) return; // kleine Zitterbewegung ignorieren
+      state.axis = adx > ady ? "x" : "y";
+
+      // Wenn User eigentlich scrollt: Drag abbrechen und normales Scrollen zulassen
+      if (state.axis === "y") {
         state.dragging = false;
         state.pointerId = null;
         return;
       }
     }
 
-    if (state.axis === "x") {
-      if (evForPrevent) evForPrevent.preventDefault();
-      state.currentTranslate = state.prevTranslate + dx;
-      setTranslate(state.currentTranslate, false);
-    }
-  }
+    // horizontal: Browser darf NICHT mitscrollen
+    if (e.cancelable) e.preventDefault();
 
-  function endDrag() {
+    state.currentTranslate = state.prevTranslate + dx;
+    setTranslate(state.currentTranslate, false);
+  };
+
+  const endDrag = (e) => {
     if (!state.dragging) return;
+
+    if (
+      state.pointerId != null &&
+      e?.pointerId != null &&
+      e.pointerId !== state.pointerId
+    ) return;
+
     state.dragging = false;
 
-    const dx = state.currentTranslate - state.prevTranslate;
-    const dt = Math.max(1, performance.now() - state.startT);
-    const v = dx / dt;                 // px/ms
+    const movedBy = state.currentTranslate - state.prevTranslate;
+    const w = width();
+    const threshold = Math.max(40, w * 0.12); // dynamisch + min 40px
 
-    const thresh = width() * 0.18;     // fühlt sich auf iPad besser an
-    const flick = Math.abs(v) > 0.6;
+    if (movedBy < -threshold && state.index < slides.length - 1) state.index++;
+    else if (movedBy > threshold && state.index > 0) state.index--;
 
-    if ((dx < -thresh || (flick && v < -0.6)) && state.index < slides.length - 1) state.index++;
-    else if ((dx > thresh || (flick && v > 0.6)) && state.index > 0) state.index--;
+    // Click-Block kurz aktivieren
+    state.blockClickUntil = Date.now() + 250;
 
-    snap();
+    // Snap
+    snapTo(state.index, true);
 
-    // ✅ Klicks kurz blocken (sonst öffnet die Karte beim Swipe)
-    if (Math.abs(dx) > 10) state.blockClickUntil = Date.now() + 350;
-  }
+    // Reset
+    state.pointerId = null;
+    state.axis = null;
+  };
 
-  const supportsPointer = "PointerEvent" in window;
-
-  if (supportsPointer) {
-    slidesWrapper.addEventListener("pointerdown", (e) => {
-      if (e.pointerType === "mouse" && e.button !== 0) return;
-      if (e.target.closest(".media-arrow")) return;
-
-      startDrag(e.clientX, e.clientY, e.pointerId);
-      try { slidesWrapper.setPointerCapture(e.pointerId); } catch {}
-    });
-
-    slidesWrapper.addEventListener("pointermove", (e) => {
-      if (!state.dragging) return;
-      if (state.pointerId != null && e.pointerId !== state.pointerId) return;
-      moveDrag(e.clientX, e.clientY, e);
-    }, { passive: false });
-
-    ["pointerup", "pointercancel", "pointerleave"].forEach((t) => {
-      slidesWrapper.addEventListener(t, () => endDrag());
-    });
-  } else {
-    // Fallback (alte iOS/Browser)
-    slidesWrapper.addEventListener("touchstart", (e) => {
-      if (e.target.closest(".media-arrow")) return;
-      const t = e.touches[0];
-      if (!t) return;
-      startDrag(t.clientX, t.clientY);
-    }, { passive: true });
-
-    slidesWrapper.addEventListener("touchmove", (e) => {
-      if (!state.dragging) return;
-      const t = e.touches[0];
-      if (!t) return;
-      moveDrag(t.clientX, t.clientY, e);
-    }, { passive: false });
-
-    slidesWrapper.addEventListener("touchend", () => endDrag());
-  }
-
-  // ✅ verhindert „Swipe → Klick → Karte öffnet“
-  slidesWrapper.addEventListener("click", (e) => {
-    if (state.blockClickUntil && Date.now() < state.blockClickUntil) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  }, true);
+  // Pointer Events (primär)
+  slidesWrapper.addEventListener("pointerdown", startDrag, { passive: false });
+  slidesWrapper.addEventListener("pointermove", moveDrag, { passive: false });
+  slidesWrapper.addEventListener("pointerup", endDrag, { passive: true });
+  slidesWrapper.addEventListener("pointercancel", endDrag, { passive: true });
+  slidesWrapper.addEventListener("pointerleave", endDrag, { passive: true });
 
   // Pfeile
-  mediaContainer.querySelector(".media-arrow.right")?.addEventListener("click", (e) => {
+  btnRight?.addEventListener("click", (e) => {
     e.stopPropagation();
-    if (state.index < slides.length - 1) { state.index++; snap(); }
+    snapTo(state.index + 1, true);
   });
 
-  mediaContainer.querySelector(".media-arrow.left")?.addEventListener("click", (e) => {
+  btnLeft?.addEventListener("click", (e) => {
     e.stopPropagation();
-    if (state.index > 0) { state.index--; snap(); }
+    snapTo(state.index - 1, true);
   });
 
-  window.addEventListener("resize", snap);
-  snap();
+  // Resize
+  window.addEventListener(
+    "resize",
+    () => snapTo(state.index, false),
+    { passive: true }
+  );
+
+  // Initial
+  snapTo(0, false);
 }
 
 
