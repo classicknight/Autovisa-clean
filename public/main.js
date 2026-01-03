@@ -1227,7 +1227,6 @@ function initMediaSlider(mediaContainer) {
 
       let out = `<span class="stars" aria-hidden="true">`;
       for (let i = 1; i <= 5; i++) {
-        // simple Thresholds für full/half/empty
         if (a >= i - 0.25) out += `<i class="fa-solid fa-star"></i>`;
         else if (a >= i - 0.75) out += `<i class="fa-solid fa-star-half-stroke"></i>`;
         else out += `<i class="fa-regular fa-star"></i>`;
@@ -1254,26 +1253,25 @@ function initMediaSlider(mediaContainer) {
     };
 
     container.innerHTML = "";
+
     list.forEach((inserat) => {
       const imgs  = Array.isArray(inserat.images) ? inserat.images : [];
       const tel   = sanitizePhone(inserat.telefon);
       const titel = inserat.titel || "Unbekanntes Fahrzeug";
 
-      // ✅ Preis robust (Brutto > Einzelpreis > Netto), leere Strings ignorieren
       const preisNum = pickPrice(
         inserat["brutto-preis"],
         inserat.brutto_preis,
         inserat.verkauf_brutto,
         inserat.preis,
-        inserat.verkauf_preis, // wichtig für „Keine MwSt.“
-        inserat.verkauf_netto  // Fallback: nur Netto vorhanden
+        inserat.verkauf_preis,
+        inserat.verkauf_netto
       );
       const preis = fmtEUR(preisNum);
 
       const kurz  = inserat.verkauf_kurzbeschreibung || "";
       const _id   = getDocId(inserat) || "";
 
-      // Verkäuferdaten (mit Fallbacks)
       const rawType = String(inserat.seller?.type || inserat.verkauf_verkaeufer || "").toLowerCase();
       const isHaendler =
         rawType === "haendler" || rawType === "händler" || rawType.includes("händ") || rawType.includes("haend");
@@ -1290,13 +1288,12 @@ function initMediaSlider(mediaContainer) {
       const sellerLocation =
         inserat.standort || [inserat.plz, inserat.ort].filter(Boolean).join(" ") || "Standort nicht angegeben";
 
-      // ✅ NEU: Rating-Daten (vom Backend mitgeliefert)
       const ratingAvg   = inserat.seller?.ratingAvg;
       const ratingCount = inserat.seller?.ratingCount;
       const dealerRatingHTML = ratingBlock({ isHaendler, avg: ratingAvg, count: ratingCount });
 
       const card = document.createElement("div");
-      card.className = "car-card"; // vertikale Karte auf der Startseite
+      card.className = "car-card";
       card.innerHTML = `
         <div class="car-card-media">
           <div class="card-actions mobile-only">
@@ -1305,6 +1302,7 @@ function initMediaSlider(mediaContainer) {
               <i class="fas fa-phone"></i>
             </a>
           </div>
+
           <div class="media-container">
             <div class="slides">
               ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
@@ -1332,17 +1330,21 @@ function initMediaSlider(mediaContainer) {
             <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "—"} l/100 km</p>
           </div>
 
-          <!-- Händlerzeile mit Logo/Initialen -->
           <div class="dealer-info">
             <div class="dealer-row">
               <div class="dealer-avatar">
                 <img alt="${sellerName} Logo">
                 <span class="dealer-initials">${sellerInitials(sellerName)}</span>
               </div>
+
               <div class="dealer-meta">
                 <div class="dealer-name">${sellerName}</div>
-                ${dealerRatingHTML}
-                <div class="dealer-location">${sellerLocation}</div>
+
+                <!-- ✅ NEU: Location links, Rating rechts (gleiche Zeile) -->
+                <div class="dealer-meta-row">
+                  <div class="dealer-location">${sellerLocation}</div>
+                  ${dealerRatingHTML}
+                </div>
               </div>
             </div>
           </div>
@@ -1354,7 +1356,6 @@ function initMediaSlider(mediaContainer) {
         const isAction = e.target.closest(".card-actions button, .card-actions a, .media-arrow");
         if (isAction) return;
         try {
-          // robustes Payload für die Detailseite speichern
           const payload = toAnzeigePayload(inserat);
           localStorage.setItem("ausgewaehltesInserat", JSON.stringify(payload));
         } catch {}
@@ -1365,7 +1366,7 @@ function initMediaSlider(mediaContainer) {
       container.appendChild(card);
       initMediaSlider(card.querySelector(".media-container"));
 
-      // --- Avatar/Logo (Safari-safe, kein loading="lazy", nie display:none fürs <img>) ---
+      // --- Avatar/Logo (Safari-safe) ---
       const avatar = card.querySelector(".dealer-avatar");
       const img    = avatar.querySelector("img");
       avatar.classList.remove("has-logo");
@@ -1373,6 +1374,7 @@ function initMediaSlider(mediaContainer) {
 
       if (sellerLogo) {
         try { img.loading = "eager"; } catch {}
+
         img.addEventListener("load", () => {
           if (img.naturalWidth > 0) avatar.classList.add("has-logo");
         }, { once: true });
@@ -1383,7 +1385,6 @@ function initMediaSlider(mediaContainer) {
         }, { once: true });
 
         img.src = sellerLogo;
-        // Cache-Fall
         if (img.complete && img.naturalWidth > 0) avatar.classList.add("has-logo");
       }
 
@@ -1402,9 +1403,10 @@ function initMediaSlider(mediaContainer) {
     });
   } catch (err) {
     console.error("Fehler beim Laden der Start-Inserate:", err);
-    container.innerHTML = "<p>🚫 Fehler beim Laden der Inserate.</p>";
+    container.innerHTML = "<p>Fehler beim Laden der Inserate.</p>";
   }
 }
+
 
 
 // Footer-Jahr sicher setzen

@@ -2109,18 +2109,36 @@ img, video, canvas {
 
 
 
+/* ===== Dealer Meta Row (Location links, Rating rechts) ===== */
+.dealer-meta-row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;       /* Abstand unter dem Namen */
+}
+
+.dealer-meta-row .dealer-location{
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 
 
 
 /* ===== Dealer Rating (Stars) ===== */
 .dealer-rating{
-  display: flex;
+  display: inline-flex;     /* statt flex */
   align-items: center;
   gap: 8px;
-  margin: 6px 0 2px;
+  margin: 0;                /* wichtig: keine eigene Zeilenmarge mehr */
   font-size: 13px;
   line-height: 1;
   color: rgba(255,255,255,0.85);
+  flex-shrink: 0;
+  margin-left: auto;        /* hält es rechts, selbst wenn Parent nicht perfekt ist */
 }
 
 .dealer-rating .stars{
@@ -2145,11 +2163,24 @@ img, video, canvas {
 }
 
 @media (max-width: 700px){
+  .dealer-meta-row{
+    gap: 10px;
+  }
   .dealer-rating{
     font-size: 12.5px;
     gap: 6px;
   }
   .dealer-rating .stars i{
     font-size: 12.5px;
+  }
+}
+
+/* optional: wenn es ganz eng wird, darf es umbrechen */
+@media (max-width: 420px){
+  .dealer-meta-row{
+    flex-wrap: wrap;
+  }
+  .dealer-rating{
+    margin-left: 0;
   }
 }
