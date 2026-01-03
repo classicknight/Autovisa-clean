@@ -1304,7 +1304,6 @@ app.post("/reset-password", async (req, res) => {
   }
 });
 
-
 function projectWithSeller() {
   return [
     // 1) ✅ Seller-ID robust einsammeln (deine Inserate haben oft "verkaeuferId")
@@ -1462,6 +1461,7 @@ function projectWithSeller() {
     }
   ];
 }
+
 
 
 /* =========================
