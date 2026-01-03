@@ -1151,13 +1151,19 @@ async function fetchInserate(page = 1, limit = 9) {
     startY: 0,
     prevTranslate: 0,
     currentTranslate: 0,
+
+    // Click-Block nur nach echtem Swipe
     blockClickUntil: 0,
+    hadRealSwipe: false,
+
+    // PointerCapture erst nach Axis-Lock auf X
+    captured: false,
   };
 
-  // Debug (optional): in Konsole inspizierbar
+  // Debug (optional)
   container._sliderState = state;
 
-  // Basis-Styles (sicher und konsistent)
+  // Basis-Styles
   slidesWrapper.style.display = "flex";
   slidesWrapper.style.willChange = "transform";
   slides.forEach((slide) => {
@@ -1165,7 +1171,7 @@ async function fetchInserate(page = 1, limit = 9) {
     slide.style.minWidth = "100%";
   });
 
-  const btnLeft = container.querySelector(".media-arrow.left");
+  const btnLeft  = container.querySelector(".media-arrow.left");
   const btnRight = container.querySelector(".media-arrow.right");
 
   const width = () => {
@@ -1181,8 +1187,18 @@ async function fetchInserate(page = 1, limit = 9) {
   };
 
   const updateArrows = () => {
-    if (btnLeft) btnLeft.disabled = state.index <= 0;
+    if (btnLeft)  btnLeft.disabled  = state.index <= 0;
     if (btnRight) btnRight.disabled = state.index >= slides.length - 1;
+  };
+
+  const pauseInactiveVideos = () => {
+    slides.forEach((s, idx) => {
+      const v = s?.tagName === "VIDEO" ? s : s?.querySelector?.("video");
+      if (!v) return;
+      if (idx !== state.index && !v.paused) {
+        try { v.pause(); } catch {}
+      }
+    });
   };
 
   const snapTo = (i, animate = true) => {
@@ -1191,9 +1207,10 @@ async function fetchInserate(page = 1, limit = 9) {
     state.currentTranslate = state.prevTranslate;
     setTranslate(state.currentTranslate, animate);
     updateArrows();
+    pauseInactiveVideos();
   };
 
-  // Verhindert „Swipe → Click → Karte öffnet“ (iOS macht sonst gerne einen Click)
+  // Verhindert „Swipe → Click → Karte öffnet“ (ABER nur nach echtem Swipe)
   container.addEventListener(
     "click",
     (e) => {
@@ -1210,23 +1227,17 @@ async function fetchInserate(page = 1, limit = 9) {
     if (e.button != null && e.button !== 0) return;
 
     // nicht starten, wenn Pfeil gedrückt wird
-    if (e.target && e.target.closest && e.target.closest(".media-arrow")) return;
+    if (e.target?.closest?.(".media-arrow")) return;
 
     state.dragging = true;
     state.axis = null;
     state.pointerId = e.pointerId ?? null;
     state.startX = e.clientX;
     state.startY = e.clientY;
+    state.hadRealSwipe = false;
 
-    // Während Drag keine Transition (sonst fühlt sich iOS „klebrig“ an)
+    state.captured = false;
     slidesWrapper.style.transition = "none";
-
-    if (e.pointerId != null && container.setPointerCapture) {
-      try {
-        container.setPointerCapture(e.pointerId);
-      } catch {}
-    }
-    
   };
 
   const moveDrag = (e) => {
@@ -1241,20 +1252,35 @@ async function fetchInserate(page = 1, limit = 9) {
     const dx = e.clientX - state.startX;
     const dy = e.clientY - state.startY;
 
-    // Axis-Lock (damit vertikales Scrollen nicht alles killt)
+    // Axis-Lock
     if (state.axis == null) {
       const adx = Math.abs(dx);
       const ady = Math.abs(dy);
-      if (adx < 6 && ady < 6) return; // kleine Zitterbewegung ignorieren
+
+      if (adx < 6 && ady < 6) return; // Zitterbewegung ignorieren
+
       state.axis = adx > ady ? "x" : "y";
 
-      // Wenn User eigentlich scrollt: Drag abbrechen und normales Scrollen zulassen
+      // Wenn User scrollt: Drag abbrechen
       if (state.axis === "y") {
         state.dragging = false;
         state.pointerId = null;
         return;
       }
+
+      // PointerCapture erst jetzt (nach X-Lock)
+      if (!state.captured && e.pointerId != null && container.setPointerCapture) {
+        try {
+          container.setPointerCapture(e.pointerId);
+          state.captured = true;
+        } catch {}
+      }
     }
+
+    if (state.axis !== "x") return;
+
+    // echtes Swipe-Movement merken (wichtig fürs Click-Blocking)
+    if (Math.abs(dx) > 10) state.hadRealSwipe = true;
 
     // horizontal: Browser darf NICHT mitscrollen
     if (e.cancelable) e.preventDefault();
@@ -1276,31 +1302,33 @@ async function fetchInserate(page = 1, limit = 9) {
 
     const movedBy = state.currentTranslate - state.prevTranslate;
     const w = width();
-    const threshold = Math.max(40, w * 0.12); // dynamisch + min 40px
+    const threshold = Math.max(40, w * 0.12);
 
     if (movedBy < -threshold && state.index < slides.length - 1) state.index++;
     else if (movedBy > threshold && state.index > 0) state.index--;
 
-    // Click-Block kurz aktivieren
-    state.blockClickUntil = Date.now() + 250;
+    // Click-Block NUR, wenn wirklich geswiped wurde
+    state.blockClickUntil = state.hadRealSwipe ? (Date.now() + 220) : 0;
 
-    // Snap
     snapTo(state.index, true);
 
-    // Reset
+    // PointerCapture sauber lösen
+    if (state.captured && e?.pointerId != null && container.releasePointerCapture) {
+      try { container.releasePointerCapture(e.pointerId); } catch {}
+    }
+
     state.pointerId = null;
     state.axis = null;
+    state.captured = false;
+    state.hadRealSwipe = false;
   };
 
-// Pointer Events (primär) – auf dem statischen Viewport, nicht auf .slides
-container.addEventListener("pointerdown", startDrag, { passive: false });
-container.addEventListener("pointermove", moveDrag, { passive: false });
-container.addEventListener("pointerup", endDrag, { passive: true });
-container.addEventListener("pointercancel", endDrag, { passive: true });
-container.addEventListener("pointerleave", endDrag, { passive: true });
+  container.addEventListener("pointerdown", startDrag, { passive: false });
+  container.addEventListener("pointermove", moveDrag, { passive: false });
+  container.addEventListener("pointerup", endDrag, { passive: true });
+  container.addEventListener("pointercancel", endDrag, { passive: true });
+  container.addEventListener("pointerleave", endDrag, { passive: true });
 
-
-  // Pfeile
   btnRight?.addEventListener("click", (e) => {
     e.stopPropagation();
     snapTo(state.index + 1, true);
@@ -1311,14 +1339,8 @@ container.addEventListener("pointerleave", endDrag, { passive: true });
     snapTo(state.index - 1, true);
   });
 
-  // Resize
-  window.addEventListener(
-    "resize",
-    () => snapTo(state.index, false),
-    { passive: true }
-  );
+  window.addEventListener("resize", () => snapTo(state.index, false), { passive: true });
 
-  // Initial
   snapTo(0, false);
 }
 
@@ -1363,13 +1385,13 @@ async function loadHomeListings() {
     const ratingBlock = ({ isHaendler, avg, count }) => {
       const c = Number(count);
       const a = Number(avg);
-    
+
       if (!isHaendler) return "";
       if (!Number.isFinite(c) || c <= 0) return "";
       if (!Number.isFinite(a) || a <= 0) return "";
-    
+
       const label = `Bewertung ${fmtRating(a)} von 5 Sternen (${c} Bewertungen)`;
-    
+
       return `
         <div class="dealer-rating" aria-label="${label}">
           ${starsHTML(a)}
@@ -1378,7 +1400,6 @@ async function loadHomeListings() {
         </div>
       `;
     };
-    
 
     container.innerHTML = "";
 
@@ -1426,37 +1447,41 @@ async function loadHomeListings() {
         <div class="car-card-media">
           <div class="card-actions mobile-only">
             <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
-            <a href="${tel ? `tel:${tel}` : '#'}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${tel ? "" : "aria-disabled='true'"} >
+            <a href="${tel ? `tel:${tel}` : "#"}"
+               class="contact-btn clean-phone"
+               title="Verkäufer kontaktieren"
+               role="button"
+               ${tel ? "" : "aria-disabled='true'"} >
               <i class="fas fa-phone"></i>
             </a>
           </div>
-      
+
           <div class="media-container">
             <div class="slides">
               ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
-      
+
               ${
                 inserat.video
-                  ? `<video class="slide" muted playsinline preload="metadata" tabindex="-1" aria-hidden="true">
+                  ? `<video class="slide" playsinline controls preload="metadata">
                        <source src="${inserat.video}" type="video/mp4">
                      </video>`
                   : ""
               }
             </div>
-      
+
             <button class="media-arrow left"  type="button"><i class="fas fa-chevron-left"></i></button>
             <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
           </div>
         </div>
-      
+
         <div class="car-details">
           <div class="car-top-row">
             <h2 class="car-title">${titel}</h2>
             <p class="car-price">${preis}</p>
           </div>
-      
+
           <p class="car-subtitle">${kurz}</p>
-      
+
           <div class="car-info-grid">
             <p><i class="fas fa-road"></i> ${inserat.verkauf_kilometer ?? "—"} km</p>
             <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.verkauf_erstzulassung || "—"}</p>
@@ -1465,14 +1490,14 @@ async function loadHomeListings() {
             <p><i class="fas fa-gears"></i> ${inserat.verkauf_getriebe || "—"}</p>
             <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "—"} l/100 km</p>
           </div>
-      
+
           <div class="dealer-info">
             <div class="dealer-row">
               <div class="dealer-avatar">
                 <img alt="${sellerName} Logo">
                 <span class="dealer-initials">${sellerInitials(sellerName)}</span>
               </div>
-      
+
               <div class="dealer-meta">
                 <div class="dealer-name">${sellerName}</div>
                 ${dealerRatingHTML}
@@ -1482,21 +1507,38 @@ async function loadHomeListings() {
           </div>
         </div>
       `;
-      
 
       card.addEventListener("click", (e) => {
-        const isAction = e.target.closest(".card-actions button, .card-actions a, .media-arrow");
+        // WICHTIG: Video zählt als Action, sonst öffnet Tap das Inserat statt zu spielen
+        const isAction = e.target.closest(
+          ".card-actions button, .card-actions a, .media-arrow, video"
+        );
         if (isAction) return;
+
         try {
           const payload = toAnzeigePayload(inserat);
           localStorage.setItem("ausgewaehltesInserat", JSON.stringify(payload));
         } catch {}
+
         if (_id) window.location.href = `anzeige.html?id=${encodeURIComponent(_id)}`;
         else     window.location.href = `anzeige.html`;
       });
 
       container.appendChild(card);
+
+      // Slider init
       initMediaSlider(card.querySelector(".media-container"));
+
+      // -------- VIDEO: iPhone/Safari Play fix --------
+      card.querySelectorAll("video").forEach((v) => {
+        v.setAttribute("playsinline", "");
+        v.setAttribute("controls", "");
+        v.setAttribute("preload", "metadata");
+
+        // Tap aufs Video darf nicht die Card-Navigation triggern
+        v.addEventListener("pointerdown", (ev) => ev.stopPropagation(), { passive: true });
+        v.addEventListener("click", (ev) => ev.stopPropagation());
+      });
 
       // --- Avatar/Logo (Safari-safe) ---
       const avatar = card.querySelector(".dealer-avatar");

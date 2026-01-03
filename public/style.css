@@ -2199,3 +2199,10 @@ img, video, canvas {
   /* ... dein bestehendes ... */
   touch-action: pan-y; /* vertikal scrollen ok, horizontal steuert der Slider */
 }
+
+
+
+/* Video in Karten muss anklickbar sein (Play/Controls) */
+.car-card .media-container video{
+  pointer-events: auto;
+}
