@@ -1302,47 +1302,89 @@ app.post("/reset-password", async (req, res) => {
     console.error("❌ Fehler bei /reset-password:", err);
     return res.status(500).json({ error: "Interner Fehler." });
   }
-});
-function projectWithSeller() {
+});function projectWithSeller() {
   return [
+    // 1) ✅ Seller-ID robust einsammeln (deine Inserate haben oft "verkaeuferId")
+    {
+      $addFields: {
+        _sellerIdRaw: {
+          $ifNull: [
+            "$sellerId",
+            "$seller.id",
+            "$seller._id",
+            "$sellerIdObj",
+            "$verkaeuferId",   // ✅ wichtig (Publish speichert das so)
+            "$nutzerId"        // optionaler Alt-/Fallback
+          ]
+        }
+      }
+    },
+
+    // 2) ✅ in ObjectId + String umwandeln (für Lookups & mögliche String-Fälle)
+    {
+      $addFields: {
+        sellerIdObj: {
+          $convert: {
+            input: "$_sellerIdRaw",
+            to: "objectId",
+            onError: null,
+            onNull: null
+          }
+        },
+        sellerIdStr: {
+          $toString: "$_sellerIdRaw"
+        }
+      }
+    },
+
+    // 3) ✅ Seller-Dokument laden (nutzer._id ist ObjectId → pipeline-lookup)
     {
       $lookup: {
         from: "nutzer",
-        localField: "sellerId",
-        foreignField: "_id",
-        as: "_sellerDoc",
-      },
+        let: { sid: "$sellerIdObj" },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$_id", "$$sid"] } } },
+          { $limit: 1 }
+        ],
+        as: "_sellerDoc"
+      }
     },
 
-    // ✅ NEU: Bewertungen für den Seller laden (falls vorhanden)
+    // 4) ✅ Bewertungen laden (robust: haendlerId kann ObjectId oder String sein)
     {
       $lookup: {
         from: "bewertungen",
-        let: { sid: "$sellerId" },
+        let: { sidObj: "$sellerIdObj", sidStr: "$sellerIdStr" },
         pipeline: [
           {
             $match: {
               $expr: {
                 $and: [
-                  { $eq: ["$haendlerId", "$$sid"] },
+                  {
+                    $or: [
+                      { $eq: ["$haendlerId", "$$sidObj"] },
+                      { $eq: [{ $toString: "$haendlerId" }, "$$sidStr"] }
+                    ]
+                  },
                   { $gte: ["$rating", 1] },
-                  { $lte: ["$rating", 5] },
-                ],
-              },
-            },
+                  { $lte: ["$rating", 5] }
+                ]
+              }
+            }
           },
           {
             $group: {
               _id: null,
               avg: { $avg: "$rating" },
-              count: { $sum: 1 },
-            },
-          },
+              count: { $sum: 1 }
+            }
+          }
         ],
-        as: "_sellerRating",
-      },
+        as: "_sellerRating"
+      }
     },
 
+    // 5) ✅ seller-Snapshot bauen (inkl. ratingAvg/ratingCount)
     {
       $addFields: {
         seller: {
@@ -1350,45 +1392,71 @@ function projectWithSeller() {
             vars: {
               s: { $arrayElemAt: ["$_sellerDoc", 0] },
               r: { $arrayElemAt: ["$_sellerRating", 0] },
+              typeRaw: {
+                $toLower: {
+                  $ifNull: [
+                    "$seller.type",
+                    "$verkauf_verkaeufer",
+                    "$$s.role",
+                    "privat"
+                  ]
+                }
+              }
             },
             in: {
               type: {
                 $cond: [
                   {
-                    $eq: [
-                      { $toLower: { $ifNull: ["$$s.role", "privat"] } },
-                      "haendler",
-                    ],
+                    $or: [
+                      { $eq: ["$$typeRaw", "haendler"] },
+                      { $eq: ["$$typeRaw", "händler"] }
+                    ]
                   },
                   "haendler",
-                  "privat",
-                ],
+                  "privat"
+                ]
               },
-              id: "$sellerId",
-              name: { $ifNull: ["$$s.name", "$verkauf_name"] },
-              logoUrl: { $ifNull: ["$$s.logoUrl", "$seller.logoUrl"] },
 
-              // ✅ NEU:
+              // ids
+              id: "$sellerIdObj",
+              idStr: "$sellerIdStr",
+
+              // meta
+              name: { $ifNull: ["$$s.name", "$verkauf_name"] },
+              logoUrl: {
+                $ifNull: [
+                  "$$s.logoUrl",
+                  "$seller.logoUrl",
+                  "$logoUrl",
+                  ""
+                ]
+              },
+
+              // ✅ Bewertungen
               ratingCount: { $ifNull: ["$$r.count", 0] },
               ratingAvg: {
                 $cond: [
                   { $gt: [{ $ifNull: ["$$r.count", 0] }, 0] },
                   { $round: ["$$r.avg", 1] },
-                  null,
-                ],
-              },
-            },
-          },
-        },
-      },
+                  null
+                ]
+              }
+            }
+          }
+        }
+      }
     },
 
+    // 6) Cleanup
     {
       $project: {
         _sellerDoc: 0,
         _sellerRating: 0,
-      },
-    },
+        _sellerIdRaw: 0,
+        sellerIdObj: 0,
+        sellerIdStr: 0
+      }
+    }
   ];
 }
 

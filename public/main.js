@@ -1198,8 +1198,7 @@ function initMediaSlider(mediaContainer) {
 
   window.addEventListener("resize", updateSlidePosition);
   updateSlidePosition();
-}
-async function loadHomeListings() {
+}async function loadHomeListings() {
   const container = document.getElementById("homeResults");
   if (!container) return;
 
@@ -1222,16 +1221,16 @@ async function loadHomeListings() {
       return Number.isFinite(n) ? n.toFixed(1).replace(".", ",") : "";
     };
 
+    // ✅ FontAwesome-kompatibel zu deinem Rest (fas/far)
     const starsHTML = (avg) => {
       const a = Number(avg);
       if (!Number.isFinite(a) || a <= 0) return "";
 
       let out = `<span class="stars" aria-hidden="true">`;
       for (let i = 1; i <= 5; i++) {
-        // simple Thresholds für full/half/empty
-        if (a >= i - 0.25) out += `<i class="fa-solid fa-star"></i>`;
-        else if (a >= i - 0.75) out += `<i class="fa-solid fa-star-half-stroke"></i>`;
-        else out += `<i class="fa-regular fa-star"></i>`;
+        if (a >= i - 0.25) out += `<i class="fas fa-star"></i>`;
+        else if (a >= i - 0.75) out += `<i class="fas fa-star-half-alt"></i>`;
+        else out += `<i class="far fa-star"></i>`;
       }
       out += `</span>`;
       return out;
@@ -1240,18 +1239,39 @@ async function loadHomeListings() {
     const ratingBlock = ({ isHaendler, avg, count }) => {
       const c = Number(count);
       const a = Number(avg);
+
       if (!isHaendler) return "";
       if (!Number.isFinite(c) || c <= 0) return "";
       if (!Number.isFinite(a) || a <= 0) return "";
 
       const label = `Bewertung ${fmtRating(a)} von 5 Sternen (${c} Bewertungen)`;
       return `
-        <div class="dealer-rating" aria-label="${label}">
+        <div class="dealer-rating" aria-label="${label}" title="${label}">
           ${starsHTML(a)}
           <span class="dealer-rating__value">${fmtRating(a)}</span>
           <span class="dealer-rating__count">(${c})</span>
         </div>
       `;
+    };
+
+    // ✅ Rating robust holen (weil es je nach Response-Struktur unterschiedlich liegen kann)
+    const getRating = (inserat) => {
+      const s = inserat?.seller || {};
+      const avg =
+        s.ratingAvg ??
+        s.rating?.avg ??
+        inserat.ratingAvg ??
+        inserat.sellerRatingAvg ??
+        null;
+
+      const count =
+        s.ratingCount ??
+        s.rating?.count ??
+        inserat.ratingCount ??
+        inserat.sellerRatingCount ??
+        null;
+
+      return { avg, count };
     };
 
     container.innerHTML = "";
@@ -1260,14 +1280,13 @@ async function loadHomeListings() {
       const tel   = sanitizePhone(inserat.telefon);
       const titel = inserat.titel || "Unbekanntes Fahrzeug";
 
-      // ✅ Preis robust (Brutto > Einzelpreis > Netto), leere Strings ignorieren
       const preisNum = pickPrice(
         inserat["brutto-preis"],
         inserat.brutto_preis,
         inserat.verkauf_brutto,
         inserat.preis,
-        inserat.verkauf_preis, // wichtig für „Keine MwSt.“
-        inserat.verkauf_netto  // Fallback: nur Netto vorhanden
+        inserat.verkauf_preis,
+        inserat.verkauf_netto
       );
       const preis = fmtEUR(preisNum);
 
@@ -1277,7 +1296,10 @@ async function loadHomeListings() {
       // Verkäuferdaten (mit Fallbacks)
       const rawType = String(inserat.seller?.type || inserat.verkauf_verkaeufer || "").toLowerCase();
       const isHaendler =
-        rawType === "haendler" || rawType === "händler" || rawType.includes("händ") || rawType.includes("haend");
+        rawType === "haendler" ||
+        rawType === "händler" ||
+        rawType.includes("händ") ||
+        rawType.includes("haend");
 
       const sellerName =
         inserat.seller?.name || inserat.verkauf_name || (isHaendler ? "Händler" : "Privatanbieter");
@@ -1291,13 +1313,12 @@ async function loadHomeListings() {
       const sellerLocation =
         inserat.standort || [inserat.plz, inserat.ort].filter(Boolean).join(" ") || "Standort nicht angegeben";
 
-      // ✅ NEU: Rating-Daten (vom Backend mitgeliefert)
-      const ratingAvg   = inserat.seller?.ratingAvg;
-      const ratingCount = inserat.seller?.ratingCount;
+      // ✅ NEU: Rating-Daten robust (egal wie das Backend sie liefert)
+      const { avg: ratingAvg, count: ratingCount } = getRating(inserat);
       const dealerRatingHTML = ratingBlock({ isHaendler, avg: ratingAvg, count: ratingCount });
 
       const card = document.createElement("div");
-      card.className = "car-card"; // vertikale Karte auf der Startseite
+      card.className = "car-card";
       card.innerHTML = `
         <div class="car-card-media">
           <div class="card-actions mobile-only">
@@ -1333,7 +1354,6 @@ async function loadHomeListings() {
             <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "—"} l/100 km</p>
           </div>
 
-          <!-- Händlerzeile mit Logo/Initialen -->
           <div class="dealer-info">
             <div class="dealer-row">
               <div class="dealer-avatar">
@@ -1350,12 +1370,10 @@ async function loadHomeListings() {
         </div>
       `;
 
-      // Karte klickbar (aber nicht die Buttons/Arrows)
       card.addEventListener("click", (e) => {
         const isAction = e.target.closest(".card-actions button, .card-actions a, .media-arrow");
         if (isAction) return;
         try {
-          // robustes Payload für die Detailseite speichern
           const payload = toAnzeigePayload(inserat);
           localStorage.setItem("ausgewaehltesInserat", JSON.stringify(payload));
         } catch {}
@@ -1366,7 +1384,6 @@ async function loadHomeListings() {
       container.appendChild(card);
       initMediaSlider(card.querySelector(".media-container"));
 
-      // --- Avatar/Logo (Safari-safe, kein loading="lazy", nie display:none fürs <img>) ---
       const avatar = card.querySelector(".dealer-avatar");
       const img    = avatar.querySelector("img");
       avatar.classList.remove("has-logo");
@@ -1374,21 +1391,15 @@ async function loadHomeListings() {
 
       if (sellerLogo) {
         try { img.loading = "eager"; } catch {}
-        img.addEventListener("load", () => {
-          if (img.naturalWidth > 0) avatar.classList.add("has-logo");
-        }, { once: true });
-
+        img.addEventListener("load", () => { if (img.naturalWidth > 0) avatar.classList.add("has-logo"); }, { once: true });
         img.addEventListener("error", () => {
           avatar.classList.remove("has-logo");
           img.removeAttribute("src");
         }, { once: true });
-
         img.src = sellerLogo;
-        // Cache-Fall
         if (img.complete && img.naturalWidth > 0) avatar.classList.add("has-logo");
       }
 
-      // Hochformat-Erkennung (optional)
       card.querySelectorAll(".slide").forEach((m) => {
         if (m.tagName === "VIDEO") {
           m.addEventListener("loadedmetadata", () => {
