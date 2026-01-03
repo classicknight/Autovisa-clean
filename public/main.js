@@ -1241,16 +1241,17 @@ function initMediaSlider(mediaContainer) {
       if (!isHaendler) return "";
       if (!Number.isFinite(c) || c <= 0) return "";
       if (!Number.isFinite(a) || a <= 0) return "";
-
+    
       const label = `Bewertung ${fmtRating(a)} von 5 Sternen (${c} Bewertungen)`;
       return `
         <div class="dealer-rating" aria-label="${label}">
           ${starsHTML(a)}
           <span class="dealer-rating__value">${fmtRating(a)}</span>
-          <span class="dealer-rating__count">(${c})</span>
+          <span class="dealer-rating__count">(${c} Bewertungen)</span>
         </div>
       `;
     };
+    
 
     container.innerHTML = "";
 
