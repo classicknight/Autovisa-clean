@@ -423,12 +423,17 @@
 <div class="search-group">
   <label for="ort">Ort / PLZ</label>
   <input
-    type="text"
-    id="ort"
-    name="ort"
-    placeholder="z. B. 10115 oder Berlin"
-    autocomplete="off"
-  />
+  type="text"
+  id="ort"
+  name="ort_display"
+  placeholder="z. B. 10115 oder Berlin"
+  autocomplete="new-password"
+  inputmode="search"
+  autocorrect="off"
+  autocapitalize="off"
+  spellcheck="false"
+/>
+
   <!-- NEU: versteckte Felder für Geokoordinaten, werden vom Autocomplete gesetzt -->
   <input type="hidden" id="ort-lat" name="ort_lat">
   <input type="hidden" id="ort-lon" name="ort_lon">

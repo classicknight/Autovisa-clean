@@ -140,6 +140,15 @@ document.addEventListener("DOMContentLoaded", () => {
    
      function setupOrtGeoSuggest() {
        if (!ortInput || !ortLatEl || !ortLonEl) return;
+
+
+       // Browser-Autofill/History bestmöglich unterdrücken (damit nur unsere Liste erscheint)
+ortInput.setAttribute("autocomplete", "new-password");
+ortInput.setAttribute("name", "ort_display");
+ortInput.setAttribute("autocorrect", "off");
+ortInput.setAttribute("autocapitalize", "off");
+ortInput.setAttribute("spellcheck", "false");
+
    
        const group = ortInput.closest(".search-group") || ortInput.parentElement;
        if (group) group.style.position = "relative";
