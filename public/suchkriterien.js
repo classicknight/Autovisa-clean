@@ -139,161 +139,308 @@ document.addEventListener("DOMContentLoaded", () => {
      const ortLonEl = document.getElementById("ort-lon");
    
      function setupOrtGeoSuggest() {
-       if (!ortInput || !ortLatEl || !ortLonEl) return;
-
-
-       // Browser-Autofill/History bestmöglich unterdrücken (damit nur unsere Liste erscheint)
-ortInput.setAttribute("autocomplete", "new-password");
-ortInput.setAttribute("name", "ort_display");
-ortInput.setAttribute("autocorrect", "off");
-ortInput.setAttribute("autocapitalize", "off");
-ortInput.setAttribute("spellcheck", "false");
-
-   
-       const group = ortInput.closest(".search-group") || ortInput.parentElement;
-       if (group) group.style.position = "relative";
-   
-       const box = document.createElement("div");
-       box.className = "av-geo-suggest";
-       box.style.cssText = `
-         position:absolute; left:0; right:0; top:100%;
-         margin-top:8px; z-index:9999; display:none;
-         background:#0f2027; color:#fff;
-         border:1px solid rgba(227,233,239,.22);
-         border-radius:12px; overflow:hidden;
-         box-shadow:0 18px 40px rgba(0,0,0,.35);
-       `;
-       group.appendChild(box);
-   
-       let items = [];
-       let active = -1;
-       let abortCtrl = null;
-   
-       const close = () => {
-         box.style.display = "none";
-         box.innerHTML = "";
-         items = [];
-         active = -1;
-       };
-   
-       const highlight = () => {
-         const btns = box.querySelectorAll("button[data-idx]");
-         btns.forEach((b, i) => (b.style.background = i === active ? "rgba(0,184,169,.14)" : "transparent"));
-       };
-   
-       const select = (idx) => {
-         const it = items[idx];
-         if (!it) return;
-         ortInput.value = it.value || it.label;
-         ortLatEl.value = String(it.lat);
-         ortLonEl.value = String(it.lon);
-         close();
-       };
-   
-       const render = () => {
-         if (!items.length) return close();
-   
-         box.innerHTML = items
-           .map((it, idx) => {
-             const secondary = it.secondary ? `<div style="opacity:.75;font-size:.9em">${it.secondary}</div>` : "";
-             return `
-               <button type="button" data-idx="${idx}"
-                 style="display:block;width:100%;text-align:left;padding:10px 12px;border:0;background:transparent;color:inherit;cursor:pointer;font:inherit">
-                 <div style="font-weight:600">${it.label}</div>
-                 ${secondary}
-               </button>
-             `;
-           })
-           .join("");
-   
-         box.querySelectorAll("button[data-idx]").forEach((btn) => {
-           btn.addEventListener("click", () => select(Number(btn.dataset.idx)));
-           btn.addEventListener("mouseenter", () => {
-             active = Number(btn.dataset.idx);
-             highlight();
-           });
-         });
-   
-         active = 0;
-         highlight();
-         box.style.display = "block";
-       };
-   
-       const fetchSuggest = async (q) => {
-         const query = String(q || "").trim();
-         if (query.length < 2) return close();
-   
-         if (abortCtrl) abortCtrl.abort();
-         abortCtrl = new AbortController();
-   
-         try {
-           const res = await fetch(`/api/geosuggest?q=${encodeURIComponent(query)}&limit=8`, { signal: abortCtrl.signal });
-           if (!res.ok) return close();
-   
-           const data = await res.json();
-
-           const list =
-             (Array.isArray(data?.items) && data.items) ||
-             (Array.isArray(data?.suggestions) && data.suggestions) ||
-             [];
-           
-           items = list
-             .map((x) => ({
-               label: x.label || x.display_name || "",
-               value: x.value || x.label || "",
-               secondary: x.secondary || "",
-               lat: Number(x.lat),
-               lon: Number(x.lon),
-             }))
-             .filter((it) => it.label && Number.isFinite(it.lat) && Number.isFinite(it.lon));
-           
-           render();
-         } catch (e) {
-           if (e?.name !== "AbortError") close();
-         }
-       };
-   
-       // mini-debounce
-       let t = null;
-       const debounced = (val) => {
-         clearTimeout(t);
-         t = setTimeout(() => fetchSuggest(val), 220);
-       };
-   
-       ortInput.addEventListener("input", () => {
-         // sobald der User frei tippt: Koordinaten invalidieren (bis er wieder auswählt)
-         ortLatEl.value = "";
-         ortLonEl.value = "";
-         debounced(ortInput.value);
-       });
-   
-       ortInput.addEventListener("focus", () => debounced(ortInput.value));
-   
-       ortInput.addEventListener("keydown", (e) => {
-         if (box.style.display === "none") return;
-   
-         if (e.key === "ArrowDown") {
-           e.preventDefault();
-           active = Math.min(items.length - 1, active + 1);
-           highlight();
-         } else if (e.key === "ArrowUp") {
-           e.preventDefault();
-           active = Math.max(0, active - 1);
-           highlight();
-         } else if (e.key === "Enter") {
-           if (active >= 0) {
-             e.preventDefault();
-             select(active);
-           }
-         } else if (e.key === "Escape") {
-           close();
-         }
-       });
-   
-       document.addEventListener("click", (e) => {
-         if (!group.contains(e.target)) close();
-       });
-     }
+      if (!ortInput || !ortLatEl || !ortLonEl) return;
+    
+      // Browser-Autofill/History bestmöglich unterdrücken
+      ortInput.setAttribute("autocomplete", "new-password");
+      ortInput.setAttribute("name", "ort_display");
+      ortInput.setAttribute("autocorrect", "off");
+      ortInput.setAttribute("autocapitalize", "off");
+      ortInput.setAttribute("spellcheck", "false");
+    
+      const group = ortInput.closest(".search-group") || ortInput.parentElement;
+      if (group) group.style.position = "relative";
+    
+      const box = document.createElement("div");
+      box.className = "av-geo-suggest";
+      box.style.display = "none";
+      group.appendChild(box);
+    
+      let items = [];
+      let active = -1;
+      let abort = null;
+    
+      // -------------------------
+      // Local PLZ/Ort Index (/data/plz-de.json)
+      // -------------------------
+      let plzIndex = [];
+      let plzLoaded = false;
+      let plzLoading = false;
+    
+      async function ensurePlzIndex() {
+        if (plzLoaded || plzLoading) return;
+        plzLoading = true;
+        try {
+          const r = await fetch("/data/plz-de.json", { credentials: "omit" });
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          const data = await r.json();
+    
+          // Erwartete Struktur:
+          // { plz: "01067", ort: "Dresden", zusatz: null, bundesland: "Sachsen", country: "DE" }
+          const normalized = Array.isArray(data)
+            ? data.map((row) => {
+                const postcode = String(row.postcode || row.plz || "").trim();
+                const cityBase = String(row.city || row.ort || "").trim();
+                const extra    = String(row.zusatz || "").trim();
+                const city     = [cityBase, extra].filter(Boolean).join(" ").trim();
+                const state    = String(row.state || row.bundesland || "").trim();
+    
+                const mainLabel = postcode ? `${postcode} ${city}` : city;
+                const query     = state ? `${mainLabel}, ${state}` : mainLabel;
+    
+                return {
+                  postcode,
+                  city,
+                  state,
+                  mainLabel,
+                  query,
+                  plzLower:  postcode.toLowerCase(),
+                  cityLower: city.toLowerCase(),
+                  comboLower: query.toLowerCase(),
+                };
+              })
+            : [];
+    
+          // Sort für schnellere Prefix-Treffer (bricht früher ab)
+          normalized.sort((a, b) => a.comboLower.localeCompare(b.comboLower));
+          plzIndex = normalized;
+    
+          plzLoaded = true;
+        } catch (e) {
+          console.warn("plz-de.json konnte nicht geladen werden – fallback auf /api/geosuggest.", e);
+        } finally {
+          plzLoading = false;
+        }
+      }
+    
+      function localSuggest(term) {
+        if (!plzLoaded || !plzIndex.length) return [];
+        const t = String(term || "").trim().toLowerCase();
+        if (t.length < 2) return [];
+    
+        const MAX = 20;
+        const out = [];
+        const startsWithDigit = /^\d/.test(t);
+    
+        for (let i = 0; i < plzIndex.length; i++) {
+          const it = plzIndex[i];
+          if (startsWithDigit) {
+            // PLZ-Suche
+            if (it.plzLower && it.plzLower.startsWith(t)) out.push(it);
+          } else {
+            // Orts-Suche (Prefix)
+            if (
+              (it.cityLower && it.cityLower.startsWith(t)) ||
+              (it.comboLower && it.comboLower.startsWith(t))
+            ) {
+              out.push(it);
+            }
+          }
+          if (out.length >= MAX) break;
+        }
+        return out;
+      }
+    
+      // -------------------------
+      // UI Helpers
+      // -------------------------
+      const open = () => (box.style.display = "block");
+      const close = () => {
+        box.style.display = "none";
+        box.innerHTML = "";
+        items = [];
+        active = -1;
+      };
+    
+      const highlight = () => {
+        box.querySelectorAll("button[data-idx]").forEach((b, i) => {
+          b.style.background = i === active ? "rgba(0,184,169,0.12)" : "transparent";
+        });
+      };
+    
+      async function resolveCoordsFromApi(query) {
+        const q = String(query || "").trim();
+        if (!q) return null;
+    
+        try {
+          const res = await fetch(`/api/geosuggest?q=${encodeURIComponent(q)}&limit=1`, {
+            credentials: "omit",
+          });
+          if (!res.ok) return null;
+          const data = await res.json();
+          const it = data?.items?.[0];
+          if (it && Number.isFinite(it.lat) && Number.isFinite(it.lon)) {
+            return { lat: Number(it.lat), lon: Number(it.lon), value: it.value || it.label || "" };
+          }
+        } catch {}
+        return null;
+      }
+    
+      const select = async (idx) => {
+        const it = items[idx];
+        if (!it) return;
+    
+        // Wert setzen (für Query/Chip-Anzeige)
+        ortInput.value = it.value || it.label || "";
+        // Coords erstmal löschen, werden dann gefüllt
+        ortLatEl.value = "";
+        ortLonEl.value = "";
+    
+        // Wenn Suggest schon Coords hat -> direkt setzen
+        if (Number.isFinite(it.lat) && Number.isFinite(it.lon)) {
+          ortLatEl.value = String(it.lat);
+          ortLonEl.value = String(it.lon);
+          close();
+          return;
+        }
+    
+        // Local PLZ Treffer: einmalig Coords nachladen (damit Umkreis sauber funktioniert)
+        const resolved = await resolveCoordsFromApi(it.query || it.value || it.label);
+        if (resolved) {
+          ortLatEl.value = String(resolved.lat);
+          ortLonEl.value = String(resolved.lon);
+    
+          // optional: auf "sauberen" API-Wert normalisieren
+          if (resolved.value) ortInput.value = resolved.value;
+        }
+    
+        close();
+      };
+    
+      const render = () => {
+        if (!items.length) return close();
+    
+        box.innerHTML = items
+          .map((it, idx) => {
+            const secondary = it.secondary
+              ? `<div style="opacity:.75;font-size:.9em">${it.secondary}</div>`
+              : "";
+            return `
+              <button type="button" data-idx="${idx}"
+                style="display:block;width:100%;text-align:left;padding:12px 14px;border:0;background:transparent;color:inherit;cursor:pointer;font:inherit">
+                <div style="font-weight:600">${it.label}</div>
+                ${secondary}
+              </button>
+            `;
+          })
+          .join("");
+    
+        box.querySelectorAll("button[data-idx]").forEach((btn) => {
+          btn.addEventListener("click", () => select(Number(btn.dataset.idx)));
+          btn.addEventListener("mouseenter", () => {
+            active = Number(btn.dataset.idx);
+            highlight();
+          });
+        });
+    
+        open();
+        highlight();
+      };
+    
+      // -------------------------
+      // Suggest Fetch (Local first, API fallback)
+      // -------------------------
+      const fetchSuggest = async (val) => {
+        const q = String(val || "").trim();
+        if (q.length < 2) return close();
+    
+        // Local index lazy-loaden
+        await ensurePlzIndex();
+    
+        // 1) Local Vorschläge (PLZ/Ort komplett)
+        const local = localSuggest(q);
+        if (local.length) {
+          items = local.map((x) => ({
+            label: x.mainLabel,       // z.B. "44147 Dortmund"
+            value: x.query,           // z.B. "44147 Dortmund, Nordrhein-Westfalen"
+            query: x.query,           // für Coords-Auflösung
+            secondary: x.state || "", // Bundesland
+            lat: NaN,
+            lon: NaN,
+          }));
+          active = -1;
+          render();
+          return;
+        }
+    
+        // 2) Fallback: API
+        try {
+          if (abort) abort.abort();
+          abort = new AbortController();
+    
+          const res = await fetch(`/api/geosuggest?q=${encodeURIComponent(q)}&limit=12`, {
+            signal: abort.signal,
+            credentials: "omit",
+          });
+    
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+    
+          const arr = Array.isArray(data?.items) ? data.items : [];
+          items = arr
+            .map((x) => ({
+              label: x.label || x.value || "",
+              value: x.value || x.label || "",
+              query: x.value || x.label || "",
+              secondary: x.secondary || "",
+              lat: Number(x.lat),
+              lon: Number(x.lon),
+            }))
+            .filter((it) => it.label);
+    
+          active = -1;
+          render();
+        } catch (e) {
+          if (e?.name !== "AbortError") close();
+        }
+      };
+    
+      // mini-debounce
+      let t = null;
+      const debounced = (val) => {
+        clearTimeout(t);
+        t = setTimeout(() => fetchSuggest(val), 80);
+      };
+    
+      ortInput.addEventListener("input", () => {
+        // User tippt frei -> Koords invalidieren bis er wählt / bis wir resolve machen
+        ortLatEl.value = "";
+        ortLonEl.value = "";
+        debounced(ortInput.value);
+      });
+    
+      ortInput.addEventListener("focus", async () => {
+        // Index früh laden, damit es sich "instant" anfühlt
+        ensurePlzIndex();
+        debounced(ortInput.value);
+      });
+    
+      ortInput.addEventListener("keydown", (e) => {
+        if (box.style.display === "none") return;
+    
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          active = Math.min(active + 1, items.length - 1);
+          highlight();
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          active = Math.max(active - 1, 0);
+          highlight();
+        } else if (e.key === "Enter") {
+          if (active >= 0) {
+            e.preventDefault();
+            select(active);
+          }
+        } else if (e.key === "Escape") {
+          close();
+        }
+      });
+    
+      document.addEventListener("click", (e) => {
+        if (!group.contains(e.target)) close();
+      });
+    }
+    
    
      setupOrtGeoSuggest();
    
