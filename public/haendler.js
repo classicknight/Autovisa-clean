@@ -304,53 +304,44 @@ document.addEventListener("DOMContentLoaded", () => {
   function setupTarif() {
     const grid = document.getElementById("tarifGrid");
     if (!grid) return;
-
-    // STARTPHASE: kostenlos + nicht auswählbar
+  
+    // =========================
+    // STARTPHASE: Tarife NUR ANZEIGEN (nicht auswählbar)
+    // - Preise bleiben wie im HTML (4,90 / 9,90 / ...)
+    // - keine Auswahl, kein Speichern, kein /saveTarif
+    // =========================
     if (INTRO_FREE) {
-      // Alle Preis-Texte auf "Kostenlos" setzen (optional aber sinnvoll)
-      grid.querySelectorAll(".tarif-box .tarif-price").forEach(p => {
-        p.textContent = "Kostenlos";
-      });
-
-      // Immer den ersten Tarif als aktiv markieren (0–3) und speichern
-      const defaultBox =
-        grid.querySelector('.tarif-box[data-tarif="0-3"]') ||
-        grid.querySelector(".tarif-box");
-
+      // Sicherheit: nichts als selected markieren (auch wenn im HTML mal "selected" steht)
       grid.querySelectorAll(".tarif-box").forEach(b => b.classList.remove("selected"));
-      if (defaultBox) defaultBox.classList.add("selected");
-
-      const code = defaultBox?.dataset?.tarif || "0-3";
-      persistTarif(code);
-
-      // Step 4 als erledigt markieren (weil Tarif in Startphase fix ist)
-      markStepDone(4);
-
-      // Toggle-Button mobil ausblenden (optional)
+  
+      // Optional: Mobile "Mehr Tarife" Button ausblenden (wenn du willst)
       const btn = document.querySelector(".tarif-toggle-btn.mobile-only");
       if (btn) btn.style.display = "none";
-
-      // Optional: Server einmalig informieren (schadet nicht, falls Route existiert)
-      // (Fehler werden bewusst ignoriert)
-      (async () => {
-        try {
-          await fetch("/saveTarif", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ tarif: "Startphase – Kostenlos" }),
-          });
-        } catch {}
-      })();
-
-      // WICHTIG: keine Click-Listener setzen -> Auswahl bleibt deaktiviert
+  
+      // Klicks komplett blocken (damit wirklich NICHTS auswählbar ist)
+      // Capture = true, damit es garantiert vor anderen Listenern greift
+      grid.addEventListener("click", (e) => {
+        const box = e.target.closest(".tarif-box");
+        if (!box) return;
+  
+        e.preventDefault();
+        e.stopPropagation();
+  
+        // Optionaler Hinweis (wenn du GAR KEINE Reaktion willst, Zeile entfernen)
+        showToast("Startphase: Tarife sind aktuell nur zur Ansicht – Händler nutzen Autovisa kostenlos ✅");
+      }, true);
+  
+      // Optional: Step 4 als erledigt markieren, damit der Wizard nicht blockiert
+      markStepDone(4);
+  
+      // WICHTIG: hier bewusst raus -> keine Auswahl, kein persistTarif, kein saveTarif
       return;
     }
-
+  
     // =========================
     // PAID-LIVE Modus (dein bisheriges Verhalten)
     // =========================
-
+  
     // Restore Auswahl im UI
     const saved = safeGet(TARIF_KEY, "");
     if (saved) {
@@ -366,16 +357,16 @@ document.addEventListener("DOMContentLoaded", () => {
         persistTarif(first.dataset.tarif || "");
       }
     }
-
+  
     updateNavbarTarif();
-
+  
     grid.addEventListener("click", async (e) => {
       const box = e.target.closest(".tarif-box");
       if (!box) return;
-
+  
       grid.querySelectorAll(".tarif-box").forEach(b => b.classList.remove("selected"));
       box.classList.add("selected");
-
+  
       const code = box.dataset.tarif || "";
       try {
         const res = await fetch("/saveTarif", {
@@ -384,9 +375,9 @@ document.addEventListener("DOMContentLoaded", () => {
           credentials: "include",
           body: JSON.stringify({ tarif: humanTarifLabel(code) }),
         });
-
+  
         const data = await res.json().catch(() => ({}));
-
+  
         if (res.ok && data.success) {
           persistTarif(code);
           markStepDone(4);
@@ -400,7 +391,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
-
+  
   function persistTarif(code) {
     safeSet(TARIF_KEY, code);
     updateNavbarTarif();
