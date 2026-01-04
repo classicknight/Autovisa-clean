@@ -1215,7 +1215,7 @@ if (schadSel === "custom") {
 /* =========================
    Active Filters Bar (Chips) – TOP sticky dynamisch (unter Navbar wenn sichtbar)
    ========================= */
-   (function initActiveFiltersBar(){
+   (function initActiveFiltersBar() {
     const section = document.querySelector('.search-section');
     if (!section) return;
   
@@ -1238,44 +1238,33 @@ if (schadSel === "custom") {
     if (nav) nav.insertAdjacentElement('afterend', bar);
     else document.body.prepend(bar);
   
-    // ✅ Dynamischer "top"-Offset:
+    // ✅ Dynamischer "top"-Offset (robust, ohne IntersectionObserver):
     // - Navbar sichtbar: unter Navbar
-    // - Navbar weg: ganz oben (12px)
+    // - Navbar weg: ganz oben (BASE_TOP_GAP)
     const BASE_TOP_GAP = 12;
   
-    function setFilterbarTop(navVisible){
-      if (!nav || !navVisible){
-        document.documentElement.style.setProperty('--av-filterbar-top', BASE_TOP_GAP + 'px');
+    function updateFilterbarTop() {
+      if (!nav) {
+        document.documentElement.style.setProperty('--av-filterbar-top', `${BASE_TOP_GAP}px`);
         return;
       }
-      const h = Math.round(nav.getBoundingClientRect().height) || 96;
-      document.documentElement.style.setProperty('--av-filterbar-top', (h + BASE_TOP_GAP) + 'px');
+  
+      const rect = nav.getBoundingClientRect();
+      const navVisible = rect.bottom > 0 && rect.top < window.innerHeight;
+  
+      const h = Math.round(rect.height) || 96;
+      const top = navVisible ? (h + BASE_TOP_GAP) : BASE_TOP_GAP;
+  
+      // Sicherheits-Clamp, damit es auf Mobile nie "mittig" wegrutscht
+      const clamped = Math.max(BASE_TOP_GAP, Math.min(top, 140));
+  
+      document.documentElement.style.setProperty('--av-filterbar-top', `${clamped}px`);
     }
   
-    // Initial setzen (falls Navbar da ist)
-    setFilterbarTop(!!nav);
-  
-    // Bei Resize neu berechnen (Navbar-Höhe kann variieren)
-    window.addEventListener('resize', () => setFilterbarTop(true));
-  
-    // Navbar-Sichtbarkeit beobachten
-    if (nav && 'IntersectionObserver' in window){
-      const io = new IntersectionObserver((entries) => {
-        const e = entries[0];
-        const visible = !!(e && e.isIntersecting);
-        setFilterbarTop(visible);
-      }, { threshold: [0, 0.01] });
-  
-      io.observe(nav);
-    } else {
-      // Fallback: scroll-check
-      window.addEventListener('scroll', () => {
-        if (!nav) return;
-        const r = nav.getBoundingClientRect();
-        const visible = r.bottom > 0 && r.top < window.innerHeight;
-        setFilterbarTop(visible);
-      }, { passive: true });
-    }
+    // Initial + live Updates
+    updateFilterbarTop();
+    window.addEventListener('scroll', updateFilterbarTop, { passive: true });
+    window.addEventListener('resize', updateFilterbarTop);
   
     const countEl = bar.querySelector('#avFilterCount');
     const chipsEl = bar.querySelector('#avFilterChips');
@@ -1292,27 +1281,27 @@ if (schadSel === "custom") {
     const fmtYM = (ym) => {
       const s = String(ym || '').trim();
       if (!/^\d{4}-\d{2}$/.test(s)) return s;
-      const [y,m] = s.split('-');
+      const [y, m] = s.split('-');
       return `${m}/${y}`;
     };
   
     const fuelLabel = (t) => {
       const k = String(t || '').trim().toLowerCase();
       const map = {
-        'benzin':'Benzin',
-        'diesel':'Diesel',
-        'elektro':'Elektro',
-        'hybrid':'Hybrid',
-        'hybrid-benzin':'Hybrid (Benzin)',
-        'hybrid-diesel':'Hybrid (Diesel)',
-        'plug-in-hybrid':'Plug-in-Hybrid',
-        'plug-in-hybrid-benzin':'Plug-in-Hybrid (Benzin)',
-        'wasserstoff':'Wasserstoff',
-        'autogas':'Autogas (LPG)',
-        'lpg':'Autogas (LPG)',
-        'cng':'Erdgas (CNG)',
-        'ethanol':'Ethanol (E85)',
-        'andere':'Andere'
+        'benzin': 'Benzin',
+        'diesel': 'Diesel',
+        'elektro': 'Elektro',
+        'hybrid': 'Hybrid',
+        'hybrid-benzin': 'Hybrid (Benzin)',
+        'hybrid-diesel': 'Hybrid (Diesel)',
+        'plug-in-hybrid': 'Plug-in-Hybrid',
+        'plug-in-hybrid-benzin': 'Plug-in-Hybrid (Benzin)',
+        'wasserstoff': 'Wasserstoff',
+        'autogas': 'Autogas (LPG)',
+        'lpg': 'Autogas (LPG)',
+        'cng': 'Erdgas (CNG)',
+        'ethanol': 'Ethanol (E85)',
+        'andere': 'Andere'
       };
       return map[k] || t;
     };
@@ -1326,35 +1315,35 @@ if (schadSel === "custom") {
   
     const deHyphen = (s) => String(s || '').replace(/\s*-\s*/g, '-').replace(/-/g, ' ');
   
-    function setSelectToDefault(sel){
+    function setSelectToDefault(sel) {
       if (!sel) return;
       const hasEmpty = Array.from(sel.options || []).some(o => o.value === '');
       if (hasEmpty) sel.value = '';
       else sel.selectedIndex = 0;
-      sel.dispatchEvent(new Event('change', { bubbles:true }));
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
     }
   
-    function clearMultiSelect(sel){
+    function clearMultiSelect(sel) {
       if (!sel) return;
       Array.from(sel.options || []).forEach(o => o.selected = false);
-      sel.dispatchEvent(new Event('change', { bubbles:true }));
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
     }
   
-    function uncheckAll(selector){
+    function uncheckAll(selector) {
       document.querySelectorAll(selector).forEach(cb => {
         if (cb && cb.checked) cb.checked = false;
       });
     }
   
-    function hideAndClear(idWrap, idInput){
+    function hideAndClear(idWrap, idInput) {
       const w = document.getElementById(idWrap);
       const i = document.getElementById(idInput);
       if (w) w.style.display = 'none';
       if (i) i.value = '';
     }
   
-    function clearGroup(group){
-      switch(group){
+    function clearGroup(group) {
+      switch (group) {
   
         case 'price':
           (document.getElementById('preis-von') || {}).value = '';
@@ -1391,7 +1380,7 @@ if (schadSel === "custom") {
             slimMarke.setSelected('');
           } else {
             if (brandSel) brandSel.value = '';
-            brandSel?.dispatchEvent(new Event('change', { bubbles:true }));
+            brandSel?.dispatchEvent(new Event('change', { bubbles: true }));
           }
   
           if (typeof setModelEnabled === 'function') setModelEnabled(false);
@@ -1507,18 +1496,18 @@ if (schadSel === "custom") {
           break;
       }
   
-      section.dispatchEvent(new Event('change', { bubbles:true }));
-      section.dispatchEvent(new Event('input',  { bubbles:true }));
+      section.dispatchEvent(new Event('change', { bubbles: true }));
+      section.dispatchEvent(new Event('input', { bubbles: true }));
       update();
     }
   
-    function resetAll(){
+    function resetAll() {
       [
-        'preis-von','preis-bis','km-von','km-bis','leistung-von','leistung-bis',
-        'hubraum-von','hubraum-bis',
-        'modellausfuehrung','ort','ort-lat','ort-lon',
-        'custom-umkreis','verbrauch','custom-schadstoff','custom-hu',
-        'ez-von','ez-bis'
+        'preis-von', 'preis-bis', 'km-von', 'km-bis', 'leistung-von', 'leistung-bis',
+        'hubraum-von', 'hubraum-bis',
+        'modellausfuehrung', 'ort', 'ort-lat', 'ort-lon',
+        'custom-umkreis', 'verbrauch', 'custom-schadstoff', 'custom-hu',
+        'ez-von', 'ez-bis'
       ].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
@@ -1542,12 +1531,12 @@ if (schadSel === "custom") {
       if (vbWrap) vbWrap.style.display = 'none';
   
       const ortEl = document.getElementById('ort');
-      ortEl?.dispatchEvent(new Event('input', { bubbles:true }));
+      ortEl?.dispatchEvent(new Event('input', { bubbles: true }));
   
       update();
     }
   
-    function addChip(text, group){
+    function addChip(text, group) {
       const chip = document.createElement('div');
       chip.className = 'av-chip';
       chip.innerHTML = `
@@ -1558,7 +1547,7 @@ if (schadSel === "custom") {
       chipsEl.appendChild(chip);
     }
   
-    function update(){
+    function update() {
       const qs = buildAdvancedQuery();
       qs.delete('ort_lat');
       qs.delete('ort_lon');
@@ -1570,119 +1559,119 @@ if (schadSel === "custom") {
   
       const pMin = get('price_min');
       const pMax = get('price_max');
-      if (pMin || pMax){
+      if (pMin || pMax) {
         addChip(`Preis: ${(pMin ? fmtEUR(pMin) : '…')} – ${(pMax ? fmtEUR(pMax) : '…')}`, 'price');
         count++;
       }
   
       const kmMin = get('km_min');
       const kmMax = get('km_max');
-      if (kmMin || kmMax){
+      if (kmMin || kmMax) {
         addChip(`Kilometer: ${(kmMin ? `${fmtInt(kmMin)} km` : '…')} – ${(kmMax ? `${fmtInt(kmMax)} km` : '…')}`, 'km');
         count++;
       }
   
       const psMin = get('ps_min');
       const psMax = get('ps_max');
-      if (psMin || psMax){
+      if (psMin || psMax) {
         addChip(`Leistung: ${(psMin ? `${fmtInt(psMin)} PS` : '…')} – ${(psMax ? `${fmtInt(psMax)} PS` : '…')}`, 'ps');
         count++;
       }
   
       const cMin = get('ccm_min');
       const cMax = get('ccm_max');
-      if (cMin || cMax){
+      if (cMin || cMax) {
         addChip(`Hubraum: ${(cMin ? `${fmtInt(cMin)} cm³` : '…')} – ${(cMax ? `${fmtInt(cMax)} cm³` : '…')}`, 'ccm');
         count++;
       }
   
       const ezFrom = get('ezFrom');
-      const ezTo   = get('ezTo');
-      if (ezFrom || ezTo){
+      const ezTo = get('ezTo');
+      if (ezFrom || ezTo) {
         addChip(`Erstzulassung: ${(ezFrom ? fmtYM(ezFrom) : '…')} – ${(ezTo ? fmtYM(ezTo) : '…')}`, 'ez');
         count++;
       }
   
       const brand = get('marke');
-      if (brand){ addChip(`Marke: ${brand}`, 'marke'); count++; }
+      if (brand) { addChip(`Marke: ${brand}`, 'marke'); count++; }
   
       const modell = get('modell');
-      if (modell){
+      if (modell) {
         const parts = modell.split(',').map(s => s.trim()).filter(Boolean);
-        const nice = parts.length > 3 ? `${parts.slice(0,3).join(', ')} +${parts.length-3}` : parts.join(', ');
+        const nice = parts.length > 3 ? `${parts.slice(0, 3).join(', ')} +${parts.length - 3}` : parts.join(', ');
         addChip(`Modell: ${nice}`, 'modell'); count++;
       }
   
       const modVar = get('modellausfuehrung');
-      if (modVar){ addChip(`Variante: ${modVar}`, 'modVar'); count++; }
+      if (modVar) { addChip(`Variante: ${modVar}`, 'modVar'); count++; }
   
       const tueren = get('tueren');
-      if (tueren){ addChip(`Türen: ${tueren}`, 'tueren'); count++; }
+      if (tueren) { addChip(`Türen: ${tueren}`, 'tueren'); count++; }
   
       const ort = get('ort');
-      if (ort){ addChip(`Ort: ${ort}`, 'ort'); count++; }
+      if (ort) { addChip(`Ort: ${ort}`, 'ort'); count++; }
   
       const umkreis = get('umkreis');
-      if (umkreis){ addChip(`Umkreis: ${umkreis} km`, 'umkreis'); count++; }
+      if (umkreis) { addChip(`Umkreis: ${umkreis} km`, 'umkreis'); count++; }
   
       const vMax = get('verbrauch_max');
-      if (vMax){ addChip(`Verbrauch: ≤ ${String(vMax).replace('.', ',')} l/100 km`, 'verbrauch'); count++; }
+      if (vMax) { addChip(`Verbrauch: ≤ ${String(vMax).replace('.', ',')} l/100 km`, 'verbrauch'); count++; }
   
       const getr = get('getriebe');
-      if (getr){ addChip(`Getriebe: ${getriebeLabel(getr)}`, 'getriebe'); count++; }
+      if (getr) { addChip(`Getriebe: ${getriebeLabel(getr)}`, 'getriebe'); count++; }
   
       const antrieb = get('antrieb');
-      if (antrieb){
+      if (antrieb) {
         const parts = antrieb.split(',').map(s => s.trim()).filter(Boolean);
         addChip(`Antrieb: ${parts.join(', ')}`, 'antrieb');
         count++;
       }
   
       const kf = get('kraftstoff');
-      if (kf){
+      if (kf) {
         const parts = kf.split(',').map(s => s.trim()).filter(Boolean).map(fuelLabel);
-        const nice = parts.length > 3 ? `${parts.slice(0,3).join(', ')} +${parts.length-3}` : parts.join(', ');
+        const nice = parts.length > 3 ? `${parts.slice(0, 3).join(', ')} +${parts.length - 3}` : parts.join(', ');
         addChip(`Kraftstoff: ${nice}`, 'kraftstoff');
         count++;
       }
   
       const sk = get('schadstoffklasse');
-      if (sk){ addChip(`Schadstoff: ${sk}`, 'schadstoff'); count++; }
+      if (sk) { addChip(`Schadstoff: ${sk}`, 'schadstoff'); count++; }
   
       const pl = get('plakette');
-      if (pl){ addChip(`Plakette: ${pl}`, 'plakette'); count++; }
+      if (pl) { addChip(`Plakette: ${pl}`, 'plakette'); count++; }
   
       const pf = get('partikelfilter');
-      if (pf){ addChip(`Partikelfilter`, 'partikelfilter'); count++; }
+      if (pf) { addChip(`Partikelfilter`, 'partikelfilter'); count++; }
   
       const merkmale = get('merkmale');
-      if (merkmale){
+      if (merkmale) {
         const parts = merkmale.split(',').map(s => s.trim()).filter(Boolean);
         addChip(`Merkmale: ${parts.join(', ')}`, 'merkmale');
         count++;
       }
   
       const uf = get('unfallfrei');
-      if (uf){ addChip(`Unfallfrei`, 'unfallfrei'); count++; }
+      if (uf) { addChip(`Unfallfrei`, 'unfallfrei'); count++; }
   
       const hu = get('hu');
-      if (hu){ addChip(`HU: ${deHyphen(hu)}`, 'hu'); count++; }
+      if (hu) { addChip(`HU: ${deHyphen(hu)}`, 'hu'); count++; }
   
       const halter = get('halter_max');
-      if (halter){ addChip(`Halter: ≤ ${halter}`, 'halter'); count++; }
+      if (halter) { addChip(`Halter: ≤ ${halter}`, 'halter'); count++; }
   
       const ft = get('fahrzeugtyp');
-      if (ft){
+      if (ft) {
         const parts = ft.split(',').map(s => s.trim()).filter(Boolean);
-        const nice = parts.length > 3 ? `${parts.slice(0,3).join(', ')} +${parts.length-3}` : parts.join(', ');
+        const nice = parts.length > 3 ? `${parts.slice(0, 3).join(', ')} +${parts.length - 3}` : parts.join(', ');
         addChip(`Fahrzeugtyp: ${nice}`, 'fahrzeugtyp');
         count++;
       }
   
       const farbe = get('farbe');
-      if (farbe){
+      if (farbe) {
         const parts = farbe.split(',').map(s => s.trim()).filter(Boolean);
-        const nice = parts.length > 5 ? `${parts.slice(0,5).join(', ')} +${parts.length-5}` : parts.join(', ');
+        const nice = parts.length > 5 ? `${parts.slice(0, 5).join(', ')} +${parts.length - 5}` : parts.join(', ');
         addChip(`Farbe: ${nice}`, 'farbe');
         count++;
       }

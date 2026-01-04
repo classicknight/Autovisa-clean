@@ -1555,153 +1555,178 @@ img, video, canvas {
 
 
 
-
-
 /* =========================
    Active Filters Bar (Chips) – Autovisa (TOP / sticky dynamisch)
    ========================= */
-   .av-filterbar{
-    position: sticky;
-    top: var(--av-filterbar-top, 12px); /* ✅ dynamisch: unter Navbar ODER ganz oben */
-    margin: 12px auto 16px;
-  
-    width: min(1100px, calc(100% - 28px));
-    z-index: 900; /* unter Navbar (die meist höher ist), aber über Content */
-  
-    display: none;
-    padding: 12px 12px 10px;
-  
-    border-radius: 18px;
-    border: 1px solid rgba(0,184,169,0.35);
-    background:
-      linear-gradient(135deg, rgba(15,32,39,0.95), rgba(32,58,67,0.92), rgba(44,83,100,0.90));
-    box-shadow:
-      0 18px 50px rgba(0,0,0,0.25),
-      0 0 0 1px rgba(255,255,255,0.04) inset;
-    backdrop-filter: blur(10px);
+
+/* Optional: sorgt dafür, dass das Sticky auf iOS/Safari sauber arbeitet */
+:root{
+  --av-filterbar-top: 12px;
+}
+
+.av-filterbar{
+  position: sticky;
+  top: var(--av-filterbar-top); /* ✅ dynamisch: unter Navbar ODER ganz oben */
+  margin: 12px auto 16px;
+
+  width: min(1100px, calc(100% - 28px));
+  z-index: 900; /* unter Navbar (die meist höher ist), aber über Content */
+
+  display: none;
+  padding: 12px 12px 10px;
+
+  border-radius: 18px;
+  border: 1px solid rgba(0,184,169,0.35);
+  background:
+    linear-gradient(135deg,
+      rgba(15,32,39,0.95),
+      rgba(32,58,67,0.92),
+      rgba(44,83,100,0.90)
+    );
+  box-shadow:
+    0 18px 50px rgba(0,0,0,0.25),
+    0 0 0 1px rgba(255,255,255,0.04) inset;
+
+  /* Sticky + Blur: wichtig, damit Safari korrekt rendert */
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+
+  /* damit Chips nicht gegen Rundecken clippen */
+  overflow: hidden;
+}
+
+.av-filterbar.is-visible{ display:block; }
+
+.av-filterbar__head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.av-filterbar__title{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  color: rgba(255,255,255,0.92);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  font-size: 14px;
+}
+
+.av-filterbar__badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  color: #bff9f1;
+  background: rgba(0,184,169,0.16);
+  border: 1px solid rgba(0,184,169,0.35);
+}
+
+.av-filterbar__reset{
+  appearance:none;
+  -webkit-appearance: none;
+
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(0,0,0,0.22);
+  color: rgba(255,255,255,0.92);
+
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+
+  transition: transform .12s ease, background .12s ease, border-color .12s ease;
+}
+
+.av-filterbar__reset:hover{
+  background: rgba(0,0,0,0.30);
+  border-color: rgba(0,184,169,0.35);
+}
+.av-filterbar__reset:active{ transform: translateY(1px); }
+
+.av-filterbar__chips{
+  display:flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  max-height: 132px;
+  overflow: auto;
+  padding-right: 4px;
+
+  /* Smooth scroll auf iOS, wenn Chips überlaufen */
+  -webkit-overflow-scrolling: touch;
+}
+
+.av-chip{
+  display:inline-flex;
+  align-items:center;
+  gap: 8px;
+
+  border-radius: 999px;
+  padding: 7px 10px;
+
+  border: 1px solid rgba(227,233,239,0.18);
+  background: rgba(255,255,255,0.06);
+
+  color: rgba(255,255,255,0.92);
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.av-chip__x{
+  appearance:none;
+  -webkit-appearance: none;
+
+  border: 0;
+  background: rgba(255,255,255,0.10);
+  color: rgba(255,255,255,0.92);
+
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  cursor: pointer;
+
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+
+  transition: background .12s ease, transform .12s ease;
+}
+.av-chip__x:hover{ background: rgba(0,184,169,0.22); }
+.av-chip__x:active{ transform: translateY(1px); }
+
+/* ✅ Mobile: Chips als horizontale Scroll-Leiste (sauber, nicht „mittig“) */
+@media (max-width: 700px){
+  .av-filterbar{
+    width: calc(100% - 18px);
+    margin: 10px auto 12px;       /* etwas kompakter */
+    padding: 12px 10px 10px;
   }
-  
-  .av-filterbar.is-visible{ display:block; }
-  
-  .av-filterbar__head{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap: 12px;
-    margin-bottom: 10px;
-  }
-  
-  .av-filterbar__title{
-    display:flex;
-    align-items:center;
-    gap: 10px;
-    color: rgba(255,255,255,0.92);
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    font-size: 14px;
-  }
-  
-  .av-filterbar__badge{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    min-width: 26px;
-    height: 22px;
-    padding: 0 8px;
-    border-radius: 999px;
-  
-    font-size: 12px;
-    font-weight: 700;
-  
-    color: #bff9f1;
-    background: rgba(0,184,169,0.16);
-    border: 1px solid rgba(0,184,169,0.35);
-  }
-  
-  .av-filterbar__reset{
-    appearance:none;
-    border: 1px solid rgba(255,255,255,0.14);
-    background: rgba(0,0,0,0.22);
-    color: rgba(255,255,255,0.92);
-  
-    padding: 8px 10px;
-    border-radius: 12px;
-    font-weight: 600;
-    font-size: 13px;
-    cursor: pointer;
-    transition: transform .12s ease, background .12s ease, border-color .12s ease;
-  }
-  
-  .av-filterbar__reset:hover{
-    background: rgba(0,0,0,0.30);
-    border-color: rgba(0,184,169,0.35);
-  }
-  .av-filterbar__reset:active{ transform: translateY(1px); }
-  
+
   .av-filterbar__chips{
-    display:flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  
-    max-height: 132px;
-    overflow: auto;
-    padding-right: 4px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-height: none;
+    padding-bottom: 2px;
   }
-  
-  .av-chip{
-    display:inline-flex;
-    align-items:center;
-    gap: 8px;
-  
-    border-radius: 999px;
-    padding: 7px 10px;
-  
-    border: 1px solid rgba(227,233,239,0.18);
-    background: rgba(255,255,255,0.06);
-  
-    color: rgba(255,255,255,0.92);
-    font-size: 13px;
-    line-height: 1;
-    white-space: nowrap;
-  }
-  
-  .av-chip__x{
-    appearance:none;
-    border: 0;
-    background: rgba(255,255,255,0.10);
-    color: rgba(255,255,255,0.92);
-  
-    width: 22px;
-    height: 22px;
-    border-radius: 999px;
-    cursor: pointer;
-  
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-  
-    transition: background .12s ease, transform .12s ease;
-  }
-  .av-chip__x:hover{ background: rgba(0,184,169,0.22); }
-  .av-chip__x:active{ transform: translateY(1px); }
-  
-  @media (max-width: 700px){
-    .av-filterbar{
-      width: calc(100% - 18px);
-      padding: 12px 10px 10px;
-    }
-  
-    .av-filterbar__chips{
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      overflow-y: hidden;
-      max-height: none;
-    }
-  }
-  
 
-
-
+  /* Optional: Head in Mobile etwas kompakter */
+  .av-filterbar__title{ font-size: 13px; }
+  .av-filterbar__reset{ padding: 7px 10px; font-size: 12px; }
+}
 
 
 
