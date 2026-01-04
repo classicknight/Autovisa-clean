@@ -938,3 +938,57 @@ img, video, canvas {
 
 .toast.success { background: #00b8a9; }
 .toast.error   { background: #d64545; }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ======================================
+   Einführungsphase: Händler kostenlos
+   ====================================== */
+   body[data-pricing="intro-free"] .tarif-price{
+    font-weight: 800;
+    letter-spacing: 0.01em;
+  }
+  
+  .tarif-free-note{
+    margin-top: 12px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  
+    padding: 12px 14px;
+    border-radius: 14px;
+  
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(227,233,239,0.14);
+    color: rgba(245,248,252,0.92);
+  }
+  
+  .tarif-free-note i{
+    margin-top: 2px;
+    opacity: 0.9;
+  }
+  
+  .tarif-free-note strong{
+    color: rgba(245,248,252,0.98);
+  }
+  
+  body[data-pricing="intro-free"] .tarif-subtitle{
+    opacity: 0.92;
+  }
+  

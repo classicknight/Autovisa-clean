@@ -14,6 +14,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const myCarsLink    = document.getElementById("my-cars-link");
 
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+  // Pricing-Mode aus dem <body data-pricing="...">
+  const PRICING_MODE = document.body?.dataset?.pricing || "paid-live";
+  const INTRO_FREE = PRICING_MODE === "intro-free";
 
   function closeAllDropdowns(except = null) {
     dropdownLis.forEach(li => {
@@ -298,11 +301,55 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
   }
-
-  /* ---------- Tarif ---------- */
   function setupTarif() {
     const grid = document.getElementById("tarifGrid");
     if (!grid) return;
+
+    // STARTPHASE: kostenlos + nicht auswählbar
+    if (INTRO_FREE) {
+      // Alle Preis-Texte auf "Kostenlos" setzen (optional aber sinnvoll)
+      grid.querySelectorAll(".tarif-box .tarif-price").forEach(p => {
+        p.textContent = "Kostenlos";
+      });
+
+      // Immer den ersten Tarif als aktiv markieren (0–3) und speichern
+      const defaultBox =
+        grid.querySelector('.tarif-box[data-tarif="0-3"]') ||
+        grid.querySelector(".tarif-box");
+
+      grid.querySelectorAll(".tarif-box").forEach(b => b.classList.remove("selected"));
+      if (defaultBox) defaultBox.classList.add("selected");
+
+      const code = defaultBox?.dataset?.tarif || "0-3";
+      persistTarif(code);
+
+      // Step 4 als erledigt markieren (weil Tarif in Startphase fix ist)
+      markStepDone(4);
+
+      // Toggle-Button mobil ausblenden (optional)
+      const btn = document.querySelector(".tarif-toggle-btn.mobile-only");
+      if (btn) btn.style.display = "none";
+
+      // Optional: Server einmalig informieren (schadet nicht, falls Route existiert)
+      // (Fehler werden bewusst ignoriert)
+      (async () => {
+        try {
+          await fetch("/saveTarif", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ tarif: "Startphase – Kostenlos" }),
+          });
+        } catch {}
+      })();
+
+      // WICHTIG: keine Click-Listener setzen -> Auswahl bleibt deaktiviert
+      return;
+    }
+
+    // =========================
+    // PAID-LIVE Modus (dein bisheriges Verhalten)
+    // =========================
 
     // Restore Auswahl im UI
     const saved = safeGet(TARIF_KEY, "");
@@ -457,6 +504,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function tarifPrice(label) {
+    if (INTRO_FREE) return "Kostenlos";
+
     const preisMap = {
       "0–3 Fahrzeuge":   "Kostenlos",
       "4–10 Fahrzeuge":  "4,90 € / Monat",
@@ -467,6 +516,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     return preisMap[label] || "";
   }
+
 
   function cssEscape(value) {
     if (window.CSS && CSS.escape) return CSS.escape(value);
