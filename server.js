@@ -4311,3 +4311,83 @@ app.get("/api/bewertungen/:sellerId", async (req, res) => {
 
 
 
+app.post("/api/import/mobile/preview", async (req, res) => {
+  try {
+    const { url } = req.body || {};
+    const adKey = extractMobileAdKey(url);
+    if (!adKey) return res.status(400).json({ error: "Konnte keine Inserat-ID aus dem Link lesen." });
+
+    const user = process.env.MOBILE_API_USER;
+    const pass = process.env.MOBILE_API_PASS;
+    if (!user || !pass) {
+      return res.status(501).json({ error: "Mobile-Import ist serverseitig noch nicht konfiguriert (ENV fehlt)." });
+    }
+
+    const auth = Buffer.from(`${user}:${pass}`).toString("base64");
+
+    const apiRes = await fetch(`https://services.mobile.de/search-api/ad/${encodeURIComponent(adKey)}`, {
+      headers: {
+        "Authorization": `Basic ${auth}`,
+        "Accept": "application/vnd.de.mobile.api+json"
+      }
+    });
+
+    if (!apiRes.ok) {
+      const txt = await apiRes.text().catch(() => "");
+      return res.status(502).json({ error: `mobile.de API Fehler (${apiRes.status})`, details: txt.slice(0, 300) });
+    }
+
+    const ad = await apiRes.json();
+
+    const mapped = mapMobileAdToAutovisa(ad);
+
+    return res.json(mapped);
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "Interner Import-Fehler." });
+  }
+});
+
+function extractMobileAdKey(url) {
+  if (!url) return "";
+  try {
+    const u = new URL(url);
+    // häufig: ?id=123456789
+    const id = u.searchParams.get("id");
+    if (id) return id.trim();
+
+    // fallback: erste große Zahl aus URL
+    const m = String(url).match(/(\d{6,})/);
+    return m ? m[1] : "";
+  } catch {
+    const m = String(url).match(/(\d{6,})/);
+    return m ? m[1] : "";
+  }
+}
+
+function mapMobileAdToAutovisa(ad) {
+  // NOTE: Feldnamen ggf. nach erstem echten API-Response anpassen
+  const fahrzeugdaten = {
+    marke: ad?.make || ad?.vehicle?.make || "",
+    modell: ad?.model || ad?.vehicle?.model || "",
+    preis: ad?.price?.value || ad?.price || "",
+    kilometer: ad?.mileage || ad?.vehicle?.mileage || "",
+    erstzulassung: ad?.firstRegistrationDate || ad?.vehicle?.firstRegistrationDate || "",
+    leistung_kw: ad?.power?.kw || ad?.vehicle?.power?.kw || "",
+    kraftstoff: ad?.fuelType || ad?.vehicle?.fuelType || "",
+    getriebe: ad?.transmission || ad?.vehicle?.transmission || ""
+  };
+
+  const fahrzeugdetails = {
+    beschreibung: ad?.description || "",
+    ausstattung: Array.isArray(ad?.features) ? ad.features : [],
+  };
+
+  const medien = {
+    // Hier würde ich im MVP nur URLs übernehmen und dich später auf Cloudinary-Upload umstellen
+    bilder: Array.isArray(ad?.images) ? ad.images.map(x => x?.url || x?.uri || "").filter(Boolean) : [],
+    videos: []
+  };
+
+  return { fahrzeugdaten, fahrzeugdetails, medien };
+}
