@@ -991,25 +991,125 @@ img, video, canvas {
   }
   
   
-  .color-option {
-    display: inline-block;
-    margin: 6px;
-    padding: 10px 14px;
-    border-radius: 10px;
-    background-color: var(--color);
-    color: #121c26;
-    cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+ /* =========================
+   Karosseriefarbe – Premium Swatch Tiles (Autovisa)
+   ========================= */
+
+.color-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.color-tile{
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  padding: 12px 14px;
+  border-radius: 14px;
+
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(227,233,239,0.12);
+
+  cursor: pointer;
+  user-select: none;
+
+  transition: transform .12s ease, border-color .12s ease, background .12s ease, box-shadow .12s ease;
+}
+
+.color-tile:hover{
+  transform: translateY(-1px);
+  border-color: rgba(0,216,195,0.35);
+  box-shadow: 0 0 0 3px rgba(0,216,195,0.12);
+  background: rgba(255,255,255,0.06);
+}
+
+/* Checkbox komplett aus dem Layout nehmen (wichtig, weil du global Checkbox-Styles hast) */
+.color-tile > input{
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Farbkreis */
+.color-swatch{
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--c);
+
+  /* macht Weiß/Silber sichtbar + gibt Tiefe */
+  box-shadow:
+    inset 0 0 0 2px rgba(255,255,255,0.10),
+    0 10px 18px rgba(0,0,0,0.35);
+  flex: 0 0 22px;
+
+  position: relative;
+}
+
+/* Text */
+.color-name{
+  color: rgba(245,248,252,0.92);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+}
+
+/* ✅ Selected State: Ring + Häkchen im Swatch */
+.color-tile > input:checked ~ .color-swatch{
+  box-shadow:
+    0 0 0 3px rgba(0,216,195,0.35),
+    inset 0 0 0 2px rgba(255,255,255,0.16),
+    0 10px 18px rgba(0,0,0,0.35);
+}
+
+.color-tile > input:checked ~ .color-swatch::after{
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+
+  width: 8px;
+  height: 14px;
+
+  border: solid rgba(15,32,39,0.95);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+
+  /* damit Häkchen auf dunklen Farben auch wirkt */
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.55));
+}
+
+/* Accessibility: Fokus sichtbar */
+.color-tile > input:focus-visible ~ .color-swatch{
+  box-shadow:
+    0 0 0 4px rgba(0,216,195,0.22),
+    inset 0 0 0 2px rgba(255,255,255,0.16),
+    0 10px 18px rgba(0,0,0,0.35);
+}
+
+/* Mobile: kompakter */
+@media (max-width: 600px){
+  .color-grid{
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  
-  .color-option:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 8px rgba(63, 240, 211, 0.3);
+  .color-tile{
+    padding: 12px 12px;
   }
+}
+
   
   
   
-  
+
+
+
   
   .checkbox-grid label:hover,
   .checkbox-inline label:hover {
