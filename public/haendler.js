@@ -238,50 +238,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setupTarif();
   }
 
-  function initMobileImport() {
-    const input = document.getElementById("mobileImportUrl");
-    const btn   = document.getElementById("mobileImportBtn");
-    const msg   = document.getElementById("mobileImportMsg");
-    if (!input || !btn || !msg) return;
-  
-    btn.addEventListener("click", async () => {
-      const url = (input.value || "").trim();
-      if (!url) { msg.textContent = "Bitte einen Link einfügen."; return; }
-  
-      msg.textContent = "Import läuft …";
-  
-      try {
-        const res = await fetch("/api/import/mobile/preview", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ url })
-        });
-  
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          msg.textContent = data.error || "Import fehlgeschlagen.";
-          return;
-        }
-  
-        // Minimaler MVP: lokale Draft-Daten setzen und in Schritt 1 springen
-        if (data.fahrzeugdaten) localStorage.setItem("fahrzeugdaten", JSON.stringify(data.fahrzeugdaten));
-        if (data.fahrzeugdetails) localStorage.setItem("fahrzeugdetails", JSON.stringify(data.fahrzeugdetails));
-        if (data.medien) localStorage.setItem("medien", JSON.stringify(data.medien));
-  
-        // Steps als done markieren (optional – ich würde 1/2 markieren, 3 offen lassen wegen Video)
-        markStepDone(1);
-        markStepDone(2);
-  
-        showToast("Import fertig – bitte Daten prüfen und Video in Schritt 3 hochladen.");
-        window.location.href = "fahrzeugdaten.html";
-      } catch (e) {
-        console.error(e);
-        msg.textContent = "Server-/Netzwerkfehler beim Import.";
-      }
-    });
-  }
-  
+
 
   async function initWizard() {
     if (!document.getElementById("toast-container")) setupToasts();
