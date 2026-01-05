@@ -1471,41 +1471,100 @@ function getCombinedConsumption(item) {
 
   function renderPager(totalCount) {
     if (!pager) return;
-    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  
+    const totalPages = Math.max(1, Math.ceil((Number(totalCount) || 0) / pageSize));
     const current    = clamp(page, 1, totalPages);
-
+  
     if (totalPages <= 1) {
       pager.innerHTML = "";
       return;
     }
-
-    let html = `<button class="pager-btn" data-page="${current - 1}" ${current === 1 ? "disabled" : ""}>« Zurück</button>`;
+  
     const windowSize = 5;
-    const start = Math.max(1, current - Math.floor(windowSize / 2));
-    const end   = Math.min(totalPages, start + windowSize - 1);
-    for (let p = start; p <= end; p++) {
-      html += `<button class="pager-btn ${p === current ? "active" : ""}" data-page="${p}">${p}</button>`;
+  
+    // Fenster um aktuelle Seite
+    let start = Math.max(1, current - Math.floor(windowSize / 2));
+    let end   = Math.min(totalPages, start + windowSize - 1);
+    start     = Math.max(1, end - windowSize + 1);
+  
+    const pageBtn = (p) =>
+      `<button type="button"
+               class="pager-btn ${p === current ? "active" : ""}"
+               data-page="${p}"
+               aria-label="Seite ${p}">
+          ${p}
+       </button>`;
+  
+    let pagesHtml = "";
+  
+    // 1. Seite + Ellipse
+    if (start > 1) {
+      pagesHtml += pageBtn(1);
+      if (start > 2) pagesHtml += `<span class="pager-ellipsis" aria-hidden="true">…</span>`;
     }
-    html += `<button class="pager-btn" data-page="${current + 1}" ${current === totalPages ? "disabled" : ""}>Weiter »</button>`;
-    pager.innerHTML = html;
-
-    // Serverseitig blättern + Page in der URL mitführen
-    pager.querySelectorAll(".pager-btn").forEach(btn => {
+  
+    // Seitenfenster
+    for (let p = start; p <= end; p++) pagesHtml += pageBtn(p);
+  
+    // letzte Seite + Ellipse
+    if (end < totalPages) {
+      if (end < totalPages - 1) pagesHtml += `<span class="pager-ellipsis" aria-hidden="true">…</span>`;
+      pagesHtml += pageBtn(totalPages);
+    }
+  
+    pager.innerHTML = `
+      <nav class="pager-nav" aria-label="Seitennavigation">
+        <button type="button"
+                class="pager-btn pager-prev"
+                data-page="${current - 1}"
+                ${current === 1 ? "disabled" : ""}
+                aria-label="Vorherige Seite">
+          <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+          <span>Zurück</span>
+        </button>
+  
+        <div class="pager-pages" role="group" aria-label="Seiten">
+          ${pagesHtml}
+        </div>
+  
+        <button type="button"
+                class="pager-btn pager-next"
+                data-page="${current + 1}"
+                ${current === totalPages ? "disabled" : ""}
+                aria-label="Nächste Seite">
+          <span>Weiter</span>
+          <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        </button>
+  
+        <div class="pager-meta" aria-live="polite">
+          Seite ${current} von ${totalPages} · ${(Number(totalCount) || 0).toLocaleString("de-DE")} Treffer
+        </div>
+      </nav>
+    `;
+  
+    // Klick-Handling: Seite setzen, URL updaten, neu laden
+    pager.querySelectorAll(".pager-btn[data-page]").forEach(btn => {
       btn.addEventListener("click", (e) => {
         const target = Number(e.currentTarget.getAttribute("data-page"));
-        if (!isNaN(target)) {
-          page = clamp(target, 1, totalPages);
-
-          const params = new URLSearchParams(window.location.search);
-          params.set("page", String(page));
-          replaceUrlParams(params);
-
-          loadAndRender(page);
-        }
+        if (!Number.isFinite(target)) return;
+  
+        const nextPage = clamp(target, 1, totalPages);
+        if (nextPage === page) return;
+  
+        page = nextPage;
+  
+        const params = new URLSearchParams(window.location.search);
+        params.set("page", String(page));
+        replaceUrlParams(params);
+  
+        loadAndRender(page);
+  
+        // Optional (UX): nach dem Blättern zurück zum Beginn der Ergebnisse
+        // document.querySelector(".results-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     });
   }
-
+  
   // Helper: echte Mongo-ID herausziehen
   function getMongoId(doc) {
     if (!doc) return null;
