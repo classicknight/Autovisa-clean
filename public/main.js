@@ -1,30 +1,45 @@
 
-
-
-
-
-document.documentElement.classList.remove('no-js');
+document.documentElement.classList.remove("no-js");
 
 document.addEventListener("DOMContentLoaded", () => {
+  // =========================
+  // Navbar / Dropdowns
+  // =========================
   const navLinks = document.getElementById("nav-links");
   const hamburger = document.getElementById("hamburger");
   const dropdownLinks = document.querySelectorAll(".dropdown > a");
   const dropdownLis = document.querySelectorAll(".dropdown");
 
+  // ===== SlimSelect Safe Init =====
+  const hasSlim = typeof window.SlimSelect === "function";
+  const initSlim = (selector, opts = {}) => {
+    const el = document.querySelector(selector);
+    if (!hasSlim || !el) return null;
+    try {
+      return new SlimSelect({ select: selector, ...opts });
+    } catch (e) {
+      console.warn("SlimSelect init failed for", selector, e);
+      return null;
+    }
+  };
+
   // ===== Helpers =====
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
   function closeAllDropdowns(except = null) {
-    dropdownLis.forEach(li => {
+    dropdownLis.forEach((li) => {
       if (li !== except) {
         li.classList.remove("open");
+
         const trigger = li.querySelector('a[aria-haspopup="true"]');
         const menu = li.querySelector(".dropdown-menu");
+
         if (trigger) trigger.setAttribute("aria-expanded", "false");
+
         if (menu) {
           menu.classList.remove("show");
           menu.style.left = "";
-          [...menu.children].forEach(item => (item.style.transitionDelay = ""));
+          [...menu.children].forEach((item) => (item.style.transitionDelay = ""));
         }
       }
     });
@@ -32,7 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function positionMenu(li) {
     const trigger = li.querySelector('a[aria-haspopup="true"]');
-    const menu = li.querySelector('.dropdown-menu');
+    const menu = li.querySelector(".dropdown-menu");
     if (!trigger || !menu) return;
 
     const tRect = trigger.getBoundingClientRect();
@@ -51,6 +66,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function openDropdown(trigger) {
     const li = trigger.closest(".dropdown");
     const menu = trigger.nextElementSibling;
+    if (!li || !menu) return;
+
     closeAllDropdowns(li);
 
     li.classList.add("open");
@@ -69,16 +86,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function toggleDropdown(trigger) {
     const li = trigger.closest(".dropdown");
+    if (!li) return;
+
     const isOpen = li.classList.contains("open");
-    if (isOpen) {
-      closeAllDropdowns();
-    } else {
-      openDropdown(trigger);
-    }
+    if (isOpen) closeAllDropdowns();
+    else openDropdown(trigger);
   }
 
   // ===== Hamburger =====
-  if (hamburger) {
+  if (hamburger && navLinks) {
     hamburger.addEventListener("click", (e) => {
       e.stopPropagation();
       const willOpen = !navLinks.classList.contains("active");
@@ -89,7 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ===== Dropdown nur per Klick =====
-  dropdownLinks.forEach(link => {
+  dropdownLinks.forEach((link) => {
     link.setAttribute("aria-expanded", "false");
     link.addEventListener("click", (e) => {
       e.preventDefault();
@@ -98,12 +114,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // >>> KEIN Hover-Open mehr! (entfernt)
-
-  // ===== Outside Click schließt (aber nur außerhalb der Navbar) =====
+  // ===== Outside Click schließt =====
   document.addEventListener("click", (e) => {
     if (!e.target.closest(".navbar")) {
-      navLinks.classList.remove("active");
+      if (navLinks) navLinks.classList.remove("active");
       if (hamburger) hamburger.setAttribute("aria-expanded", "false");
       closeAllDropdowns();
     }
@@ -112,137 +126,139 @@ document.addEventListener("DOMContentLoaded", () => {
   // ===== ESC schließt =====
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      navLinks.classList.remove("active");
+      if (navLinks) navLinks.classList.remove("active");
       if (hamburger) hamburger.setAttribute("aria-expanded", "false");
       closeAllDropdowns();
     }
   });
 
-  // ===== Reposition on resize/scroll (nur Desktop relevant) =====
+  // ===== Reposition on resize/scroll =====
   const repositionOpen = () => document.querySelectorAll(".dropdown.open").forEach(positionMenu);
-  window.addEventListener("resize", repositionOpen);
-  window.addEventListener("scroll", repositionOpen);
+  window.addEventListener("resize", repositionOpen, { passive: true });
+  window.addEventListener("scroll", repositionOpen, { passive: true });
 
- // ===== Login-abhängige Weiterleitungen =====
-const savedCarsLink = document.getElementById("saved-cars-link");
-const myCarsLink    = document.getElementById("my-cars-link");
-const soldCarsLink  = document.getElementById("sold-cars-link");
-const messagesLink  = document.getElementById("messages-link");
+  // =========================
+  // Login-abhängige Weiterleitungen
+  // =========================
+  const savedCarsLink = document.getElementById("saved-cars-link");
+  const myCarsLink = document.getElementById("my-cars-link");
+  const soldCarsLink = document.getElementById("sold-cars-link");
+  const messagesLink = document.getElementById("messages-link");
 
-function checkLoginAndRedirect(targetUrl) {
-  fetch("/getNutzerInfo", { credentials: "include" })
-    .then(res => res.json())
-    .then(data => {
-      if (data.eingeloggt) {
-        window.location.href = targetUrl;
-      } else {
-        // Direkt das gewünschte Ziel merken, nicht die aktuelle Seite
+  function checkLoginAndRedirect(targetUrl) {
+    fetch("/getNutzerInfo", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.eingeloggt) {
+          window.location.href = targetUrl;
+        } else {
+          localStorage.setItem("redirectAfterLogin", targetUrl);
+          window.location.href = "login.html";
+        }
+      })
+      .catch(() => {
         localStorage.setItem("redirectAfterLogin", targetUrl);
         window.location.href = "login.html";
-      }
-    })
-    .catch(() => {
-      // Fallback: wie oben
-      localStorage.setItem("redirectAfterLogin", targetUrl);
-      window.location.href = "login.html";
+      });
+  }
+
+  // Desktop/Dropdown-Links
+  if (savedCarsLink) savedCarsLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#saved-cars"); });
+  if (myCarsLink) myCarsLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#car-list"); });
+  if (soldCarsLink) soldCarsLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#sold-cars"); });
+  if (messagesLink) messagesLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#messages-list"); });
+
+  // Mobile-Icons (Herz & Nachrichten)
+  const mobileSaved = document.getElementById("mobile-saved");
+  const mobileMessages = document.getElementById("mobile-messages");
+
+  if (mobileSaved) {
+    mobileSaved.addEventListener("click", (e) => {
+      e.preventDefault();
+      checkLoginAndRedirect("übersicht.html#saved-cars");
     });
-}
-
-// Desktop/Dropdown-Links
-if (savedCarsLink) savedCarsLink.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#saved-cars"); });
-if (myCarsLink)    myCarsLink   .addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#car-list"); });
-if (soldCarsLink)  soldCarsLink .addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#sold-cars"); });
-if (messagesLink)  messagesLink .addEventListener("click", (e) => { e.preventDefault(); checkLoginAndRedirect("übersicht.html#messages-list"); });
-
-// Mobile-Icons (Herz & Nachrichten) – IDs in index.html: #mobile-saved, #mobile-messages
-const mobileSaved    = document.getElementById("mobile-saved");
-const mobileMessages = document.getElementById("mobile-messages");
-
-if (mobileSaved) {
-  mobileSaved.addEventListener("click", (e) => {
-    e.preventDefault();
-    checkLoginAndRedirect("übersicht.html#saved-cars");
-  });
-}
-if (mobileMessages) {
-  mobileMessages.addEventListener("click", (e) => {
-    e.preventDefault();
-    checkLoginAndRedirect("übersicht.html#messages-list");
-  });
-}
-
-// ===== Smooth Scroll =====
-const searchLink  = document.querySelector('a[href="#search-section"]');
-const resultsLink = document.querySelector('a[href="#results-section"]');
-
-if (searchLink) {
-  searchLink.addEventListener("click", (e) => {
-    e.preventDefault();
-    document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
-  });
-}
-if (resultsLink) {
-  resultsLink.addEventListener("click", (e) => {
-    e.preventDefault();
-    document.querySelector("#results-section")?.scrollIntoView({ behavior: "smooth" });
-  });
-}
-
-
-  // ===== Filter Toggle =====
-  const form = document.querySelector('.search-form');
-  const advancedBtn = form?.querySelector('.btn-advanced');
-  const filters = document.getElementById('extra-filters');
-  if (advancedBtn && filters) {
-    advancedBtn.addEventListener("click", () => {
-      filters.classList.toggle('show');
-      advancedBtn.textContent = filters.classList.contains('show') ? 'Filter schließen' : 'Weitere Filter';
+  }
+  if (mobileMessages) {
+    mobileMessages.addEventListener("click", (e) => {
+      e.preventDefault();
+      checkLoginAndRedirect("übersicht.html#messages-list");
     });
   }
 
-  // ===== Navbar Login/Logout =====
+  // =========================
+  // Smooth Scroll (nur wenn Anker existieren)
+  // =========================
+  const searchLink = document.querySelector('a[href="#search-section"]');
+  const resultsLink = document.querySelector('a[href="#results-section"]');
+
+  if (searchLink) {
+    searchLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      document.querySelector("#search-section")?.scrollIntoView({ behavior: "smooth" });
+    });
+  }
+  if (resultsLink) {
+    resultsLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      document.querySelector("#results-section")?.scrollIntoView({ behavior: "smooth" });
+    });
+  }
+
+  // =========================
+  // Navbar Login/Logout (ohne localStorage.clear)
+  // =========================
   const authLink = document.getElementById("auth-link");
-  if (authLink) {
-    const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
-    if (isLoggedIn) {
-      authLink.innerHTML = `<a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>`;
-      document.getElementById("logout-link").addEventListener("click", handleLogout);
-    } else {
-      fetch("/getNutzerInfo", { credentials: "include" })
-        .then(res => res.json())
-        .then(data => {
-          if (data.eingeloggt) {
-            authLink.innerHTML = `<a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>`;
-            document.getElementById("logout-link").addEventListener("click", handleLogout);
-          }
-        })
-        .catch(err => {
-          console.error("Fehler beim Abrufen des Login-Zustands:", err);
-        });
-    }
+
+  const clearAuthStorage = () => {
+    ["isLoggedIn", "userRole", "userId"].forEach((k) => localStorage.removeItem(k));
+    localStorage.removeItem("redirectAfterLogin");
+  };
+
+  function renderLogout() {
+    if (!authLink) return;
+    authLink.innerHTML = `<a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>`;
+    const logoutLink = document.getElementById("logout-link");
+    if (logoutLink) logoutLink.addEventListener("click", handleLogout);
   }
 
   function handleLogout(e) {
     e.preventDefault();
     fetch("/logout", { method: "POST", credentials: "include" })
-      .then(() => {
-        localStorage.clear();
+      .finally(() => {
+        clearAuthStorage();
         location.reload();
-      })
-      .catch(() => alert("Abmelden fehlgeschlagen."));
+      });
   }
 
-});
+  if (authLink) {
+    // schnelle UI-Variante: wenn localStorage bereits sagt "eingeloggt", direkt anzeigen
+    const isLoggedInLS = localStorage.getItem("isLoggedIn") === "true";
+    if (isLoggedInLS) {
+      renderLogout();
+    } else {
+      fetch("/getNutzerInfo", { credentials: "include" })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.eingeloggt) renderLogout();
+        })
+        .catch((err) => console.error("Fehler beim Abrufen des Login-Zustands:", err));
+    }
+  }
 
-
-
-document.addEventListener("DOMContentLoaded", () => {
+  // =========================
+  // Marke/Modell – Setup (bis modelData Start)
+  // =========================
   const brandDropdown = document.getElementById("marke");
   const modelDropdown = document.getElementById("modell");
-  
+
+  // Wenn du SlimSelect für Marke direkt hier initialisieren willst:
+  // initSlim("#marke", { placeholder: "Marke wählen", allowDeselect: true, showSearch: true });
+
   const modelData = {
     "Abarth": ["Beliebig", "124 Spider", "500", "500C", "595", "595C", "595 Competizione", "595 Turismo", "695", "695C", "Grande Punto", "Punto Evo", "Andere"],
-        "AC": ["Beliebig", "Andere"],
+    "AC": ["Beliebig", "Andere"],
+    // ...
+
         "Acura": ["Beliebig", "MDX", "NSX", "RL", "RSX", "TL", "TSX", "Andere"],
         "Aiways": ["Beliebig", "U5", "Andere"],
         "Aixam": ["Beliebig", "City", "Crossline", "Roadline", "Scouty R", "Andere"],
@@ -556,519 +572,435 @@ const modelGroups = {
     "Golf (Alle)": /^Golf\s|^Golf$|^Golf-/i,
   "Passat (alle)": /^Passat\s|^Passat$|^Passat-/i,
   "T3 (Alle)": /^T3\s|^T3\b/i,
-  "T4 (Alle)": /^T4\s|^T4\b/i,
-  "T5 (Alle)": /^T5\s|^T5\b/i,
-  "T6 (Alle)": /^T6\s|^T6\b/i
-  // ggf. erweitern
-};
-const yearSelect = document.getElementById("first-registration-year");
-const monthSelect = document.getElementById("first-registration-month");
+    // =========================================================
+  // Modell-Gruppen (optional: "T4 (Alle)" selektiert alle T4-Modelle)
+  // =========================================================
 
-// === SlimSelect für Marke ===
-new SlimSelect({
-    select: '#marke',
-    placeholder: 'Marke wählen',
+    "T4 (Alle)": /^T4(?:\s|$)/i,
+    "T5 (Alle)": /^T5(?:\s|$)/i,
+    "T6 (Alle)": /^T6(?:\s|$)/i,
+    // ggf. erweitern
+  };
+
+  // =========================================================
+  // SlimSelect – zentrale Safe-Helfer
+  // (nutzt hasSlim/initSlim aus deinem ersten Teil)
+  // =========================================================
+  const safeDisable = (nativeEl, slimInstance) => {
+    if (slimInstance && typeof slimInstance.disable === "function") {
+      try { slimInstance.disable(); } catch {}
+    }
+    if (nativeEl) nativeEl.disabled = true;
+  };
+
+  const safeEnable = (nativeEl, slimInstance) => {
+    if (slimInstance && typeof slimInstance.enable === "function") {
+      try { slimInstance.enable(); } catch {}
+    }
+    if (nativeEl) nativeEl.disabled = false;
+  };
+
+  const safeSlimSetData = (slimInstance, data) => {
+    if (!slimInstance) return;
+    // SlimSelect v2: setData()
+    if (typeof slimInstance.setData === "function") {
+      try { slimInstance.setData(data); } catch {}
+      return;
+    }
+    // Fallback: keine API → ignorieren (native Select reicht)
+  };
+
+  const safeSlimSetSelected = (slimInstance, values, trigger = false) => {
+    if (!slimInstance) return;
+    // SlimSelect v2: setSelected(values, trigger)
+    if (typeof slimInstance.setSelected === "function") {
+      try { slimInstance.setSelected(values, trigger); } catch {}
+    }
+  };
+
+  // =========================================================
+  // Erstzulassung (Jahr/Monat)
+  // =========================================================
+  const yearSelect = document.getElementById("first-registration-year");
+  const monthSelect = document.getElementById("first-registration-month");
+
+  // SlimSelect für Marke (nur falls vorhanden)
+  const slimBrand = initSlim("#marke", {
+    placeholder: "Marke wählen",
     allowDeselect: true,
-    showSearch: true
+    showSearch: true,
   });
-  
-  // === Erst Jahr-Optionen einfügen ===
-  if (yearSelect && monthSelect) {
-    const currentYear = new Date().getFullYear();
-    for (let year = currentYear; year >= 1900; year--) {
-      const option = document.createElement("option");
-      option.value = year;
-      option.text = year;
-      yearSelect.appendChild(option);
+
+  // Jahr-Optionen NUR einmal befüllen (falls Select existiert)
+  if (yearSelect) {
+    const hasYearsAlready = yearSelect.options.length > 2; // grober Guard (Placeholder + ggf. 1 Option)
+    if (!hasYearsAlready) {
+      const currentYear = new Date().getFullYear();
+      for (let year = currentYear; year >= 1900; year--) {
+        const option = document.createElement("option");
+        option.value = String(year);
+        option.textContent = String(year);
+        yearSelect.appendChild(option);
+      }
     }
   }
-  
-  // === SlimSelect für Jahr & Monat (nach Befüllen!) ===
-  const slimYear = new SlimSelect({
-    select: '#first-registration-year',
-    placeholder: 'Jahr wählen',
+
+  // SlimSelect für Jahr/Monat (nur wenn Select existiert)
+  const slimYear = initSlim("#first-registration-year", {
+    placeholder: "Jahr wählen",
     allowDeselect: true,
-    showSearch: false
+    showSearch: false,
   });
-  
-  const slimMonth = new SlimSelect({
-    select: '#first-registration-month',
-    placeholder: 'Monat wählen',
+
+  const slimMonth = initSlim("#first-registration-month", {
+    placeholder: "Monat wählen",
     allowDeselect: true,
-    showSearch: false
+    showSearch: false,
   });
-  
-  // === Monat initial deaktivieren, aktivieren bei Jahrwahl ===
-  slimMonth.disable();
-  
-  yearSelect.addEventListener("change", () => {
-    if (yearSelect.value) {
-      slimMonth.enable();
-    } else {
-      slimMonth.disable();
-      monthSelect.selectedIndex = 0;
-    }
-  });
-  
-  // === SlimSelect für Modell vorbereiten ===
-  let slimModell = new SlimSelect({
-    select: '#modell',
-    placeholder: 'Bitte zuerst Marke wählen',
+
+  // Monat initial deaktivieren, aktivieren sobald Jahr gesetzt ist
+  if (monthSelect) {
+    safeDisable(monthSelect, slimMonth);
+  }
+
+  if (yearSelect) {
+    yearSelect.addEventListener("change", () => {
+      const hasYear = !!yearSelect.value;
+      if (!monthSelect) return;
+
+      if (hasYear) {
+        safeEnable(monthSelect, slimMonth);
+      } else {
+        safeDisable(monthSelect, slimMonth);
+        monthSelect.selectedIndex = 0;
+        // UI ggf. syncen
+        safeSlimSetSelected(slimMonth, [""], false);
+      }
+    });
+  }
+
+  // =========================================================
+  // Modell – dynamisch abhängig von Marke (inkl. Gruppen-Logik)
+  // =========================================================
+  let slimModell = initSlim("#modell", {
+    placeholder: "Bitte zuerst Marke wählen",
     closeOnSelect: false,
     allowDeselect: true,
     hideSelected: false,
-    showSearch: false
+    showSearch: false,
   });
-  
-  // === Dynamische Modell-Auswahl abhängig von Marke ===
-  if (brandDropdown && modelDropdown) {
-    brandDropdown.addEventListener("change", function () {
-      const selectedBrand = this.value;
-  
-      if (!selectedBrand || !modelData[selectedBrand]) {
-        slimModell.setData([
-          {
-            text: "Bitte zuerst Marke wählen",
-            placeholder: true,
-            disabled: true,
-            selected: true
-          }
-        ]);
-  
-        modelDropdown.innerHTML = `
-          <option value="" disabled selected hidden>Bitte zuerst Marke wählen</option>
-        `;
-        return;
-      }
-  
-      const newOptions = modelData[selectedBrand].map(model => ({
-        text: model,
-        value: model
-      }));
-  
-      // Native Optionen neu setzen
-      modelDropdown.innerHTML = "";
-      newOptions.forEach(opt => {
-        const option = document.createElement("option");
-        option.value = opt.value;
-        option.text = opt.text;
-        modelDropdown.appendChild(option);
-      });
-  
-      // Neue Daten in SlimSelect laden
-      slimModell.setData(newOptions);
-  
-      // Handler neu binden
-      slimModell.on('afterChange', (newSelected) => {
-        const selectedValues = newSelected.map(s => s.value);
-        const allValuesToSelect = new Set();
-  
-        selectedValues.forEach(selectedValue => {
-          const regex = modelGroups[selectedValue];
-          if (regex) {
-            newOptions.forEach(opt => {
-              if (regex.test(opt.value)) {
-                allValuesToSelect.add(opt.value);
-              }
-            });
-            allValuesToSelect.add(selectedValue);
-          } else {
-            allValuesToSelect.add(selectedValue);
-          }
-        });
-  
-        // native Optionen aktualisieren
-        modelDropdown.querySelectorAll('option').forEach(opt => {
-          opt.selected = allValuesToSelect.has(opt.value);
-        });
-  
-        // SlimSelect aktualisieren ohne afterChange erneut auszulösen
-        slimModell.setSelected([...allValuesToSelect], false);
-      });
-    });
-  }
-  
-  // === Preisbereich (benutzerdefiniert) ===
-  const priceSelect = document.getElementById("price-select");
-  const priceCustom = document.getElementById("price-custom");
-  
-  if (priceSelect && priceCustom) {
-    priceSelect.addEventListener("change", () => {
-      if (priceSelect.value === "custom") {
-        priceCustom.style.display = "block";
-        priceCustom.focus();
-      } else {
-        priceCustom.style.display = "none";
-        priceCustom.value = "";
-      }
-    });
-  }
-  
 
-
-
-
-
-
-
-
-// === Kilometer mit SlimSelect und benutzerdefiniertem Wert ===
-const kilometerSelect = document.getElementById("kilometer-select");
-const kilometerCustom = document.getElementById("kilometer-custom");
-
-if (kilometerSelect && kilometerCustom) {
-  // SlimSelect initialisieren
-  new SlimSelect({
-    select: '#kilometer-select',
-    placeholder: 'Kilometer wählen',
-    allowDeselect: true,
-    showSearch: false
-  });
-  
-  // Listener für Auswahl
-  kilometerSelect.addEventListener("change", () => {
-    if (kilometerSelect.value === "custom") {
-      kilometerCustom.style.display = "block";
-      kilometerCustom.focus();
-    } else {
-      kilometerCustom.style.display = "none";
-      kilometerCustom.value = "";
-    }
-  });
-}
-
-
-
-
-});
-
-
-// === Preis mit SlimSelect und benutzerdefiniertem Wert ===
-const priceSelect = document.getElementById("price-select");
-const priceCustom = document.getElementById("price-custom");
-
-if (priceSelect && priceCustom) {
-  // SlimSelect initialisieren
-  new SlimSelect({
-    select: '#price-select',
-    placeholder: 'Preis wählen',
-    allowDeselect: true,
-    showSearch: false
-  });
-  
-  // Listener für Auswahl
-  priceSelect.addEventListener("change", () => {
-    if (priceSelect.value === "custom") {
-      priceCustom.style.display = "block";
-      priceCustom.focus();
-    } else {
-      priceCustom.style.display = "none";
-      priceCustom.value = "";
-    }
-  });
-}
-
-
-
-
-
-const gearSelect = document.getElementById("gear");
-
-if (gearSelect) {
-  new SlimSelect({
-    select: '#gear',
-    placeholder: 'Getriebe wählen',
-    allowDeselect: true,
-    showSearch: false
-  });
-}
-
-
-
-
-const fuelSelect = document.getElementById("fuel");
-
-if (fuelSelect) {
-  new SlimSelect({
-    select: '#fuel',
-    placeholder: 'Kraftstoff wählen',
-    allowDeselect: true,
-    showSearch: false
-  });
-}
-
-
-
-
-const distanceSelect = document.getElementById("distance-select");
-const distanceCustom = document.getElementById("distance-custom");
-const locationInput = document.getElementById("location");
-
-if (locationInput && distanceSelect) {
-  // Umkreis-Feld aktivieren, wenn Ort gesetzt
-  locationInput.addEventListener("input", () => {
-    distanceSelect.disabled = !locationInput.value.trim();
-    if (!locationInput.value.trim()) {
-      distanceSelect.selectedIndex = 0;
-      distanceCustom.style.display = "none";
-    }
-  });
-  
-  // Benutzerdefiniert anzeigen
-  distanceSelect.addEventListener("change", () => {
-    if (distanceSelect.value === "custom") {
-      distanceCustom.style.display = "block";
-      distanceCustom.focus();
-    } else {
-      distanceCustom.style.display = "none";
-      distanceCustom.value = "";
-    }
-  });
-}
-
-
-
-const slimDistance = new SlimSelect({
-  select: '#distance-select',
-  placeholder: 'Umkreis wählen',
-  allowDeselect: true,
-  showSearch: false
-});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-document.addEventListener("DOMContentLoaded", () => {
-  document.querySelectorAll(".media-container").forEach(initMediaSlider);
-});
-
-
-
-
-
-
-function initMediaSlider(container) {
-  const slidesWrapper = container.querySelector(".slides");
-  const slides = Array.from(slidesWrapper.children);
-  
-  const state = {
-    currentIndex: 0,
-    isDragging: false,
-    startPos: 0,
-    currentTranslate: 0,
-    prevTranslate: 0,
-    animationID: null,
+  const setModellPlaceholder = () => {
+    if (!modelDropdown) return;
+    modelDropdown.innerHTML = `<option value="" disabled selected hidden>Bitte zuerst Marke wählen</option>`;
+    safeSlimSetData(slimModell, [
+      { text: "Bitte zuerst Marke wählen", value: "", placeholder: true, disabled: true, selected: true },
+    ]);
   };
-  
-  slidesWrapper.style.display = "flex";
-  slidesWrapper.style.transition = "transform 0.3s ease";
-  slidesWrapper.style.willChange = "transform";
-  
-  slides.forEach(slide => {
-    slide.style.flex = "0 0 100%";
-    slide.style.minWidth = "100%";
-  });
-  
-  function setSliderPosition() {
-    slidesWrapper.style.transform = `translateX(${state.currentTranslate}px)`;
-  }
-  
-  function animation() {
-    setSliderPosition();
-    if (state.isDragging) requestAnimationFrame(animation);
-  }
-  
-  function pointerDown(event) {
-    state.isDragging = true;
-    state.startPos = event.clientX;
-    state.animationID = requestAnimationFrame(animation);
-  }
-  
-  function pointerMove(event) {
-    if (state.isDragging) {
-      const currentPosition = event.clientX;
-      state.currentTranslate = state.prevTranslate + currentPosition - state.startPos;
-    }
-  }
-  
-  function pointerUp() {
-    state.isDragging = false;
-    cancelAnimationFrame(state.animationID);
-    
-    const movedBy = state.currentTranslate - state.prevTranslate;
-    const containerWidth = container.clientWidth;
-    
-    if (movedBy < -50 && state.currentIndex < slides.length - 1) {
-      state.currentIndex++;
-    } else if (movedBy > 50 && state.currentIndex > 0) {
-      state.currentIndex--;
-    }
-    
-    updateSlidePosition();
-  }
-  
-  function updateSlidePosition() {
-    const containerWidth = container.clientWidth;
-    state.currentTranslate = -state.currentIndex * containerWidth;
-    state.prevTranslate = state.currentTranslate;
-    setSliderPosition();
-  }
-  
-  // Swipe Events
-  slidesWrapper.addEventListener("pointerdown", pointerDown);
-  slidesWrapper.addEventListener("pointermove", pointerMove);
-  slidesWrapper.addEventListener("pointerup", pointerUp);
-  slidesWrapper.addEventListener("pointerleave", (e) => { if (state.isDragging) pointerUp(e); });
-  slidesWrapper.addEventListener("pointercancel", pointerUp);
-  
-  slides.forEach(slide => {
-    slide.addEventListener("pointerdown", pointerDown);
-    slide.addEventListener("pointermove", pointerMove);
-    slide.addEventListener("pointerup", pointerUp);
-    slide.addEventListener("pointerleave", (e) => { if (state.isDragging) pointerUp(e); });
-    slide.addEventListener("pointercancel", pointerUp);
-  });
-  
-  // Pfeilnavigation
-  container.querySelector(".media-arrow.right")?.addEventListener("click", () => {
-    if (state.currentIndex < slides.length - 1) {
-      state.currentIndex++;
-      updateSlidePosition();
-    }
-  });
-  
-  container.querySelector(".media-arrow.left")?.addEventListener("click", () => {
-    if (state.currentIndex > 0) {
-      state.currentIndex--;
-      updateSlidePosition();
-    }
-  });
-  
-  window.addEventListener("resize", updateSlidePosition);
-  updateSlidePosition();
-}
 
+  // aktuelle Modellwerte pro Marke merken (für Gruppen-RegEx)
+  let currentModelValues = [];
+  let suppressModelSync = false;
 
+  const expandModelGroups = (selectedValues) => {
+    const all = new Set();
 
+    selectedValues.forEach((val) => {
+      if (!val) return;
 
-
-document.addEventListener("DOMContentLoaded", () => {
-  const userId = localStorage.getItem("userId");
-
-  if (!userId) {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("userRole");
-    return;
-  }
-
-  fetch(`/getNutzerInfo?id=${userId}`)
-    .then(res => res.json())
-    .then(data => {
-      if (data.eingeloggt) {
-        localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("userRole", data.rolle || "privat");
-        localStorage.setItem("userId", data.nutzerId || "");
+      const rx = modelGroups[val];
+      if (rx) {
+        currentModelValues.forEach((m) => {
+          if (rx.test(m)) all.add(m);
+        });
+        all.add(val);
       } else {
-        localStorage.removeItem("isLoggedIn");
-        localStorage.removeItem("userRole");
-        localStorage.removeItem("userId");
+        all.add(val);
       }
-    })
-    .catch(err => {
-      console.error("Fehler beim Login-Check:", err);
-      localStorage.removeItem("isLoggedIn");
-      localStorage.removeItem("userRole");
-      localStorage.removeItem("userId");
     });
-});
+
+    return all;
+  };
+
+  const applySelectedToNative = (selectedSet) => {
+    if (!modelDropdown) return;
+    modelDropdown.querySelectorAll("option").forEach((opt) => {
+      opt.selected = selectedSet.has(opt.value);
+    });
+  };
+
+  const syncModelGroupsFromNative = () => {
+    if (!modelDropdown) return;
+    if (suppressModelSync) return;
+
+    const selectedValues = Array.from(modelDropdown.selectedOptions)
+      .map((o) => o.value)
+      .filter(Boolean);
+
+    const expanded = expandModelGroups(selectedValues);
+
+    // Wenn keine Expansion notwendig → fertig
+    const already = new Set(selectedValues);
+    let changed = false;
+    if (expanded.size !== already.size) changed = true;
+    else {
+      for (const v of expanded) {
+        if (!already.has(v)) { changed = true; break; }
+      }
+    }
+    if (!changed) return;
+
+    suppressModelSync = true;
+    applySelectedToNative(expanded);
+    safeSlimSetSelected(slimModell, [...expanded], false);
+    suppressModelSync = false;
+  };
+
+  const setModelOptionsForBrand = (brand) => {
+    if (!brand || !modelData?.[brand] || !modelDropdown) {
+      currentModelValues = [];
+      setModellPlaceholder();
+      return;
+    }
+
+    const models = modelData[brand];
+    const options = models.map((m) => ({ text: m, value: m }));
+
+    // Native Optionen neu
+    modelDropdown.innerHTML = "";
+    options.forEach((o) => {
+      const opt = document.createElement("option");
+      opt.value = o.value;
+      opt.textContent = o.text;
+      modelDropdown.appendChild(opt);
+    });
+
+    currentModelValues = models.slice();
+
+    // SlimSelect Daten setzen
+    safeSlimSetData(slimModell, options);
+
+    // optional: nach Markenwechsel Auswahl resetten
+    modelDropdown.selectedIndex = 0;
+    safeSlimSetSelected(slimModell, [], false);
+  };
+
+  if (brandDropdown && modelDropdown) {
+    // initialer Zustand
+    if (!brandDropdown.value) setModellPlaceholder();
+
+    brandDropdown.addEventListener("change", () => {
+      setModelOptionsForBrand(brandDropdown.value);
+    });
+
+    // Gruppen-Logik über native change (funktioniert auch mit SlimSelect)
+    modelDropdown.addEventListener("change", syncModelGroupsFromNative);
+
+    // falls Marke beim Laden schon gesetzt ist
+    if (brandDropdown.value) setModelOptionsForBrand(brandDropdown.value);
+  }
+
+  // =========================================================
+  // Preis/Kilometer – Select + Custom Input (ohne doppelte Blöcke)
+  // =========================================================
+  const wireSelectWithCustom = ({ selectId, customId, placeholder }) => {
+    const sel = document.getElementById(selectId);
+    const custom = document.getElementById(customId);
+
+    if (!sel) return { sel: null, custom: null, slim: null };
+
+    const slim = initSlim(`#${selectId}`, {
+      placeholder,
+      allowDeselect: true,
+      showSearch: false,
+    });
+
+    const showCustom = (show) => {
+      if (!custom) return;
+      custom.style.display = show ? "block" : "none";
+      if (!show) custom.value = "";
+      if (show) custom.focus();
+    };
+
+    sel.addEventListener("change", () => {
+      showCustom(sel.value === "custom");
+    });
+
+    // initial
+    if (custom) showCustom(sel.value === "custom");
+
+    return { sel, custom, slim };
+  };
+
+  wireSelectWithCustom({
+    selectId: "price-select",
+    customId: "price-custom",
+    placeholder: "Preis wählen",
+  });
+
+  wireSelectWithCustom({
+    selectId: "kilometer-select",
+    customId: "kilometer-custom",
+    placeholder: "Kilometer wählen",
+  });
+
+  // =========================================================
+  // Getriebe / Kraftstoff
+  // =========================================================
+  initSlim("#gear", {
+    placeholder: "Getriebe wählen",
+    allowDeselect: true,
+    showSearch: false,
+  });
+
+  initSlim("#fuel", {
+    placeholder: "Kraftstoff wählen",
+    allowDeselect: true,
+    showSearch: false,
+  });
+
+  // =========================================================
+  // Umkreis (aktiv erst, wenn Ort gesetzt)
+  // =========================================================
+  const distanceSelect = document.getElementById("distance-select");
+  const distanceCustom = document.getElementById("distance-custom");
+  const locationInput = document.getElementById("location");
+
+  const slimDistance = initSlim("#distance-select", {
+    placeholder: "Umkreis wählen",
+    allowDeselect: true,
+    showSearch: false,
+  });
+
+  const showDistanceCustom = (show) => {
+    if (!distanceCustom) return;
+    distanceCustom.style.display = show ? "block" : "none";
+    if (!show) distanceCustom.value = "";
+    if (show) distanceCustom.focus();
+  };
+
+  const setDistanceEnabled = (enabled) => {
+    if (!distanceSelect) return;
+    if (enabled) safeEnable(distanceSelect, slimDistance);
+    else safeDisable(distanceSelect, slimDistance);
+  };
+
+  if (distanceSelect) {
+    // initial
+    const hasLoc = !!locationInput?.value?.trim();
+    setDistanceEnabled(hasLoc);
+
+    if (!hasLoc) {
+      distanceSelect.selectedIndex = 0;
+      showDistanceCustom(false);
+    }
+
+    // Ort Input steuert Enable/Disable
+    if (locationInput) {
+      locationInput.addEventListener("input", () => {
+        const ok = !!locationInput.value.trim();
+        setDistanceEnabled(ok);
+
+        if (!ok) {
+          distanceSelect.selectedIndex = 0;
+          showDistanceCustom(false);
+          safeSlimSetSelected(slimDistance, [""], false);
+        }
+      });
+    }
+
+    // custom toggle
+    distanceSelect.addEventListener("change", () => {
+      showDistanceCustom(distanceSelect.value === "custom");
+    });
+  }
+
+  // =========================================================
+  // Media Sliders: alle statischen Container initialisieren
+  // (für dynamische auf Startseite: wird zusätzlich in loadHomeListings gemacht)
+  // =========================================================
+  document.querySelectorAll(".media-container").forEach(initMediaSlider);
+
+  // =========================================================
+  // Startseite: Neueste Inserate nur laden, wenn Container existiert
+  // =========================================================
+  if (document.getElementById("homeResults")) {
+    loadHomeListings();
+  }
+
+  // =========================================================
+  // Footer Jahr sicher setzen
+  // =========================================================
+  const y = document.getElementById("year");
+  if (y) y.textContent = new Date().getFullYear();
+
+  // =========================================================
+  // Nur auf Startseite: sessionStorage reset
+  // =========================================================
+  {
+    const path = window.location.pathname;
+    const isIndex = path === "/" || path.endsWith("/index.html");
+    if (isIndex) {
+      sessionStorage.removeItem("inseratGestartet");
+      sessionStorage.removeItem("hatGespeichert");
+    }
+  }
+
+}); // Ende DOMContentLoaded (dein erster Teil muss bis hierhin offen gewesen sein)
 
 
-// === 2. Fahrzeugverkauf: Weiterleitung je nach Login-Status und Rolle ===
-function handleVerkaufenClick() {
-  const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
-  const role = localStorage.getItem("userRole");
+// ============================================================================
+// Global: Verkauf-Click / Logout (falls du es via onclick im HTML nutzt)
+// ============================================================================
 
-  if (!isLoggedIn) {
-    window.location.href = "login.html";
-  } else if (role === "haendler") {
-    window.location.href = "haendler.html";
-  } else {
-    window.location.href = "privat.html";
+async function handleVerkaufenClick() {
+  // robust: lieber Cookie/Session checken als localStorage
+  try {
+    const res = await fetch("/getNutzerInfo", { credentials: "include" });
+    const data = await res.json();
+
+    if (!data?.eingeloggt) {
+      localStorage.setItem("redirectAfterLogin", "verkaufen.html");
+      window.location.href = "login.html";
+      return;
+    }
+
+    const rolle = (data.rolle || "").toLowerCase();
+    if (rolle === "haendler" || rolle === "händler") {
+      window.location.href = "haendler.html";
+    } else {
+      window.location.href = "privat.html";
+    }
+  } catch {
+    // Fallback: altes Verhalten
+    const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
+    const role = localStorage.getItem("userRole");
+
+    if (!isLoggedIn) window.location.href = "login.html";
+    else if (role === "haendler") window.location.href = "haendler.html";
+    else window.location.href = "privat.html";
   }
 }
 
-// === 3. Logout: Cookies + localStorage leeren
 function logout() {
   fetch("/logout", { method: "POST", credentials: "include" })
-    .then(() => {
-      localStorage.clear();
-      window.location.href = "index.html";
-    })
-    .catch(() => {
-      localStorage.clear();
+    .finally(() => {
+      ["isLoggedIn", "userRole", "userId", "redirectAfterLogin"].forEach((k) => localStorage.removeItem(k));
       window.location.href = "index.html";
     });
 }
 
-// === 4. Nur auf Startseite: sessionStorage zurücksetzen
-document.addEventListener("DOMContentLoaded", () => {
-  const path = window.location.pathname;
-  const istNurAufIndex = path === "/" || path.endsWith("/index.html");
-
-  if (istNurAufIndex) {
-    sessionStorage.removeItem("inseratGestartet");
-    sessionStorage.removeItem("hatGespeichert");
-  }
-});
+window.handleVerkaufenClick = handleVerkaufenClick;
+window.logout = logout;
 
 
-
-// === 6. Passwortschutz-Funktion (z. B. für Adminbereiche)
-function checkPassword() {
-  const input = document.getElementById("password-input").value;
-  const overlay = document.getElementById("password-overlay");
-  const wrong = document.getElementById("wrong-password");
-
-  if (input === "Peter211") {
-    overlay.style.display = "none";
-  } else {
-    wrong.style.display = "block";
-  }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// main.js – Startseite: Neueste Inserate + Slider + Click-through zu anzeige.html
-
-document.addEventListener("DOMContentLoaded", () => {
-  loadHomeListings();
-});
+// ============================================================================
+// Startseite: Neueste Inserate + Slider + Click-through zu anzeige.html
+// ============================================================================
 
 // ===== Helpers =====
 function toNum(v) {
   if (v === null || v === undefined || v === "") return NaN;
-  // entferne normale/geschützte Leerzeichen, €, Punkte; ersetze Komma durch Punkt
   const s = String(v)
     .trim()
     .replace(/[\u202F\u00A0\s]/g, "")
@@ -1078,6 +1010,7 @@ function toNum(v) {
   const n = Number(s);
   return Number.isFinite(n) ? n : NaN;
 }
+
 function pickPrice(...vals) {
   for (const v of vals) {
     const n = toNum(v);
@@ -1085,13 +1018,16 @@ function pickPrice(...vals) {
   }
   return NaN;
 }
+
 function fmtEUR(v) {
   const n = toNum(v);
   return Number.isFinite(n) ? n.toLocaleString("de-DE") + " €" : "Preis n. a.";
 }
+
 function sanitizePhone(raw) {
   return raw ? String(raw).replace(/[^\d+]/g, "") : "";
 }
+
 function getDocId(doc) {
   if (!doc) return null;
   if (doc._id && typeof doc._id === "object" && typeof doc._id.$oid === "string") return doc._id.$oid;
@@ -1099,11 +1035,12 @@ function getDocId(doc) {
   if (typeof doc.id === "string") return doc.id;
   return null;
 }
+
 function sellerInitials(name = "") {
   const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map(p => (p[0] || "").toUpperCase()).join("") || "AV";
+  return parts.map((p) => (p[0] || "").toUpperCase()).join("") || "AV";
 }
-// gemergtes Payload für anzeige.html, damit dort alle verkauf_* Felder sicher vorhanden sind
+
 function toAnzeigePayload(item) {
   const raw = item?.raw && typeof item.raw === "object" ? item.raw : {};
   const merged = { ...raw, ...item };
@@ -1117,25 +1054,27 @@ function toAnzeigePayload(item) {
   if (!merged.verkauf_verkaeufer && item.verkauf_verkaeufer) merged.verkauf_verkaeufer = item.verkauf_verkaeufer;
   if (!merged.verkauf_name && item.verkauf_name) merged.verkauf_name = item.verkauf_name;
 
-  // Preise robuster abbilden
-  if (merged.verkauf_brutto == null && (merged.brutto_preis != null)) merged.verkauf_brutto = merged.brutto_preis;
-  if (merged.verkauf_brutto == null && (merged["brutto-preis"] != null)) merged.verkauf_brutto = merged["brutto-preis"];
-  if (merged.verkauf_preis == null && (item.preis != null)) merged.verkauf_preis = item.preis;
+  if (merged.verkauf_brutto == null && merged.brutto_preis != null) merged.verkauf_brutto = merged.brutto_preis;
+  if (merged.verkauf_brutto == null && merged["brutto-preis"] != null) merged.verkauf_brutto = merged["brutto-preis"];
+  if (merged.verkauf_preis == null && item.preis != null) merged.verkauf_preis = item.preis;
 
   if (!merged.telefon && item.telefon) merged.telefon = item.telefon;
   return merged;
 }
 
-// ===== Server laden (holt online-Inserate) =====
+// ===== Server laden =====
 async function fetchInserate(page = 1, limit = 9) {
   const url = `/inserate?page=${encodeURIComponent(page)}&limit=${encodeURIComponent(limit)}`;
   const res = await fetch(url, { credentials: "omit" });
   if (!res.ok) throw new Error("Fetch /inserate fehlgeschlagen");
-  return res.json(); // { page, limit, total, items }
-}function initMediaSlider(container) {
+  return res.json();
+}
+
+// ===== Slider Init (einmalig pro Container) =====
+function initMediaSlider(container) {
   if (!container) return;
 
-  // Guard: nicht doppelt initialisieren
+  // nicht doppelt initialisieren
   if (container.dataset.sliderInit === "1") return;
   container.dataset.sliderInit = "1";
 
@@ -1154,19 +1093,11 @@ async function fetchInserate(page = 1, limit = 9) {
     startY: 0,
     prevTranslate: 0,
     currentTranslate: 0,
-
-    // Click-Block nur nach echtem Swipe
     blockClickUntil: 0,
     hadRealSwipe: false,
-
-    // PointerCapture erst nach Axis-Lock auf X
     captured: false,
   };
 
-  // Debug (optional)
-  container._sliderState = state;
-
-  // Basis-Styles
   slidesWrapper.style.display = "flex";
   slidesWrapper.style.willChange = "transform";
   slides.forEach((slide) => {
@@ -1174,13 +1105,10 @@ async function fetchInserate(page = 1, limit = 9) {
     slide.style.minWidth = "100%";
   });
 
-  const btnLeft  = container.querySelector(".media-arrow.left");
+  const btnLeft = container.querySelector(".media-arrow.left");
   const btnRight = container.querySelector(".media-arrow.right");
 
-  const width = () => {
-    const w = container.getBoundingClientRect().width || container.clientWidth;
-    return w > 0 ? w : 1;
-  };
+  const width = () => (container.getBoundingClientRect().width || container.clientWidth || 1);
 
   const setTranslate = (x, animate) => {
     slidesWrapper.style.transition = animate
@@ -1190,7 +1118,7 @@ async function fetchInserate(page = 1, limit = 9) {
   };
 
   const updateArrows = () => {
-    if (btnLeft)  btnLeft.disabled  = state.index <= 0;
+    if (btnLeft) btnLeft.disabled = state.index <= 0;
     if (btnRight) btnRight.disabled = state.index >= slides.length - 1;
   };
 
@@ -1213,23 +1141,16 @@ async function fetchInserate(page = 1, limit = 9) {
     pauseInactiveVideos();
   };
 
-  // Verhindert „Swipe → Click → Karte öffnet“ (ABER nur nach echtem Swipe)
-  container.addEventListener(
-    "click",
-    (e) => {
-      if (Date.now() < state.blockClickUntil) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    },
-    true // capture
-  );
+  // Swipe → Click block (nur nach echtem Swipe)
+  container.addEventListener("click", (e) => {
+    if (Date.now() < state.blockClickUntil) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
 
   const startDrag = (e) => {
-    // nur Primary / linker Button
     if (e.button != null && e.button !== 0) return;
-
-    // nicht starten, wenn Pfeil gedrückt wird
     if (e.target?.closest?.(".media-arrow")) return;
 
     state.dragging = true;
@@ -1245,33 +1166,23 @@ async function fetchInserate(page = 1, limit = 9) {
 
   const moveDrag = (e) => {
     if (!state.dragging) return;
-
-    if (
-      state.pointerId != null &&
-      e.pointerId != null &&
-      e.pointerId !== state.pointerId
-    ) return;
+    if (state.pointerId != null && e.pointerId != null && e.pointerId !== state.pointerId) return;
 
     const dx = e.clientX - state.startX;
     const dy = e.clientY - state.startY;
 
-    // Axis-Lock
     if (state.axis == null) {
       const adx = Math.abs(dx);
       const ady = Math.abs(dy);
-
-      if (adx < 6 && ady < 6) return; // Zitterbewegung ignorieren
+      if (adx < 6 && ady < 6) return;
 
       state.axis = adx > ady ? "x" : "y";
-
-      // Wenn User scrollt: Drag abbrechen
       if (state.axis === "y") {
         state.dragging = false;
         state.pointerId = null;
         return;
       }
 
-      // PointerCapture erst jetzt (nach X-Lock)
       if (!state.captured && e.pointerId != null && container.setPointerCapture) {
         try {
           container.setPointerCapture(e.pointerId);
@@ -1282,10 +1193,7 @@ async function fetchInserate(page = 1, limit = 9) {
 
     if (state.axis !== "x") return;
 
-    // echtes Swipe-Movement merken (wichtig fürs Click-Blocking)
     if (Math.abs(dx) > 10) state.hadRealSwipe = true;
-
-    // horizontal: Browser darf NICHT mitscrollen
     if (e.cancelable) e.preventDefault();
 
     state.currentTranslate = state.prevTranslate + dx;
@@ -1294,12 +1202,7 @@ async function fetchInserate(page = 1, limit = 9) {
 
   const endDrag = (e) => {
     if (!state.dragging) return;
-
-    if (
-      state.pointerId != null &&
-      e?.pointerId != null &&
-      e.pointerId !== state.pointerId
-    ) return;
+    if (state.pointerId != null && e?.pointerId != null && e.pointerId !== state.pointerId) return;
 
     state.dragging = false;
 
@@ -1310,12 +1213,10 @@ async function fetchInserate(page = 1, limit = 9) {
     if (movedBy < -threshold && state.index < slides.length - 1) state.index++;
     else if (movedBy > threshold && state.index > 0) state.index--;
 
-    // Click-Block NUR, wenn wirklich geswiped wurde
-    state.blockClickUntil = state.hadRealSwipe ? (Date.now() + 220) : 0;
+    state.blockClickUntil = state.hadRealSwipe ? Date.now() + 220 : 0;
 
     snapTo(state.index, true);
 
-    // PointerCapture sauber lösen
     if (state.captured && e?.pointerId != null && container.releasePointerCapture) {
       try { container.releasePointerCapture(e.pointerId); } catch {}
     }
@@ -1347,7 +1248,7 @@ async function fetchInserate(page = 1, limit = 9) {
   snapTo(0, false);
 }
 
-
+// ===== Startseite: Listings rendern =====
 async function loadHomeListings() {
   const container = document.getElementById("homeResults");
   if (!container) return;
@@ -1363,9 +1264,6 @@ async function loadHomeListings() {
       return;
     }
 
-    // =========================
-    // Dealer Rating Helpers (nur Startseite)
-    // =========================
     const fmtRating = (v) => {
       const n = Number(v);
       return Number.isFinite(n) ? n.toFixed(1).replace(".", ",") : "";
@@ -1374,7 +1272,6 @@ async function loadHomeListings() {
     const starsHTML = (avg) => {
       const a = Number(avg);
       if (!Number.isFinite(a) || a <= 0) return "";
-
       let out = `<span class="stars" aria-hidden="true">`;
       for (let i = 1; i <= 5; i++) {
         if (a >= i - 0.25) out += `<i class="fa-solid fa-star"></i>`;
@@ -1407,8 +1304,8 @@ async function loadHomeListings() {
     container.innerHTML = "";
 
     list.forEach((inserat) => {
-      const imgs  = Array.isArray(inserat.images) ? inserat.images : [];
-      const tel   = sanitizePhone(inserat.telefon);
+      const imgs = Array.isArray(inserat.images) ? inserat.images : [];
+      const tel = sanitizePhone(inserat.telefon);
       const titel = inserat.titel || "Unbekanntes Fahrzeug";
 
       const preisNum = pickPrice(
@@ -1421,8 +1318,8 @@ async function loadHomeListings() {
       );
       const preis = fmtEUR(preisNum);
 
-      const kurz  = inserat.verkauf_kurzbeschreibung || "";
-      const _id   = getDocId(inserat) || "";
+      const kurz = inserat.verkauf_kurzbeschreibung || "";
+      const _id = getDocId(inserat) || "";
 
       const rawType = String(inserat.seller?.type || inserat.verkauf_verkaeufer || "").toLowerCase();
       const isHaendler =
@@ -1440,16 +1337,18 @@ async function loadHomeListings() {
       const sellerLocation =
         inserat.standort || [inserat.plz, inserat.ort].filter(Boolean).join(" ") || "Standort nicht angegeben";
 
-      const ratingAvg   = inserat.seller?.ratingAvg;
-      const ratingCount = inserat.seller?.ratingCount;
-      const dealerRatingHTML = ratingBlock({ isHaendler, avg: ratingAvg, count: ratingCount });
+      const dealerRatingHTML = ratingBlock({
+        isHaendler,
+        avg: inserat.seller?.ratingAvg,
+        count: inserat.seller?.ratingCount,
+      });
 
       const card = document.createElement("div");
       card.className = "car-card";
       card.innerHTML = `
         <div class="car-card-media">
           <div class="card-actions mobile-only">
-            <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
+            <button class="save-btn" title="Auto speichern" type="button"><i class="fas fa-heart"></i></button>
             <a href="${tel ? `tel:${tel}` : "#"}"
                class="contact-btn clean-phone"
                title="Verkäufer kontaktieren"
@@ -1461,8 +1360,7 @@ async function loadHomeListings() {
 
           <div class="media-container">
             <div class="slides">
-              ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
-
+              ${imgs.map((src) => `<img src="${src}" class="slide" alt="">`).join("")}
               ${
                 inserat.video
                   ? `<video class="slide" playsinline controls preload="metadata">
@@ -1491,7 +1389,7 @@ async function loadHomeListings() {
             <p><i class="fas fa-gas-pump"></i> ${inserat.verkauf_kraftstoff || "—"}</p>
             <p><i class="fas fa-gauge-high"></i> ${inserat.verkauf_leistung ?? "—"} PS</p>
             <p><i class="fas fa-gears"></i> ${inserat.verkauf_getriebe || "—"}</p>
-            <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "—"} l/100 km</p>
+            <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "—"}</p>
           </div>
 
           <div class="dealer-info">
@@ -1512,10 +1410,7 @@ async function loadHomeListings() {
       `;
 
       card.addEventListener("click", (e) => {
-        // WICHTIG: Video zählt als Action, sonst öffnet Tap das Inserat statt zu spielen
-        const isAction = e.target.closest(
-          ".card-actions button, .card-actions a, .media-arrow, video"
-        );
+        const isAction = e.target.closest(".card-actions button, .card-actions a, .media-arrow, video");
         if (isAction) return;
 
         try {
@@ -1523,8 +1418,7 @@ async function loadHomeListings() {
           localStorage.setItem("ausgewaehltesInserat", JSON.stringify(payload));
         } catch {}
 
-        if (_id) window.location.href = `anzeige.html?id=${encodeURIComponent(_id)}`;
-        else     window.location.href = `anzeige.html`;
+        window.location.href = _id ? `anzeige.html?id=${encodeURIComponent(_id)}` : "anzeige.html";
       });
 
       container.appendChild(card);
@@ -1532,26 +1426,20 @@ async function loadHomeListings() {
       // Slider init
       initMediaSlider(card.querySelector(".media-container"));
 
-      // -------- VIDEO: iPhone/Safari Play fix --------
+      // Video darf nicht Card-Klick auslösen
       card.querySelectorAll("video").forEach((v) => {
         v.setAttribute("playsinline", "");
-        v.setAttribute("controls", "");
-        v.setAttribute("preload", "metadata");
-
-        // Tap aufs Video darf nicht die Card-Navigation triggern
         v.addEventListener("pointerdown", (ev) => ev.stopPropagation(), { passive: true });
         v.addEventListener("click", (ev) => ev.stopPropagation());
       });
 
-      // --- Avatar/Logo (Safari-safe) ---
+      // Logo safe
       const avatar = card.querySelector(".dealer-avatar");
-      const img    = avatar.querySelector("img");
+      const img = avatar.querySelector("img");
       avatar.classList.remove("has-logo");
       img.removeAttribute("src");
 
       if (sellerLogo) {
-        try { img.loading = "eager"; } catch {}
-
         img.addEventListener("load", () => {
           if (img.naturalWidth > 0) avatar.classList.add("has-logo");
         }, { once: true });
@@ -1565,7 +1453,7 @@ async function loadHomeListings() {
         if (img.complete && img.naturalWidth > 0) avatar.classList.add("has-logo");
       }
 
-      // Hochformat-Erkennung (optional)
+      // Hochformat-Erkennung optional
       card.querySelectorAll(".slide").forEach((m) => {
         if (m.tagName === "VIDEO") {
           m.addEventListener("loadedmetadata", () => {
@@ -1583,15 +1471,6 @@ async function loadHomeListings() {
     container.innerHTML = "<p>Fehler beim Laden der Inserate.</p>";
   }
 }
-
-
-
-
-// Footer-Jahr sicher setzen
-document.addEventListener("DOMContentLoaded", () => {
-  const y = document.getElementById("year");
-  if (y) y.textContent = new Date().getFullYear();
-});
 
 
 

@@ -1832,3 +1832,6 @@ img, video, canvas {
 
 
 
+/* nur Standort enger */
+#group-ort { margin-bottom: -23px; }
+#group-land { margin-bottom: 42px; }
