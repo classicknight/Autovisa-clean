@@ -1,7 +1,4 @@
 
-
-
-
 document.documentElement.classList.remove('no-js');
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -1126,226 +1123,81 @@ function toAnzeigePayload(item) {
 }
 
 // ===== Server laden (holt online-Inserate) =====
-async function fetchInserate(page = 1, limit = 9) {
+async function fetchInserate(page = 1, limit = 8) {
   const url = `/inserate?page=${encodeURIComponent(page)}&limit=${encodeURIComponent(limit)}`;
   const res = await fetch(url, { credentials: "omit" });
   if (!res.ok) throw new Error("Fetch /inserate fehlgeschlagen");
   return res.json(); // { page, limit, total, items }
-}function initMediaSlider(container) {
-  if (!container) return;
-
-  // Guard: nicht doppelt initialisieren
-  if (container.dataset.sliderInit === "1") return;
-  container.dataset.sliderInit = "1";
-
-  const slidesWrapper = container.querySelector(".slides");
-  if (!slidesWrapper) return;
-
-  const slides = Array.from(slidesWrapper.children || []);
-  if (!slides.length) return;
-
-  const state = {
-    index: 0,
-    dragging: false,
-    axis: null,
-    pointerId: null,
-    startX: 0,
-    startY: 0,
-    prevTranslate: 0,
-    currentTranslate: 0,
-
-    // Click-Block nur nach echtem Swipe
-    blockClickUntil: 0,
-    hadRealSwipe: false,
-
-    // PointerCapture erst nach Axis-Lock auf X
-    captured: false,
-  };
-
-  // Debug (optional)
-  container._sliderState = state;
-
-  // Basis-Styles
-  slidesWrapper.style.display = "flex";
-  slidesWrapper.style.willChange = "transform";
-  slides.forEach((slide) => {
-    slide.style.flex = "0 0 100%";
-    slide.style.minWidth = "100%";
-  });
-
-  const btnLeft  = container.querySelector(".media-arrow.left");
-  const btnRight = container.querySelector(".media-arrow.right");
-
-  const width = () => {
-    const w = container.getBoundingClientRect().width || container.clientWidth;
-    return w > 0 ? w : 1;
-  };
-
-  const setTranslate = (x, animate) => {
-    slidesWrapper.style.transition = animate
-      ? "transform 0.28s cubic-bezier(.2,.8,.2,1)"
-      : "none";
-    slidesWrapper.style.transform = `translateX(${x}px)`;
-  };
-
-  const updateArrows = () => {
-    if (btnLeft)  btnLeft.disabled  = state.index <= 0;
-    if (btnRight) btnRight.disabled = state.index >= slides.length - 1;
-  };
-
-  const pauseInactiveVideos = () => {
-    slides.forEach((s, idx) => {
-      const v = s?.tagName === "VIDEO" ? s : s?.querySelector?.("video");
-      if (!v) return;
-      if (idx !== state.index && !v.paused) {
-        try { v.pause(); } catch {}
-      }
-    });
-  };
-
-  const snapTo = (i, animate = true) => {
-    state.index = Math.max(0, Math.min(i, slides.length - 1));
-    state.prevTranslate = -state.index * width();
-    state.currentTranslate = state.prevTranslate;
-    setTranslate(state.currentTranslate, animate);
-    updateArrows();
-    pauseInactiveVideos();
-  };
-
-  // Verhindert „Swipe → Click → Karte öffnet“ (ABER nur nach echtem Swipe)
-  container.addEventListener(
-    "click",
-    (e) => {
-      if (Date.now() < state.blockClickUntil) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    },
-    true // capture
-  );
-
-  const startDrag = (e) => {
-    // nur Primary / linker Button
-    if (e.button != null && e.button !== 0) return;
-
-    // nicht starten, wenn Pfeil gedrückt wird
-    if (e.target?.closest?.(".media-arrow")) return;
-
-    state.dragging = true;
-    state.axis = null;
-    state.pointerId = e.pointerId ?? null;
-    state.startX = e.clientX;
-    state.startY = e.clientY;
-    state.hadRealSwipe = false;
-
-    state.captured = false;
-    slidesWrapper.style.transition = "none";
-  };
-
-  const moveDrag = (e) => {
-    if (!state.dragging) return;
-
-    if (
-      state.pointerId != null &&
-      e.pointerId != null &&
-      e.pointerId !== state.pointerId
-    ) return;
-
-    const dx = e.clientX - state.startX;
-    const dy = e.clientY - state.startY;
-
-    // Axis-Lock
-    if (state.axis == null) {
-      const adx = Math.abs(dx);
-      const ady = Math.abs(dy);
-
-      if (adx < 6 && ady < 6) return; // Zitterbewegung ignorieren
-
-      state.axis = adx > ady ? "x" : "y";
-
-      // Wenn User scrollt: Drag abbrechen
-      if (state.axis === "y") {
-        state.dragging = false;
-        state.pointerId = null;
-        return;
-      }
-
-      // PointerCapture erst jetzt (nach X-Lock)
-      if (!state.captured && e.pointerId != null && container.setPointerCapture) {
-        try {
-          container.setPointerCapture(e.pointerId);
-          state.captured = true;
-        } catch {}
-      }
-    }
-
-    if (state.axis !== "x") return;
-
-    // echtes Swipe-Movement merken (wichtig fürs Click-Blocking)
-    if (Math.abs(dx) > 10) state.hadRealSwipe = true;
-
-    // horizontal: Browser darf NICHT mitscrollen
-    if (e.cancelable) e.preventDefault();
-
-    state.currentTranslate = state.prevTranslate + dx;
-    setTranslate(state.currentTranslate, false);
-  };
-
-  const endDrag = (e) => {
-    if (!state.dragging) return;
-
-    if (
-      state.pointerId != null &&
-      e?.pointerId != null &&
-      e.pointerId !== state.pointerId
-    ) return;
-
-    state.dragging = false;
-
-    const movedBy = state.currentTranslate - state.prevTranslate;
-    const w = width();
-    const threshold = Math.max(40, w * 0.12);
-
-    if (movedBy < -threshold && state.index < slides.length - 1) state.index++;
-    else if (movedBy > threshold && state.index > 0) state.index--;
-
-    // Click-Block NUR, wenn wirklich geswiped wurde
-    state.blockClickUntil = state.hadRealSwipe ? (Date.now() + 220) : 0;
-
-    snapTo(state.index, true);
-
-    // PointerCapture sauber lösen
-    if (state.captured && e?.pointerId != null && container.releasePointerCapture) {
-      try { container.releasePointerCapture(e.pointerId); } catch {}
-    }
-
-    state.pointerId = null;
-    state.axis = null;
-    state.captured = false;
-    state.hadRealSwipe = false;
-  };
-
-  container.addEventListener("pointerdown", startDrag, { passive: false });
-  container.addEventListener("pointermove", moveDrag, { passive: false });
-  container.addEventListener("pointerup", endDrag, { passive: true });
-  container.addEventListener("pointercancel", endDrag, { passive: true });
-  container.addEventListener("pointerleave", endDrag, { passive: true });
-
-  btnRight?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    snapTo(state.index + 1, true);
-  });
-
-  btnLeft?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    snapTo(state.index - 1, true);
-  });
-
-  window.addEventListener("resize", () => snapTo(state.index, false), { passive: true });
-
-  snapTo(0, false);
 }
 
+// ===== Medien-Slider (wie auf Suche) =====
+function initMediaSlider(mediaContainer) {
+  if (!mediaContainer) return;
+  const slidesWrapper = mediaContainer.querySelector(".slides");
+  if (!slidesWrapper) return;
+
+  const slides = Array.from(slidesWrapper.children);
+  const state = {
+    currentIndex: 0,
+    isDragging: false,
+    startPos: 0,
+    currentTranslate: 0,
+    prevTranslate: 0,
+    animationID: null,
+  };
+
+  slidesWrapper.style.display = "flex";
+  slidesWrapper.style.transition = "transform 0.3s ease";
+  slidesWrapper.style.willChange = "transform";
+  slides.forEach(slide => { slide.style.flex = "0 0 100%"; slide.style.minWidth = "100%"; });
+
+  const getX = (ev) => (typeof ev.clientX === "number" ? ev.clientX : (ev.touches && ev.touches[0]?.clientX) || 0);
+
+  function setSliderPosition() { slidesWrapper.style.transform = `translateX(${state.currentTranslate}px)`; }
+  function animation() { setSliderPosition(); if (state.isDragging) requestAnimationFrame(animation); }
+
+  function pointerDown(ev) {
+    state.isDragging = true;
+    state.startPos = getX(ev);
+    state.animationID = requestAnimationFrame(animation);
+  }
+  function pointerMove(ev) {
+    if (!state.isDragging) return;
+    const currentPosition = getX(ev);
+    state.currentTranslate = state.prevTranslate + currentPosition - state.startPos;
+  }
+  function pointerUp() {
+    if (!state.isDragging) return;
+    state.isDragging = false;
+    cancelAnimationFrame(state.animationID);
+    const movedBy = state.currentTranslate - state.prevTranslate;
+    if (movedBy < -50 && state.currentIndex < slides.length - 1) state.currentIndex++;
+    else if (movedBy > 50 && state.currentIndex > 0) state.currentIndex--;
+    updateSlidePosition();
+  }
+  function updateSlidePosition() {
+    const width = mediaContainer.clientWidth;
+    state.currentTranslate = -state.currentIndex * width;
+    state.prevTranslate = state.currentTranslate;
+    setSliderPosition();
+  }
+
+  ["pointerdown", "touchstart", "mousedown"].forEach(ev => slidesWrapper.addEventListener(ev, pointerDown));
+  ["pointermove", "touchmove", "mousemove"].forEach(ev => slidesWrapper.addEventListener(ev, pointerMove));
+  ["pointerup", "pointerleave", "pointercancel", "touchend", "mouseup", "mouseleave"].forEach(ev => slidesWrapper.addEventListener(ev, pointerUp));
+
+  mediaContainer.querySelector(".media-arrow.right")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (state.currentIndex < slides.length - 1) { state.currentIndex++; updateSlidePosition(); }
+  });
+  mediaContainer.querySelector(".media-arrow.left")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (state.currentIndex > 0) { state.currentIndex--; updateSlidePosition(); }
+  });
+
+  window.addEventListener("resize", updateSlidePosition);
+  updateSlidePosition();
+}
 
 async function loadHomeListings() {
   const container = document.getElementById("homeResults");
@@ -1354,7 +1206,7 @@ async function loadHomeListings() {
   container.innerHTML = "<p style='opacity:.7'>Lade Inserate…</p>";
 
   try {
-    const { items } = await fetchInserate(1, 9);
+    const { items } = await fetchInserate(1, 8);
     const list = Array.isArray(items) ? items : [];
 
     if (!list.length) {
@@ -1362,115 +1214,55 @@ async function loadHomeListings() {
       return;
     }
 
-    // =========================
-    // Dealer Rating Helpers (nur Startseite)
-    // =========================
-    const fmtRating = (v) => {
-      const n = Number(v);
-      return Number.isFinite(n) ? n.toFixed(1).replace(".", ",") : "";
-    };
-
-    const starsHTML = (avg) => {
-      const a = Number(avg);
-      if (!Number.isFinite(a) || a <= 0) return "";
-
-      let out = `<span class="stars" aria-hidden="true">`;
-      for (let i = 1; i <= 5; i++) {
-        if (a >= i - 0.25) out += `<i class="fa-solid fa-star"></i>`;
-        else if (a >= i - 0.75) out += `<i class="fa-solid fa-star-half-stroke"></i>`;
-        else out += `<i class="fa-regular fa-star"></i>`;
-      }
-      out += `</span>`;
-      return out;
-    };
-
-    const ratingBlock = ({ isHaendler, avg, count }) => {
-      const c = Number(count);
-      const a = Number(avg);
-
-      if (!isHaendler) return "";
-      if (!Number.isFinite(c) || c <= 0) return "";
-      if (!Number.isFinite(a) || a <= 0) return "";
-
-      const label = `Bewertung ${fmtRating(a)} von 5 Sternen (${c} Bewertungen)`;
-
-      return `
-        <div class="dealer-rating" aria-label="${label}">
-          ${starsHTML(a)}
-          <span class="dealer-rating__value">${fmtRating(a)}</span>
-          <span class="dealer-rating__count" title="${c} Bewertungen">(${c})</span>
-        </div>
-      `;
-    };
-
     container.innerHTML = "";
-
-    list.forEach((inserat) => {
+    list.forEach(inserat => {
       const imgs  = Array.isArray(inserat.images) ? inserat.images : [];
       const tel   = sanitizePhone(inserat.telefon);
       const titel = inserat.titel || "Unbekanntes Fahrzeug";
 
+      // ✅ Preis robust (Brutto > Einzelpreis > Netto), leere Strings ignorieren
       const preisNum = pickPrice(
         inserat["brutto-preis"],
         inserat.brutto_preis,
         inserat.verkauf_brutto,
         inserat.preis,
-        inserat.verkauf_preis,
-        inserat.verkauf_netto
+        inserat.verkauf_preis, // wichtig für „Keine MwSt.“
+        inserat.verkauf_netto  // Fallback: nur Netto vorhanden
       );
       const preis = fmtEUR(preisNum);
 
       const kurz  = inserat.verkauf_kurzbeschreibung || "";
       const _id   = getDocId(inserat) || "";
 
+      // Verkäuferdaten (mit Fallbacks)
       const rawType = String(inserat.seller?.type || inserat.verkauf_verkaeufer || "").toLowerCase();
       const isHaendler =
         rawType === "haendler" || rawType === "händler" || rawType.includes("händ") || rawType.includes("haend");
-
       const sellerName =
         inserat.seller?.name || inserat.verkauf_name || (isHaendler ? "Händler" : "Privatanbieter");
-
       const sellerLogo =
         inserat.seller?.logoUrl ||
         inserat.raw?.seller?.logoUrl ||
         inserat.logoUrl ||
         "";
-
       const sellerLocation =
         inserat.standort || [inserat.plz, inserat.ort].filter(Boolean).join(" ") || "Standort nicht angegeben";
 
-      const ratingAvg   = inserat.seller?.ratingAvg;
-      const ratingCount = inserat.seller?.ratingCount;
-      const dealerRatingHTML = ratingBlock({ isHaendler, avg: ratingAvg, count: ratingCount });
-
       const card = document.createElement("div");
-      card.className = "car-card";
+      card.className = "car-card"; // vertikale Karte auf der Startseite
       card.innerHTML = `
         <div class="car-card-media">
           <div class="card-actions mobile-only">
             <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
-            <a href="${tel ? `tel:${tel}` : "#"}"
-               class="contact-btn clean-phone"
-               title="Verkäufer kontaktieren"
-               role="button"
-               ${tel ? "" : "aria-disabled='true'"} >
+            <a href="${tel ? `tel:${tel}` : '#'}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${tel ? "" : "aria-disabled='true'"} >
               <i class="fas fa-phone"></i>
             </a>
           </div>
-
           <div class="media-container">
             <div class="slides">
               ${imgs.map(src => `<img src="${src}" class="slide" alt="">`).join("")}
-
-              ${
-                inserat.video
-                  ? `<video class="slide" playsinline controls preload="metadata">
-                       <source src="${inserat.video}" type="video/mp4">
-                     </video>`
-                  : ""
-              }
+              ${inserat.video ? `<video class="slide" controls muted playsinline preload="metadata"><source src="${inserat.video}" type="video/mp4"></video>` : ""}
             </div>
-
             <button class="media-arrow left"  type="button"><i class="fas fa-chevron-left"></i></button>
             <button class="media-arrow right" type="button"><i class="fas fa-chevron-right"></i></button>
           </div>
@@ -1493,16 +1285,15 @@ async function loadHomeListings() {
             <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "—"} l/100 km</p>
           </div>
 
+          <!-- Händlerzeile mit Logo/Initialen -->
           <div class="dealer-info">
             <div class="dealer-row">
               <div class="dealer-avatar">
                 <img alt="${sellerName} Logo">
                 <span class="dealer-initials">${sellerInitials(sellerName)}</span>
               </div>
-
               <div class="dealer-meta">
                 <div class="dealer-name">${sellerName}</div>
-                ${dealerRatingHTML}
                 <div class="dealer-location">${sellerLocation}</div>
               </div>
             </div>
@@ -1510,39 +1301,23 @@ async function loadHomeListings() {
         </div>
       `;
 
+      // Karte klickbar (aber nicht die Buttons/Arrows)
       card.addEventListener("click", (e) => {
-        // WICHTIG: Video zählt als Action, sonst öffnet Tap das Inserat statt zu spielen
-        const isAction = e.target.closest(
-          ".card-actions button, .card-actions a, .media-arrow, video"
-        );
+        const isAction = e.target.closest(".card-actions button, .card-actions a, .media-arrow");
         if (isAction) return;
-
         try {
+          // robustes Payload für die Detailseite speichern
           const payload = toAnzeigePayload(inserat);
           localStorage.setItem("ausgewaehltesInserat", JSON.stringify(payload));
         } catch {}
-
         if (_id) window.location.href = `anzeige.html?id=${encodeURIComponent(_id)}`;
         else     window.location.href = `anzeige.html`;
       });
 
       container.appendChild(card);
-
-      // Slider init
       initMediaSlider(card.querySelector(".media-container"));
 
-      // -------- VIDEO: iPhone/Safari Play fix --------
-      card.querySelectorAll("video").forEach((v) => {
-        v.setAttribute("playsinline", "");
-        v.setAttribute("controls", "");
-        v.setAttribute("preload", "metadata");
-
-        // Tap aufs Video darf nicht die Card-Navigation triggern
-        v.addEventListener("pointerdown", (ev) => ev.stopPropagation(), { passive: true });
-        v.addEventListener("click", (ev) => ev.stopPropagation());
-      });
-
-      // --- Avatar/Logo (Safari-safe) ---
+      // --- Avatar/Logo (Safari-safe, kein loading="lazy", nie display:none fürs <img>) ---
       const avatar = card.querySelector(".dealer-avatar");
       const img    = avatar.querySelector("img");
       avatar.classList.remove("has-logo");
@@ -1550,17 +1325,13 @@ async function loadHomeListings() {
 
       if (sellerLogo) {
         try { img.loading = "eager"; } catch {}
-
-        img.addEventListener("load", () => {
-          if (img.naturalWidth > 0) avatar.classList.add("has-logo");
-        }, { once: true });
-
+        img.addEventListener("load", () => { if (img.naturalWidth > 0) avatar.classList.add("has-logo"); }, { once: true });
         img.addEventListener("error", () => {
           avatar.classList.remove("has-logo");
           img.removeAttribute("src");
         }, { once: true });
-
         img.src = sellerLogo;
+        // Cache-Fall
         if (img.complete && img.naturalWidth > 0) avatar.classList.add("has-logo");
       }
 
@@ -1579,20 +1350,15 @@ async function loadHomeListings() {
     });
   } catch (err) {
     console.error("Fehler beim Laden der Start-Inserate:", err);
-    container.innerHTML = "<p>Fehler beim Laden der Inserate.</p>";
+    container.innerHTML = "<p>🚫 Fehler beim Laden der Inserate.</p>";
   }
 }
-
-
-
 
 // Footer-Jahr sicher setzen
 document.addEventListener("DOMContentLoaded", () => {
   const y = document.getElementById("year");
   if (y) y.textContent = new Date().getFullYear();
 });
-
-
 
 
 
