@@ -522,7 +522,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Gruppen-Definitionen
     const modelGroups = {
-      "1er Reihe (Alle)": /^1(1[0-9]|2[0-9]|3[0-9]|4[0-9]|14[0-9]|1er M Coupé)/i,
+    "1er Reihe (Alle)": /^(1(1[0-9]|2[0-9]|3[0-9]|4[0-9]|14[0-9])|1er M Coupé)/i,
+
       "2er Reihe (Alle)": /^2(1[0-9]|2[0-9]|3[0-9])/i,
       "3er Reihe (Alle)": /^3[0-9]{2}|^ActiveHybrid 3/i,
       "4er Reihe (Alle)": /^4[0-9]{2}/i,
@@ -613,6 +614,8 @@ slimMarke = initSlim('#marke', {
   allowDeselect: false,   // weil du Option value="" hast
   showSearch: true
 });
+let modellSyncing = false;
+let lastModellValues = [ALL_MODELS_VALUE];
 
 slimModell = initSlim('#modell', {
   closeOnSelect: false,
@@ -623,43 +626,71 @@ slimModell = initSlim('#modell', {
   data: [], // wird erst nach Markenwahl gefüllt
   events: {
     afterChange: (newSelected) => {
+      if (modellSyncing) return;
+    
       const brand = (brandDropdown?.value || "").trim();
       if (!brand) return; // Marke "Beliebig" -> keine Modell-Logik
-
+    
       const allowGroups = ALLOW_GROUPS_FOR[brand] || [];
-      const currentVals = (newSelected || []).map(s => s.value);
-
-      // "Beliebig (alle Modelle)" exklusiv
-      let vals = (currentVals.includes(ALL_MODELS_VALUE) && currentVals.length > 1)
-        ? currentVals.filter(v => v !== ALL_MODELS_VALUE)
-        : currentVals;
-
-      if (vals.length === 1 && vals[0] === ALL_MODELS_VALUE) return;
-
-      const fullList = sanitizeModelList((brandToModels[brand] || []).map(String));
+      const currentVals = (newSelected || [])
+        .map(s => canonAlle(s.value))
+        .filter(Boolean);
+    
+      const hadAllBefore = lastModellValues.includes(ALL_MODELS_VALUE);
+      const hasAllNow = currentVals.includes(ALL_MODELS_VALUE);
+    
+      // ✅ Wenn der User "Beliebig" aktiv anklickt: IMMER resetten auf nur Beliebig
+      if (hasAllNow && !hadAllBefore) {
+        lastModellValues = [ALL_MODELS_VALUE];
+        modellSyncing = true;
+        try { slimModell.setSelected([ALL_MODELS_VALUE]); } finally { modellSyncing = false; }
+        return;
+      }
+    
+      // Wenn "Beliebig" aktiv ist und der User etwas anderes auswählt -> "Beliebig" entfernen
+      let vals = currentVals;
+      if (hasAllNow && vals.length > 1) {
+        vals = vals.filter(v => v !== ALL_MODELS_VALUE);
+      }
+    
+      // Nur Beliebig ausgewählt -> fertig
+      if (vals.length === 1 && vals[0] === ALL_MODELS_VALUE) {
+        lastModellValues = [ALL_MODELS_VALUE];
+        return;
+      }
+    
+      const fullList = sanitizeModelList(brandToModels[brand] || []);
       const nextSet  = new Set();
-
+    
       vals.forEach(v => {
         const rx = modelGroups[v];
         const isAllowedGroup = rx && allowGroups.includes(v);
-
+    
         if (isAllowedGroup) {
           fullList.forEach(m => {
-            if (/\(alle\)/i.test(m)) return;
+            if (/\(alle\)/i.test(m)) return; // Gruppenlabel nicht als echtes Modell nutzen
             if (rx.test(m)) nextSet.add(m);
           });
         } else if (v && v !== ALL_MODELS_VALUE) {
           nextSet.add(v);
         }
       });
-
-      const next = nextSet.size ? [...nextSet] : [ALL_MODELS_VALUE];
-      const nowKey  = currentVals.slice().sort().join("|");
-      const nextKey = next.slice().sort().join("|");
-      if (nowKey !== nextKey) slimModell.setSelected(next);
+    
+      const next   = nextSet.size ? [...nextSet] : [ALL_MODELS_VALUE];
+      const nowKey = currentVals.slice().sort().join("|");
+      const nxtKey = next.slice().sort().join("|");
+    
+      if (nowKey !== nxtKey) {
+        lastModellValues = next;
+        modellSyncing = true;
+        try { slimModell.setSelected(next); } finally { modellSyncing = false; }
+      } else {
+        lastModellValues = currentVals.length ? currentVals : [ALL_MODELS_VALUE];
+      }
     }
   }
 });
+
 
 // Ganz wichtig: Modell soll auch in SlimSelect optisch disabled starten
 setModelEnabled(false);
@@ -699,7 +730,9 @@ setModelEnabled(false);
       "Porsche": ["911er Reihe (Alle)"],
       "Volkswagen": ["Golf (Alle)","Passat (Alle)","T3 (Alle)","T4 (Alle)","T5 (Alle)","T6 (Alle)"]
     };
-
+    const canonAlle = (s) =>
+      String(s ?? "").trim().replace(/\(\s*alle\s*\)/i, "(Alle)");
+    
     let brandToModels = {};
     function sanitizeModelList(listRaw = []) {
       const seen = new Set();
@@ -708,7 +741,8 @@ setModelEnabled(false);
 
       for (const raw of listRaw) {
         if (raw == null) continue;
-        const name = String(raw).trim();
+        const name = canonAlle(raw);
+
         if (!name) continue;
         if (FILTER_OUT_BELIEBIG && /^beliebig$/i.test(name)) continue;
         if (/^andere$/i.test(name)) { hadAndere = true; continue; }
@@ -871,7 +905,8 @@ if (brandDropdown) {
 
 const qModels = (qs.get("modell") || "")
   .split(",")
-  .map(s => s.trim())
+  .map(canonAlle)
+
   .filter(Boolean);
 
 if (qModels.length) {
