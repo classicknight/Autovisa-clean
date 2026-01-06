@@ -149,46 +149,70 @@
 </nav>
 
   
-  
-  
-<section class="tarif-section">
-  <h2 class="tarif-title"><i class="fas fa-tags"></i> Startphase: Kostenlos für Händler</h2>
+<section class="pricing-strip" aria-labelledby="pricingTitle">
+  <div class="pricing-strip__bar">
+    <div class="pricing-strip__icon" aria-hidden="true">
+      <i class="fas fa-tags"></i>
+    </div>
 
-  <p class="tarif-subtitle">
-    Autovisa ist aktuell für Händler kostenlos. 
-  </p>
-  
+    <div class="pricing-strip__content">
+      <div class="pricing-strip__top">
+        <h2 id="pricingTitle" class="pricing-strip__title">Startphase: Kostenlos für Händler</h2>
+        <span class="pricing-strip__pill">0 €</span>
+      </div>
+      <p class="pricing-strip__meta">
+        Aktuell kostenlos – Tarife sind nur zur Orientierung einsehbar.
+      </p>
+    </div>
 
-  
-  <div class="tarif-grid" id="tarifGrid">
-    <div class="tarif-box" data-tarif="0-3">
-
-      <h3>0–3 Fahrzeuge</h3>
-      <p class="tarif-price">Kostenlos</p>
-    </div>
-    <div class="tarif-box" data-tarif="4-10">
-      <h3>4–10 Fahrzeuge</h3>
-      <p class="tarif-price">4,90 € / Monat</p>
-    </div>
-    <div class="tarif-box hide-mobile" data-tarif="11-25">
-      <h3>11–25 Fahrzeuge</h3>
-      <p class="tarif-price">9,90 € / Monat</p>
-    </div>
-    <div class="tarif-box hide-mobile" data-tarif="26-50">
-      <h3>26–50 Fahrzeuge</h3>
-      <p class="tarif-price">17,90 € / Monat</p>
-    </div>
-    <div class="tarif-box hide-mobile" data-tarif="51-100">
-      <h3>51–100 Fahrzeuge</h3>
-      <p class="tarif-price">29,90 € / Monat</p>
-    </div>
-    <div class="tarif-box hide-mobile" data-tarif="100+">
-      <h3>Über 100 Fahrzeuge</h3>
-      <p class="tarif-price">Auf Anfrage</p>
-    </div>
+    <button
+      class="pricing-strip__toggle"
+      type="button"
+      id="pricingToggleBtn"
+      aria-expanded="false"
+      aria-controls="pricingDetails">
+      Tarife ansehen
+      <i class="fas fa-chevron-down" aria-hidden="true"></i>
+    </button>
   </div>
-  
-  <button class="tarif-toggle-btn mobile-only" onclick="toggleTarife()">Mehr Tarife anzeigen</button>
+
+  <div class="pricing-details" id="pricingDetails" hidden>
+    <div class="pricing-rows" id="pricingRows">
+      <div class="pricing-row" data-tarif="0-3">
+        <span class="pricing-row__tier">0–3 Fahrzeuge</span>
+        <span class="pricing-row__price">Kostenlos</span>
+      </div>
+
+      <div class="pricing-row" data-tarif="4-10">
+        <span class="pricing-row__tier">4–10 Fahrzeuge</span>
+        <span class="pricing-row__price">4,90 € / Monat</span>
+      </div>
+
+      <div class="pricing-row" data-tarif="11-25">
+        <span class="pricing-row__tier">11–25 Fahrzeuge</span>
+        <span class="pricing-row__price">9,90 € / Monat</span>
+      </div>
+
+      <div class="pricing-row" data-tarif="26-50">
+        <span class="pricing-row__tier">26–50 Fahrzeuge</span>
+        <span class="pricing-row__price">17,90 € / Monat</span>
+      </div>
+
+      <div class="pricing-row" data-tarif="51-100">
+        <span class="pricing-row__tier">51–100 Fahrzeuge</span>
+        <span class="pricing-row__price">29,90 € / Monat</span>
+      </div>
+
+      <div class="pricing-row" data-tarif="100+">
+        <span class="pricing-row__tier">Über 100 Fahrzeuge</span>
+        <span class="pricing-row__price">Auf Anfrage</span>
+      </div>
+    </div>
+
+    <p class="pricing-note">
+      Hinweis: In der Startphase ist Autovisa für Händler kostenlos. Änderungen werden frühzeitig angekündigt.
+    </p>
+  </div>
 </section>
 
 

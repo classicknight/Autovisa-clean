@@ -773,105 +773,7 @@ img, video, canvas {
   
   
   
-  .tarif-section {
-    max-width: 1100px;
-    margin: 40px auto 60px;
-    padding: 0 20px;
-    text-align: center;
-  }
-  
-  .tarif-title {
-    font-size: 24px;
-    font-weight: 600;
-    color: #1a2a33;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-  }
-  
-  .tarif-subtitle {
-    font-size: 14.5px;
-    color: #4a5a68;
-    margin-bottom: 26px;
-  }
-  
-  .tarif-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 20px;
-  }
-  
-  .tarif-box {
-    background: #ffffff;
-    border: 1px solid #e3e9ef;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-    transition: transform 0.2s ease, box-shadow 0.3s ease, border-color 0.2s ease;
-    cursor: pointer;
-  }
-  
-  .tarif-box:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-  }
-  
-  .tarif-box.selected {
-    border: 2px solid #00b8a9;
-    box-shadow: 0 0 10px rgba(0, 184, 169, 0.25);
-    transform: scale(1.02);
-  }
-  
-  .tarif-box h3 {
-    font-size: 16px;
-    color: #1a2a33;
-    font-weight: 600;
-    margin-bottom: 8px;
-  }
-  
-  .tarif-price {
-    font-size: 15px;
-    font-weight: 500;
-    color: #00b8a9;
-  }
-  
-  /* Toggle-Button für mehr/weniger Tarife */
-  .tarif-toggle-btn {
-    margin-top: 24px;
-    padding: 10px 20px;
-    background-color: #00b8a9;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 14px;
-    cursor: pointer;
-    transition: background 0.3s ease;
-  }
-  
-  .tarif-toggle-btn:hover {
-    background-color: #009d94;
-  }
-  
-  /* Für Mobilgeräte: Tarife ab Index 2 zunächst ausblenden */
-  @media screen and (max-width: 600px) {
-    .hide-mobile {
-      display: none;
-    }
-    .mobile-only {
-      display: inline-block;
-      margin-top: 20px;
-    }
-  }
-  
-  @media screen and (min-width: 601px) {
-    .mobile-only {
-      display: none;
-    }
-  }
-  
+
   
   
   
@@ -954,41 +856,182 @@ img, video, canvas {
 
 
 
-
-
 /* =========================
-   Startphase: Tarife nur ansehen (nicht auswählbar)
+   Pricing Strip (kompakt statt Tarif-Grid)
    ========================= */
-   body[data-pricing="intro-free"] #tarifGrid .tarif-box{
-    position: relative;
-    opacity: 0.55;              /* grau / disabled */
-    filter: grayscale(0.9);
-    cursor: not-allowed;
-    user-select: none;
+
+   .pricing-strip{
+    max-width: 1100px;
+    margin: 26px auto 46px;
+    padding: 0 20px;
   }
   
-  body[data-pricing="intro-free"] #tarifGrid .tarif-box:hover{
-    transform: none !important;
-    box-shadow: none !important;
+  .pricing-strip__bar{
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 14px;
+  
+    background: #ffffff;
+    border: 1px solid #e3e9ef;
+    border-radius: 14px;
+    padding: 14px 16px;
+  
+    box-shadow: 0 6px 18px rgba(0,0,0,.04);
   }
   
-  body[data-pricing="intro-free"] #tarifGrid .tarif-box.selected{
-    /* falls irgendwo noch selected drauf ist: neutralisieren */
-    box-shadow: none !important;
-    outline: none !important;
+  .pricing-strip__icon{
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+  
+    background: #f5f8fc;
+    border: 1px solid #e3e9ef;
+    color: #00b8a9;
+    font-size: 16px;
   }
   
-  /* Optionales Badge oben rechts */
-  body[data-pricing="intro-free"] #tarifGrid .tarif-box::after{
-    content: "Startphase";
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    font-size: 12px;
+  .pricing-strip__content{ min-width: 0; }
+  
+  .pricing-strip__top{
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+  }
+  
+  .pricing-strip__title{
+    margin: 0;
+    font-size: 16px;        /* kompakt */
+    font-weight: 700;
+    color: #1a2a33;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .pricing-strip__pill{
+    display: inline-flex;
+    align-items: center;
     padding: 6px 10px;
     border-radius: 999px;
-    background: rgba(0,0,0,0.28);
-    border: 1px solid rgba(227,233,239,0.18);
-    color: rgba(245,248,252,0.85);
+  
+    background: rgba(0,184,169,.12);
+    border: 1px solid rgba(0,184,169,.25);
+    color: #0b3f3b;
+  
+    font-size: 13px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+  
+  .pricing-strip__meta{
+    margin: 4px 0 0;
+    color: #4a5a68;
+    font-size: 13.5px;
+    line-height: 1.35;
+  }
+  
+  .pricing-strip__toggle{
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  
+    padding: 10px 12px;
+    border-radius: 12px;
+  
+    background: #ffffff;
+    border: 1px solid #e3e9ef;
+    color: #1a2a33;
+  
+    font-weight: 700;
+    font-size: 13.5px;
+    cursor: pointer;
+  
+    transition: transform .15s ease, box-shadow .2s ease, border-color .2s ease;
+  }
+  
+  .pricing-strip__toggle i{
+    transition: transform .18s ease;
+  }
+  
+  .pricing-strip__toggle:hover{
+    border-color: rgba(0,184,169,.35);
+    box-shadow: 0 10px 22px rgba(0,0,0,.06);
+    transform: translateY(-1px);
+  }
+  
+  .pricing-strip__toggle[aria-expanded="true"] i{
+    transform: rotate(180deg);
+  }
+  
+  /* Details (Accordion) */
+  .pricing-details{
+    margin-top: 12px;
+    background: #ffffff;
+    border: 1px solid #e3e9ef;
+    border-radius: 14px;
+    padding: 12px;
+  
+    box-shadow: 0 6px 18px rgba(0,0,0,.03);
+  }
+  
+  .pricing-rows{
+    display: grid;
+    gap: 8px;
+  }
+  
+  .pricing-row{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  
+    padding: 10px 12px;
+    border-radius: 12px;
+  
+    background: #f5f8fc;
+    border: 1px solid #e3e9ef;
+  
+    font-size: 14px;
+    color: #1a2a33;
+  }
+  
+  .pricing-row__tier{
+    font-weight: 700;
+    color: #1a2a33;
+  }
+  
+  .pricing-row__price{
+    font-weight: 800;
+    color: #00b8a9;
+    white-space: nowrap;
+  }
+  
+  .pricing-note{
+    margin: 10px 4px 0;
+    font-size: 13px;
+    color: #4a5a68;
+    line-height: 1.45;
+  }
+  
+  /* Mobile: Toggle unter Content setzen */
+  @media (max-width: 700px){
+    .pricing-strip__bar{
+      grid-template-columns: auto 1fr;
+      grid-template-rows: auto auto;
+    }
+  
+    .pricing-strip__toggle{
+      grid-column: 1 / -1;
+      justify-content: center;
+    }
+  
+    .pricing-strip__meta{
+      font-size: 13px;
+    }
   }
   

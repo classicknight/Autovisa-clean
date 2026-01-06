@@ -158,6 +158,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // Aktuell: bewusst leer lassen, um keine falschen Mappings reinzuschreiben.
   })();
 
+
+
+
   /* =========================
      Auth / Händler-Pflicht
      ========================= */
@@ -238,6 +241,20 @@ document.addEventListener("DOMContentLoaded", () => {
     setupTarif();
   }
 
+function initPricingStripToggle() {
+  const btn = document.getElementById("pricingToggleBtn");
+  const details = document.getElementById("pricingDetails");
+  if (!btn || !details) return;
+
+  btn.addEventListener("click", () => {
+    const isOpen = btn.getAttribute("aria-expanded") === "true";
+    btn.setAttribute("aria-expanded", String(!isOpen));
+    details.hidden = isOpen; // wenn offen -> verstecken, sonst anzeigen
+  });
+}
+
+// Nach dem Login-Check dort, wo du UI initialisierst:
+initPricingStripToggle();
 
 
   async function initWizard() {
