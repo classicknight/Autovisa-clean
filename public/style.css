@@ -1797,129 +1797,154 @@ img, video, canvas {
 
 
 /* =========================
-   Autovisa – Location Suggestions (nur Dropdown)
+   Autovisa – Location Suggestions (Dropdown)
+   Fix: kein Flex -> keine auseinandergezogenen Wörter
+   + sauberer Look + bessere Lesbarkeit
    ========================= */
 
-/* Container der Vorschläge */
-.loc-suggest-box{
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(100% + 8px);
-  z-index: 80;
-
-  max-height: min(52vh, 360px);
-  overflow: auto;
-
-  padding: 8px;
-  border-radius: 14px;
-
-  background: linear-gradient(180deg, rgba(15,27,34,.98) 0%, rgba(10,18,23,.98) 100%);
-  border: 1px solid rgba(0,184,169,.22);
-
-  box-shadow:
-    0 18px 46px rgba(0,0,0,.42),
-    0 0 0 1px rgba(255,255,255,.03) inset;
-
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-/* Item-Design – funktioniert für .loc-suggest-item ODER jedes direkte Kind */
-.loc-suggest-box > *,
-.loc-suggest-item{
-  display: flex;
-  align-items: center;
-  gap: 10px;
-
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 12px;
-
-  cursor: pointer;
-  user-select: none;
-
-  color: rgba(245,248,252,.92);
-  font-size: 14px;
-  line-height: 1.25;
-
-  background: transparent;
-  border: 1px solid transparent;
-
-  transition: background .16s ease, border-color .16s ease, transform .10s ease;
-}
-
-/* kleiner Marker links (edel, hilft beim Scannen) */
-.loc-suggest-box > *::before,
-.loc-suggest-item::before{
-  content: "";
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(0,184,169,.55);
-  box-shadow: 0 0 0 3px rgba(0,184,169,.12);
-  flex: 0 0 auto;
-}
-
-/* Hover */
-@media (hover:hover){
-  .loc-suggest-box > *:hover,
-  .loc-suggest-item:hover{
-    background: rgba(0,184,169,.10);
-    border-color: rgba(0,184,169,.20);
-    transform: translateY(-1px);
+   .loc-suggest-box{
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 10px);
+    z-index: 200;
+  
+    max-height: min(56vh, 420px);
+    overflow: auto;
+  
+    padding: 6px;
+    border-radius: 16px;
+  
+    background: linear-gradient(180deg, rgba(15,27,34,.98) 0%, rgba(9,16,20,.98) 100%);
+    border: 1px solid rgba(0,184,169,.24);
+  
+    box-shadow:
+      0 18px 46px rgba(0,0,0,.42),
+      0 0 0 1px rgba(255,255,255,.03) inset;
+  
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
   }
-}
-
-/* Active per Tastatur / JS:
-   - gib dem aktiven Item .active ODER setze aria-selected="true"
-*/
-.loc-suggest-box > *.active,
-.loc-suggest-item.active,
-.loc-suggest-box > *[aria-selected="true"],
-.loc-suggest-item[aria-selected="true"]{
-  background: rgba(0,184,169,.14);
-  border-color: rgba(0,184,169,.34);
-  box-shadow: 0 0 0 4px rgba(0,184,169,.14);
-}
-
-/* Wenn du Items als <button> renderst: native Button-Styles killen */
-.loc-suggest-box button{
-  border: 1px solid transparent;
-  text-align: left;
-  font: inherit;
-}
-.loc-suggest-box button:focus{ outline: none; }
-
-/* Optional: Treffer-Highlight, falls du im Text <mark> setzt */
-.loc-suggest-box mark{
-  background: rgba(0,184,169,.18);
-  color: rgba(245,248,252,.98);
-  padding: 0 .18em;
-  border-radius: 6px;
-}
-
-/* Scrollbar (dezent) */
-.loc-suggest-box::-webkit-scrollbar{ width: 10px; }
-.loc-suggest-box::-webkit-scrollbar-track{
-  background: rgba(255,255,255,.03);
-  border-radius: 999px;
-}
-.loc-suggest-box::-webkit-scrollbar-thumb{
-  background: rgba(0,184,169,.35);
-  border-radius: 999px;
-  border: 2px solid rgba(0,0,0,.25);
-}
-
-/* Mobile kompakter */
-@media (max-width: 600px){
-  .loc-suggest-box{
-    max-height: min(46vh, 320px);
-    border-radius: 14px;
+  
+  /* Items: BLOCK statt FLEX -> Text fließt normal (kein "dort mund") */
+  .loc-suggest-box > *,
+  .loc-suggest-item{
+    position: relative;
+    display: block;
+  
+    width: 100%;
+    padding: 11px 12px 11px 38px;   /* links Platz für Punkt */
+  
+    border-radius: 12px;
+    cursor: pointer;
+    user-select: none;
+  
+    color: rgba(245,248,252,.92);
+    font-size: 14px;
+    line-height: 1.25;
+  
+    background: transparent;
+    border: 1px solid transparent;
+  
+    transition: background .16s ease, border-color .16s ease, transform .10s ease;
   }
+  
+  /* Punkt links – absolut, damit er keinen Text-Layout-Effekt hat */
+  .loc-suggest-box > *::before,
+  .loc-suggest-item::before{
+    content:"";
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+  
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(0,184,169,.55);
+    box-shadow: 0 0 0 3px rgba(0,184,169,.12);
+  }
+  
+  /* leichte Trennlinie für bessere Scanbarkeit */
+  .loc-suggest-box > *{
+    box-shadow: inset 0 -1px 0 rgba(255,255,255,.04);
+  }
+  .loc-suggest-box > *:last-child{
+    box-shadow: none;
+  }
+  
+  /* Hover */
+  @media (hover:hover){
+    .loc-suggest-box > *:hover,
+    .loc-suggest-item:hover{
+      background: rgba(0,184,169,.10);
+      border-color: rgba(0,184,169,.22);
+      transform: translateY(-1px);
+    }
+  }
+  
+  /* Active / Tastatur */
+  .loc-suggest-box > *.active,
+  .loc-suggest-item.active,
+  .loc-suggest-box > *[aria-selected="true"],
+  .loc-suggest-item[aria-selected="true"]{
+    background: rgba(0,184,169,.14);
+    border-color: rgba(0,184,169,.38);
+    box-shadow:
+      0 0 0 4px rgba(0,184,169,.14),
+      inset 0 -1px 0 rgba(255,255,255,.04);
+  }
+  
+  /* Falls Items Buttons sind */
+  .loc-suggest-box button{
+    border: 1px solid transparent;
+    text-align: left;
+    font: inherit;
+    background: transparent;
+  }
+  .loc-suggest-box button:focus{ outline: none; }
+  .loc-suggest-box button:focus-visible{
+    box-shadow: 0 0 0 4px rgba(0,184,169,.22);
+  }
+  
+  /* Highlight */
+  .loc-suggest-box mark{
+    background: rgba(0,184,169,.20);
+    color: rgba(245,248,252,.98);
+    padding: 0 .18em;
+    border-radius: 6px;
+  }
+  
+  /* Scrollbar */
+  .loc-suggest-box::-webkit-scrollbar{ width: 10px; }
+  .loc-suggest-box::-webkit-scrollbar-track{
+    background: rgba(255,255,255,.03);
+    border-radius: 999px;
+  }
+  .loc-suggest-box::-webkit-scrollbar-thumb{
+    background: rgba(0,184,169,.35);
+    border-radius: 999px;
+    border: 2px solid rgba(0,0,0,.25);
+  }
+  
+  /* Mobile */
+  @media (max-width: 600px){
+    .loc-suggest-box{
+      max-height: min(50vh, 360px);
+      border-radius: 14px;
+    }
+  }
+  
+
+
+/* Dropdown darf über die Search-Card hinausgehen */
+.search-section,
+.search-form,
+.form-group,
+.location-group,
+.input-icon-wrapper{
+  overflow: visible !important;
 }
-
-
 
 
 
