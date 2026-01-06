@@ -321,48 +321,6 @@ async function uploadFileToCloudinary(filePath, { folder, resource_type }) {
 }
 
 
-/* =========================
-   KBA HSN/TSN Demo Index (Online-Test)
-========================= */
-const KBA_INDEX_PATH = path.join(__dirname, "data", "kba_demo_index.json");
-let kbaIndex = Object.create(null);
-
-function loadKbaIndex() {
-  try {
-    if (fs.existsSync(KBA_INDEX_PATH)) {
-      kbaIndex = JSON.parse(fs.readFileSync(KBA_INDEX_PATH, "utf8")) || Object.create(null);
-      console.log("✅ KBA Demo Index geladen:", KBA_INDEX_PATH);
-    } else {
-      console.warn("⚠️ KBA Demo Index fehlt:", KBA_INDEX_PATH);
-      kbaIndex = Object.create(null);
-    }
-  } catch (e) {
-    console.error("❌ KBA Demo Index konnte nicht geladen werden:", e);
-    kbaIndex = Object.create(null);
-  }
-}
-loadKbaIndex();
-
-function normHSN(v) {
-  return String(v || "").trim().replace(/\D/g, "").slice(0, 4);
-}
-function normTSN(v) {
-  return String(v || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
-}
-
-app.get("/api/hsn-tsn", (req, res) => {
-  const hsn = normHSN(req.query.hsn);
-  const tsn = normTSN(req.query.tsn);
-
-  if (hsn.length !== 4 || tsn.length < 3) {
-    return res.status(400).json({ error: "hsn (4-stellig) und tsn (mind. 3 Zeichen) erforderlich" });
-  }
-
-  const hit = kbaIndex?.[hsn]?.[tsn];
-  if (!hit) return res.status(404).json({ error: "Kein Treffer", hsn, tsn });
-
-  return res.json(hit);
-});
 
 /* =========================
    Draft Save: Fahrzeugdaten
