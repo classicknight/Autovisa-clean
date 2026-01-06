@@ -1,41 +1,37 @@
 "use strict";
 
 /**
- * KBA JSONL Test
- * - Lädt kba.jsonl (Upload oder Fetch)
- * - Baut Index: Map("HSN:TSN" -> Array von Datensätzen)
- * - Suche per HSN/TSN
+ * Lädt /data/kba-index.json (Key: "HSN:TSN") und sucht per HSN/TSN.
+ * Erwarteter Value pro Key:
+ *  { hsn, tsn, marke, modell, power_kw, engine_ccm }
  */
 
+const INDEX_URL = "/data/kba-index.json";
+
 const els = {
-  fileInput: document.getElementById("fileInput"),
-  urlInput: document.getElementById("urlInput"),
-  btnLoadUrl: document.getElementById("btnLoadUrl"),
+  statusDot: document.getElementById("statusDot"),
+  statusText: document.getElementById("statusText"),
+  progressBar: document.getElementById("progressBar"),
+  progressText: document.getElementById("progressText"),
+  statsText: document.getElementById("statsText"),
 
   hsnInput: document.getElementById("hsnInput"),
   tsnInput: document.getElementById("tsnInput"),
   btnSearch: document.getElementById("btnSearch"),
   btnClear: document.getElementById("btnClear"),
+  btnReload: document.getElementById("btnReload"),
 
   resultBox: document.getElementById("resultBox"),
-
-  progressBar: document.getElementById("progressBar"),
-  progressText: document.getElementById("progressText"),
-  statsText: document.getElementById("statsText"),
-
-  statusPill: document.getElementById("statusPill"),
-  statusDot: document.getElementById("statusDot"),
-  statusText: document.getElementById("statusText"),
 };
 
-let kbaIndex = new Map();  // key -> Array<entry>
+let kbaIndex = null; // Object: key -> record
 let indexReady = false;
 
 function setStatus(kind, text){
-  // kind: "idle" | "loading" | "ready" | "error"
-  const dot = els.statusDot;
+  // kind: "loading" | "ready" | "error" | "idle"
   els.statusText.textContent = text;
 
+  const dot = els.statusDot;
   if (kind === "ready"){
     dot.style.background = "rgba(0,184,169,.95)";
     dot.style.boxShadow = "0 0 0 4px rgba(0,184,169,.18)";
@@ -46,102 +42,15 @@ function setStatus(kind, text){
     dot.style.background = "rgba(255,70,70,.9)";
     dot.style.boxShadow = "0 0 0 4px rgba(255,70,70,.18)";
   } else {
-    dot.style.background = "rgba(255,255,255,.45)";
+    dot.style.background = "rgba(255,255,255,.50)";
     dot.style.boxShadow = "0 0 0 4px rgba(255,255,255,.12)";
   }
 }
 
 function setProgress(pct, text){
-  const clamped = Math.max(0, Math.min(100, pct));
-  els.progressBar.style.width = `${clamped}%`;
+  const p = Math.max(0, Math.min(100, pct));
+  els.progressBar.style.width = `${p}%`;
   els.progressText.textContent = text || "";
-}
-
-function normalizeHSN(v){
-  const s = String(v ?? "").trim().replace(/\s+/g, "");
-  if (!s) return "";
-  // HSN kann führende Nullen haben → 4-stellig behalten
-  const digits = s.replace(/\D/g, "");
-  if (!digits) return "";
-  return digits.padStart(4, "0").slice(-4);
-}
-
-function normalizeTSN(v){
-  const s = String(v ?? "").trim().replace(/\s+/g, "").toUpperCase();
-  return s;
-}
-
-function makeKey(hsn, tsn){
-  return `${hsn}:${tsn}`;
-}
-
-function extractModel(entry){
-  // Dein Datensatz hat z.B. commercial_name: "FORD,FORD Mondeo"
-  // Wir nehmen nach Möglichkeit den Teil nach dem letzten Komma.
-  const cn = String(entry?.commercial_name ?? "").trim();
-  if (!cn) return "";
-  if (cn.includes(",")){
-    const parts = cn.split(",").map(x => x.trim()).filter(Boolean);
-    if (parts.length >= 2) return parts[parts.length - 1];
-  }
-  return cn;
-}
-
-function pickFields(entry){
-  return {
-    hsn: String(entry?.hsn ?? ""),
-    tsn: String(entry?.tsn ?? ""),
-    marke: String(entry?.manufacturer_plaintext ?? ""),
-    modell: extractModel(entry),
-    power_kw: Number(entry?.power_kw ?? NaN),
-    engine_ccm: Number(entry?.engine_ccm ?? NaN),
-  };
-}
-
-function renderResult(records, hsn, tsn){
-  if (!records || !records.length){
-    els.resultBox.innerHTML = `
-      <div><strong>Nicht gefunden.</strong></div>
-      <div class="muted">HSN: <code>${hsn || "-"}</code> · TSN: <code>${tsn || "-"}</code></div>
-    `;
-    return;
-  }
-
-  const rows = records
-    .map((r, idx) => {
-      const f = pickFields(r);
-      const kw = Number.isFinite(f.power_kw) ? `${f.power_kw} kW` : "-";
-      const ccm = Number.isFinite(f.engine_ccm) ? `${f.engine_ccm} cm³` : "-";
-      return `
-        <tr>
-          <td>${idx + 1}</td>
-          <td>${escapeHtml(f.marke) || "-"}</td>
-          <td>${escapeHtml(f.modell) || "-"}</td>
-          <td>${kw}</td>
-          <td>${ccm}</td>
-        </tr>
-      `;
-    })
-    .join("");
-
-  els.resultBox.innerHTML = `
-    <div><strong>Treffer: ${records.length}</strong></div>
-    <table class="table" role="table" aria-label="KBA Treffer">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Marke</th>
-          <th>Modell</th>
-          <th>Leistung</th>
-          <th>Hubraum</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <div class="muted" style="margin-top:8px">
-      Key: <code>${escapeHtml(makeKey(hsn, tsn))}</code>
-    </div>
-  `;
 }
 
 function escapeHtml(str){
@@ -153,293 +62,161 @@ function escapeHtml(str){
     .replace(/'/g, "&#039;");
 }
 
-/* =========================
-   Index Builder – Upload (Blob slices)
-========================= */
-
-async function buildIndexFromFile(file){
-  indexReady = false;
-  kbaIndex = new Map();
-
-  setStatus("loading", "Index wird aufgebaut…");
-  setProgress(0, "Starte Index…");
-  els.statsText.textContent = "";
-
-  const t0 = performance.now();
-  const chunkSize = 4 * 1024 * 1024; // 4 MB
-  let offset = 0;
-  let leftover = "";
-
-  let linesTotal = 0;
-  let parsed = 0;
-  let errors = 0;
-
-  while (offset < file.size){
-    const slice = file.slice(offset, offset + chunkSize);
-    const text = await slice.text();
-
-    const combined = leftover + text;
-    const lines = combined.split(/\r?\n/);
-    leftover = lines.pop() || "";
-
-    for (const line of lines){
-      linesTotal++;
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-
-      try{
-        const obj = JSON.parse(trimmed);
-        const hsn = normalizeHSN(obj.hsn);
-        const tsn = normalizeTSN(obj.tsn);
-        if (!hsn || !tsn) continue;
-
-        const key = makeKey(hsn, tsn);
-        const arr = kbaIndex.get(key);
-        if (arr) arr.push(obj);
-        else kbaIndex.set(key, [obj]);
-
-        parsed++;
-      }catch{
-        errors++;
-      }
-
-      // UI nicht blockieren
-      if (linesTotal % 40000 === 0){
-        await new Promise(requestAnimationFrame);
-      }
-    }
-
-    offset += chunkSize;
-    const pct = (offset / file.size) * 100;
-    setProgress(pct, `Index: ${pct.toFixed(1)}%`);
-    els.statsText.textContent = `Zeilen: ${linesTotal.toLocaleString("de-DE")} · Gelesen: ${parsed.toLocaleString("de-DE")} · Fehler: ${errors.toLocaleString("de-DE")} · Keys: ${kbaIndex.size.toLocaleString("de-DE")}`;
-  }
-
-  // Letzte Restzeile
-  const last = leftover.trim();
-  if (last){
-    linesTotal++;
-    try{
-      const obj = JSON.parse(last);
-      const hsn = normalizeHSN(obj.hsn);
-      const tsn = normalizeTSN(obj.tsn);
-      if (hsn && tsn){
-        const key = makeKey(hsn, tsn);
-        const arr = kbaIndex.get(key);
-        if (arr) arr.push(obj);
-        else kbaIndex.set(key, [obj]);
-        parsed++;
-      }
-    }catch{
-      errors++;
-    }
-  }
-
-  const ms = Math.round(performance.now() - t0);
-  indexReady = true;
-
-  setProgress(100, `Fertig. (${ms} ms)`);
-  setStatus("ready", `Index bereit (${kbaIndex.size.toLocaleString("de-DE")} Keys)`);
-  els.statsText.textContent = `Zeilen: ${linesTotal.toLocaleString("de-DE")} · Gelesen: ${parsed.toLocaleString("de-DE")} · Fehler: ${errors.toLocaleString("de-DE")} · Keys: ${kbaIndex.size.toLocaleString("de-DE")} · Zeit: ${ms.toLocaleString("de-DE")} ms`;
+function normalizeHSN(v){
+  const digits = String(v ?? "").trim().replace(/\D/g, "");
+  if (!digits) return "";
+  return digits.padStart(4, "0").slice(-4);
 }
 
-/* =========================
-   Index Builder – Fetch (Stream)
-========================= */
+function normalizeTSN(v){
+  return String(v ?? "").trim().replace(/\s+/g, "").toUpperCase();
+}
 
-async function buildIndexFromUrl(url){
+function makeKey(hsn, tsn){
+  return `${hsn}:${tsn}`;
+}
+
+function renderNotReady(){
+  els.resultBox.innerHTML = `<strong>Index ist noch nicht geladen.</strong><div class="muted">Bitte kurz warten oder „Index neu laden“.</div>`;
+}
+
+function renderNotFound(hsn, tsn){
+  els.resultBox.innerHTML = `
+    <strong>Nicht gefunden.</strong>
+    <div class="muted">Key: <code>${escapeHtml(makeKey(hsn, tsn))}</code></div>
+  `;
+}
+
+function renderHit(key, rec){
+  const marke = rec?.marke ?? "-";
+  const modell = rec?.modell ?? "-";
+  const kw = Number.isFinite(rec?.power_kw) ? `${rec.power_kw} kW` : "-";
+  const ccm = Number.isFinite(rec?.engine_ccm) ? `${rec.engine_ccm} cm³` : "-";
+
+  els.resultBox.innerHTML = `
+    <strong>Gefunden</strong>
+    <div class="kv">
+      <div>Key</div><div><code>${escapeHtml(key)}</code></div>
+      <div>Marke</div><div>${escapeHtml(marke)}</div>
+      <div>Modell</div><div>${escapeHtml(modell)}</div>
+      <div>Leistung</div><div>${escapeHtml(kw)}</div>
+      <div>Hubraum</div><div>${escapeHtml(ccm)}</div>
+    </div>
+  `;
+}
+
+async function loadIndex(){
   indexReady = false;
-  kbaIndex = new Map();
+  kbaIndex = null;
 
-  setStatus("loading", "Lade von URL…");
-  setProgress(0, "Fetch startet…");
+  setStatus("loading", "Lade Index…");
+  setProgress(0, `Fetch: ${INDEX_URL}`);
   els.statsText.textContent = "";
+  els.resultBox.innerHTML = "";
 
   const t0 = performance.now();
 
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Fetch fehlgeschlagen: HTTP ${res.status}`);
+  const res = await fetch(INDEX_URL, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Index-Download fehlgeschlagen (HTTP ${res.status})`);
 
-  // Falls Streaming verfügbar
+  // Streaming + Progress (wenn möglich)
   if (res.body && res.body.getReader){
     const reader = res.body.getReader();
     const decoder = new TextDecoder("utf-8");
+    const total = Number(res.headers.get("content-length") || 0) || 0;
 
     let received = 0;
-    const contentLength = Number(res.headers.get("content-length") || 0) || 0;
-
-    let buffer = "";
-    let linesTotal = 0;
-    let parsed = 0;
-    let errors = 0;
+    let text = "";
 
     while (true){
       const { value, done } = await reader.read();
       if (done) break;
 
       received += value.byteLength;
-      buffer += decoder.decode(value, { stream: true });
+      text += decoder.decode(value, { stream: true });
 
-      const lines = buffer.split(/\r?\n/);
-      buffer = lines.pop() || "";
-
-      for (const line of lines){
-        linesTotal++;
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-
-        try{
-          const obj = JSON.parse(trimmed);
-          const hsn = normalizeHSN(obj.hsn);
-          const tsn = normalizeTSN(obj.tsn);
-          if (!hsn || !tsn) continue;
-
-          const key = makeKey(hsn, tsn);
-          const arr = kbaIndex.get(key);
-          if (arr) arr.push(obj);
-          else kbaIndex.set(key, [obj]);
-
-          parsed++;
-        }catch{
-          errors++;
-        }
-
-        if (linesTotal % 40000 === 0){
-          await new Promise(requestAnimationFrame);
-        }
-      }
-
-      const pct = contentLength ? (received / contentLength) * 100 : 0;
-      setProgress(contentLength ? pct : 0, contentLength ? `Index: ${pct.toFixed(1)}%` : `Index: ${received.toLocaleString("de-DE")} Bytes…`);
-      els.statsText.textContent = `Zeilen: ${linesTotal.toLocaleString("de-DE")} · Gelesen: ${parsed.toLocaleString("de-DE")} · Fehler: ${errors.toLocaleString("de-DE")} · Keys: ${kbaIndex.size.toLocaleString("de-DE")}`;
-    }
-
-    // Rest
-    const last = buffer.trim();
-    if (last){
-      linesTotal++;
-      try{
-        const obj = JSON.parse(last);
-        const hsn = normalizeHSN(obj.hsn);
-        const tsn = normalizeTSN(obj.tsn);
-        if (hsn && tsn){
-          const key = makeKey(hsn, tsn);
-          const arr = kbaIndex.get(key);
-          if (arr) arr.push(obj);
-          else kbaIndex.set(key, [obj]);
-          parsed++;
-        }
-      }catch{
-        errors++;
+      if (total){
+        const pct = (received / total) * 100;
+        setProgress(pct, `Download: ${pct.toFixed(1)}%`);
+      } else {
+        setProgress(0, `Download: ${received.toLocaleString("de-DE")} Bytes…`);
       }
     }
+    text += decoder.decode();
 
-    const ms = Math.round(performance.now() - t0);
-    indexReady = true;
+    setProgress(100, "Parse JSON…");
+    await new Promise(requestAnimationFrame);
 
-    setProgress(100, `Fertig. (${ms} ms)`);
-    setStatus("ready", `Index bereit (${kbaIndex.size.toLocaleString("de-DE")} Keys)`);
-    els.statsText.textContent = `Zeilen: ${linesTotal.toLocaleString("de-DE")} · Gelesen: ${parsed.toLocaleString("de-DE")} · Fehler: ${errors.toLocaleString("de-DE")} · Keys: ${kbaIndex.size.toLocaleString("de-DE")} · Zeit: ${ms.toLocaleString("de-DE")} ms`;
-    return;
-  }
-
-  // Fallback: non-stream (kleiner)
-  const text = await res.text();
-  const lines = text.split(/\r?\n/);
-
-  let parsed = 0, errors = 0;
-  for (const line of lines){
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    try{
-      const obj = JSON.parse(trimmed);
-      const hsn = normalizeHSN(obj.hsn);
-      const tsn = normalizeTSN(obj.tsn);
-      if (!hsn || !tsn) continue;
-
-      const key = makeKey(hsn, tsn);
-      const arr = kbaIndex.get(key);
-      if (arr) arr.push(obj);
-      else kbaIndex.set(key, [obj]);
-
-      parsed++;
-    }catch{
-      errors++;
-    }
+    kbaIndex = JSON.parse(text);
+  } else {
+    // Fallback
+    setProgress(20, "Download…");
+    const text = await res.text();
+    setProgress(70, "Parse JSON…");
+    kbaIndex = JSON.parse(text);
   }
 
   const ms = Math.round(performance.now() - t0);
-  indexReady = true;
+  const keys = kbaIndex ? Object.keys(kbaIndex).length : 0;
 
+  indexReady = true;
   setProgress(100, `Fertig. (${ms} ms)`);
-  setStatus("ready", `Index bereit (${kbaIndex.size.toLocaleString("de-DE")} Keys)`);
-  els.statsText.textContent = `Zeilen: ${lines.length.toLocaleString("de-DE")} · Gelesen: ${parsed.toLocaleString("de-DE")} · Fehler: ${errors.toLocaleString("de-DE")} · Keys: ${kbaIndex.size.toLocaleString("de-DE")} · Zeit: ${ms.toLocaleString("de-DE")} ms`;
+  setStatus("ready", `Index bereit (${keys.toLocaleString("de-DE")} Keys)`);
+  els.statsText.textContent = `Quelle: ${INDEX_URL} · Keys: ${keys.toLocaleString("de-DE")} · Ladezeit: ${ms.toLocaleString("de-DE")} ms`;
 }
 
-/* =========================
-   Events
-========================= */
+function doSearch(){
+  if (!indexReady || !kbaIndex) return renderNotReady();
 
-els.fileInput.addEventListener("change", async () => {
-  const file = els.fileInput.files && els.fileInput.files[0];
-  if (!file) return;
-
-  els.resultBox.innerHTML = "";
-  try{
-    await buildIndexFromFile(file);
-  }catch (e){
-    setStatus("error", "Fehler beim Index-Aufbau");
-    setProgress(0, "Fehler.");
-    els.statsText.textContent = String(e?.message || e);
-  }
-});
-
-els.btnLoadUrl.addEventListener("click", async () => {
-  const url = String(els.urlInput.value || "").trim();
-  if (!url) return;
-
-  els.resultBox.innerHTML = "";
-  try{
-    await buildIndexFromUrl(url);
-  }catch (e){
-    setStatus("error", "URL konnte nicht geladen werden");
-    setProgress(0, "Fehler.");
-    els.statsText.textContent = String(e?.message || e);
-  }
-});
-
-els.btnSearch.addEventListener("click", () => {
   const hsn = normalizeHSN(els.hsnInput.value);
   const tsn = normalizeTSN(els.tsnInput.value);
 
-  if (!indexReady){
-    els.resultBox.innerHTML = `<div><strong>Bitte zuerst kba.jsonl laden.</strong></div>`;
-    return;
-  }
-
   if (!hsn || !tsn){
-    els.resultBox.innerHTML = `<div><strong>Bitte HSN und TSN eingeben.</strong></div>`;
+    els.resultBox.innerHTML = `<strong>Bitte HSN und TSN eingeben.</strong>`;
     return;
   }
 
   const key = makeKey(hsn, tsn);
-  const records = kbaIndex.get(key) || [];
-  renderResult(records, hsn, tsn);
-});
+  const rec = kbaIndex[key];
 
-els.btnClear.addEventListener("click", () => {
+  if (!rec) return renderNotFound(hsn, tsn);
+  renderHit(key, rec);
+}
+
+function clearForm(){
   els.hsnInput.value = "";
   els.tsnInput.value = "";
   els.resultBox.innerHTML = "";
   els.hsnInput.focus();
+}
+
+/* Events */
+els.btnSearch.addEventListener("click", doSearch);
+els.btnClear.addEventListener("click", clearForm);
+els.btnReload.addEventListener("click", async () => {
+  try{
+    await loadIndex();
+  }catch(e){
+    setStatus("error", "Index konnte nicht geladen werden");
+    setProgress(0, "Fehler.");
+    els.statsText.textContent = String(e?.message || e);
+  }
 });
 
-// Komfort: Enter triggert Suche
 [els.hsnInput, els.tsnInput].forEach(inp => {
   inp.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") els.btnSearch.click();
+    if (e.key === "Enter") doSearch();
   });
 });
 
-setStatus("idle", "Keine Datei geladen");
-setProgress(0, "Bereit.");
+/* Auto-Load */
+(async function init(){
+  try{
+    await loadIndex();
+    setTimeout(() => els.hsnInput.focus(), 0);
+  }catch(e){
+    setStatus("error", "Index konnte nicht geladen werden");
+    setProgress(0, "Fehler.");
+    els.statsText.textContent = String(e?.message || e);
+  }
+})();

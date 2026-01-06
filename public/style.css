@@ -1825,7 +1825,16 @@ img, video, canvas {
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
   }
-  
+  /* Wenn die Suggest-Box hidden ist -> komplett weg */
+.loc-suggest-box[hidden]{
+  display: none !important;
+}
+
+/* Extra-Safety: falls sie mal wirklich leer ist */
+.loc-suggest-box:empty{
+  display: none !important;
+}
+
   /* Items: BLOCK statt FLEX -> Text fließt normal (kein "dort mund") */
   .loc-suggest-box > *,
   .loc-suggest-item{

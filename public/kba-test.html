@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>KBA (HSN/TSN) – Test</title>
+  <title>Autovisa – KBA Test (HSN/TSN)</title>
 
   <link rel="stylesheet" href="./kba-test.css" />
 </head>
@@ -12,78 +12,64 @@
     <div class="topbar-inner">
       <div class="brand">
         <div class="brand-dot"></div>
-        <div>
+        <div class="brand-text">
           <div class="brand-title">KBA Test</div>
-          <div class="brand-subtitle">HSN/TSN → Marke, Modell, kW, Hubraum</div>
+          <div class="brand-sub">HSN/TSN → Marke, Modell, kW, Hubraum</div>
         </div>
       </div>
 
-      <div class="status" id="statusPill">
+      <div class="status" id="statusPill" aria-live="polite">
         <span class="status-dot" id="statusDot"></span>
-        <span id="statusText">Keine Datei geladen</span>
+        <span id="statusText">Lade Index…</span>
       </div>
     </div>
   </header>
 
   <main class="wrap">
     <section class="card">
-      <h2>Datei laden</h2>
-
-      <div class="grid">
-        <div class="field">
-          <label for="fileInput">kba.jsonl auswählen (Upload)</label>
-          <input id="fileInput" type="file" accept=".jsonl,.txt,application/json" />
-          <div class="hint">Empfohlen für schnelle Tests – funktioniert ohne Server-Fetch.</div>
-        </div>
-
-        <div class="field">
-          <label for="urlInput">oder URL laden (Fetch)</label>
-          <div class="row">
-            <input id="urlInput" type="url" value="/data/kba.jsonl" />
-
-            <button class="btn" id="btnLoadUrl" type="button">URL laden</button>
-          </div>
-          <div class="hint">Nur wenn deine Seite über HTTP läuft und die Datei erreichbar ist.</div>
-        </div>
+      <div class="card-head">
+        <h1>Suche</h1>
+        <button class="btn ghost" id="btnReload" type="button">Index neu laden</button>
       </div>
 
       <div class="progress">
         <div class="progress-bar" id="progressBar"></div>
       </div>
-      <div class="progress-meta">
-        <div id="progressText">Bereit.</div>
+      <div class="meta">
+        <div id="progressText">Initialisiere…</div>
         <div id="statsText" class="muted"></div>
       </div>
 
       <div class="divider"></div>
 
-      <h2>Suche</h2>
-
-      <div class="grid-2">
+      <div class="grid">
         <div class="field">
           <label for="hsnInput">HSN (4-stellig)</label>
-          <input id="hsnInput" inputmode="numeric" placeholder="z. B. 8566" maxlength="8" />
+          <input id="hsnInput" inputmode="numeric" autocomplete="off" placeholder="z. B. 8566" />
+          <div class="hint">Zahlen, führende Nullen sind erlaubt.</div>
         </div>
+
         <div class="field">
-          <label for="tsnInput">TSN (meist 3 Zeichen)</label>
-          <input id="tsnInput" placeholder="z. B. APX" maxlength="12" />
+          <label for="tsnInput">TSN</label>
+          <input id="tsnInput" autocomplete="off" placeholder="z. B. APX" />
+          <div class="hint">Meist 3 Zeichen; Groß-/Kleinschreibung egal.</div>
         </div>
       </div>
 
       <div class="actions">
         <button class="btn primary" id="btnSearch" type="button">Suchen</button>
-        <button class="btn ghost" id="btnClear" type="button">Leeren</button>
+        <button class="btn" id="btnClear" type="button">Leeren</button>
       </div>
 
-      <div class="result" id="resultBox" aria-live="polite"></div>
+      <div class="result" id="resultBox"></div>
     </section>
 
     <section class="card subtle">
-      <h3>Hinweis</h3>
+      <h2>Info</h2>
       <p class="muted">
-        Diese Seite baut beim Laden eine Map (Index) <code>HSN:TSN → Datensatz</code>.
-        Bei sehr großen Dateien kann das im Browser spürbar dauern oder RAM kosten.
-        Für „echte Produktion“ wäre Server-Suche (DB-Index auf <code>hsn</code> + <code>tsn</code>) sinnvoll.
+        Diese Seite lädt <code>/data/kba-index.json</code> (Key-Format: <code>HSN:TSN</code>).
+        Dass der Browser beim direkten Öffnen der Datei ggf. einen Download startet, ist normal – <code>fetch()</code>
+        kann sie trotzdem lesen, solange sie erreichbar ist.
       </p>
     </section>
   </main>
