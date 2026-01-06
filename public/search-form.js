@@ -66,7 +66,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // ============================
   // Konstanten / State
   // ============================
-  const ALL_MODELS_VALUE = "__ALL_MODELS__";
+  const ANY_BRAND_VALUE = "__ANY__";
+  const ALL_MODELS_VALUE = "__ALL__";
+  
   const FILTER_OUT_BELIEBIG_IN_JSON = true;
 
   let brandToModels = {};
@@ -252,7 +254,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (raw == null) continue;
       const name = String(raw).trim();
       if (!name) continue;
+  
       if (FILTER_OUT_BELIEBIG_IN_JSON && /^beliebig$/i.test(name)) continue;
+      if (/\(alle\)\s*$/i.test(name)) continue; // <- NEU
+  
       const key = name.toLowerCase();
       if (!seen.has(key)) {
         seen.add(key);
@@ -266,6 +271,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     return out;
   }
+  
 
   async function loadBrandModelMap() {
     try {
@@ -290,9 +296,10 @@ document.addEventListener("DOMContentLoaded", () => {
     modellSel.disabled = !enabled;
 
     if (!enabled) {
-      modellSel.innerHTML = `<option value="${ALL_MODELS_VALUE}" selected>Bitte zuerst Marke wählen</option>`;
+      modellSel.innerHTML = `<option value="${ALL_MODELS_VALUE}" selected>Beliebig</option>`;
       modellSel.value = ALL_MODELS_VALUE;
     }
+    
 
     const ssMain = modellSel.nextElementSibling;
     if (ssMain && ssMain.classList && ssMain.classList.contains("ss-main")) {
@@ -425,13 +432,13 @@ document.addEventListener("DOMContentLoaded", () => {
           afterChange: (newSelected) => {
             if (modelSyncGuard) return;
             if (!markeSel || !modellSel) return;
-
             const brand = String(markeSel.value || "").trim();
-            if (!brand) {
+            if (!brand || brand === ANY_BRAND_VALUE) {
               setSelectedSlim([ALL_MODELS_VALUE]);
               setSelectedNative([ALL_MODELS_VALUE]);
               return;
             }
+            
 
             // Wenn Map noch nicht da ist, einfach nicht expandieren – aber "Beliebig" sauber halten
             const current = getCurrentModelValuesFromSlim(newSelected);
@@ -469,26 +476,37 @@ document.addEventListener("DOMContentLoaded", () => {
       await loadBrandModelMap();
 
       // initial state
-      if (markeSel.value) {
+      const initialBrand = String(markeSel.value || "").trim();
+      if (initialBrand && initialBrand !== ANY_BRAND_VALUE) {
         setModelEnabled(true);
-        rebuildModelOptions(markeSel.value);
+        rebuildModelOptions(initialBrand);
       } else {
         setModelEnabled(false);
+        // optional: wenn SlimSelect aktiv ist, Data setzen:
+        if (ssModell) {
+          modelSyncGuard = true;
+          ssModell.setData([{ text: "Beliebig", value: ALL_MODELS_VALUE }]);
+          setSelectedSlim([ALL_MODELS_VALUE]);
+          setSelectedNative([ALL_MODELS_VALUE]);
+          modelSyncGuard = false;
+        }
       }
+      
 
       markeSel.addEventListener("change", () => {
         const brand = String(markeSel.value || "").trim();
-        if (!brand) {
+        if (!brand || brand === ANY_BRAND_VALUE) {
           setModelEnabled(false);
           if (ssModell) {
             modelSyncGuard = true;
-            ssModell.setData([{ text: "Bitte zuerst Marke wählen", value: ALL_MODELS_VALUE }]);
+            ssModell.setData([{ text: "Beliebig", value: ALL_MODELS_VALUE }]);
             setSelectedSlim([ALL_MODELS_VALUE]);
             setSelectedNative([ALL_MODELS_VALUE]);
             modelSyncGuard = false;
           }
           return;
         }
+        
 
         setModelEnabled(true);
         rebuildModelOptions(brand);
@@ -783,14 +801,35 @@ document.addEventListener("DOMContentLoaded", () => {
   function buildQueryParams() {
     const qs = new URLSearchParams();
 
-    const brand = markeSel?.value || "";
-    if (brand) qs.set("marke", brand);
+    const brand = String(markeSel?.value || "").trim();
+    if (brand && brand !== ANY_BRAND_VALUE) qs.set("marke", brand);
+    
 
     if (modellSel) {
-      const models = Array.from(modellSel.selectedOptions || []).map((o) => o.value);
-      const filtered = models.filter((v) => v && v !== ALL_MODELS_VALUE);
-      if (filtered.length) qs.set("modell", filtered.join(","));
+      const brand = String(markeSel?.value || "").trim();
+      const raw = Array.from(modellSel.selectedOptions || []).map((o) => String(o.value));
+    
+      // Beliebig → kein "modell" Param
+      if (raw.includes(ALL_MODELS_VALUE) || !raw.length) {
+        // nichts setzen
+      } else {
+        // Gruppen expandieren (z.B. "1er Reihe (Alle)" → 114,116,118,...)
+        const expanded =
+          brand && brand !== ANY_BRAND_VALUE
+            ? expandGroups(brand, raw)
+            : raw;
+    
+        // Expand kann Beliebig zurückgeben, falls nichts passt
+        const cleaned = expanded
+          .map(String)
+          .filter((v) => v && v !== ALL_MODELS_VALUE)
+          .filter((v) => !/\(alle\)\s*$/i.test(v)) // absolute Sicherheit
+          .filter((v) => !(modelGroups[v] && (ALLOW_GROUPS_FOR[brand] || []).includes(v))); // Gruppenwert nie senden
+    
+        if (cleaned.length) qs.set("modell", cleaned.join(","));
+      }
     }
+    
 
     // Startseite: Jahr/Monat -> ezFrom
     const y = yearSel?.value || "";
