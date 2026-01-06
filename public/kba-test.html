@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Autovisa – KBA HSN/TSN Test</title>
+  <link rel="stylesheet" href="/kba-test.css" />
+</head>
+<body>
+  <main class="wrap">
+    <h1>KBA HSN/TSN – Online Test</h1>
+
+    <section class="card">
+      <div class="row">
+        <label>
+          HSN (4-stellig)
+          <input id="hsn" inputmode="numeric" maxlength="4" placeholder="z. B. 0588" />
+        </label>
+
+        <label>
+          TSN (3–4 Zeichen)
+          <input id="tsn" maxlength="4" placeholder="z. B. 300" />
+        </label>
+
+        <button id="btn">Suchen</button>
+      </div>
+
+      <p class="hint">
+        Hinweis: Erstmal Demo-Daten. Sobald der SV42-Index fertig ist, tauschen wir nur die JSON aus.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Ergebnis</h2>
+      <pre id="out">–</pre>
+    </section>
+
+    <section class="card">
+      <h2>PDF-Check</h2>
+      <p>
+        SV42 sollte öffentlich erreichbar sein:
+        <a href="/kba/sv42_pdf.pdf" target="_blank" rel="noopener">/kba/sv42_pdf.pdf</a>
+      </p>
+    </section>
+  </main>
+
+  <script src="/kba-test.js"></script>
+</body>
+</html>
