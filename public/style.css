@@ -1796,215 +1796,129 @@ img, video, canvas {
 
 
 
-
 /* =========================
-   PLZ / Ort – Suggest Dropdown (Autovisa)
+   Autovisa – Location Suggestions (nur Dropdown)
    ========================= */
 
-   .location-group,
-   .location-group .input-icon-wrapper{
-     position: relative; /* Anker für absolute Suggest-Box */
-   }
-   
-   /* Box */
-   .location-group .loc-suggest-box{
-     position: absolute;
-     left: 0;
-     right: 0;
-     top: calc(100% + 8px);
-     z-index: 9999;
-   
-     /* Größe / Scroll */
-     max-height: min(360px, 55vh);
-     overflow: auto;
-   
-     /* Look */
-     border-radius: 14px;
-     border: 1px solid rgba(0, 184, 169, 0.32);
-     background:
-       linear-gradient(180deg, rgba(26, 39, 51, 0.98) 0%, rgba(18, 28, 38, 0.98) 100%);
-     backdrop-filter: blur(10px) saturate(130%);
-     -webkit-backdrop-filter: blur(10px) saturate(130%);
-   
-     box-shadow:
-       0 22px 60px rgba(0,0,0,.45),
-       0 0 0 1px rgba(255,255,255,.06) inset;
-   
-     /* Animation (optional) */
-     opacity: 0;
-     transform: translateY(-6px);
-     pointer-events: none;
-     transition: opacity .16s ease, transform .16s ease;
-   }
-   
-   /* Wenn du im JS eine Klasse toggelst */
-   .location-group .loc-suggest-box.is-open{
-     opacity: 1;
-     transform: translateY(0);
-     pointer-events: auto;
-   }
-   
-   /* Kleine “Spitze” oben (optional, sieht hochwertig aus) */
-   .location-group .loc-suggest-box::before{
-     content:"";
-     position:absolute;
-     top:-7px;
-     left: 22px;
-     width: 14px;
-     height: 14px;
-     transform: rotate(45deg);
-     background: rgba(26, 39, 51, 0.98);
-     border-left: 1px solid rgba(0, 184, 169, 0.24);
-     border-top: 1px solid rgba(0, 184, 169, 0.24);
-   }
-   
-   /* Items – funktioniert auch, wenn du Buttons/Divs ohne Klasse nutzt */
-   .location-group .loc-suggest-box > .loc-suggest-item,
-   .location-group .loc-suggest-box > button,
-   .location-group .loc-suggest-box > a,
-   .location-group .loc-suggest-box > div{
-     width: 100%;
-     display: flex;
-     align-items: center;
-     justify-content: space-between;
-     gap: 14px;
-   
-     padding: 12px 14px;
-     background: transparent;
-     border: 0;
-     text-decoration: none;
-     cursor: pointer;
-   
-     color: rgba(245,248,252,.92);
-     font-size: 14.5px;
-     line-height: 1.2;
-   
-     /* Divider */
-     border-bottom: 1px solid rgba(255,255,255,.06);
-   
-     /* ruhige Micro-UX */
-     transition: background .16s ease, transform .16s ease;
-   }
-   
-   /* Letzter Divider weg */
-   .location-group .loc-suggest-box > .loc-suggest-item:last-child,
-   .location-group .loc-suggest-box > button:last-child,
-   .location-group .loc-suggest-box > a:last-child,
-   .location-group .loc-suggest-box > div:last-child{
-     border-bottom: 0;
-   }
-   
-   /* Linke Akzentleiste bei Hover/Active (ohne “zu bunt” zu werden) */
-   .location-group .loc-suggest-box > .loc-suggest-item:hover,
-   .location-group .loc-suggest-box > button:hover,
-   .location-group .loc-suggest-box > a:hover,
-   .location-group .loc-suggest-box > div:hover{
-     background:
-       linear-gradient(90deg, rgba(0,184,169,.18), rgba(0,184,169,.06) 55%, transparent 100%);
-     transform: translateY(-1px);
-     box-shadow: inset 3px 0 0 rgba(0,184,169,.85);
-   }
-   
-   /* Active State für Keyboard/JS:
-      - nutze im JS z.B. .is-active
-      - oder aria-selected="true"
-   */
-   .location-group .loc-suggest-box > .is-active,
-   .location-group .loc-suggest-box > [aria-selected="true"]{
-     background:
-       linear-gradient(90deg, rgba(0,184,169,.26), rgba(0,184,169,.10) 60%, transparent 100%);
-     box-shadow:
-       inset 3px 0 0 rgba(0,184,169,1),
-       0 0 0 1px rgba(0,184,169,.18) inset;
-   }
-   
-   /* Primär-/Sekundärtexte (optional – falls du sie im Item hast) */
-   .loc-suggest-left{
-     display:flex;
-     flex-direction:column;
-     gap:4px;
-     min-width: 0;
-   }
-   .loc-suggest-primary{
-     font-weight: 750;
-     color: rgba(245,248,252,.96);
-     white-space: nowrap;
-     overflow: hidden;
-     text-overflow: ellipsis;
-   }
-   .loc-suggest-secondary{
-     font-size: 12.5px;
-     color: rgba(203,213,225,.80);
-     white-space: nowrap;
-     overflow: hidden;
-     text-overflow: ellipsis;
-   }
-   
-   /* Rechte “Pill” (z.B. Bundesland/Distanz/Typ) */
-   .loc-suggest-pill{
-     flex: 0 0 auto;
-     font-size: 12px;
-     font-weight: 700;
-     color: rgba(245,248,252,.92);
-     padding: 6px 10px;
-     border-radius: 999px;
-     border: 1px solid rgba(255,255,255,.12);
-     background: rgba(255,255,255,.06);
-   }
-   
-   /* Treffer-Markierung, wenn dein JS <mark> setzt */
-   .location-group .loc-suggest-box mark{
-     background: rgba(0,184,169,.26);
-     color: rgba(245,248,252,.98);
-     padding: 0 4px;
-     border-radius: 6px;
-   }
-   
-   /* Empty/Loading Row (optional Klassen) */
-   .loc-suggest-empty,
-   .loc-suggest-loading{
-     padding: 12px 14px;
-     color: rgba(203,213,225,.85);
-     font-size: 13.5px;
-   }
-   
-   /* Scrollbar */
-   .location-group .loc-suggest-box::-webkit-scrollbar{ width: 10px; }
-   .location-group .loc-suggest-box::-webkit-scrollbar-track{
-     background: rgba(15, 32, 39, .35);
-     border-radius: 999px;
-   }
-   .location-group .loc-suggest-box::-webkit-scrollbar-thumb{
-     background: rgba(0,184,169,.55);
-     border-radius: 999px;
-     border: 2px solid rgba(15, 32, 39, .35);
-   }
-   .location-group .loc-suggest-box{
-     scrollbar-color: rgba(0,184,169,.55) rgba(15, 32, 39, .35);
-     scrollbar-width: thin;
-   }
-   
-   /* Mobile Feinschliff */
-   @media (max-width: 600px){
-     .location-group .loc-suggest-box{
-       max-height: min(320px, 52vh);
-       border-radius: 12px;
-     }
-   }
-   
-   /* Motion Reduction */
-   @media (prefers-reduced-motion: reduce){
-     .location-group .loc-suggest-box{
-       transition: none;
-     }
-     .location-group .loc-suggest-box > .loc-suggest-item,
-     .location-group .loc-suggest-box > button,
-     .location-group .loc-suggest-box > a,
-     .location-group .loc-suggest-box > div{
-       transition: none;
-     }
-   }
-   
+/* Container der Vorschläge */
+.loc-suggest-box{
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 80;
+
+  max-height: min(52vh, 360px);
+  overflow: auto;
+
+  padding: 8px;
+  border-radius: 14px;
+
+  background: linear-gradient(180deg, rgba(15,27,34,.98) 0%, rgba(10,18,23,.98) 100%);
+  border: 1px solid rgba(0,184,169,.22);
+
+  box-shadow:
+    0 18px 46px rgba(0,0,0,.42),
+    0 0 0 1px rgba(255,255,255,.03) inset;
+
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Item-Design – funktioniert für .loc-suggest-item ODER jedes direkte Kind */
+.loc-suggest-box > *,
+.loc-suggest-item{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+
+  cursor: pointer;
+  user-select: none;
+
+  color: rgba(245,248,252,.92);
+  font-size: 14px;
+  line-height: 1.25;
+
+  background: transparent;
+  border: 1px solid transparent;
+
+  transition: background .16s ease, border-color .16s ease, transform .10s ease;
+}
+
+/* kleiner Marker links (edel, hilft beim Scannen) */
+.loc-suggest-box > *::before,
+.loc-suggest-item::before{
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(0,184,169,.55);
+  box-shadow: 0 0 0 3px rgba(0,184,169,.12);
+  flex: 0 0 auto;
+}
+
+/* Hover */
+@media (hover:hover){
+  .loc-suggest-box > *:hover,
+  .loc-suggest-item:hover{
+    background: rgba(0,184,169,.10);
+    border-color: rgba(0,184,169,.20);
+    transform: translateY(-1px);
+  }
+}
+
+/* Active per Tastatur / JS:
+   - gib dem aktiven Item .active ODER setze aria-selected="true"
+*/
+.loc-suggest-box > *.active,
+.loc-suggest-item.active,
+.loc-suggest-box > *[aria-selected="true"],
+.loc-suggest-item[aria-selected="true"]{
+  background: rgba(0,184,169,.14);
+  border-color: rgba(0,184,169,.34);
+  box-shadow: 0 0 0 4px rgba(0,184,169,.14);
+}
+
+/* Wenn du Items als <button> renderst: native Button-Styles killen */
+.loc-suggest-box button{
+  border: 1px solid transparent;
+  text-align: left;
+  font: inherit;
+}
+.loc-suggest-box button:focus{ outline: none; }
+
+/* Optional: Treffer-Highlight, falls du im Text <mark> setzt */
+.loc-suggest-box mark{
+  background: rgba(0,184,169,.18);
+  color: rgba(245,248,252,.98);
+  padding: 0 .18em;
+  border-radius: 6px;
+}
+
+/* Scrollbar (dezent) */
+.loc-suggest-box::-webkit-scrollbar{ width: 10px; }
+.loc-suggest-box::-webkit-scrollbar-track{
+  background: rgba(255,255,255,.03);
+  border-radius: 999px;
+}
+.loc-suggest-box::-webkit-scrollbar-thumb{
+  background: rgba(0,184,169,.35);
+  border-radius: 999px;
+  border: 2px solid rgba(0,0,0,.25);
+}
+
+/* Mobile kompakter */
+@media (max-width: 600px){
+  .loc-suggest-box{
+    max-height: min(46vh, 320px);
+    border-radius: 14px;
+  }
+}
+
 
 
 
