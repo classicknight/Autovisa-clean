@@ -357,10 +357,15 @@
     </div>
     
     <div class="form-group">
-      <label for="first-registration-month">Erstzulassung ab:</label>
+      <label for="first-registration-year">Erstzulassung ab:</label>
+    
       <div class="inline-selects">
+        <select id="first-registration-year" name="first_registration_year">
+          <option value="">Beliebig</option>
+          <!-- wird per JS generiert -->
+        </select>
+    
         <select id="first-registration-month" name="first_registration_month">
-          <!-- Beliebig statt disabled/selected -->
           <option value="">Beliebig</option>
           <option value="01">Januar</option>
           <option value="02">Februar</option>
@@ -375,14 +380,9 @@
           <option value="11">November</option>
           <option value="12">Dezember</option>
         </select>
-    
-        <select id="first-registration-year" name="first_registration_year">
-          <!-- Beliebig statt disabled/selected -->
-          <option value="">Beliebig</option>
-          <!-- wird per JS generiert -->
-        </select>
       </div>
     </div>
+    
     
     <div class="form-group">
       <label for="kilometer-select">Kilometer bis:</label>

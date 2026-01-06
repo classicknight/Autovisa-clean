@@ -831,10 +831,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
 
-    // Startseite: Jahr/Monat -> ezFrom
-    const y = yearSel?.value || "";
-    const m = monthSel?.value || "";
-    if (y && m) qs.set("ezFrom", `${y}-${String(m).padStart(2, "0")}`);
+// Startseite: Jahr/Monat -> ezFrom
+// Wenn nur Jahr gewählt ist, default Monat = 01 (Januar)
+const y = String(yearSel?.value || "").trim();
+const m = String(monthSel?.value || "").trim();
+
+if (y) {
+  const mm = String(m || "01").padStart(2, "0");
+  qs.set("ezFrom", `${y}-${mm}`);
+}
+
 
     // Suchkriterien-Seite: von/bis überschreibt ggf.
     const ezFromAltVal = ezVonAlt?.value || "";
