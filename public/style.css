@@ -1795,128 +1795,159 @@ img, video, canvas {
 
 
 /* =========================
-   Autovisa – Location Suggestions (nur Dropdown)
+   PLZ / Ort – Autovisa (wie suchkriterien.css)
    ========================= */
 
-/* Container der Vorschläge */
-.loc-suggest-box{
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(100% + 8px);
-  z-index: 80;
-
-  max-height: min(52vh, 360px);
-  overflow: auto;
-
-  padding: 8px;
-  border-radius: 14px;
-
-  background: linear-gradient(180deg, rgba(15,27,34,.98) 0%, rgba(10,18,23,.98) 100%);
-  border: 1px solid rgba(0,184,169,.22);
-
-  box-shadow:
-    0 18px 46px rgba(0,0,0,.42),
-    0 0 0 1px rgba(255,255,255,.03) inset;
-
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-/* Item-Design – funktioniert für .loc-suggest-item ODER jedes direkte Kind */
-.loc-suggest-box > *,
-.loc-suggest-item{
-  display: flex;
-  align-items: center;
-  gap: 10px;
-
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 12px;
-
-  cursor: pointer;
-  user-select: none;
-
-  color: rgba(245,248,252,.92);
-  font-size: 14px;
-  line-height: 1.25;
-
-  background: transparent;
-  border: 1px solid transparent;
-
-  transition: background .16s ease, border-color .16s ease, transform .10s ease;
-}
-
-/* kleiner Marker links (edel, hilft beim Scannen) */
-.loc-suggest-box > *::before,
-.loc-suggest-item::before{
-  content: "";
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(0,184,169,.55);
-  box-shadow: 0 0 0 3px rgba(0,184,169,.12);
-  flex: 0 0 auto;
-}
-
-/* Hover */
-@media (hover:hover){
-  .loc-suggest-box > *:hover,
-  .loc-suggest-item:hover{
-    background: rgba(0,184,169,.10);
-    border-color: rgba(0,184,169,.20);
-    transform: translateY(-1px);
-  }
-}
-
-/* Active per Tastatur / JS:
-   - gib dem aktiven Item .active ODER setze aria-selected="true"
-*/
-.loc-suggest-box > *.active,
-.loc-suggest-item.active,
-.loc-suggest-box > *[aria-selected="true"],
-.loc-suggest-item[aria-selected="true"]{
-  background: rgba(0,184,169,.14);
-  border-color: rgba(0,184,169,.34);
-  box-shadow: 0 0 0 4px rgba(0,184,169,.14);
-}
-
-/* Wenn du Items als <button> renderst: native Button-Styles killen */
-.loc-suggest-box button{
-  border: 1px solid transparent;
-  text-align: left;
-  font: inherit;
-}
-.loc-suggest-box button:focus{ outline: none; }
-
-/* Optional: Treffer-Highlight, falls du im Text <mark> setzt */
-.loc-suggest-box mark{
-  background: rgba(0,184,169,.18);
-  color: rgba(245,248,252,.98);
-  padding: 0 .18em;
-  border-radius: 6px;
-}
-
-/* Scrollbar (dezent) */
-.loc-suggest-box::-webkit-scrollbar{ width: 10px; }
-.loc-suggest-box::-webkit-scrollbar-track{
-  background: rgba(255,255,255,.03);
-  border-radius: 999px;
-}
-.loc-suggest-box::-webkit-scrollbar-thumb{
-  background: rgba(0,184,169,.35);
-  border-radius: 999px;
-  border: 2px solid rgba(0,0,0,.25);
-}
-
-/* Mobile kompakter */
-@media (max-width: 600px){
-  .loc-suggest-box{
-    max-height: min(46vh, 320px);
-    border-radius: 14px;
-  }
-}
-
+   .location-group,
+   .location-group .input-icon-wrapper{
+     position: relative;
+     overflow: visible;
+   }
+   
+   /* Icon links (wie suchkriterien) */
+   .location-group .input-icon-wrapper i{
+     position: absolute;
+     top: 50%;
+     left: 16px;
+     transform: translateY(-50%);
+     color: #cbd5e1;
+     font-size: 16px;
+     pointer-events: none;
+     z-index: 2;
+   }
+   
+   /* Input: exakt im suchkriterien-Look */
+   .location-group .input-icon-wrapper input#location{
+     width: 100%;
+     background-color: #1f2a33;
+     border: 1px solid #2e3a46;
+     border-radius: 10px;
+   
+     padding: 14px 18px 14px 46px;  /* Platz fürs Icon */
+     font-size: 15.5px;
+     color: #ffffff;
+   
+     box-shadow: inset 0 1px 2px rgba(0,0,0,0.2);
+     transition: border-color 0.2s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+   
+     white-space: nowrap;
+     overflow: hidden;
+     text-overflow: ellipsis;
+   }
+   
+   .location-group .input-icon-wrapper input#location::placeholder{
+     color: #a9b3bd;
+     opacity: 0.85;
+   }
+   
+   .location-group .input-icon-wrapper input#location:hover{
+     border-color: #3ff0d3;
+     box-shadow: 0 0 0 3px rgba(63, 240, 211, 0.1);
+   }
+   
+   .location-group .input-icon-wrapper input#location:focus{
+     outline: none;
+     border-color: #00ffcc;
+     box-shadow: 0 0 0 4px rgba(0, 255, 204, 0.15);
+   }
+   
+   /* Optional: Icon bei Focus minimal „aktiver“ */
+   .location-group:focus-within .input-icon-wrapper i{
+     color: #00ffcc;
+   }
+   
+   
+   /* =========================
+      Vorschläge (Autocomplete) – wie suchkriterien
+      Voraussetzung: Container hat .loc-suggest-box
+      ========================= */
+   
+   .location-group .loc-suggest-box{
+     position: absolute;
+     left: 0;
+     right: 0;
+     top: calc(100% + 8px);
+     z-index: 2000;
+   
+     background: #1f2a33;
+     border: 1px solid #2e3a46;
+     border-radius: 12px;
+   
+     box-shadow: 0 18px 55px rgba(0,0,0,.35);
+     overflow: hidden;
+   
+     max-height: min(340px, 55vh);
+     overflow-y: auto;
+   
+     /* optional: kleines “Einblenden” */
+     animation: floatFade .12s ease-out both;
+   }
+   
+   @keyframes floatFade{
+     from { opacity: 0; transform: translateY(-4px); }
+     to   { opacity: 1; transform: translateY(0); }
+   }
+   
+   /* Items – funktioniert für: button / a / div / li */
+   .location-group .loc-suggest-box > :where(button,a,div,li){
+     display: flex;
+     align-items: center;
+     justify-content: space-between;
+     gap: 12px;
+   
+     width: 100%;
+     padding: 12px 14px;
+   
+     background: transparent;
+     border: 0;
+     color: rgba(255,255,255,.92);
+   
+     font-size: 14.5px;
+     line-height: 1.25;
+     cursor: pointer;
+   
+     transition: background .15s ease, color .15s ease;
+   }
+   
+   /* Trennlinien */
+   .location-group .loc-suggest-box > :where(button,a,div,li) + :where(button,a,div,li){
+     border-top: 1px solid rgba(255,255,255,.06);
+   }
+   
+   /* Hover */
+   .location-group .loc-suggest-box > :where(button,a,div,li):hover{
+     background: rgba(63,240,211,.08);
+   }
+   
+   /* Active (für Keyboard): nutze in JS z.B. .active oder aria-selected */
+   .location-group .loc-suggest-box > :where(button,a,div,li).active,
+   .location-group .loc-suggest-box > :where(button,a,div,li)[aria-selected="true"]{
+     background: rgba(0,255,204,.14);
+     color: #ffffff;
+   }
+   
+   /* Optional: kleine „Nebeninfo“ rechts, wenn dein JS sowas einfügt */
+   .location-group .loc-suggest-box .loc-suggest-muted{
+     color: rgba(169,179,189,.9);
+     font-size: 12.5px;
+     white-space: nowrap;
+   }
+   
+   /* Scrollbar (wie bei deinen Dark-Dropdowns) */
+   .location-group .loc-suggest-box::-webkit-scrollbar{ width: 8px; }
+   .location-group .loc-suggest-box::-webkit-scrollbar-track{ background: #1a2733; }
+   .location-group .loc-suggest-box::-webkit-scrollbar-thumb{
+     background-color: rgba(0,184,169,.8);
+     border-radius: 10px;
+   }
+   
+   /* Mobile: etwas weniger Höhe */
+   @media (max-width: 600px){
+     .location-group .loc-suggest-box{
+       max-height: 45vh;
+     }
+   }
+   
 
 
 
