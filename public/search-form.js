@@ -811,7 +811,7 @@ document.addEventListener("DOMContentLoaded", () => {
   
     // alte Schreibweisen abfangen
     f = f.replace(/_/g, "-");           // hybrid_benzin -> hybrid-benzin
-    if (f === "elektro") f = "elektrisch";
+   
     if (f === "gas" || f === "lpg") f = "autogas";
     if (f === "e85") f = "ethanol";
   

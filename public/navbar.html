@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="de" class="no-js">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autovisa – Navbar Test</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Font Awesome -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
+
+  <!-- Navbar styles (new file) -->
+  <link rel="stylesheet" href="navbar.css" />
+</head>
+
+<body style="margin:0; font-family: Inter, Poppins, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f5f8fc;">
+
+  <!-- =========================
+       NAVBAR (Autovisa)
+  ========================== -->
+  <nav class="av-nav" aria-label="Hauptnavigation">
+    <!-- Brand -->
+    <a class="av-brand" href="index.html" aria-label="Autovisa Startseite">
+      <img src="AUTOVISA%20LOGO.PNG" alt="Autovisa" class="av-brand__logo" />
+      <span class="av-brand__divider" aria-hidden="true"></span>
+      <span class="av-brand__tagline">
+        <span class="tagline-line1">Autos kaufen</span>
+        <span class="tagline-line2">&amp; verkaufen</span>
+      </span>
+    </a>
+
+    <!-- Mobile Toggle -->
+    <button
+      class="av-nav__toggle"
+      type="button"
+      aria-label="Menü öffnen"
+      aria-expanded="false"
+      aria-controls="av-nav-panel">
+      <i class="fa-solid fa-bars" aria-hidden="true"></i>
+    </button>
+
+    <!-- Panel -->
+    <div class="av-nav__panel" id="av-nav-panel">
+      <ul class="av-nav__links" role="list">
+        <!-- Fahrzeuge finden (Dropdown) -->
+        <li class="av-dd" data-dropdown>
+          <button
+            type="button"
+            class="av-link av-dd__toggle"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-controls="dd-find">
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <span>Fahrzeuge finden</span>
+            <span class="av-caret" aria-hidden="true"></span>
+          </button>
+
+          <div class="av-dd__menu" id="dd-find" role="menu">
+            <a role="menuitem" href="suche.html">
+              <i class="fa-solid fa-list" aria-hidden="true"></i> Suche starten
+            </a>
+            <a role="menuitem" href="suchkriterien.html">
+              <i class="fa-solid fa-sliders" aria-hidden="true"></i> Erweiterte Suche
+            </a>
+            <a role="menuitem" href="index.html#results-section">
+              <i class="fa-solid fa-car" aria-hidden="true"></i> Neueste Inserate
+            </a>
+          </div>
+        </li>
+
+        <!-- Hilfe & Infos -->
+        <li class="av-dd" data-dropdown>
+          <button
+            type="button"
+            class="av-link av-dd__toggle"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-controls="dd-help">
+            <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
+            <span>Hilfe &amp; Infos</span>
+            <span class="av-caret" aria-hidden="true"></span>
+          </button>
+
+          <div class="av-dd__menu" id="dd-help" role="menu">
+            <a role="menuitem" href="hilfe.html">
+              <i class="fa-regular fa-circle-question" aria-hidden="true"></i> Hilfe &amp; FAQ
+            </a>
+            <a role="menuitem" href="kontakt.html">
+              <i class="fa-regular fa-envelope" aria-hidden="true"></i> Kontakt
+            </a>
+            <a role="menuitem" href="ueber-uns.html">
+              <i class="fa-solid fa-users" aria-hidden="true"></i> Über uns
+            </a>
+
+            <div class="av-dd__sep" role="separator"></div>
+
+            <a role="menuitem" href="impressum.html">
+              <i class="fa-regular fa-file-lines" aria-hidden="true"></i> Impressum
+            </a>
+            <a role="menuitem" href="datenschutz.html">
+              <i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Datenschutz
+            </a>
+          </div>
+        </li>
+      </ul>
+
+      <!-- Actions -->
+      <div class="av-nav__actions">
+        <a class="av-iconbtn" href="übersicht.html#saved-cars" aria-label="Merkliste">
+          <i class="fa-solid fa-heart" aria-hidden="true"></i>
+          <span class="av-badge" data-badge="saved" hidden>0</span>
+        </a>
+
+        <a class="av-iconbtn" href="übersicht.html#messages-list" aria-label="Chats">
+          <i class="fa-solid fa-comments" aria-hidden="true"></i>
+          <span class="av-badge" data-badge="chats" hidden>0</span>
+        </a>
+
+        <!-- Konto -->
+        <div class="av-dd av-dd--account" data-dropdown>
+          <button
+            type="button"
+            class="av-account av-dd__toggle"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-controls="dd-account">
+            <i class="fa-solid fa-user" aria-hidden="true"></i>
+            <span class="av-account__label">Konto</span>
+            <span class="av-caret" aria-hidden="true"></span>
+          </button>
+
+          <div class="av-dd__menu" id="dd-account" role="menu">
+            <!-- Ausgeloggt -->
+            <a role="menuitem" href="login.html" data-auth="out">
+              <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> Login / Registrierung
+            </a>
+
+            <!-- Eingeloggt -->
+            <a role="menuitem" href="übersicht.html#car-list" data-auth="in">
+              <i class="fa-solid fa-car" aria-hidden="true"></i> Meine Inserate
+            </a>
+            <a role="menuitem" href="übersicht.html#saved-cars" data-auth="in">
+              <i class="fa-solid fa-heart" aria-hidden="true"></i> Merkliste
+            </a>
+            <a role="menuitem" href="übersicht.html#messages-list" data-auth="in">
+              <i class="fa-solid fa-comments" aria-hidden="true"></i> Chats
+            </a>
+
+            <div class="av-dd__sep" role="separator" data-auth="in"></div>
+
+            <button type="button" class="av-dd__logout" data-auth="in">
+              <i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i> Abmelden
+            </button>
+          </div>
+        </div>
+
+        <!-- CTA -->
+        <a class="av-cta" href="verkaufen.html">
+          <i class="fa-solid fa-plus-circle" aria-hidden="true"></i>
+          <span>Inserat erstellen</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- =========================
+       DEMO CONTENT (optional)
+  ========================== -->
+  <main style="padding: 28px 16px; max-width: 1100px; margin: 0 auto;">
+    <h1 style="margin: 0 0 8px; color:#1a2a33;">Navbar Testseite</h1>
+    <p style="margin: 0; color:#37444f;">
+      Diese Seite dient nur zum Testen der neuen Autovisa Navbar (Dropdowns, Mobile, Konto-Logik).
+    </p>
+
+    <div style="height: 1200px;"></div>
+  </main>
+
+  <!-- Navbar script (new file) -->
+  <script src="navbar.js"></script>
+</body>
+</html>
