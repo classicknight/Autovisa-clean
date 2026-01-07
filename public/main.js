@@ -1247,7 +1247,6 @@ function initMediaSlider(container) {
 
   snapTo(0, false);
 }
-
 // ===== Startseite: Listings rendern =====
 async function loadHomeListings() {
   const container = document.getElementById("homeResults");
@@ -1348,7 +1347,18 @@ async function loadHomeListings() {
       card.innerHTML = `
         <div class="car-card-media">
           <div class="card-actions mobile-only">
-            <button class="save-btn" title="Auto speichern" type="button"><i class="fas fa-heart"></i></button>
+
+            <button
+              class="save-btn"
+              type="button"
+              title="Auto speichern"
+              aria-pressed="false"
+              data-inserat-id="${_id}"
+              ${_id ? "" : "disabled aria-disabled='true'"}
+            >
+              <i class="far fa-heart" aria-hidden="true"></i>
+            </button>
+
             <a href="${tel ? `tel:${tel}` : "#"}"
                class="contact-btn clean-phone"
                title="Verkäufer kontaktieren"
@@ -1356,6 +1366,7 @@ async function loadHomeListings() {
                ${tel ? "" : "aria-disabled='true'"} >
               <i class="fas fa-phone"></i>
             </a>
+
           </div>
 
           <div class="media-container">
@@ -1466,6 +1477,10 @@ async function loadHomeListings() {
         }
       });
     });
+
+    // WICHTIG: Nach dem Rendern gespeicherte Herzen „hydraten“
+    hydrateSaveButtons(container);
+
   } catch (err) {
     console.error("Fehler beim Laden der Start-Inserate:", err);
     container.innerHTML = "<p>Fehler beim Laden der Inserate.</p>";
@@ -1473,6 +1488,113 @@ async function loadHomeListings() {
 }
 
 
+/* =========================
+   Saved (Herz) – global für Karten (Startseite / später auch Suche)
+   Nutzt: /saved/status/:id  und  /saved/toggle
+========================= */
 
+function setSaveBtnUI(btn, saved) {
+  if (!btn) return;
 
+  btn.classList.toggle("is-saved", !!saved);
+  btn.setAttribute("aria-pressed", saved ? "true" : "false");
+  btn.title = saved ? "Gespeichert" : "Auto speichern";
 
+  const icon = btn.querySelector("i");
+  if (icon) {
+    // FontAwesome v6 beta + ältere Klassen absichern
+    icon.classList.toggle("fas", !!saved);
+    icon.classList.toggle("far", !saved);
+    icon.classList.toggle("fa-solid", !!saved);
+    icon.classList.toggle("fa-regular", !saved);
+    icon.classList.add("fa-heart");
+  }
+}
+
+function getRedirectTarget() {
+  const path = window.location.pathname || "";
+  const isRoot = path === "/" || path === "";
+  const file = isRoot ? "index.html" : (path.split("/").pop() || "index.html");
+  return file + (window.location.search || "") + (window.location.hash || "");
+}
+
+async function fetchSaveStatus(fahrzeugId) {
+  const res = await fetch(`/saved/status/${encodeURIComponent(fahrzeugId)}`, {
+    credentials: "include",
+  });
+
+  if (res.status === 401 || res.status === 403) return null; // nicht eingeloggt
+  if (!res.ok) throw new Error("Fehler beim Laden des Save-Status");
+
+  const data = await res.json().catch(() => ({}));
+  return !!data.saved;
+}
+
+async function toggleSaveBtn(btn) {
+  const fahrzeugId = (btn?.dataset?.inseratId || "").trim();
+  if (!fahrzeugId) return;
+
+  if (btn.dataset.busy === "1") return;
+  btn.dataset.busy = "1";
+
+  try {
+    const res = await fetch("/saved/toggle", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fahrzeugId }),
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      localStorage.setItem("redirectAfterLogin", getRedirectTarget());
+      window.location.href = "login.html";
+      return;
+    }
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Speichern fehlgeschlagen");
+
+    setSaveBtnUI(btn, !!data.saved);
+  } catch (err) {
+    console.error("❌ Save toggle error:", err);
+  } finally {
+    btn.dataset.busy = "0";
+  }
+}
+
+function hydrateSaveButtons(scope = document) {
+  const buttons = Array.from(scope.querySelectorAll("button.save-btn[data-inserat-id]"));
+  if (!buttons.length) return;
+
+  Promise.allSettled(
+    buttons.map(async (btn) => {
+      const id = (btn.dataset.inseratId || "").trim();
+      if (!id) return;
+
+      const saved = await fetchSaveStatus(id);
+      if (saved === null) return; // nicht eingeloggt -> UI bleibt Outline
+      setSaveBtnUI(btn, saved);
+    })
+  ).catch(() => {});
+}
+
+// Click-Delegation: funktioniert auch für dynamisch gerenderte Cards
+if (!window.__autovisaSaveDelegationBound) {
+  window.__autovisaSaveDelegationBound = true;
+
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("button.save-btn[data-inserat-id]");
+    if (!btn) return;
+
+    // verhindert Card-Klick/Weiterleitung
+    e.preventDefault();
+    e.stopPropagation();
+
+    toggleSaveBtn(btn);
+  });
+}
+
+// Optional: falls du irgendwo inline onclick="toggleSave(this)" nutzt
+if (!window.toggleSave) {
+  window.toggleSave = (btn) => toggleSaveBtn(btn);
+}
