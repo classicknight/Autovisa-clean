@@ -1,131 +1,248 @@
-// Entfernt no-js Klasse (falls nicht schon in main.js)
 document.documentElement.classList.remove("no-js");
 
-(function initAutovisaNavbar(){
-  const nav = document.querySelector(".av-nav");
-  if (!nav) return;
+(() => {
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-  const toggle = nav.querySelector(".av-nav__toggle");
-  const panel  = nav.querySelector(".av-nav__panel");
-  const dropdowns = Array.from(nav.querySelectorAll("[data-dropdown]"));
+  const navPanel = $('[data-nav-panel]');
+  const overlay = $('[data-nav-overlay]');
+  const btnToggle = $('[data-nav-toggle]');
+  const btnClose = $('[data-nav-close]');
+  const dropdownButtons = $$('button[data-dropdown]');
+  const year = $("#year");
 
-  const prefersReduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const isMobile = () => window.matchMedia("(max-width: 980px)").matches;
 
-  function closeAllDropdowns(except = null){
-    dropdowns.forEach(dd => {
-      if (dd !== except) closeDropdown(dd);
+  // ---------------------------
+  // Utils: Dropdown handling
+  // ---------------------------
+  const closeAllDropdowns = (exceptLi = null) => {
+    $$(".dropdown").forEach(li => {
+      if (li !== exceptLi) {
+        li.classList.remove("is-open");
+        const btn = li.querySelector("button[data-dropdown]");
+        if (btn) btn.setAttribute("aria-expanded", "false");
+      }
     });
-  }
+  };
 
-  function openDropdown(dd){
-    const btn = dd.querySelector(".av-dd__toggle");
-    const menu = dd.querySelector(".av-dd__menu");
-    if (!btn || !menu) return;
+  const toggleDropdown = (btn) => {
+    const li = btn.closest(".dropdown");
+    if (!li) return;
 
-    dd.classList.add("is-open");
-    btn.setAttribute("aria-expanded", "true");
-  }
+    const willOpen = !li.classList.contains("is-open");
+    closeAllDropdowns(willOpen ? li : null);
 
-  function closeDropdown(dd){
-    const btn = dd.querySelector(".av-dd__toggle");
-    const menu = dd.querySelector(".av-dd__menu");
-    if (!btn || !menu) return;
+    li.classList.toggle("is-open", willOpen);
+    btn.setAttribute("aria-expanded", willOpen ? "true" : "false");
 
-    dd.classList.remove("is-open");
-    btn.setAttribute("aria-expanded", "false");
-  }
+    // Desktop: wenn geöffnet, first item fokussierbar machen bei ArrowDown
+    if (!isMobile() && willOpen) {
+      const firstLink = li.querySelector(".dropdown-menu a");
+      // nicht automatisch focusen (wirkt oft „sprunghaft“), nur vorbereitet
+      if (firstLink) firstLink.tabIndex = 0;
+    }
+  };
 
-  function toggleDropdown(dd){
-    const isOpen = dd.classList.contains("is-open");
-    closeAllDropdowns(dd);
-    if (!isOpen) openDropdown(dd);
-    else closeDropdown(dd);
-  }
+  // ---------------------------
+  // Mobile Drawer
+  // ---------------------------
+  const openDrawer = () => {
+    if (!navPanel || !overlay) return;
+    navPanel.classList.add("is-open");
+    overlay.hidden = false;
 
-  function openNav(){
-    nav.classList.add("is-open");
-    toggle?.setAttribute("aria-expanded", "true");
-  }
+    if (btnToggle) btnToggle.setAttribute("aria-expanded", "true");
 
-  function closeNav(){
-    nav.classList.remove("is-open");
-    toggle?.setAttribute("aria-expanded", "false");
+    // Fokus auf erstes Bedienelement im Panel (nice UX)
+    const firstFocusable = navPanel.querySelector('button, a, [tabindex]:not([tabindex="-1"])');
+    firstFocusable?.focus?.();
+  };
+
+  const closeDrawer = () => {
+    if (!navPanel || !overlay) return;
+    navPanel.classList.remove("is-open");
+    overlay.hidden = true;
+
+    if (btnToggle) btnToggle.setAttribute("aria-expanded", "false");
     closeAllDropdowns();
-  }
+  };
 
-  // Mobile hamburger
-  if (toggle){
-    toggle.addEventListener("click", () => {
-      const isOpen = nav.classList.contains("is-open");
-      if (isOpen) closeNav();
-      else openNav();
-    });
-  }
+  const drawerIsOpen = () => navPanel?.classList.contains("is-open");
 
-  // Dropdown click handlers
-  dropdowns.forEach(dd => {
-    const btn = dd.querySelector(".av-dd__toggle");
-    if (!btn) return;
-
+  // ---------------------------
+  // Bind events
+  // ---------------------------
+  dropdownButtons.forEach(btn => {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      toggleDropdown(dd);
+      toggleDropdown(btn);
     });
 
-    // Keyboard support
+    // Keyboard: Enter/Space toggles; ArrowDown opens & focuses first item; Escape closes
     btn.addEventListener("keydown", (e) => {
+      const li = btn.closest(".dropdown");
+      const menu = li?.querySelector(".dropdown-menu");
+      const firstLink = menu?.querySelector("a");
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (li && !li.classList.contains("is-open")) toggleDropdown(btn);
+        firstLink?.focus?.();
+      }
+
       if (e.key === "Escape") {
-        closeDropdown(dd);
+        e.preventDefault();
+        closeAllDropdowns();
+        btn.setAttribute("aria-expanded", "false");
         btn.focus();
       }
-      if (e.key === "ArrowDown") {
-        openDropdown(dd);
-        const first = dd.querySelector('.av-dd__menu a, .av-dd__menu button');
-        first?.focus();
-      }
     });
+  });
 
-    const items = dd.querySelectorAll(".av-dd__menu a, .av-dd__menu button");
-    items.forEach(el => {
-      el.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") {
-          closeDropdown(dd);
-          btn.focus();
-        }
+  // Drawer controls
+  btnToggle?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!navPanel || !overlay) return;
+
+    if (drawerIsOpen()) closeDrawer();
+    else openDrawer();
+  });
+
+  btnClose?.addEventListener("click", (e) => {
+    e.preventDefault();
+    closeDrawer();
+  });
+
+  overlay?.addEventListener("click", () => closeDrawer());
+
+  // Outside click (Desktop) closes dropdowns
+  document.addEventListener("click", (e) => {
+    const insideNav = e.target.closest(".av-nav");
+    if (!insideNav) closeAllDropdowns();
+  });
+
+  // Escape closes everything
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+
+    if (drawerIsOpen()) {
+      closeDrawer();
+      btnToggle?.focus?.();
+      return;
+    }
+
+    closeAllDropdowns();
+  });
+
+  // On resize: close drawer if switching to desktop
+  window.addEventListener("resize", () => {
+    if (!isMobile() && drawerIsOpen()) closeDrawer();
+  }, { passive: true });
+
+  // Footer year
+  if (year) year.textContent = String(new Date().getFullYear());
+
+  // ---------------------------
+  // Optional: Auth state (Autovisa endpoints)
+  // - /getNutzerInfo  -> { eingeloggt: boolean, rolle?: string }
+  // - /logout (POST)
+  // ---------------------------
+  const authSlot = $("#authSlot");
+  const authSlotMobile = $("#authSlotMobile");
+
+  const setAuthUI = (loggedIn) => {
+    const htmlLoggedOut = `
+      <a class="ghost-btn" href="login.html">
+        <i class="fa-regular fa-user" aria-hidden="true"></i>
+        <span>Login</span>
+      </a>
+    `;
+
+    const htmlLoggedIn = `
+      <button class="ghost-btn" type="button" id="logoutBtn">
+        <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+        <span>Logout</span>
+      </button>
+    `;
+
+    if (authSlot) authSlot.innerHTML = loggedIn ? htmlLoggedIn : htmlLoggedOut;
+    if (authSlotMobile) {
+      authSlotMobile.innerHTML = loggedIn
+        ? `<button class="ghost-btn ghost-block" type="button" id="logoutBtnMobile">
+             <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+             <span>Logout</span>
+           </button>`
+        : `<a class="ghost-btn ghost-block" href="login.html">
+             <i class="fa-regular fa-user" aria-hidden="true"></i>
+             <span>Login</span>
+           </a>`;
+    }
+
+    // bind logout
+    const bindLogout = (btnId) => {
+      const b = document.getElementById(btnId);
+      if (!b) return;
+
+      b.addEventListener("click", async () => {
+        try {
+          await fetch("/logout", { method: "POST", credentials: "include" });
+        } catch {}
+        // minimal clean: reload, damit UI konsistent ist
+        location.reload();
+      });
+    };
+
+    bindLogout("logoutBtn");
+    bindLogout("logoutBtnMobile");
+  };
+
+  const checkAuth = async () => {
+    try {
+      const res = await fetch("/getNutzerInfo", { credentials: "include" });
+      if (!res.ok) throw new Error("auth");
+      const data = await res.json();
+      return !!data?.eingeloggt;
+    } catch {
+      return null; // endpoint evtl. nicht vorhanden -> UI bleibt Login
+    }
+  };
+
+  // Guarded links: wenn nicht eingeloggt -> login + redirectAfterLogin
+  const getRedirectTarget = (targetUrl) => {
+    // wir speichern exakt das Ziel
+    return String(targetUrl || "index.html");
+  };
+
+  const authGuardLinks = $$("[data-auth-guard]");
+  const guardToLogin = async (targetUrl) => {
+    localStorage.setItem("redirectAfterLogin", getRedirectTarget(targetUrl));
+    window.location.href = "login.html";
+  };
+
+  const wireAuthGuards = async () => {
+    const status = await checkAuth();
+    if (status === null) return; // keine Auth-API: nicht blocken
+
+    setAuthUI(status);
+
+    authGuardLinks.forEach(a => {
+      a.addEventListener("click", async (e) => {
+        const targetUrl = a.getAttribute("data-auth-guard");
+        if (!targetUrl) return;
+
+        // wenn eingeloggt -> normal folgen lassen
+        const current = await checkAuth();
+        if (current) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+        await guardToLogin(targetUrl);
       });
     });
-  });
+  };
 
-  // Close on outside click
-  document.addEventListener("click", (e) => {
-    if (!nav.contains(e.target)) {
-      closeNav();
-    }
-  });
-
-  // Close on ESC
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeNav();
-  });
-
-  // Auth UI (minimal): cookie "session" vorhanden?
-  const hasSession = document.cookie.split(";").some(c => c.trim().startsWith("session="));
-  nav.querySelectorAll("[data-auth='in']").forEach(el => el.style.display = hasSession ? "" : "none");
-  nav.querySelectorAll("[data-auth='out']").forEach(el => el.style.display = hasSession ? "none" : "");
-
-  // Logout handler (falls du /logout hast)
-  const logoutBtn = nav.querySelector(".av-dd__logout");
-  if (logoutBtn){
-    logoutBtn.addEventListener("click", async () => {
-      try{
-        // versuche POST, fallback GET
-        const r = await fetch("/logout", { method: "POST", credentials: "include" });
-        if (!r.ok) window.location.href = "/logout";
-        else window.location.href = "index.html";
-      }catch{
-        window.location.href = "/logout";
-      }
-    });
-  }
+  wireAuthGuards();
 })();

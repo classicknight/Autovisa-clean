@@ -1400,7 +1400,10 @@ async function loadHomeListings() {
             <p><i class="fas fa-gas-pump"></i> ${inserat.verkauf_kraftstoff || "—"}</p>
             <p><i class="fas fa-gauge-high"></i> ${inserat.verkauf_leistung ?? "—"} PS</p>
             <p><i class="fas fa-gears"></i> ${inserat.verkauf_getriebe || "—"}</p>
-            <p><i class="fas fa-tint"></i> ${inserat.verkauf_verbrauch_kombiniert || "—"}</p>
+           <p><i class="fas fa-tint"></i> ${
+  formatConsumption(inserat.verkauf_verbrauch_kombiniert, inserat.verkauf_kraftstoff)
+}</p>
+
           </div>
 
           <div class="dealer-info">
@@ -1487,6 +1490,24 @@ async function loadHomeListings() {
   }
 }
 
+function formatConsumption(value, fuelType) {
+  if (value == null) return "—";
+
+  const s = String(value).trim();
+  if (!s) return "—";
+
+  // Wenn bereits eine Einheit drinsteht (z.B. "l/100km", "kWh/100 km", "kg/100km"), nichts anhängen
+  if (/(l|kwh|kg)\s*\/\s*100\s*km/i.test(s)) return s;
+
+  const f = String(fuelType || "").toLowerCase();
+
+  // Einheit je nach Antrieb (optional, aber sinnvoll)
+  let unit = "l/100km";
+  if (/(elektro|electric|bev|strom|ev)/i.test(f)) unit = "kWh/100km";
+  else if (/(wasserstoff|hydrogen|h2|cng|erdgas)/i.test(f)) unit = "kg/100km";
+
+  return `${s} ${unit}`;
+}
 
 /* =========================
    Saved (Herz) – global für Karten (Startseite / später auch Suche)
