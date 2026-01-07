@@ -797,7 +797,30 @@ document.addEventListener("DOMContentLoaded", () => {
     if (val === "date-desc") return "neueste";
     return "";
   }
-
+  function normalizeGear(val) {
+    const g = String(val || "").toLowerCase().trim();
+    if (!g || ["beliebig", "any", "alle", "all", "-"].includes(g)) return "";
+    if (g === "manuell" || g === "manual" || g === "schaltgetriebe" || g === "schalt") return "schalt";
+    if (g.includes("auto")) return "automatik";
+    return g;
+  }
+  
+  function normalizeFuel(val) {
+    let f = String(val || "").toLowerCase().trim();
+    if (!f || ["beliebig", "any", "alle", "all", "-"].includes(f)) return "";
+  
+    // alte Schreibweisen abfangen
+    f = f.replace(/_/g, "-");           // hybrid_benzin -> hybrid-benzin
+    if (f === "elektro") f = "elektrisch";
+    if (f === "gas" || f === "lpg") f = "autogas";
+    if (f === "e85") f = "ethanol";
+  
+    // NICHT mehr auf "hybrid" zusammenfassen!
+    // hybrid-benzin und hybrid-diesel bleiben getrennt.
+  
+    return f;
+  }
+  
   function buildQueryParams() {
     const qs = new URLSearchParams();
 
@@ -881,18 +904,12 @@ if (y) {
     const preisBis = parseInt(preisBisEl?.value || "", 10);
     if (!Number.isNaN(preisBis) && preisBis > 0) qs.set("price_max", String(preisBis));
 
-    // Getriebe/Kraftstoff (Startseite Select)
-    const gear = (gearSel?.value || "").toLowerCase().trim();
-    if (gear && !["beliebig", "any", "alle", "all", "-"].includes(gear)) {
-      const gearMap = { schaltgetriebe: "schalt", schalt: "schalt", automatik: "automatik" };
-      qs.set("getriebe", gearMap[gear] || gear);
-    }
+ // Getriebe/Kraftstoff (Startseite Select)
+const gearNorm = normalizeGear(gearSel?.value);
+if (gearNorm) qs.set("getriebe", gearNorm);
 
-    const fuel = (fuelSel?.value || "").toLowerCase().trim();
-    if (fuel && !["beliebig", "any", "alle", "all", "-"].includes(fuel)) {
-      const f = fuel.startsWith("hybrid") ? "hybrid" : fuel;
-      qs.set("kraftstoff", f);
-    }
+const fuelNorm = normalizeFuel(fuelSel?.value);
+if (fuelNorm) qs.set("kraftstoff", fuelNorm);
 
     // Kriterien-Seite: Getriebe Checkboxen (wenn genau eine gewählt)
     const getriebeCbs = document.querySelectorAll(
@@ -905,16 +922,19 @@ if (y) {
         qs.set("getriebe", map[checked[0]] || checked[0]);
       }
     }
+// Kriterien-Seite: Kraftstoff Checkboxen (Mehrfachauswahl als CSV)
+const fuelCbs = document.querySelectorAll(".fuel-type-grid input[type='checkbox']");
+if (fuelCbs.length) {
+  const checkedFuel = [...fuelCbs]
+    .filter((cb) => cb.checked)
+    .map((cb) => normalizeFuel(cb.value))
+    .filter(Boolean);
 
-    // Kriterien-Seite: Kraftstoff Checkboxen (wenn genau eine gewählt)
-    const fuelCbs = document.querySelectorAll(".fuel-type-grid input[type='checkbox']");
-    if (fuelCbs.length) {
-      const checkedFuel = [...fuelCbs].filter((cb) => cb.checked).map((cb) => cb.value.toLowerCase());
-      if (checkedFuel.length === 1) {
-        const only = checkedFuel[0].startsWith("hybrid") ? "hybrid" : checkedFuel[0];
-        qs.set("kraftstoff", only);
-      }
-    }
+  if (checkedFuel.length) {
+    qs.set("kraftstoff", checkedFuel.join(","));
+  }
+}
+
 
     // Ort
     const loc = (locInput?.value || "").trim();

@@ -452,13 +452,11 @@
         />
       </div>
     </div>
-    
     <div class="form-group">
       <label for="gear">Getriebe:</label>
-      <!-- name hinzufügen, sonst wird es nicht gesendet -->
       <select id="gear" name="gear">
         <option value="">Beliebig</option>
-        <option value="manuell">Manuell</option>
+        <option value="schaltgetriebe">Schaltgetriebe</option>
         <option value="automatik">Automatik</option>
       </select>
     </div>
@@ -467,16 +465,18 @@
       <label for="fuel">Kraftstoff:</label>
       <select id="fuel" name="fuel">
         <option value="">Beliebig</option>
-        <option value="benzin">Benzin (Ottomotor)</option>
+        <option value="benzin">Benzin</option>
         <option value="diesel">Diesel</option>
-        <option value="elektro">Elektro (rein elektrisch)</option>
-        <option value="hybrid_benzin">Hybrid (Benzin/Elektro)</option>
-        <option value="hybrid_diesel">Hybrid (Diesel/Elektro)</option>
+        <option value="elektrisch">Elektro (rein elektrisch)</option>
+        <option value="hybrid-benzin">Hybrid (Benzin/Elektro)</option>
+        <option value="hybrid-diesel">Hybrid (Diesel/Elektro)</option>
         <option value="wasserstoff">Wasserstoff (Brennstoffzelle)</option>
-        <option value="gas">Autogas (LPG)</option>
+        <option value="autogas">Autogas (LPG)</option>
+        <option value="ethanol">Ethanol (E85)</option>
         <option value="andere">Andere</option>
       </select>
     </div>
+    
     <div class="form-group icon-left location-group">
       <label for="location">PLZ / Ort:</label>
     
