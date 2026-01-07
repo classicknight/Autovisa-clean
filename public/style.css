@@ -1666,6 +1666,71 @@ img, video, canvas {
 .clean-phone[aria-disabled="true"]{ opacity:.35; pointer-events:none; cursor:not-allowed; }
 .car-card-media .mobile-only{ position:absolute; top:10px; right:10px; z-index:7; display:flex; gap:10px; }
 
+
+
+
+
+/* =========================
+   Save Button – stärkerer Saved-State
+   ========================= */
+
+   .save-btn{
+    position: relative;
+    isolation: isolate;           /* Glow sauber */
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Hover ist bei dir schon türkis – ok */
+  .save-btn:hover{
+    transform: translateY(-1px);
+  }
+  
+  /* Saved: klar sichtbar (Ring + Glow + filled heart) */
+  .save-btn.is-saved{
+    background: rgba(0,184,169,.14);
+    border-color: rgba(0,184,169,.55);
+    box-shadow:
+      0 10px 26px rgba(0,184,169,.22),
+      0 2px 8px rgba(0,0,0,.10),
+      0 0 0 4px rgba(0,184,169,.10); /* sichtbarer Außenring */
+  }
+  
+  /* Icon im Saved-State */
+  .save-btn.is-saved i{
+    color: #00b8a9;
+    transform: scale(1.08);
+  }
+  
+  /* Extra: kleines „Badge“-Highlight oben rechts */
+  .save-btn.is-saved::after{
+    content:"";
+    position:absolute;
+    top:-2px; right:-2px;
+    width:10px; height:10px;
+    border-radius:999px;
+    background:#00b8a9;
+    box-shadow: 0 0 0 2px #fff;   /* wirkt wie Statuspunkt */
+    z-index: 2;
+  }
+  
+  /* Subtiles Pulsieren nur kurz (wenn Klasse gesetzt wird) */
+  .save-btn.is-saved.pulse{
+    animation: savedPulse .42s ease-out;
+  }
+  @keyframes savedPulse{
+    0%   { transform: scale(1); }
+    45%  { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+  
+  /* Besseres Focus für Tastatur */
+  .save-btn:focus-visible{
+    outline: none;
+    box-shadow:
+      0 0 0 3px rgba(0,184,169,.24),
+      0 10px 26px rgba(0,0,0,.10);
+  }
+  
 /* Desktop-only Buttons (optional) */
 .desktop-only{ display:none; }
 .dealer-info-row{

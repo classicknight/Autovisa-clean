@@ -1496,20 +1496,44 @@ async function loadHomeListings() {
 function setSaveBtnUI(btn, saved) {
   if (!btn) return;
 
-  btn.classList.toggle("is-saved", !!saved);
-  btn.setAttribute("aria-pressed", saved ? "true" : "false");
-  btn.title = saved ? "Gespeichert" : "Auto speichern";
+  const isSaved = !!saved;
 
+  // Button state
+  btn.classList.toggle("is-saved", isSaved);
+  btn.setAttribute("aria-pressed", isSaved ? "true" : "false");
+  btn.title = isSaved ? "Gespeichert" : "Auto speichern";
+
+  // Icon state (robust für FA5 + FA6)
   const icon = btn.querySelector("i");
   if (icon) {
-    // FontAwesome v6 beta + ältere Klassen absichern
-    icon.classList.toggle("fas", !!saved);
-    icon.classList.toggle("far", !saved);
-    icon.classList.toggle("fa-solid", !!saved);
-    icon.classList.toggle("fa-regular", !saved);
+    // Grundklasse sicherstellen
     icon.classList.add("fa-heart");
+
+    // Reset: erst alle Varianten raus, dann gezielt setzen
+    icon.classList.remove("fa-solid", "fa-regular", "fas", "far");
+
+    if (isSaved) {
+      // Solid / filled
+      icon.classList.add("fa-solid"); // FA6
+      icon.classList.add("fas");      // FA5 fallback
+    } else {
+      // Regular / outline
+      icon.classList.add("fa-regular"); // FA6
+      icon.classList.add("far");        // FA5 fallback
+    }
+  }
+
+  // Pulse nur beim Aktivieren (gespeichert)
+  if (isSaved) {
+    btn.classList.remove("pulse");
+    void btn.offsetWidth; // reflow -> Animation zuverlässig
+    btn.classList.add("pulse");
+    window.setTimeout(() => btn.classList.remove("pulse"), 500);
+  } else {
+    btn.classList.remove("pulse");
   }
 }
+
 
 function getRedirectTarget() {
   const path = window.location.pathname || "";
