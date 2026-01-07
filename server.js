@@ -13,6 +13,8 @@ const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
 const cloudinary = require("cloudinary").v2;
 const crypto = require("crypto");
+const { parse } = require("csv-parse/sync"); // ✅ NEU: CSV Parser (Preview/Import)
+
 
 /* =========================
    Session (HMAC)
@@ -225,7 +227,11 @@ client.connect()
       { userId: 1, fahrzeugId: 1 },
       { unique: true }
     );
-
+    await db.collection("inserate").createIndex(
+      { sellerId: 1, stockNumber: 1 },
+      { unique: true }
+    );
+    
     await db.collection("geosuggest").createIndex({ key: 1 }, { unique: true });
     await db.collection("geosuggest").createIndex(
       { updatedAt: 1 },
@@ -266,6 +272,18 @@ cloudinary.config({
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(cookieParser());
+
+/* =========================
+   Auth Helper: req.user aus Session-Cookie setzen
+   (damit API-Routen "req.user" nutzen können)
+========================= */
+app.use((req, res, next) => {
+  if (req.user) return next(); // falls du es an anderer Stelle bereits setzt
+  const token = req.cookies?.session;
+  const payload = decodeSession(token);
+  if (payload) req.user = payload; // { id, role, email }
+  next();
+});
 
 /* =========================
    Statische Dateien
@@ -321,6 +339,256 @@ async function uploadFileToCloudinary(filePath, { folder, resource_type }) {
 }
 
 
+/* =========================
+   Händler CSV Import (Preview + Commit)
+   - upload: memory (kein TMP)
+   - upsert: (sellerId, stockNumber) -> keine Duplikate
+========================= */
+
+// Multer: CSV in Memory
+const uploadCsv = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 } // 8MB
+});
+
+// Guard: DB ready
+function requireDb(req, res, next) {
+  if (!db) return res.status(503).send("DB noch nicht bereit. Bitte erneut versuchen.");
+  next();
+}
+
+// Nur Händler/Admin
+function requireDealer(req, res, next) {
+  if (!req.user) return res.status(401).send("Nicht eingeloggt");
+  const role = String(req.user.role || "").toLowerCase();
+  if (role !== "haendler" && role !== "admin") {
+    return res.status(403).send("Nur Händlerzugriff");
+  }
+  next();
+}
+
+function guessDelimiter(text) {
+  const firstLine = (text.split(/\r?\n/)[0] || "");
+  const semis = (firstLine.match(/;/g) || []).length;
+  const commas = (firstLine.match(/,/g) || []).length;
+  return semis >= commas ? ";" : ",";
+}
+
+function toNumber(v) {
+  if (v == null) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+
+  // "12.990" -> 12990, "12990" -> 12990, "12,5" -> 12.5
+  const norm = s.replace(/\s/g, "").replace(/\./g, "").replace(",", ".");
+  const n = Number(norm);
+  return Number.isFinite(n) ? n : null;
+}
+
+function toInt(v) {
+  const n = toNumber(v);
+  return n == null ? null : Math.round(n);
+}
+
+// erwartet YYYY-MM oder MM/YYYY oder MM.YYYY
+function normalizeFirstRegistration(v) {
+  if (!v) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+
+  if (/^\d{4}-\d{2}$/.test(s)) return s;
+
+  const m = s.match(/^(\d{1,2})[\/\.](\d{4})$/); // 03/2018 oder 03.2018
+  if (m) {
+    const mm = String(m[1]).padStart(2, "0");
+    const yyyy = m[2];
+    return `${yyyy}-${mm}`;
+  }
+  return null;
+}
+
+function splitUrls(v) {
+  if (!v) return [];
+  return String(v)
+    .split(/[|,]/g)
+    .map(x => x.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Unterstützte Spalten:
+ * Pflicht: stock_number, title, price_eur, mileage_km, first_registration
+ * Optional: image_urls (URL1|URL2|...), video_url
+ */
+function mapRow(raw) {
+  const stock_number = (raw.stock_number || raw.interne_nummer || "").toString().trim();
+  const title = (raw.title || raw.titel || "").toString().trim();
+
+  const price_eur = toNumber(raw.price_eur ?? raw.price ?? raw.preis);
+  const mileage_km = toInt(raw.mileage_km ?? raw.kilometer ?? raw.km);
+  const first_registration = normalizeFirstRegistration(raw.first_registration ?? raw.ez ?? raw.erstzulassung);
+
+  const image_urls = splitUrls(raw.image_urls ?? raw.images ?? raw.bilder);
+  const video_url = (raw.video_url ?? raw.video ?? "").toString().trim() || null;
+
+  return {
+    stock_number,
+    title,
+    price_eur,
+    mileage_km,
+    first_registration,
+    image_urls,
+    video_url
+  };
+}
+
+function validateRow(r) {
+  const errors = [];
+  if (!r.stock_number) errors.push("stock_number fehlt");
+  if (!r.title) errors.push("title fehlt");
+  if (r.price_eur == null) errors.push("price_eur fehlt/ungültig");
+  if (r.mileage_km == null) errors.push("mileage_km fehlt/ungültig");
+  if (!r.first_registration) errors.push("first_registration fehlt/ungültig (YYYY-MM oder MM/YYYY)");
+  return errors;
+}
+
+/* ---------- PREVIEW ---------- */
+app.post("/api/haendler/import/preview", requireDb, requireDealer, uploadCsv.single("file"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).send("Keine Datei erhalten");
+
+    const text = req.file.buffer.toString("utf8");
+    const delimiter = guessDelimiter(text);
+
+    const records = parse(text, {
+      columns: true,
+      skip_empty_lines: true,
+      delimiter,
+      relax_quotes: true,
+      relax_column_count: true,
+      trim: true
+    });
+
+    const mapped = records.map(mapRow);
+
+    // Fehler sammeln / valid rows
+    const errors = [];
+    const valid = [];
+    mapped.forEach((r, idx) => {
+      const rowErrors = validateRow(r);
+      if (rowErrors.length) {
+        errors.push({ row: idx + 2, message: rowErrors.join(", ") }); // +2 wegen Header + 1-index
+      } else {
+        valid.push(r);
+      }
+    });
+
+    const sellerId = String(req.user.id);
+    const ids = valid.map(v => v.stock_number);
+
+    // existierende Inserate -> neu/update
+    const existing = await db.collection("inserate")
+      .find({ sellerId, stockNumber: { $in: ids } }, { projection: { stockNumber: 1 } })
+      .toArray();
+
+    const existingSet = new Set(existing.map(x => x.stockNumber));
+
+    const rows = valid.map(v => ({
+      ...v,
+      image_count: v.image_urls.length,
+      status: existingSet.has(v.stock_number) ? "update" : "new"
+    }));
+
+    const summary = {
+      delimiter,
+      total: records.length,
+      newCount: rows.filter(r => r.status === "new").length,
+      updateCount: rows.filter(r => r.status === "update").length,
+      errorCount: errors.length
+    };
+
+    res.json({ summary, errors, rows });
+  } catch (e) {
+    res.status(500).send(e.message || "Preview error");
+  }
+});
+
+/* ---------- COMMIT ---------- */
+app.post("/api/haendler/import/commit", requireDb, requireDealer, uploadCsv.single("file"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).send("Keine Datei erhalten");
+
+    const text = req.file.buffer.toString("utf8");
+    const delimiter = guessDelimiter(text);
+
+    const records = parse(text, {
+      columns: true,
+      skip_empty_lines: true,
+      delimiter,
+      relax_quotes: true,
+      relax_column_count: true,
+      trim: true
+    });
+
+    const mapped = records.map(mapRow);
+
+    const sellerId = String(req.user.id);
+    const ops = [];
+    let failed = 0;
+
+    for (let i = 0; i < mapped.length; i++) {
+      const r = mapped[i];
+      const errs = validateRow(r);
+      if (errs.length) {
+        failed++;
+        continue;
+      }
+
+      // ✅ Für den Start: status="offline", damit nichts ungeprüft öffentlich ist.
+      // Du kannst später "online" setzen oder eine Review-UI bauen.
+      ops.push({
+        updateOne: {
+          filter: { sellerId, stockNumber: r.stock_number },
+          update: {
+            $set: {
+              source: "csv",
+              status: "offline",
+
+              sellerId,
+              stockNumber: r.stock_number,
+
+              // bewusst "neutral" gespeichert (du kannst später in dein finales Inserat-Schema mappen)
+              title: r.title,
+              price_eur: r.price_eur,
+              mileage_km: r.mileage_km,
+              first_registration: r.first_registration,
+
+              image_urls: r.image_urls,
+              video_url: r.video_url,
+
+              updatedAt: new Date()
+            },
+            $setOnInsert: { createdAt: new Date() }
+          },
+          upsert: true
+        }
+      });
+    }
+
+    let created = 0;
+    let updated = 0;
+
+    if (ops.length) {
+      const result = await db.collection("inserate").bulkWrite(ops, { ordered: false });
+      created = result.upsertedCount || 0;
+      updated = result.modifiedCount || 0;
+    }
+
+    res.json({ created, updated, failed });
+  } catch (e) {
+    res.status(500).send(e.message || "Commit error");
+  }
+});
 
 /* =========================
    Draft Save: Fahrzeugdaten
