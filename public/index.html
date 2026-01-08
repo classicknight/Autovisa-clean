@@ -84,10 +84,16 @@
   <div class="navbar-right-mobile">
     <!-- Mobile Icons -->
     <div class="mobile-shortcuts">
-      <a href="übersicht.html#saved-cars" id="mobile-saved" aria-label="Gespeicherte Autos">
+      <!-- NEU: Übersicht (Icon) -->
+      <a href="übersicht.html" id="mobile-overview" aria-label="Übersicht" title="Übersicht">
+        <i class="fas fa-table-cells" aria-hidden="true"></i>
+      </a>
+
+      <a href="übersicht.html#saved-cars" id="mobile-saved" aria-label="Gespeicherte Autos" title="Gespeicherte Autos">
         <i class="fas fa-heart" aria-hidden="true"></i>
       </a>
-      <a href="übersicht.html#messages-list" id="mobile-messages" aria-label="Nachrichten">
+
+      <a href="übersicht.html#messages-list" id="mobile-messages" aria-label="Nachrichten" title="Nachrichten">
         <i class="fas fa-comments" aria-hidden="true"></i>
       </a>
     </div>
@@ -105,7 +111,6 @@
 
     <!-- Navigationslinks -->
     <ul class="nav-links" id="nav-links">
-
       <!-- Suchen -->
       <li>
         <a href="index.html#search-section" class="nav-link">
@@ -114,7 +119,14 @@
         </a>
       </li>
 
-      <!-- Desktop Icons (optional sichtbar, mobil kannst du sie per CSS ausblenden) -->
+      <!-- Desktop Icons -->
+      <!-- NEU: Übersicht (Icon) -->
+      <li class="nav-icon-only">
+        <a href="übersicht.html" id="overview-link" aria-label="Übersicht" title="Übersicht">
+          <i class="fa-solid fa-house" aria-hidden="true"></i>
+        </a>
+      </li>
+
       <li class="nav-icon-only">
         <a href="übersicht.html#saved-cars" id="saved-cars-link" aria-label="Gespeicherte Autos" title="Gespeicherte Autos">
           <i class="fas fa-heart" aria-hidden="true"></i>
