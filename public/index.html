@@ -80,7 +80,6 @@
     </span>
   </a>
 
-  <!-- Rechte Seite: Icons (mobile) + Hamburger + Links -->
   <div class="navbar-right-mobile">
     <!-- Mobile Icons -->
     <div class="mobile-shortcuts">
@@ -103,7 +102,7 @@
       <i class="fas fa-bars" aria-hidden="true"></i>
     </button>
 
-    <!-- Navigationslinks -->
+    <!-- Links -->
     <ul class="nav-links" id="nav-links">
 
       <!-- Suchen -->
@@ -114,17 +113,64 @@
         </a>
       </li>
 
-      <!-- Desktop Icons (optional sichtbar, mobil kannst du sie per CSS ausblenden) -->
+      <!-- Übersicht -->
+      <li>
+        <a href="übersicht.html" class="nav-link">
+          <i class="fas fa-table-cells" aria-hidden="true"></i>
+          <span>Übersicht</span>
+        </a>
+      </li>
+
+      <!-- Saved / Messages als Icons (Desktop optional) -->
       <li class="nav-icon-only">
-        <a href="übersicht.html#saved-cars" id="saved-cars-link" aria-label="Gespeicherte Autos" title="Gespeicherte Autos">
+        <a
+          href="übersicht.html#saved-cars"
+          id="saved-cars-link"
+          aria-label="Gespeicherte Autos"
+          title="Gespeicherte Autos"
+        >
           <i class="fas fa-heart" aria-hidden="true"></i>
         </a>
       </li>
 
       <li class="nav-icon-only">
-        <a href="übersicht.html#messages-list" id="messages-link" aria-label="Nachrichten" title="Nachrichten">
+        <a
+          href="übersicht.html#messages-list"
+          id="messages-link"
+          aria-label="Nachrichten"
+          title="Nachrichten"
+        >
           <i class="fas fa-comments" aria-hidden="true"></i>
         </a>
+      </li>
+
+      <!-- Mehr (Support/Infos/Legal) -->
+      <li class="dropdown">
+        <a
+          href="#"
+          id="dropdown-more-toggle"
+          aria-haspopup="true"
+          aria-expanded="false"
+          aria-controls="dropdown-more"
+          class="nav-link"
+        >
+          <i class="fas fa-ellipsis" aria-hidden="true"></i>
+          <span>Mehr</span>
+          <span class="nav-arrow" aria-hidden="true"></span>
+        </a>
+
+        <ul class="dropdown-menu" id="dropdown-more">
+          <li><a href="hilfe.html"><i class="fas fa-circle-question"></i> Hilfe &amp; FAQ</a></li>
+          <li><a href="kontakt.html"><i class="fas fa-envelope"></i> Kontaktformular</a></li>
+          <li><a href="preise.html"><i class="fas fa-euro-sign"></i> Tarife &amp; Preise</a></li>
+          <li><a href="ueber-uns.html"><i class="fas fa-users"></i> Über uns</a></li>
+
+          <li class="menu-divider" aria-hidden="true"></li>
+
+          <li><a href="mailto:support@autovisa.de"><i class="fas fa-life-ring"></i> support@autovisa.de</a></li>
+          <li><a href="impressum.html"><i class="fas fa-scale-balanced"></i> Impressum</a></li>
+          <li><a href="datenschutz.html"><i class="fas fa-shield-halved"></i> Datenschutz</a></li>
+        </ul>
       </li>
 
       <!-- Account (Login/Logout wird von deinem JS ersetzt) -->
@@ -135,18 +181,17 @@
         </a>
       </li>
 
-      <!-- Call to Action -->
+      <!-- CTA -->
       <li class="active">
         <a href="verkaufen.html" class="highlight-link">
           <i class="fas fa-plus-circle" aria-hidden="true"></i>
           <span>Auto verkaufen</span>
         </a>
       </li>
+
     </ul>
   </div>
 </nav>
-
-
 
 
 <!-- Hauptbereich -->
