@@ -2269,7 +2269,7 @@ img, video, canvas {
 .logo-container {
   display: flex;
   align-items: center;
-  gap: 14px;
+
   text-decoration: none;
   color: inherit;
 }
@@ -2284,10 +2284,7 @@ img, video, canvas {
 
 
 
-/* Mobile: kein Abstand zwischen den Elementen */
-@media (max-width: 900px){
-  .logo-container { gap: 0; }
-}
+
 
 .logo-container:focus-visible {
   outline: 2px solid rgba(0, 184, 169, .65);
@@ -2318,24 +2315,11 @@ img, video, canvas {
 
 @media (max-width: 900px) {
 
-  /* Im aufgeklappten Menü sollen nav-icon-only wie normale Links aussehen */
-  .nav-links .nav-icon-only a{
-    width: 100%;
-    height: auto;
-    justify-content: flex-start;
-    padding: 10px 12px;
-    border-radius: 10px;
-    background: rgba(255,255,255,.04);
-    gap: 10px;
-  }
+
 
   .nav-links .nav-icon-only a span{
     display: inline;
   }
 
-  /* optional: Icon gleich breit, sauber ausgerichtet */
-  .nav-links .nav-icon-only a i{
-    width: 20px;
-    text-align: center;
-  }
+
 }

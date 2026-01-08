@@ -692,6 +692,66 @@ img, video, canvas {
   
   
   
+
+
+.logo-container {
+  display: flex;
+  align-items: center;
+
+  text-decoration: none;
+  color: inherit;
+}
+
+.logo-container:focus-visible {
+  outline: 2px solid rgba(0,184,169,.65);
+  outline-offset: 6px;
+  border-radius: 14px;
+}
+
+
+
+
+
+
+
+.logo-container:focus-visible {
+  outline: 2px solid rgba(0, 184, 169, .65);
+  outline-offset: 6px;
+  border-radius: 14px;
+}
+
+
+
+
+
+/* Desktop: nav-icon-only = nur Icon sichtbar */
+.nav-icon-only a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+}
+
+.nav-icon-only a span {
+  display: none;
+}
+
+
+
+
+@media (max-width: 900px) {
+
+
+
+  .nav-links .nav-icon-only a span{
+    display: inline;
+  }
+
+
+}
+
   
   
   
