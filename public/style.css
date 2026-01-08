@@ -2295,3 +2295,47 @@ img, video, canvas {
   border-radius: 14px;
 }
 
+
+
+
+
+/* Desktop: nav-icon-only = nur Icon sichtbar */
+.nav-icon-only a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+}
+
+.nav-icon-only a span {
+  display: none;
+}
+
+
+
+
+@media (max-width: 900px) {
+
+  /* Im aufgeklappten Menü sollen nav-icon-only wie normale Links aussehen */
+  .nav-links .nav-icon-only a{
+    width: 100%;
+    height: auto;
+    justify-content: flex-start;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(255,255,255,.04);
+    gap: 10px;
+  }
+
+  .nav-links .nav-icon-only a span{
+    display: inline;
+  }
+
+  /* optional: Icon gleich breit, sauber ausgerichtet */
+  .nav-links .nav-icon-only a i{
+    width: 20px;
+    text-align: center;
+  }
+}

@@ -84,10 +84,7 @@
   <div class="navbar-right-mobile">
     <!-- Mobile Icons -->
     <div class="mobile-shortcuts">
-      <!-- NEU: Übersicht (Icon) -->
-      <a href="übersicht.html" id="mobile-overview" aria-label="Übersicht" title="Übersicht">
-        <i class="fas fa-table-cells" aria-hidden="true"></i>
-      </a>
+   
 
       <a href="übersicht.html#saved-cars" id="mobile-saved" aria-label="Gespeicherte Autos" title="Gespeicherte Autos">
         <i class="fas fa-heart" aria-hidden="true"></i>
@@ -120,24 +117,28 @@
       </li>
 
       <!-- Desktop Icons -->
-      <!-- NEU: Übersicht (Icon) -->
-      <li class="nav-icon-only">
-        <a href="übersicht.html" id="overview-link" aria-label="Übersicht" title="Übersicht">
-          <i class="fa-solid fa-house" aria-hidden="true"></i>
-        </a>
-      </li>
+   <!-- NEU: Übersicht (Icon + Text im Burger, nur Icon auf Desktop) -->
+<li class="nav-icon-only">
+  <a href="übersicht.html" id="overview-link" class="nav-link" title="Übersicht">
+    <i class="fa-solid fa-house" aria-hidden="true"></i>
+    <span>Übersicht</span>
+  </a>
+</li>
 
-      <li class="nav-icon-only">
-        <a href="übersicht.html#saved-cars" id="saved-cars-link" aria-label="Gespeicherte Autos" title="Gespeicherte Autos">
-          <i class="fas fa-heart" aria-hidden="true"></i>
-        </a>
-      </li>
+<li class="nav-icon-only">
+  <a href="übersicht.html#saved-cars" id="saved-cars-link" class="nav-link" title="Gespeicherte Autos">
+    <i class="fas fa-heart" aria-hidden="true"></i>
+    <span>Gespeicherte Autos</span>
+  </a>
+</li>
 
-      <li class="nav-icon-only">
-        <a href="übersicht.html#messages-list" id="messages-link" aria-label="Nachrichten" title="Nachrichten">
-          <i class="fas fa-comments" aria-hidden="true"></i>
-        </a>
-      </li>
+<li class="nav-icon-only">
+  <a href="übersicht.html#messages-list" id="messages-link" class="nav-link" title="Nachrichten">
+    <i class="fas fa-comments" aria-hidden="true"></i>
+    <span>Nachrichten</span>
+  </a>
+</li>
+
 
       <!-- Account (Login/Logout wird von deinem JS ersetzt) -->
       <li id="auth-link">
