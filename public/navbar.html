@@ -3,15 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Autovisa – Navbar Test</title>
+  <title>Autovisa – Navbar</title>
 
-  <meta name="theme-color" content="#0f2027" />
-  <link rel="icon" href="/favicon.ico" />
+  <link rel="stylesheet" href="navbar.css" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
 
   <!-- Font Awesome -->
   <link
@@ -20,218 +22,101 @@
     crossorigin="anonymous"
     referrerpolicy="no-referrer"
   />
-
-  <link rel="stylesheet" href="navbar.css" />
 </head>
 
 <body>
 
-  <a class="skip-link" href="#main">Zum Inhalt springen</a>
+  <!-- Navbar -->
+  <nav class="navbar" role="navigation" aria-label="Hauptnavigation">
+    <!-- Logo (klickbar -> Startseite) -->
+    <a href="index.html" class="logo-container" aria-label="Autovisa Startseite">
+      <img src="AUTOVISA%20LOGO.PNG" alt="Autovisa Logo" class="logo" />
+      <span class="logo-divider" aria-hidden="true"></span>
+      <span class="logo-tagline" aria-hidden="true">
+        <span class="tagline-line1">Autos kaufen</span>
+        <span class="tagline-line2">&amp; verkaufen</span>
+      </span>
+    </a>
 
-  <!-- Overlay (Mobile Drawer) -->
-  <div class="nav-overlay" data-nav-overlay hidden></div>
-
-  <header class="site-header" role="banner">
-    <nav class="av-nav" aria-label="Hauptnavigation">
-      <div class="nav-inner">
-
-        <!-- Brand -->
-        <a class="brand" href="index.html" aria-label="Autovisa – Startseite">
-          <img src="AUTOVISA%20LOGO.PNG" alt="Autovisa" class="brand-logo" />
-          <span class="brand-divider" aria-hidden="true"></span>
-          <span class="brand-text">
-            <span class="brand-name">Autovisa</span>
-            <span class="brand-tag">Autos kaufen &amp; verkaufen</span>
-          </span>
+    <!-- Rechte Seite -->
+    <div class="navbar-right-mobile">
+      <!-- Mobile Icons -->
+      <div class="mobile-shortcuts" aria-label="Schnellzugriff">
+        <a href="übersicht.html#saved-cars" id="mobile-saved" class="icon-btn" aria-label="Gespeicherte Autos" title="Gespeicherte Autos">
+          <i class="fa-solid fa-heart" aria-hidden="true"></i>
         </a>
+        <a href="übersicht.html#messages-list" id="mobile-messages" class="icon-btn" aria-label="Nachrichten" title="Nachrichten">
+          <i class="fa-solid fa-comments" aria-hidden="true"></i>
+        </a>
+        <a href="übersicht.html" id="mobile-overview" class="icon-btn" aria-label="Übersicht" title="Übersicht">
+          <i class="fa-solid fa-table-cells" aria-hidden="true"></i>
+        </a>
+      </div>
 
-        <!-- Right Controls (Desktop + Mobile) -->
-        <div class="nav-controls">
+      <button
+        class="hamburger"
+        id="hamburger"
+        aria-label="Menü öffnen"
+        aria-expanded="false"
+        aria-controls="nav-links"
+        type="button"
+      >
+        <span class="hamburger-lines" aria-hidden="true"></span>
+      </button>
 
-          <!-- Desktop quick actions -->
-          <div class="quick-actions" aria-label="Schnellzugriff">
-            <a class="icon-btn" href="übersicht.html#saved-cars" data-auth-guard="übersicht.html#saved-cars" aria-label="Gespeicherte Autos">
-              <i class="fa-regular fa-heart" aria-hidden="true"></i>
-            </a>
-            <a class="icon-btn" href="übersicht.html#messages-list" data-auth-guard="übersicht.html#messages-list" aria-label="Chats">
-              <i class="fa-regular fa-comments" aria-hidden="true"></i>
-            </a>
-          </div>
+      <!-- Links -->
+      <ul class="nav-links" id="nav-links">
+        <li>
+          <a href="index.html#search-section" class="nav-link">
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <span>Suchen</span>
+          </a>
+        </li>
 
-          <!-- CTA -->
-          <a class="cta" href="verkaufen.html">
+        <!-- Übersicht nur als Icon -->
+        <li class="nav-icon-only desktop-only">
+          <a href="übersicht.html" id="overview-link" class="icon-btn" aria-label="Übersicht" title="Übersicht">
+            <i class="fa-solid fa-table-cells" aria-hidden="true"></i>
+          </a>
+        </li>
+
+        <!-- Desktop Icons -->
+        <li class="nav-icon-only desktop-only">
+          <a href="übersicht.html#saved-cars" id="saved-cars-link" class="icon-btn" aria-label="Gespeicherte Autos" title="Gespeicherte Autos">
+            <i class="fa-solid fa-heart" aria-hidden="true"></i>
+          </a>
+        </li>
+
+        <li class="nav-icon-only desktop-only">
+          <a href="übersicht.html#messages-list" id="messages-link" class="icon-btn" aria-label="Nachrichten" title="Nachrichten">
+            <i class="fa-solid fa-comments" aria-hidden="true"></i>
+          </a>
+        </li>
+
+        <!-- Account (Login/Logout wird per JS gerendert) -->
+        <li id="auth-link">
+          <a href="login.html" class="nav-link">
+            <i class="fa-solid fa-user" aria-hidden="true"></i>
+            <span>Login</span>
+          </a>
+        </li>
+
+        <!-- CTA -->
+        <li class="cta">
+          <a href="verkaufen.html" class="highlight-link">
             <i class="fa-solid fa-plus" aria-hidden="true"></i>
             <span>Auto verkaufen</span>
           </a>
+        </li>
+      </ul>
+    </div>
+  </nav>
 
-          <!-- Auth slot (Login / Konto) -->
-          <div class="auth-slot" id="authSlot">
-            <a class="ghost-btn" href="login.html">
-              <i class="fa-regular fa-user" aria-hidden="true"></i>
-              <span>Login</span>
-            </a>
-          </div>
-
-          <!-- Hamburger -->
-          <button class="hamburger" type="button"
-                  aria-label="Menü öffnen"
-                  aria-expanded="false"
-                  aria-controls="navPanel"
-                  data-nav-toggle>
-            <span class="hamburger-lines" aria-hidden="true">
-              <span></span><span></span><span></span>
-            </span>
-          </button>
-        </div>
-
-        <!-- Nav Panel (Desktop list + Mobile drawer) -->
-        <div class="nav-panel" id="navPanel" data-nav-panel>
-
-          <div class="panel-top mobile-only">
-            <div class="panel-title">Menü</div>
-
-            <div class="panel-actions">
-              <a class="icon-btn" href="übersicht.html#saved-cars" data-auth-guard="übersicht.html#saved-cars" aria-label="Gespeicherte Autos">
-                <i class="fa-regular fa-heart" aria-hidden="true"></i>
-              </a>
-              <a class="icon-btn" href="übersicht.html#messages-list" data-auth-guard="übersicht.html#messages-list" aria-label="Chats">
-                <i class="fa-regular fa-comments" aria-hidden="true"></i>
-              </a>
-              <button class="icon-btn close-btn" type="button" aria-label="Menü schließen" data-nav-close>
-                <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-              </button>
-            </div>
-          </div>
-
-          <ul class="nav-links" role="list">
-            <!-- Kaufen / Suchen -->
-            <li class="dropdown">
-              <button class="nav-pill" type="button" aria-expanded="false" data-dropdown="dd-search">
-                Suchen
-                <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
-              </button>
-
-              <div class="dropdown-menu" id="dd-search" role="menu" aria-label="Suchen">
-                <a role="menuitem" href="index.html#search-section">
-                  <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-                  <span>Fahrzeug suchen</span>
-                </a>
-                <a role="menuitem" href="suchkriterien.html">
-                  <i class="fa-solid fa-sliders" aria-hidden="true"></i>
-                  <span>Erweiterte Filter</span>
-                </a>
-                <a role="menuitem" href="suche.html">
-                  <i class="fa-solid fa-car" aria-hidden="true"></i>
-                  <span>Suchergebnisse</span>
-                </a>
-              </div>
-            </li>
-
-            <!-- Meine Autos -->
-            <li class="dropdown">
-              <button class="nav-pill" type="button" aria-expanded="false" data-dropdown="dd-meine">
-                Meine Autos
-                <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
-              </button>
-
-              <div class="dropdown-menu" id="dd-meine" role="menu" aria-label="Meine Autos">
-                <a role="menuitem" href="übersicht.html#car-list" data-auth-guard="übersicht.html#car-list">
-                  <i class="fa-solid fa-car-side" aria-hidden="true"></i>
-                  <span>Eigene Inserate</span>
-                </a>
-                <a role="menuitem" href="übersicht.html#sold-cars" data-auth-guard="übersicht.html#sold-cars">
-                  <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
-                  <span>Verkaufte Autos</span>
-                </a>
-                <a role="menuitem" href="übersicht.html#messages-list" data-auth-guard="übersicht.html#messages-list">
-                  <i class="fa-solid fa-comments" aria-hidden="true"></i>
-                  <span>Chats</span>
-                </a>
-                <a role="menuitem" href="übersicht.html#saved-cars" data-auth-guard="übersicht.html#saved-cars">
-                  <i class="fa-solid fa-heart" aria-hidden="true"></i>
-                  <span>Gespeicherte Autos</span>
-                </a>
-              </div>
-            </li>
-
-            <!-- Mehr -->
-            <li class="dropdown align-right">
-              <button class="nav-pill" type="button" aria-expanded="false" data-dropdown="dd-more">
-                Mehr
-                <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
-              </button>
-
-              <div class="dropdown-menu" id="dd-more" role="menu" aria-label="Mehr">
-                <a role="menuitem" href="ueber-uns.html">
-                  <i class="fa-solid fa-users" aria-hidden="true"></i>
-                  <span>Über Autovisa</span>
-                </a>
-                <a role="menuitem" href="hilfe.html">
-                  <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
-                  <span>Hilfe &amp; FAQ</span>
-                </a>
-                <a role="menuitem" href="preise.html">
-                  <i class="fa-solid fa-euro-sign" aria-hidden="true"></i>
-                  <span>Tarife &amp; Preise</span>
-                </a>
-                <div class="dropdown-sep" aria-hidden="true"></div>
-                <a role="menuitem" href="kontakt.html">
-                  <i class="fa-regular fa-envelope" aria-hidden="true"></i>
-                  <span>Kontakt</span>
-                </a>
-                <a role="menuitem" href="mailto:support@autovisa.de">
-                  <i class="fa-solid fa-headset" aria-hidden="true"></i>
-                  <span>support@autovisa.de</span>
-                </a>
-                <a role="menuitem" href="mailto:business@autovisa.de">
-                  <i class="fa-solid fa-briefcase" aria-hidden="true"></i>
-                  <span>business@autovisa.de</span>
-                </a>
-              </div>
-            </li>
-
-            <!-- Mobile CTA duplicate -->
-            <li class="mobile-only">
-              <a class="cta cta-block" href="verkaufen.html">
-                <i class="fa-solid fa-plus" aria-hidden="true"></i>
-                <span>Auto verkaufen</span>
-              </a>
-            </li>
-
-            <!-- Mobile auth slot duplicate -->
-            <li class="mobile-only" id="authSlotMobile">
-              <a class="ghost-btn ghost-block" href="login.html">
-                <i class="fa-regular fa-user" aria-hidden="true"></i>
-                <span>Login</span>
-              </a>
-            </li>
-          </ul>
-
-          <div class="panel-footer mobile-only">
-            <div class="tiny">
-              © <span id="year"></span> Autovisa
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </nav>
-  </header>
-
-  <main id="main" class="page">
-    <section class="demo-hero">
-      <h1>Navbar Testseite</h1>
-      <p>Scrollen, Dropdowns klicken, Mobile Drawer testen. Design ist bewusst „Autovisa dunkel + türkis“.</p>
-    </section>
-
-    <section class="demo-content">
-      <div class="card">
-        <h2>Platzhalter</h2>
-        <p>Hier kommt später dein Content. Die Navbar bleibt sticky und sauber lesbar.</p>
-      </div>
-    </section>
+  <main style="padding: 28px; color: #e9f1f5; font-family: Inter, system-ui;">
+    <h1 style="margin:0 0 10px;">Navbar Testseite</h1>
+    <p style="margin:0; opacity:.75;">Hier kannst du die Navbar standalone testen.</p>
   </main>
 
-  <script src="navbar.js" defer></script>
+  <script src="navbar.js"></script>
 </body>
 </html>
