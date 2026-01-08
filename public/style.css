@@ -2254,3 +2254,28 @@ img, video, canvas {
 .car-card .media-container video{
   pointer-events: auto;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.logo-container:focus-visible {
+  outline: 2px solid rgba(0,184,169,.65);
+  outline-offset: 6px;
+  border-radius: 14px;
+}
