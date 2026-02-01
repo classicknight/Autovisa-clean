@@ -4,6 +4,8 @@ try { require("dotenv").config(); } catch {}
    Imports
 ========================= */
 const express = require("express");
+const cors = require("cors");
+
 const multer = require("multer");
 const cookieParser = require("cookie-parser");
 const path = require("path");
@@ -196,6 +198,40 @@ function monthsLeftFromToday(d) {
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 app.set("trust proxy", 1);
+
+/* =========================
+   CORS (Expo Web / localhost + Production)
+   - nötig für Browser (localhost:8082), nicht für native
+========================= */
+const allowedOrigins = new Set([
+  "http://localhost:8081",
+  "http://localhost:8082",
+  "http://localhost:19006",
+  "http://127.0.0.1:8081",
+  "http://127.0.0.1:8082",
+  "http://127.0.0.1:19006",
+  "https://www.autovisa.de",
+  "https://autovisa.de",
+]);
+
+const corsOptions = {
+  origin: (origin, cb) => {
+    // Native Requests (iOS/Android) haben oft keinen Origin -> erlauben
+    if (!origin) return cb(null, true);
+
+    if (allowedOrigins.has(origin)) return cb(null, true);
+
+    // blocken (Browser würde sonst CORS-Fehler bekommen)
+    return cb(null, false);
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true, // wichtig, falls du später Cookies/Login im Web nutzt
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+
 
 // Helper: saubere URLs aus ENV
 function getUrls() {
