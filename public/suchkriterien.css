@@ -1711,185 +1711,365 @@ img, video, canvas {
 
 
 
+
+
 /* =========================
-   Active Filters Bar (Chips) – Autovisa (TOP / sticky dynamisch)
+   Autovisa – Active Filters Bar (Chips) – White Premium
    ========================= */
 
-/* Optional: sorgt dafür, dass das Sticky auf iOS/Safari sauber arbeitet */
 :root{
-  --av-filterbar-top: 12px;
+  --av-filterbar-top: 12px; /* wird von JS dynamisch gesetzt */
 }
 
+/* Sticky Container */
 .av-filterbar{
   position: sticky;
-  top: var(--av-filterbar-top); /* ✅ dynamisch: unter Navbar ODER ganz oben */
-  margin: 12px auto 16px;
+  top: var(--av-filterbar-top);
+  z-index: 95;
 
-  width: min(1100px, calc(100% - 28px));
-  z-index: 900; /* unter Navbar (die meist höher ist), aber über Content */
+  width: min(1180px, calc(100% - 24px));
+  margin: 10px auto 0;
 
-  display: none;
-  padding: 12px 12px 10px;
-
-  border-radius: 18px;
-  border: 1px solid rgba(0,184,169,0.35);
-  background:
-    linear-gradient(135deg,
-      rgba(15,32,39,0.95),
-      rgba(32,58,67,0.92),
-      rgba(44,83,100,0.90)
-    );
-  box-shadow:
-    0 18px 50px rgba(0,0,0,0.25),
-    0 0 0 1px rgba(255,255,255,0.04) inset;
-
-  /* Sticky + Blur: wichtig, damit Safari korrekt rendert */
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-
-  /* damit Chips nicht gegen Rundecken clippen */
-  overflow: hidden;
+  /* Hidden by default (JS toggles is-visible) */
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  transition: opacity .20s ease, transform .20s ease;
 }
 
-.av-filterbar.is-visible{ display:block; }
+.av-filterbar.is-visible{
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
 
+/* White Card */
+.av-filterbar{
+  border-radius: 16px;
+  background: rgba(255,255,255,.92);
+  border: 1px solid rgba(227,233,239,1);
+
+  box-shadow:
+    0 14px 34px rgba(16,24,40,.10),
+    0 1px 0 rgba(16,24,40,.04);
+
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Head */
 .av-filterbar__head{
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap: 12px;
-  margin-bottom: 10px;
+
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid rgba(227,233,239,1);
 }
 
 .av-filterbar__title{
   display:flex;
   align-items:center;
   gap: 10px;
-  color: rgba(255,255,255,0.92);
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  font-size: 14px;
+
+  color: #1a2a33;
+  font-weight: 700;
+  letter-spacing: .01em;
 }
 
 .av-filterbar__badge{
+  min-width: 28px;
+  height: 22px;
+  padding: 0 8px;
+
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  min-width: 26px;
-  height: 22px;
-  padding: 0 8px;
+
   border-radius: 999px;
 
-  font-size: 12px;
-  font-weight: 700;
+  /* dezenter Autovisa-Akzent */
+  background: rgba(0,184,169,.10);
+  border: 1px solid rgba(0,184,169,.28);
+  color: #0f3c3a;
 
-  color: #bff9f1;
-  background: rgba(0,184,169,0.16);
-  border: 1px solid rgba(0,184,169,0.35);
+  font-size: 12.5px;
+  font-weight: 800;
 }
 
+/* Reset Button (weiß + klare Kontur) */
 .av-filterbar__reset{
   appearance:none;
-  -webkit-appearance: none;
+  border: 1px solid rgba(227,233,239,1);
+  background: #fff;
+  color: #1a2a33;
 
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(0,0,0,0.22);
-  color: rgba(255,255,255,0.92);
-
-  padding: 8px 10px;
+  padding: 8px 12px;
   border-radius: 12px;
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
 
-  transition: transform .12s ease, background .12s ease, border-color .12s ease;
+  font-weight: 700;
+  font-size: 13.5px;
+
+  cursor: pointer;
+  transition: transform .14s ease, background .16s ease, border-color .16s ease, box-shadow .16s ease;
 }
 
 .av-filterbar__reset:hover{
-  background: rgba(0,0,0,0.30);
-  border-color: rgba(0,184,169,0.35);
+  border-color: rgba(0,184,169,.35);
+  box-shadow: 0 10px 22px rgba(16,24,40,.08);
 }
-.av-filterbar__reset:active{ transform: translateY(1px); }
 
+.av-filterbar__reset:active{
+  transform: translateY(1px);
+}
+
+.av-filterbar__reset:focus-visible{
+  outline: none;
+  border-color: rgba(0,184,169,.45);
+  box-shadow: 0 0 0 3px rgba(0,184,169,.18);
+}
+
+/* Chips area */
 .av-filterbar__chips{
   display:flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 
-  max-height: 132px;
-  overflow: auto;
-  padding-right: 4px;
-
-  /* Smooth scroll auf iOS, wenn Chips überlaufen */
-  -webkit-overflow-scrolling: touch;
+  padding: 12px 14px 14px;
 }
 
+/* Chip (weiß, sauber, „pill“) */
 .av-chip{
   display:inline-flex;
   align-items:center;
-  gap: 8px;
+  gap: 10px;
+
+  max-width: 100%;
+  padding: 9px 10px 9px 12px;
 
   border-radius: 999px;
-  padding: 7px 10px;
+  background: #fff;
+  border: 1px solid rgba(227,233,239,1);
+  color: #1a2a33;
 
-  border: 1px solid rgba(227,233,239,0.18);
-  background: rgba(255,255,255,0.06);
+  box-shadow:
+    0 10px 22px rgba(16,24,40,.06);
 
-  color: rgba(255,255,255,0.92);
-  font-size: 13px;
-  line-height: 1;
-  white-space: nowrap;
+  transition: border-color .16s ease, box-shadow .16s ease, transform .14s ease, background .16s ease;
 }
 
+.av-chip:hover{
+  border-color: rgba(0,184,169,.35);
+  box-shadow: 0 14px 26px rgba(16,24,40,.10);
+}
+
+.av-chip__text{
+  overflow:hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  max-width: 56vw;
+  font-weight: 650;
+  font-size: 13.5px;
+}
+
+/* X Button (minimalistisch, aber klickbar) */
 .av-chip__x{
-  appearance:none;
-  -webkit-appearance: none;
-
-  border: 0;
-  background: rgba(255,255,255,0.10);
-  color: rgba(255,255,255,0.92);
-
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   border-radius: 999px;
-  cursor: pointer;
 
   display:inline-flex;
   align-items:center;
   justify-content:center;
 
-  transition: background .12s ease, transform .12s ease;
-}
-.av-chip__x:hover{ background: rgba(0,184,169,0.22); }
-.av-chip__x:active{ transform: translateY(1px); }
+  border: 1px solid rgba(227,233,239,1);
+  background: rgba(245,248,252,1);
+  color: #1a2a33;
 
-/* ✅ Mobile: Chips als horizontale Scroll-Leiste (sauber, nicht „mittig“) */
-@media (max-width: 700px){
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, transform .14s ease, box-shadow .16s ease;
+}
+
+.av-chip__x:hover{
+  background: rgba(0,184,169,.10);
+  border-color: rgba(0,184,169,.35);
+}
+
+.av-chip__x:active{
+  transform: scale(.97);
+}
+
+.av-chip__x:focus-visible{
+  outline: none;
+  border-color: rgba(0,184,169,.45);
+  box-shadow: 0 0 0 3px rgba(0,184,169,.18);
+}
+
+/* =========================
+   Mobile
+   ========================= */
+@media (max-width: 720px){
   .av-filterbar{
-    width: calc(100% - 18px);
-    margin: 10px auto 12px;       /* etwas kompakter */
-    padding: 12px 10px 10px;
+    width: calc(100% - 16px);
+    margin: 8px auto 0;
+    border-radius: 14px;
   }
 
+  .av-filterbar__head{
+    padding: 10px 12px 9px;
+  }
+
+  /* Mobile: horizontal scroll wirkt aufgeräumter */
   .av-filterbar__chips{
     flex-wrap: nowrap;
     overflow-x: auto;
-    overflow-y: hidden;
-    max-height: none;
-    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px 12px 12px;
+
+    scrollbar-width: thin;
+    scrollbar-color: rgba(26,42,51,.22) transparent;
   }
 
-  /* Optional: Head in Mobile etwas kompakter */
-  .av-filterbar__title{ font-size: 13px; }
-  .av-filterbar__reset{ padding: 7px 10px; font-size: 12px; }
+  .av-filterbar__chips::-webkit-scrollbar{ height: 8px; }
+  .av-filterbar__chips::-webkit-scrollbar-thumb{
+    background: rgba(26,42,51,.18);
+    border-radius: 999px;
+  }
+
+  .av-chip__text{
+    max-width: 72vw;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce){
+  .av-filterbar,
+  .av-chip,
+  .av-filterbar__reset,
+  .av-chip__x{
+    transition: none !important;
+  }
+}
+
+/* ✅ Kein Gap, wenn keine Filter aktiv sind */
+.av-filterbar{
+  margin: 0 auto;          /* vorher: 10px -> verursacht Lücke */
+  max-height: 0;           /* kollabiert wirklich */
+  overflow: hidden;
+  border-color: transparent;
+  box-shadow: none;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+
+  transition:
+    opacity .18s ease,
+    transform .18s ease,
+    max-height .18s ease,
+    margin-top .18s ease;
+}
+
+/* ✅ Nur wenn aktiv: echtes Panel + Abstand */
+.av-filterbar.is-visible{
+  margin-top: 10px;
+  max-height: 320px; /* genug für Head + mehrere Chip-Zeilen */
+  overflow: visible;
+
+  border-color: rgba(227,233,239,1);
+  box-shadow:
+    0 14px 34px rgba(16,24,40,.10),
+    0 1px 0 rgba(16,24,40,.04);
+  background: rgba(255,255,255,.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 
 
 
+/* =========================
+   Mobile Tuning (kompakter + keine Mini-Lücke)
+   ========================= */
+@media (max-width: 720px){
 
+  /* -> Lücke eliminieren: kein zusätzlicher Abstand oberhalb */
+  .av-filterbar{
+    width: calc(100% - 12px); /* etwas mehr Breite */
+    margin: -3px auto 0;         /* vorher 8px top -> kann als "Lücke" wirken */
+    border-radius: 14px;
 
+    /* optisch: minimal flacher */
+    background: rgba(255,255,255,.96);
 
+    /* Animation weniger aggressiv, damit nichts "schwebt" */
+    transform: translateY(-4px);
+  }
+
+  .av-filterbar.is-visible{
+    transform: translateY(0);
+  }
+
+  /* Kopf kompakter */
+  .av-filterbar__head{
+    padding: 9px 10px 8px;
+    gap: 10px;
+  }
+
+  .av-filterbar__title{
+    font-size: 13px;
+  }
+
+  .av-filterbar__badge{
+    min-width: 26px;
+    height: 20px;
+    padding: 0 7px;
+    font-size: 12px;
+  }
+
+  /* Reset Button kompakter */
+  .av-filterbar__reset{
+    padding: 7px 10px;
+    font-size: 12.5px;
+    border-radius: 11px;
+  }
+
+  /* Chips als saubere Scroll-Leiste: kompaktere Höhen */
+  .av-filterbar__chips{
+    padding: 9px 10px 10px;
+    gap: 8px;
+
+    /* optional: verhindert "springende" Höhe durch Scrollbar */
+    scrollbar-gutter: stable;
+  }
+
+  /* Chip kleiner */
+  .av-chip{
+    padding: 7px 8px 7px 10px;
+    gap: 8px;
+    box-shadow: 0 8px 18px rgba(16,24,40,.06);
+  }
+
+  .av-chip__text{
+    font-size: 13px;
+    max-width: 78vw;
+  }
+
+  /* X Button kleiner */
+  .av-chip__x{
+    width: 24px;
+    height: 24px;
+  }
+}
 
 
 /* nur Standort enger */

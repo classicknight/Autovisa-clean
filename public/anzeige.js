@@ -598,9 +598,11 @@ function fillTechnical(inserat) {
     ["verkauf_umweltplakette", "v-umweltplakette"],
     ["klimatisierung", "v-klimatisierung"],
     ["airbags", "v-airbags"],
-    // Emissions-/Energieeffizienzklasse (A–G)
-    ["verkauf_emissionsklasse", "v-emissionsklasse"],
-    ["emissionsklasse", "v-emissionsklasse"],
+   // CO₂-Klasse (A–G)
+["verkauf_co2_klasse", "v-co2-klasse"],
+["co2_klasse", "v-co2-klasse"],
+["co2Klasse", "v-co2-klasse"],
+
   ];
 
   // render simple text values
