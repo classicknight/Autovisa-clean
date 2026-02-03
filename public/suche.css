@@ -1717,71 +1717,8 @@ img, video, canvas {
   
   
   
-  @media screen and (width: 1024px) and (orientation: portrait) {
-    .results-section {
-      display: grid !important;
-      grid-template-columns: 1fr 1fr !important;
-      gap: 24px !important;
-    }
-  
-    .car-card {
-      display: flex !important;
-      flex-direction: column !important;
-      height: 600px !important; /* Feste Höhe */
-      max-height: none !important;
-      border-radius: 14px !important;
-      overflow: hidden !important;
-    }
-  
-    .car-card-media {
-      height: 50% !important; /* Nimmt genau die Hälfte ein */
-      border-radius: 14px 14px 0 0 !important;
-      overflow: hidden !important;
-    }
-  
-    .media-container,
-    .slides,
-    .slide,
-    .slide img,
-    .slide video {
-      height: 100% !important;
-      width: 100% !important;
-      object-fit: cover !important;
-      object-position: center !important;
-    }
-  
-    .car-details {
-      height: 50% !important; /* Andere Hälfte */
-      padding: 20px !important;
-      display: flex !important;
-      flex-direction: column !important;
-      justify-content: space-between !important;
-    }
-  
-    .search-layout {
-      flex-direction: column !important;
-      padding: 0 16px !important;
-      gap: 20px !important;
-    }
-    .filter-sidebar {
-      display: none; /* kein !important */
-      max-height: 0;
-      opacity: 0;
-      overflow: hidden;
-      transition: all 0.3s ease;
-    }
-  
-    .filter-sidebar.visible {
-      display: block;
-      max-height: none;
-      overflow: visible;
-      opacity: 1;
-    }
-  
-    .toggle-filters {
-      display: flex !important;
-    }
-  }
+  /* iPad spezifischer Portrait-Block entfernt:
+     die regulären Tablet-Styles (700–1024px) reichen aus */
   
   
   @media screen and (min-width: 1025px) {

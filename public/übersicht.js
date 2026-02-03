@@ -792,6 +792,65 @@ document.addEventListener("DOMContentLoaded", async () => {
   const carList = document.querySelector(".car-list");
   if (!carList) return;
 
+  function countImages(inserat) {
+    const images =
+      Array.isArray(inserat?.images) ? inserat.images :
+      Array.isArray(inserat?.bilder) ? inserat.bilder :
+      Array.isArray(inserat?.mediaImages) ? inserat.mediaImages :
+      [];
+    return images.length;
+  }
+
+  function formatDateShort(value) {
+    if (!value) return "";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("de-DE");
+  }
+
+  function getStatusInfo(inserat) {
+    if (isSoldInserat(inserat)) return { label: "Verkauft", key: "sold" };
+    const raw = String(
+      inserat?.__status ||
+      inserat?.status ||
+      inserat?.verkauf_status ||
+      inserat?.verkaufsstatus ||
+      ""
+    ).toLowerCase();
+
+    if (raw.includes("draft") || raw.includes("entwurf")) return { label: "Entwurf", key: "draft" };
+    if (raw.includes("online") || raw.includes("aktiv")) return { label: "Online", key: "online" };
+    if (raw.includes("inaktiv") || raw.includes("offline")) return { label: "Inaktiv", key: "offline" };
+    return { label: "Status offen", key: "unknown" };
+  }
+
+  async function getMessageThreadCounts(userId) {
+    const counts = new Map();
+    if (!userId) return counts;
+    try {
+      const messages = await loadAllMessagesFor(userId);
+      if (!Array.isArray(messages)) return counts;
+
+      const perFahrzeug = new Map();
+      for (const m of messages) {
+        const fid = String(m?.fahrzeugId || "").trim();
+        if (!fid) continue;
+        const otherId = (m.senderId === userId) ? m.empfaengerId : m.senderId;
+        const threadKey = `${otherId || "unknown"}::${fid}`;
+        if (!perFahrzeug.has(fid)) perFahrzeug.set(fid, new Set());
+        perFahrzeug.get(fid).add(threadKey);
+      }
+
+      for (const [fid, set] of perFahrzeug.entries()) {
+        counts.set(fid, set.size);
+      }
+    } catch (err) {
+      console.warn("Konnte Nachrichten-Counts nicht laden:", err);
+    }
+
+    return counts;
+  }
+
   async function ladeHändlerBewertung(userId) {
     if (!userId) return;
     try {
@@ -1343,6 +1402,8 @@ function buildFahrzeugdatenFromInserat(ins) {
 
     carList.innerHTML = "";
 
+    const messageCounts = await getMessageThreadCounts(nutzerData.nutzerId);
+
     items.forEach((inserat) => {
       const wrapper = document.createElement("div");
       wrapper.className = "car-card-wrapper";
@@ -1363,6 +1424,18 @@ function buildFahrzeugdatenFromInserat(ins) {
 
       const titleSafe = escapeHTML(inserat.titel || "Titel fehlt");
       const subtitleSafe = escapeHTML(inserat.verkauf_kurzbeschreibung || "Besondere Ausstattung");
+      const imageCount = countImages(inserat);
+      const { label: statusLabel, key: statusKey } = getStatusInfo(inserat);
+      const updatedRaw =
+        inserat?.updatedAt ||
+        inserat?.aktualisiertAm ||
+        inserat?.verkauf_updatedAt ||
+        inserat?.erstelltAm ||
+        inserat?.createdAt ||
+        "";
+      const updatedLabel = formatDateShort(updatedRaw);
+      const fahrzeugIdKey = String(realId || inserat?.fahrzeugId || inserat?._id || "").trim();
+      const messageCount = messageCounts.get(fahrzeugIdKey) || 0;
 
       const actionButtonsHTML = `
         <button ${publishBtnAttrs}><i class="fas fa-globe"></i></button>
@@ -1404,16 +1477,20 @@ function buildFahrzeugdatenFromInserat(ins) {
               <p><i class="fas fa-tint"></i> ${escapeHTML(String(inserat.verkauf_verbrauch_kombiniert || "—"))} l/100 km</p>
             </div>
 
-            <div class="dealer-info-row">
-              <div class="dealer-row">
-                <div class="dealer-avatar">
-                  <img alt="">
-                  <span class="dealer-initials"></span>
-                </div>
-                <div class="dealer-meta">
-                  <div class="dealer-name"></div>
-                  <div class="dealer-location"></div>
-                </div>
+            <div class="car-stats-row">
+              <div class="car-stats">
+                <span class="car-stat status-label" data-status="${escapeHTML(statusKey)}">
+                  <i class="fas fa-circle"></i> ${escapeHTML(statusLabel)}
+                </span>
+                <span class="car-stat">
+                  <i class="fas fa-images"></i> ${imageCount} Bild${imageCount === 1 ? "" : "er"}
+                </span>
+                <span class="car-stat">
+                  <i class="fas fa-comments"></i> ${messageCount} Anfrage${messageCount === 1 ? "" : "n"}
+                </span>
+                <span class="car-stat">
+                  <i class="fas fa-clock"></i> ${updatedLabel ? `Aktualisiert ${escapeHTML(updatedLabel)}` : "Aktualisiert –"}
+                </span>
               </div>
               <div class="card-actions desktop-only">
                 ${actionButtonsHTML}
@@ -1438,43 +1515,6 @@ function buildFahrzeugdatenFromInserat(ins) {
 
       // Slider NACH dem Einfügen initialisieren (ein System)
       initializeSlider(wrapper);
-
-      // --- Verkäuferzeile (Logo + Name + Standort) ---
-      const rawType = String(inserat?.seller?.type || inserat?.verkauf_verkaeufer || "").toLowerCase();
-      const isHaendler =
-        rawType === "haendler" ||
-        rawType === "händler" ||
-        rawType.includes("händ") ||
-        rawType.includes("haend");
-
-      const sellerName =
-        inserat?.seller?.name ||
-        inserat?.verkauf_name ||
-        nutzerData?.firma ||
-        nutzerData?.name ||
-        (isHaendler ? "Händler" : "Privatanbieter");
-
-      const sellerLocation =
-        inserat?.standort ||
-        [inserat?.plz, inserat?.ort].filter(Boolean).join(" ") ||
-        "Standort nicht angegeben";
-
-      const belongsToMe = String(inserat?.verkaeuferId || "") === String(nutzerData?.nutzerId || "");
-      const sellerLogo =
-        (typeof inserat?.seller?.logoUrl === "string" && inserat.seller.logoUrl.trim()) ||
-        (belongsToMe ? (nutzerData?.logoUrl || "") : "");
-
-      const avatar = wrapper.querySelector(".dealer-avatar");
-      const img    = wrapper.querySelector(".dealer-avatar img");
-      const initialsEl = wrapper.querySelector(".dealer-initials");
-      const nameEl = wrapper.querySelector(".dealer-name");
-      const locationEl = wrapper.querySelector(".dealer-location");
-
-      if (initialsEl) initialsEl.textContent = sellerInitials(sellerName);
-      if (nameEl) nameEl.textContent = sellerName;
-      if (locationEl) locationEl.textContent = sellerLocation;
-
-      applyDealerAvatar(avatar, img, sellerLogo);
 
       // Hochformat-Erkennung (optional)
       wrapper.querySelectorAll(".slide").forEach((media) => {

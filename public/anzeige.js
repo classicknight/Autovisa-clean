@@ -238,7 +238,7 @@ function setupAuthLink() {
             .catch(() => alert("Abmelden fehlgeschlagen."));
         });
       } else {
-        authLink.innerHTML = `<a href="login.html"><i class="fas fa-sign-in-alt"></i> Login / Registrierung</a>`;
+        authLink.innerHTML = `<a href="login.html"><i class="fas fa-sign-in-alt"></i> Login</a>`;
       }
     })
     .catch(() => {});
@@ -2476,8 +2476,16 @@ async function renderSeller() {
   }
 
   // --- Impressum (nur Händler, unter der Karte ausklappbar) ---
-  const impressumRaw =
+  let impressumRaw =
     profile.impressum || inserat.impressum || "";
+  if (isDealer && !String(impressumRaw || "").trim() && sellerId && typeof fetchSellerProfile === "function") {
+    try {
+      const fresh = await fetchSellerProfile(sellerId);
+      if (fresh?.impressum) {
+        impressumRaw = String(fresh.impressum || "");
+      }
+    } catch {}
+  }
   const hasImpressum = isDealer && String(impressumRaw || "").trim().length > 0;
 
   // --- Standort / Karte (Händler: volle Adresse, Privat: Ort) ---

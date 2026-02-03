@@ -2467,9 +2467,9 @@ img, video, canvas {
   gap: 8px;
   padding: 6px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(0,184,169,.35);
-  background: rgba(0,184,169,.12);
-  color: #007a71;
+  border: 1px solid #e3e9ef;
+  background: #f6f8fb;
+  color: #1a2733;
   font-weight: 700;
   font-size: 0.8rem;
   cursor: pointer;
@@ -2479,9 +2479,9 @@ img, video, canvas {
   font-size: 0.85em;
 }
 .rating-toggle:hover{
-  background: rgba(0,184,169,.2);
-  box-shadow: 0 0 0 3px rgba(0,184,169,.16);
-  color: #006b61;
+  background: #eef2f6;
+  box-shadow: 0 0 0 3px rgba(26, 42, 51, 0.06);
+  color: #1a2733;
 }
 
 /* Mobile: Bewertungen unter dem Profil, linksbündig */
@@ -2889,6 +2889,75 @@ img, video, canvas {
   border-top: 1px solid #e6eaf0;
 }
 
+.meine-autos-seite .car-stats-row{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e6eaf0;
+}
+
+.meine-autos-seite .car-stats{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  min-width: 0;
+}
+
+.meine-autos-seite .car-stat{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #e6eaf0;
+  background: #f7f9fb;
+  color: #4b5966;
+  font-size: 12.5px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.meine-autos-seite .car-stat i{
+  color: #8a97a6;
+  font-size: 12px;
+}
+
+.meine-autos-seite .car-stat.status-label i{
+  font-size: 9px;
+}
+
+.meine-autos-seite .car-stat[data-status="online"]{
+  border-color: rgba(0, 184, 169, 0.25);
+  background: rgba(0, 184, 169, 0.08);
+  color: #007a71;
+}
+
+.meine-autos-seite .car-stat[data-status="online"] i{
+  color: #00b8a9;
+}
+
+.meine-autos-seite .car-stat[data-status="draft"]{
+  border-color: #e1e6ee;
+  background: #f4f6f8;
+  color: #5b6773;
+}
+
+.meine-autos-seite .car-stat[data-status="sold"]{
+  border-color: #f1d2d2;
+  background: #fff4f4;
+  color: #b45555;
+}
+
+.meine-autos-seite .car-stat[data-status="offline"],
+.meine-autos-seite .car-stat[data-status="unknown"]{
+  border-color: #e4e8ef;
+  background: #f6f7f9;
+  color: #6b7a88;
+}
+
 .meine-autos-seite .dealer-row,
 .gespeicherte-autos-seite .dealer-row{
   display: flex;
@@ -3116,6 +3185,15 @@ img, video, canvas {
     gap: 10px;
     flex: 1;
     box-sizing: border-box;
+  }
+
+  .meine-autos-seite .car-stats-row{
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .meine-autos-seite .car-stats{
+    width: 100%;
   }
 
   .meine-autos-seite .car-top-row,
