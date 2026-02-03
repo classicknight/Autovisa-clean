@@ -241,6 +241,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const hamburger     = document.getElementById("hamburger");
   const dropdownLinks = document.querySelectorAll(".dropdown > a");
   const dropdownLis   = document.querySelectorAll(".dropdown");
+  const authLi        = document.getElementById("auth-link");
+  const authLoginHTML = authLi ? authLi.innerHTML : "";
 
   function closeAllDropdowns(except = null) {
     dropdownLis.forEach(li => {
@@ -299,6 +301,12 @@ document.addEventListener("DOMContentLoaded", () => {
     li?.classList.contains("open") ? closeAllDropdowns() : openDropdown(trigger);
   }
 
+  const closeMenu = () => {
+    navLinks?.classList.remove("active");
+    hamburger?.setAttribute("aria-expanded", "false");
+    closeAllDropdowns();
+  };
+
   hamburger?.addEventListener("click", (e) => {
     e.stopPropagation();
     const willOpen = !navLinks.classList.contains("active");
@@ -317,14 +325,78 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.addEventListener("click", () => {
-    navLinks?.classList.remove("active");
-    closeAllDropdowns();
+    closeMenu();
   });
 
   const repositionOpen = () =>
     document.querySelectorAll(".dropdown.open").forEach(positionMenu);
   window.addEventListener("resize", repositionOpen);
   window.addEventListener("scroll", repositionOpen);
+
+  /* =========================
+     Auth UI (Login/Logout Button)
+     ========================= */
+  const clearAuthStorage = () => {
+    ["isLoggedIn", "userRole", "userId"].forEach((k) => localStorage.removeItem(k));
+    localStorage.removeItem("redirectAfterLogin");
+  };
+
+  const clearAuthFlags = () => {
+    ["isLoggedIn", "userRole", "userId"].forEach((k) => localStorage.removeItem(k));
+  };
+
+  function renderLogin() {
+    if (!authLi) return;
+    authLi.innerHTML = authLoginHTML;
+  }
+
+  function renderLogout() {
+    if (!authLi) return;
+    authLi.innerHTML = `
+      <a href="#" class="nav-link" id="logout-link">
+        <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+        <span>Abmelden</span>
+      </a>
+    `;
+    const logoutLink = document.getElementById("logout-link");
+    if (logoutLink) {
+      logoutLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        closeMenu();
+        fetch("/logout", { method: "POST", credentials: "include" })
+          .finally(() => {
+            clearAuthStorage();
+            window.location.href = "index.html";
+          });
+      });
+    }
+  }
+
+  if (authLi) {
+    const isLoggedInLS = localStorage.getItem("isLoggedIn") === "true";
+    if (isLoggedInLS) {
+      renderLogout();
+    }
+  }
+
+  fetch("/getNutzerInfo", { credentials: "include" })
+    .then((res) => res.json())
+    .then((data) => {
+      if (data?.eingeloggt) {
+        try {
+          localStorage.setItem("isLoggedIn", "true");
+          const roleValue = data?.role || data?.rolle;
+          if (roleValue) localStorage.setItem("userRole", String(roleValue));
+          const userIdValue = data?.id || data?._id || data?.userId || data?.nutzerId;
+          if (userIdValue) localStorage.setItem("userId", String(userIdValue));
+        } catch {}
+        renderLogout();
+      } else {
+        clearAuthFlags();
+        renderLogin();
+      }
+    })
+    .catch(() => {});
 
   /* =========================
      Login-abhängige Weiterleitungen (Navbar -> Tabs)
@@ -1654,7 +1726,6 @@ async function loadSavedCarsSection() {
     if (listEl) listEl.innerHTML = `<p>Fehler beim Laden der gespeicherten Inserate.</p>`;
   }
 }
-
 
 
 

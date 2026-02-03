@@ -11,16 +11,28 @@
 <body>
 
   <nav class="navbar">
-    <div class="logo-container">
+    <!-- Logo + Tagline (wie auf Startseite), aber ohne Link wenn du willst -->
+    <div class="logo-container" aria-label="Autovisa">
       <img src="AUTOVISA LOGO.PNG" alt="Autovisa Logo" class="logo" />
+      
+      <span class="logo-divider" aria-hidden="true"></span>
+      
+      <span class="logo-tagline">
+        <span class="tagline-line1">Autos kaufen</span>
+        <span class="tagline-line2">&amp; verkaufen</span>
+      </span>
     </div>
+    
+    <!-- Progress bleibt gleich -->
     <div class="progress-wrapper">
       <i class="fas fa-car-side progress-icon start-icon"></i>
-  <div class="progress-track">
-    <div class="progress-fill" id="progress-bar" style="width: 0%;">
-      <div class="progress-thumb" id="progress-thumb" aria-hidden="true"></div>
-    </div>
-  </div>
+      
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-bar" style="width: 0%;">
+          <div class="progress-thumb" id="progress-thumb" aria-hidden="true"></div>
+        </div>
+      </div>
+      
       <i class="fas fa-flag-checkered progress-icon end-icon"></i>
     </div>
   </nav>

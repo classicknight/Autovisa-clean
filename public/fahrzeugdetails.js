@@ -1,4 +1,4 @@
-// fahrzeugdetails.js — komplett korrigiert
+// fahrzeugdetails.js — korrigiert (Syntax + Edit-Checkboxes)
 
 (() => {
   // ============================
@@ -7,6 +7,13 @@
   const $id = (x) => document.getElementById(x);
   const KEY_PREFIX = "details_";
 
+  const parseBool = (v) => {
+    if (v === true) return true;
+    if (v === false) return false;
+    const s = String(v ?? "").trim().toLowerCase();
+    return s === "true" || s === "1" || s === "yes" || s === "on";
+  };
+
   // Kanonischer Key: camelCase -> lowercase, Sonderzeichen weg
   const canonicalize = (name = "") =>
     String(name)
@@ -14,15 +21,13 @@
       .toLowerCase()
       .replace(/\s+/g, "")
       .replace(/[_-]+/g, "")
+      // Achtung: \p{..} braucht moderne JS-Engines (iOS 18 ist ok)
       .replace(/[^\p{L}\p{N}]/gu, "");
 
   // Aliase, um Preview-Keys sicher zu treffen (bekannte Sonderfälle/Schreibweisen)
   const CANON_ALIASES = {
-    // Vorschau nutzt "elektheckklappe"
     elektrheckklappe: "elektheckklappe",
-    // Vorschau hat einmal "mettalic" geschrieben
     metallic: "mettalic",
-    // vereinheitlichte Schreibweisen
     kamerahinten: "kamerahinten",
     kamera360: "kamera360",
     sitzheizungvorne: "sitzheizungvorne",
@@ -68,7 +73,7 @@
     { name: "alufelgen", label: "Leichtmetallfelgen" },
     { name: "sommerreifen", label: "Sommerreifen" },
     { name: "winterreifen", label: "Winterreifen" },
-    { name: "allwetterreifen", label: "Allwetterreifen" }
+    { name: "allwetterreifen", label: "Allwetterreifen" },
   ];
 
   // Felder für Fortschrittsanzeige (IDs der <input>/<select>)
@@ -80,17 +85,21 @@
   ];
 
   function updateProgressBar() {
-    const total = relevanteFelder.length;
+    const total = relevanteFelder.length || 1;
     let gueltig = 0;
-    relevanteFelder.forEach(id => {
+
+    relevanteFelder.forEach((id) => {
       const el = $id(id);
       if (!el) return;
-      if (el.tagName === "SELECT") {
+
+      const tag = el.tagName;
+      if (tag === "SELECT") {
         if (String(el.value || "") !== "") gueltig++;
-      } else if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+      } else if (tag === "INPUT" || tag === "TEXTAREA") {
         if (String(el.value || "").trim() !== "") gueltig++;
       }
     });
+
     const prozent = Math.round((gueltig / total) * 100);
     const bar = $id("progress-bar");
     if (bar) bar.style.width = `${prozent}%`;
@@ -103,18 +112,21 @@
     c.id = "toast-container";
     document.body.appendChild(c);
   }
+
   function safeToast(message, type = "success") {
     ensureToastContainer();
     const t = document.createElement("div");
     t.className = `toast ${type}`;
     t.textContent = message;
     $id("toast-container").appendChild(t);
+
     requestAnimationFrame(() => t.classList.add("show"));
     setTimeout(() => {
       t.classList.remove("show");
       t.addEventListener("transitionend", () => t.remove(), { once: true });
     }, 3000);
   }
+
   function safeMarkStepDone(step) {
     try {
       const KEY = "haendlerSteps";
@@ -128,60 +140,54 @@
   }
 
   // ============================
-  // Init
+  // WICHTIG: DOMContentLoaded
   // ============================
-  window.addEventListener("DOMContentLoaded", async () => {
-    // 🔐 Login prüfen
-    try {
-      const info = await fetch("/getNutzerInfo", { credentials: "include" }).then(r => r.json());
-      if (!info?.eingeloggt) {
-        localStorage.setItem("redirectAfterLogin", "fahrzeugdetails.html");
-        window.location.href = "login.html";
-        return;
-      }
-    } catch {
-      localStorage.setItem("redirectAfterLogin", "fahrzeugdetails.html");
-      window.location.href = "login.html";
-      return;
-    }
-
+  document.addEventListener("DOMContentLoaded", () => {
     const form = $id("fahrzeugForm");
     if (!form) return;
-// 🚀 Edit-Modus: Wenn vorhanden, lade vorbereitete Fahrzeugdetails aus localStorage
-const isEdit = localStorage.getItem("editMode") === "1";
-const editDetailsRaw = localStorage.getItem("fahrzeugdetails");
 
-if (isEdit && editDetailsRaw) {
-  try {
-    const detailsData = JSON.parse(editDetailsRaw);
-    Object.entries(detailsData).forEach(([name, val]) => {
-      const field = form.querySelector(`[name="${name}"]`);
-      if (!field) return;
+    // 🚀 Edit-Modus: Wenn vorhanden, lade vorbereitete Fahrzeugdetails aus localStorage
+    const isEdit = localStorage.getItem("editMode") === "1";
+    const editDetailsRaw = localStorage.getItem("fahrzeugdetails");
 
-      if (field.type === "checkbox") {
-        field.checked = Boolean(val);
-      } else {
-        field.value = val;
+    if (isEdit && editDetailsRaw) {
+      try {
+        const detailsData = JSON.parse(editDetailsRaw);
+
+        Object.entries(detailsData).forEach(([name, val]) => {
+          // falls name Sonderzeichen hat
+          let field = null;
+          try {
+            field = form.querySelector(`[name="${CSS.escape(name)}"]`);
+          } catch {
+            field = form.querySelector(`[name="${name}"]`);
+          }
+          if (!field) return;
+
+          if (field.type === "checkbox") {
+            field.checked = parseBool(val);
+          } else {
+            field.value = val ?? "";
+          }
+        });
+      } catch (err) {
+        console.warn("Fehler beim Einfüllen der bearbeiteten Fahrzeugdetails:", err);
       }
-    });
-  } catch (err) {
-    console.warn("Fehler beim Einfüllen der bearbeiteten Fahrzeugdetails:", err);
-  }
-}
+    }
 
     // 1) Felder aus localStorage vorbelegen
     const allFields = form.querySelectorAll("input, select, textarea");
+
     allFields.forEach((field) => {
       const nm = field.name;
       if (!nm) return;
 
-      // bevorzugt original + kanonisch lesen
       const storedOrig  = localStorage.getItem(KEY_PREFIX + nm);
       const storedCanon = localStorage.getItem(KEY_PREFIX + canon(nm));
       const val = storedOrig ?? storedCanon;
 
       if (val != null) {
-        if (field.type === "checkbox") field.checked = (val === "true");
+        if (field.type === "checkbox") field.checked = parseBool(val);
         else field.value = val;
       }
 
@@ -191,6 +197,7 @@ if (isEdit && editDetailsRaw) {
         field.addEventListener("change", updateProgressBar);
       }
     });
+
     updateProgressBar();
 
     // 2) Live-Speichern aller Eingaben in localStorage (orig + kanonisch)
@@ -200,10 +207,10 @@ if (isEdit && editDetailsRaw) {
       const v = field.type === "checkbox" ? String(field.checked) : String(field.value || "");
       try {
         localStorage.setItem(KEY_PREFIX + nm, v);
-        const ck = canon(nm);
-        localStorage.setItem(KEY_PREFIX + ck, v);
+        localStorage.setItem(KEY_PREFIX + canon(nm), v);
       } catch {}
     };
+
     allFields.forEach((field) => {
       field.addEventListener("input", () => persistField(field));
       field.addEventListener("change", () => persistField(field));
@@ -213,24 +220,24 @@ if (isEdit && editDetailsRaw) {
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
 
-
-
       const data = {};
+
       // a) rohe Werte einsammeln + localStorage schreiben (zur Sicherheit)
       allFields.forEach((field) => {
         const nm = field.name;
         if (!nm) return;
         const isCb = field.type === "checkbox";
         const raw  = isCb ? field.checked : field.value;
-        data[nm]   = isCb ? Boolean(raw) : String(raw || "");
-        // persist
+
+        data[nm] = isCb ? Boolean(raw) : String(raw || "");
+
         try {
           localStorage.setItem(KEY_PREFIX + nm, isCb ? String(raw) : String(raw || ""));
           localStorage.setItem(KEY_PREFIX + canon(nm), isCb ? String(raw) : String(raw || ""));
         } catch {}
       });
 
-      // b) Abgeleitete/zusammengefasste Felder (Vorschau erwartet diese)
+      // b) Abgeleitete/zusammengefasste Felder
 
       // HU (Monat Jahr)
       const m = $id("tuevMonat")?.value || "";
@@ -239,7 +246,7 @@ if (isEdit && editDetailsRaw) {
       data["verkauf_hu"] = huText;
       try {
         localStorage.setItem(KEY_PREFIX + "verkauf_hu", huText);
-        localStorage.setItem(KEY_PREFIX + "hu", huText); // Fallback-Key für Vorschau
+        localStorage.setItem(KEY_PREFIX + "hu", huText);
       } catch {}
 
       // Farbe & Innenraum
@@ -250,13 +257,14 @@ if (isEdit && editDetailsRaw) {
       data["verkauf_karosseriefarbe"] = kf;
       data["verkauf_innenmaterial"]   = im;
       data["verkauf_innenfarbe"]      = ifa;
+
       try {
         localStorage.setItem(KEY_PREFIX + "karosseriefarbe", kf);
         localStorage.setItem(KEY_PREFIX + "innenmaterial", im);
         localStorage.setItem(KEY_PREFIX + "innenfarbe", ifa);
       } catch {}
 
-      // Einparkhilfe (Vorne/Hinten) + selbstlenkend
+      // Einparkhilfe (Vorne/Hinten)
       const vorne   = form.querySelector("input[name='einparkhilfeVorne']")?.checked;
       const hinten  = form.querySelector("input[name='einparkhilfeHinten']")?.checked;
       let eText = "";
@@ -264,77 +272,76 @@ if (isEdit && editDetailsRaw) {
       else if (vorne) eText = "Vorne";
       else if (hinten) eText = "Hinten";
       data["verkauf_einparkhilfe"] = eText;
-      try {
-        localStorage.setItem(KEY_PREFIX + "einparkhilfe", eText);
-      } catch {}
-      // selbstlenkend als Feature (boolean)
+      try { localStorage.setItem(KEY_PREFIX + "einparkhilfe", eText); } catch {}
+
+      // selbstlenkend
       const eps = form.querySelector("input[name='einparkhilfeSelbstlenkend']")?.checked || false;
       data["einparkhilfeSelbstlenkend"] = Boolean(eps);
       data["verkauf_einparkhilfeselbstlenkend"] = Boolean(eps);
-      try {
-        localStorage.setItem(KEY_PREFIX + "einparkhilfeselbstlenkend", String(eps));
-      } catch {}
+      try { localStorage.setItem(KEY_PREFIX + "einparkhilfeselbstlenkend", String(eps)); } catch {}
 
       // Fahrzeugbeschreibung
       const beschr = $id("fahrzeugbeschreibung")?.value?.trim() || "";
       data["fahrzeugbeschreibung"] = beschr;
-      try {
-        localStorage.setItem(KEY_PREFIX + "fahrzeugbeschreibung", beschr);
-      } catch {}
+      try { localStorage.setItem(KEY_PREFIX + "fahrzeugbeschreibung", beschr); } catch {}
 
-      // c) Ausstattungs-Checkboxen → als Labels + als verkauf_* Booleans
+      // c) Checkboxen → Labels + verkauf_* Booleans
+      // HINWEIS: Das nimmt ALLE Checkboxen mit name. Wenn du MwSt/sonstige NICHT willst,
+      // müssen wir hier filtern (z.B. per data-group="ausstattung").
       const ausgewaehlteAusstattung = [];
       const allCheckboxes = form.querySelectorAll('input[type="checkbox"][name]');
+
       allCheckboxes.forEach((cb) => {
         const nm = cb.name;
         const lbl = cb.nextElementSibling?.textContent?.trim() || "";
-        const ckey = canon(nm); // kanonischer Vorschau-Key
-        // in data sowohl Original als auch verkauf_* setzen (bool)
+        const ckey = canon(nm);
+
         data[nm] = Boolean(cb.checked);
         data[`verkauf_${ckey}`] = Boolean(cb.checked);
-        // in localStorage ebenfalls den kanonischen Pfad
-        try {
-          localStorage.setItem(KEY_PREFIX + ckey, String(cb.checked));
-        } catch {}
+
+        try { localStorage.setItem(KEY_PREFIX + ckey, String(cb.checked)); } catch {}
         if (cb.checked && lbl) ausgewaehlteAusstattung.push(lbl);
       });
+
       data["ausstattung"] = ausgewaehlteAusstattung;
 
       // Kurzbeschreibung (Whitelist)
       const short = SHORT_DESC
-        .filter(e => form.querySelector(`input[name="${e.name}"]`)?.checked)
-        .map(e => e.label);
+        .filter((e) => form.querySelector(`input[name="${e.name}"]`)?.checked)
+        .map((e) => e.label);
+
       data["verkauf_ausstattung"] = short;
+
       try {
         localStorage.setItem(KEY_PREFIX + "ausstattung", JSON.stringify(ausgewaehlteAusstattung));
         localStorage.setItem(KEY_PREFIX + "verkauf_ausstattung", JSON.stringify(short));
       } catch {}
 
-      // d) Licht & Sicht — sicherstellen, dass selects als verkauf_* vorhanden sind
-      const lichtSelects = ["scheinwerfer","tagfahrlicht","kurvenlicht"];
-      lichtSelects.forEach((n) => {
+      // d) Licht & Sicht
+      ["scheinwerfer","tagfahrlicht","kurvenlicht"].forEach((n) => {
         const v = form.querySelector(`select[name="${n}"]`)?.value || "";
         data[n] = v;
         data[`verkauf_${n}`] = v;
         try { localStorage.setItem(KEY_PREFIX + n, v); } catch {}
       });
 
-      // Klimatisierung als verkauf_*
+      // Klimatisierung
       const klima = form.querySelector(`select[name="klimatisierung"]`)?.value || "";
       data["klimatisierung"] = klima;
       data["verkauf_klimatisierung"] = klima;
 
-      // Metallic-Lackierung: zusätzlich den Vorschau-Typo „mettalic“
+      // Metallic (inkl. altem Vorschau-Typo)
       const metallic = form.querySelector('input[name="metallic"]')?.checked || false;
       data["metallic"] = metallic;
       data["verkauf_metallic"] = metallic;
-      data["verkauf_mettalic"] = metallic; // für alte Vorschau-Keys
+      data["verkauf_mettalic"] = metallic;
+
       try {
         localStorage.setItem(KEY_PREFIX + "metallic", String(metallic));
         localStorage.setItem(KEY_PREFIX + "mettalic", String(metallic));
       } catch {}
 
-      // e) Speichern am Server
+      // e) Server speichern
       sessionStorage.setItem("hatGespeichert", "true");
 
       try {
@@ -342,8 +349,9 @@ if (isEdit && editDetailsRaw) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify(data)
+          body: JSON.stringify(data),
         });
+
         if (!res.ok) throw new Error(await res.text().catch(() => "Fehler beim Speichern der Details."));
         await res.json().catch(() => ({}));
 
