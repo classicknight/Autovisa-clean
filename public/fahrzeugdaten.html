@@ -1,3 +1,6 @@
+
+
+
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -13,181 +16,70 @@
 </head>
 <body>
 
-  <nav class="navbar">
-    <div class="logo-container">
-      <img src="AUTOVISA LOGO.PNG" alt="Autovisa Logo" class="logo" />
-    </div>
-    <div class="progress-wrapper">
-      <i class="fas fa-car-side progress-icon start-icon"></i>
-  <div class="progress-track">
-    <div class="progress-fill" id="progress-bar" style="width: 0%;">
-      <div class="progress-thumb" id="progress-thumb" aria-hidden="true"></div>
-    </div>
+      <nav class="navbar">
+  <!-- Logo + Tagline (wie auf Startseite), aber ohne Link wenn du willst -->
+  <div class="logo-container" aria-label="Autovisa">
+    <img src="AUTOVISA LOGO.PNG" alt="Autovisa Logo" class="logo" />
+    
+    <span class="logo-divider" aria-hidden="true"></span>
+    
+    <span class="logo-tagline">
+      <span class="tagline-line1">Autos kaufen</span>
+      <span class="tagline-line2">&amp; verkaufen</span>
+    </span>
   </div>
-      <i class="fas fa-flag-checkered progress-icon end-icon"></i>
+  
+  <!-- Progress bleibt gleich -->
+  <div class="progress-wrapper">
+    <i class="fas fa-car-side progress-icon start-icon"></i>
+    
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-bar" style="width: 0%;">
+        <div class="progress-thumb" id="progress-thumb" aria-hidden="true"></div>
+      </div>
     </div>
-  </nav>
+    
+    <i class="fas fa-flag-checkered progress-icon end-icon"></i>
+  </div>
+</nav>
+
+<!-- =========================
+     Fahrzeugdaten – komplett sauber korrigiert
+     (keine doppelten </form>/<main>, alle Rows korrekt geschlossen)
+========================= -->
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 <main class="form-section">
   <div class="form-container">
     <h1 class="form-heading">Fahrzeugdaten eingeben</h1>
-    <form id="fahrzeugForm" >
-      <!-- Marke & Modell -->
+
+    <form id="fahrzeugForm">
+      <!-- Marke / Modell / Variante / Motor -->
       <div class="form-row">
         <div class="form-group">
           <label for="marke">Marke</label>
           <select id="marke" name="marke" required>
             <option value="" disabled selected>Bitte wählen</option>
-            <!-- (Hier folgen die vielen Markenoptionen wie bisher) -->
-              
-  <option value="Abarth">Abarth</option>
-  <option value="AC">AC</option>
-  <option value="Acura">Acura</option>
-  <option value="Aiways">Aiways</option>
-  <option value="Aixam">Aixam</option>
-  <option value="Alfa Romeo">Alfa Romeo</option>
-  <option value="ALPINA">ALPINA</option>
-  <option value="Alpine">Alpine</option>
-  <option value="Ariel">Ariel</option>
-  <option value="Artega">Artega</option>
-  <option value="Asia Motors">Asia Motors</option>
-  <option value="Aston Martin">Aston Martin</option>
-  <option value="Audi">Audi</option>
-  <option value="Austin">Austin</option>
-  <option value="Austin Healey">Austin Healey</option>
-  <option value="BAIC">BAIC</option>
-  <option value="Bentley">Bentley</option>
-  <option value="BMW">BMW</option>
-  <option value="Borgward">Borgward</option>
-  <option value="Brilliance">Brilliance</option>
-  <option value="Bugatti">Bugatti</option>
-  <option value="Buick">Buick</option>
-  <option value="BYD">BYD</option>
-  <option value="Cadillac">Cadillac</option>
-  <option value="Casalini">Casalini</option>
-  <option value="Caterham">Caterham</option>
-  <option value="Cenntro">Cenntro</option>
-  <option value="Chatenet">Chatenet</option>
-  <option value="Chevrolet">Chevrolet</option>
-  <option value="Chrysler">Chrysler</option>
-  <option value="Citroën">Citroën</option>
-  <option value="Cobra">Cobra</option>
-  <option value="Corvette">Corvette</option>
-  <option value="Cupra">Cupra</option>
-  <option value="Dacia">Dacia</option>
-  <option value="Daewoo">Daewoo</option>
-  <option value="Daihatsu">Daihatsu</option>
-  <option value="DeTomaso">DeTomaso</option>
-  <option value="DFSK">DFSK</option>
-  <option value="Dodge">Dodge</option>
-  <option value="Donkervoort">Donkervoort</option>
-  <option value="DS Automobiles">DS Automobiles</option>
-  <option value="e.GO">e.GO</option>
-  <option value="Elaris">Elaris</option>
-  <option value="Estrima">Estrima</option>
-  <option value="Ferrari">Ferrari</option>
-  <option value="Fiat">Fiat</option>
-  <option value="Fisker">Fisker</option>
-  <option value="Ford">Ford</option>
-  <option value="GAC Gonow">GAC Gonow</option>
-  <option value="Gemballa">Gemballa</option>
-  <option value="Genesis">Genesis</option>
-  <option value="GMC">GMC</option>
-  <option value="Grecav">Grecav</option>
-  <option value="GWM">GWM</option>
-  <option value="Hamann">Hamann</option>
-  <option value="Holden">Holden</option>
-  <option value="Honda">Honda</option>
-  <option value="Hummer">Hummer</option>
-  <option value="Hyundai">Hyundai</option>
-  <option value="INEOS">INEOS</option>
-  <option value="Infiniti">Infiniti</option>
-  <option value="Isuzu">Isuzu</option>
-  <option value="Iveco">Iveco</option>
-  <option value="JAC">JAC</option>
-  <option value="Jaguar">Jaguar</option>
-  <option value="Jeep">Jeep</option>
-  <option value="Kia">Kia</option>
-  <option value="Koenigsegg">Koenigsegg</option>
-  <option value="KTM">KTM</option>
-  <option value="Lada">Lada</option>
-  <option value="Lamborghini">Lamborghini</option>
-  <option value="Lancia">Lancia</option>
-  <option value="Land Rover">Land Rover</option>
-  <option value="Landwind">Landwind</option>
-  <option value="LEVC">LEVC</option>
-  <option value="Lexus">Lexus</option>
-  <option value="Ligier">Ligier</option>
-  <option value="Lincoln">Lincoln</option>
-  <option value="Lotus">Lotus</option>
-  <option value="Lucid">Lucid</option>
-  <option value="Lynk&Co">Lynk&Co</option>
-  <option value="Mahindra">Mahindra</option>
-  <option value="MAN">MAN</option>
-  <option value="Maserati">Maserati</option>
-  <option value="Maxus">Maxus</option>
-  <option value="Maybach">Maybach</option>
-  <option value="Mazda">Mazda</option>
-  <option value="McLaren">McLaren</option>
-  <option value="Mercedes-Benz">Mercedes-Benz</option>
-  <option value="MG">MG</option>
-  <option value="Microcar">Microcar</option>
-  <option value="Microlino">Microlino</option>
-  <option value="MINI">MINI</option>
-  <option value="Mitsubishi">Mitsubishi</option>
-  <option value="Morgan">Morgan</option>
-  <option value="NIO">NIO</option>
-  <option value="Nissan">Nissan</option>
-  <option value="NSU">NSU</option>
-  <option value="Oldsmobile">Oldsmobile</option>
-  <option value="Opel">Opel</option>
-  <option value="ORA">ORA</option>
-  <option value="Pagani">Pagani</option>
-  <option value="Peugeot">Peugeot</option>
-  <option value="Piaggio">Piaggio</option>
-  <option value="Plymouth">Plymouth</option>
-  <option value="Polestar">Polestar</option>
-  <option value="Pontiac">Pontiac</option>
-  <option value="Porsche">Porsche</option>
-  <option value="Proton">Proton</option>
-  <option value="Renault">Renault</option>
-  <option value="Rolls-Royce">Rolls-Royce</option>
-  <option value="Rover">Rover</option>
-  <option value="Ruf">Ruf</option>
-  <option value="Saab">Saab</option>
-  <option value="Santana">Santana</option>
-  <option value="Seat">Seat</option>
-  <option value="Seres">Seres</option>
-  <option value="Skoda">Skoda</option>
-  <option value="Smart">Smart</option>
-  <option value="speedART">speedART</option>
-  <option value="Spyker">Spyker</option>
-  <option value="Ssangyong">Ssangyong</option>
-  <option value="Subaru">Subaru</option>
-  <option value="Suzuki">Suzuki</option>
-  <option value="SWM">SWM</option>
-  <option value="Talbot">Talbot</option>
-  <option value="Tata">Tata</option>
-  <option value="TECHART">TECHART</option>
-  <option value="Tesla">Tesla</option>
-  <option value="Toyota">Toyota</option>
-  <option value="Trabant">Trabant</option>
-  <option value="Triumph">Triumph</option>
-  <option value="TVR">TVR</option>
-  <option value="VinFast">VinFast</option>
-  <option value="Volkswagen">Volkswagen</option>
-  <option value="Volvo">Volvo</option>
-  <option value="Wartburg">Wartburg</option>
-  <option value="Westfield">Westfield</option>
-  <option value="WEY">WEY</option>
-  <option value="Wiesmann">Wiesmann</option>
-  <option value="XEV">XEV</option>
-  <option value="XPENG">XPENG</option>
-  <option value="Zhidou">Zhidou</option>
-  <option value="Andere">Andere</option>
+                <option value="BMW">BMW</option>
+    <option value="Haval">Haval</option>
+            <option value="BYD">BYD</option>
+            <option value="Haval">Haval</option>
+            <!-- ... -->
           </select>
         </div>
-        
+
         <div class="form-group">
           <label for="modell">Modell</label>
           <select id="modell" name="modell" required>
@@ -195,203 +87,313 @@
           </select>
         </div>
       </div>
-      
-<!-- Titel -->
-<div class="form-row">
-  <div class="form-group col-12">
-    <label for="titel">Titel der Anzeige</label>
-    <input type="text" id="titel" name="titel"
-           placeholder="z. B. Audi A4 Avant 2.0 TDI S line" required>
-  </div>
-</div>
-<!-- Preis & MwSt -->
-<div class="form-row form-row--price" id="preis-wrapper">
-  <!-- Preis: volle Breite -->
-  <div class="form-group">
-    <label for="preis">Preis (€)</label>
-    <input type="number" id="preis" name="preis" placeholder="z. B. 18900" min="0">
-  </div>
 
-  <!-- Schicker Toggle: MwSt. ausweisbar -->
-  <label class="av-check mwst-toggle" for="mwst-ausweisbar" title="MwSt. ausweisbar">
-    <input type="checkbox" id="mwst-ausweisbar" name="mwst-ausweisbar">
-    <span class="box">
-      <svg class="tick" viewBox="0 0 24 24"><path d="M20 6l-11 11-5-5"/></svg>
-    </span>
-    <span class="text">MwSt. ausweisbar</span>
-  </label>
-</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="variante">Variante</label>
+          <select id="variante" name="variante" required>
+            <option value="" disabled selected>Bitte zuerst Modell wählen</option>
+          </select>
+        </div>
 
-<!-- Brutto & Netto (werden bei MwSt. sichtbar) -->
-<div class="form-row form-row--brutto-netto" id="brutto-netto-fields" style="display: none;">
-  <div class="form-group">
-    <label for="brutto-preis">Brutto-Preis (€)</label>
-    <input type="number" id="brutto-preis" name="brutto-preis" placeholder="z. B. 18900" min="0">
-  </div>
-  <div class="form-group">
-    <label for="netto-preis">Netto-Preis (€)</label>
-    <input type="number" id="netto-preis" name="netto-preis" placeholder="Wird automatisch berechnet" readonly>
-  </div>
-</div>
-
- <!-- Erstzulassung -->
-<div class="form-row">
-    <div class="form-group">
-      <label for="ez-monat">Erstzulassung – Monat</label>
-      <select id="ez-monat" name="verkauf_ez_monat" required>
-        <option value="">Monat wählen</option>
-        <option value="01">Januar</option>
-        <option value="02">Februar</option>
-        <option value="03">März</option>
-        <option value="04">April</option>
-        <option value="05">Mai</option>
-        <option value="06">Juni</option>
-        <option value="07">Juli</option>
-        <option value="08">August</option>
-        <option value="09">September</option>
-        <option value="10">Oktober</option>
-        <option value="11">November</option>
-        <option value="12">Dezember</option>
-      </select>
-    </div>
-  
-    <div class="form-group">
-      <label for="ez-jahr">Erstzulassung – Jahr</label>
-      <select id="ez-jahr" name="verkauf_ez_jahr" required>
-        <option value="">Jahr wählen</option>
-        <!-- Wird dynamisch per JavaScript gefüllt -->
-      </select>
-    </div>
-  
-    <div class="form-group">
-      <label for="kilometer">Laufleistung (km)</label>
-      <input type="number" id="kilometer" name="verkauf_kilometer" min="0" required>
-    </div>
-  </div>
-  
-<!-- Motor: Leistung (PS + kW) & Hubraum -->
-<div class="form-row form-row--three">
-  <div class="form-group">
-    <label for="leistung_ps">Leistung (PS)</label>
-    <input type="number" id="leistung_ps" name="verkauf_leistung" placeholder="z. B. 190" min="1" required>
-  </div>
-  
-  <div class="form-group">
-    <label for="leistung_kw">Leistung (kW)</label>
-    <input type="number" id="leistung_kw" name="verkauf_leistung_kw" placeholder="z. B. 140" min="1">
-  </div>
-  
-  <div class="form-group">
-    <label for="hubraum">Hubraum (cm³)</label>
-    <input type="number" id="hubraum" name="hubraum" placeholder="z. B. 1968">
-  </div>
-</div>
-
-  <!-- Antrieb & Getriebe -->
-  <div class="form-row">
-    <div class="form-group">
-      <label for="antriebsart">Antriebsart</label>
-      <select id="antriebsart" name="antriebsart">
-        <option value="" disabled selected>Bitte wählen</option>
-        <option value="Frontantrieb">Frontantrieb</option>
-        <option value="Heckantrieb">Heckantrieb</option>
-        <option value="Allradantrieb">Allradantrieb</option>
-      </select>
-    </div>
-
-    <div class="form-group">
-        <label for="getriebe">Getriebe</label>
-        <select id="getriebe" name="verkauf_getriebe" required>
-          <option value="" disabled selected>Bitte wählen</option>
-          <option value="Schaltgetriebe">Schaltgetriebe</option>
-          <option value="Automatik">Automatik</option>
-        </select>
+        <div class="form-group">
+          <label for="motor">Motor</label>
+          <select id="motor" name="motor" required>
+            <option value="" disabled selected>Bitte zuerst Variante wählen</option>
+          </select>
+        </div>
       </div>
-      
-  </div>
 
-  <!-- Fahrzeugtyp & Türen -->
+      <!-- Titel -->
+      <div class="form-row">
+        <div class="form-group col-12">
+          <label for="titel">Titel der Anzeige</label>
+          <input
+            type="text"
+            id="titel"
+            name="titel"
+            placeholder="z. B. Audi A4 Avant 2.0 TDI S line"
+            required>
+        </div>
+      </div>
+
+      <!-- Preis & MwSt -->
+      <div class="form-row form-row--price" id="preis-wrapper">
+        <div class="form-group">
+          <label for="preis">Preis (€)</label>
+          <input type="number" id="preis" name="preis" placeholder="z. B. 18900" min="0">
+        </div>
+
+        <label class="av-check mwst-toggle" for="mwst-ausweisbar" title="MwSt. ausweisbar">
+          <input type="checkbox" id="mwst-ausweisbar" name="mwst-ausweisbar">
+          <span class="box">
+            <svg class="tick" viewBox="0 0 24 24"><path d="M20 6l-11 11-5-5"/></svg>
+          </span>
+          <span class="text">MwSt. ausweisbar</span>
+        </label>
+      </div>
+
+      <!-- Brutto & Netto (bei MwSt. sichtbar) -->
+      <div class="form-row form-row--brutto-netto" id="brutto-netto-fields" style="display: none;">
+        <div class="form-group">
+          <label for="brutto-preis">Brutto-Preis (€)</label>
+          <input type="number" id="brutto-preis" name="brutto-preis" placeholder="z. B. 18900" min="0">
+        </div>
+
+        <div class="form-group">
+          <label for="netto-preis">Netto-Preis (€)</label>
+          <input type="number" id="netto-preis" name="netto-preis" placeholder="Wird automatisch berechnet" readonly>
+        </div>
+      </div>
+
+      <!-- Erstzulassung -->
+      <div class="form-row">
+        <div class="form-group">
+          <label for="ez-monat">Erstzulassung – Monat</label>
+          <select id="ez-monat" name="verkauf_ez_monat" required>
+            <option value="">Monat wählen</option>
+            <option value="01">Januar</option>
+            <option value="02">Februar</option>
+            <option value="03">März</option>
+            <option value="04">April</option>
+            <option value="05">Mai</option>
+            <option value="06">Juni</option>
+            <option value="07">Juli</option>
+            <option value="08">August</option>
+            <option value="09">September</option>
+            <option value="10">Oktober</option>
+            <option value="11">November</option>
+            <option value="12">Dezember</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="ez-jahr">Erstzulassung – Jahr</label>
+          <select id="ez-jahr" name="verkauf_ez_jahr" required>
+            <option value="">Jahr wählen</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="kilometer">Laufleistung (km)</label>
+          <input type="number" id="kilometer" name="verkauf_kilometer" min="0" required>
+        </div>
+      </div>
+
+      <!-- Motor: Leistung (PS + kW) & Hubraum -->
+      <div class="form-row form-row--three">
+        <div class="form-group">
+          <label for="leistung_ps">Leistung (PS)</label>
+          <input type="number" id="leistung_ps" name="verkauf_leistung" placeholder="z. B. 190" min="1" required>
+        </div>
+
+        <div class="form-group">
+          <label for="leistung_kw">Leistung (kW)</label>
+          <input type="number" id="leistung_kw" name="verkauf_leistung_kw" placeholder="z. B. 140" min="1">
+        </div>
+
+        <!-- ICE only -->
+        <div class="form-group mobile-full ice-only">
+          <label for="hubraum">Hubraum (cm³)</label>
+          <input type="number" id="hubraum" name="hubraum" placeholder="z. B. 1968">
+        </div>
+      </div>
+
+
+
+
+<!-- EV/PHEV: Batterie, Reichweite, Verbrauch, Standard (NEU, korrekt benannt) -->
+
   <div class="form-row">
     <div class="form-group">
-      <label for="fahrzeugtyp">Fahrzeugtyp</label>
-      <select id="fahrzeugtyp" name="fahrzeugtyp" required>
-        <option value="" disabled selected>Bitte wählen</option>
-        <option value="Limousine">Limousine</option>
-        <option value="Van / Minibus">Van / Minibus</option>
-        <option value="Kombi">Kombi</option>
-        <option value="Geländewagen / SUV">Geländewagen / SUV</option>
-        <option value="Cabrio / Roadster">Cabrio / Roadster</option>
-        <option value="Kleinwagen">Kleinwagen</option>
-        <option value="Sportwagen / Coupé">Sportwagen / Coupé</option>
-      </select>
+      <label for="battery_kwh">Batteriekapazität (kWh)</label>
+      <input type="number" step="0.1" id="battery_kwh" name="battery_kwh" placeholder="z. B. 57.6">
     </div>
-
+    
     <div class="form-group">
-      <label for="türen">Türen</label>
-      <select id="türen" name="türen">
-        <option value="" disabled selected>Bitte wählen</option>
-        <option value="2/3">2 / 3 Türen</option>
-        <option value="4/5">4 / 5 Türen</option>
+      <label for="range_km">Reichweite (km)</label>
+      <input type="number" id="range_km" name="range_km" placeholder="z. B. 520">
+    </div>
+  </div>
+  
+  <div class="form-row">
+    <div class="form-group">
+      <label for="consumption_kwh_100">Stromverbrauch (kWh/100 km)</label>
+      <input type="number" step="0.1" id="consumption_kwh_100" name="consumption_kwh_100" placeholder="z. B. 11.8">
+    </div>
+    
+    <div class="form-group">
+      <label for="ev_range_standard">Messstandard</label>
+      <select id="ev_range_standard" name="ev_range_standard">
+        <option value="" selected>Keine Angabe</option>
+        <option value="WLTP">WLTP</option>
+        <option value="CLTC">CLTC</option>
+        <option value="EPA">EPA</option>
       </select>
     </div>
   </div>
-
-  <!-- Kraftstoff & Partikelfilter -->
+  
+  
+  
+<!-- Antrieb & Getriebe -->
 <div class="form-row">
-    <div class="form-group">
-      <label for="kraftstoff">Kraftstoffart</label>
-      <select id="kraftstoff" name="verkauf_kraftstoff" required>
-        <option value="" disabled selected>Bitte wählen</option>
-        <option value="Benzin">Benzin</option>
-        <option value="Diesel">Diesel</option>
-        <option value="Elektro">Elektro</option>
-        <option value="Hybrid (Benzin)">Hybrid (Benzin)</option>
-        <option value="Hybrid (Diesel)">Hybrid (Diesel)</option>
-        <option value="Autogas (LPG)">Autogas (LPG)</option>
-        <option value="Wasserstoff">Wasserstoff</option>
-        <option value="Ethanol">Ethanol</option>
-      </select>
-    </div>
+  <div class="form-group">
+    <label for="antriebsart">Antriebsart</label>
+    <select id="antriebsart" name="antriebsart">
+      <option value="" disabled selected>Bitte wählen</option>
+      <option value="Frontantrieb">Frontantrieb</option>
+      <option value="Heckantrieb">Heckantrieb</option>
+      <option value="Allradantrieb">Allradantrieb</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label for="getriebe">Getriebe</label>
+    <select id="getriebe" name="verkauf_getriebe" required>
+      <option value="" disabled selected>Bitte wählen</option>
+      <option value="Schaltgetriebe">Schaltgetriebe</option>
+      <option value="Automatik">Automatik</option>
+    </select>
+  </div>
+</div>
+
+<!-- Fahrzeugtyp & Türen -->
+<div class="form-row">
+  <div class="form-group">
+    <label for="fahrzeugtyp">Fahrzeugtyp</label>
+    <select id="fahrzeugtyp" name="fahrzeugtyp" required>
+      <option value="" disabled selected>Bitte wählen</option>
+      <option value="Limousine">Limousine</option>
+      <option value="Van / Minibus">Van / Minibus</option>
+      <option value="Kombi">Kombi</option>
+      <option value="Geländewagen / SUV">Geländewagen / SUV</option>
+      <option value="Cabrio / Roadster">Cabrio / Roadster</option>
+      <option value="Kleinwagen">Kleinwagen</option>
+      <option value="Sportwagen / Coupé">Sportwagen / Coupé</option>
+    </select>
+  </div>
+  
+
+  <div class="form-group">
+    <label for="türen">Türen</label>
+    <select id="türen" name="türen">
+      <option value="" disabled selected>Bitte wählen</option>
+      <option value="2/3">2 / 3 Türen</option>
+      <option value="4/5">4 / 5 Türen</option>
+    </select>
+  </div>
+  </div>
+
+<!-- Sitze + Elektro-spezifische Werte -->
+<div class="form-row">
+  <div class="form-group">
+    <label for="places">Sitze</label>
+    <select id="places" name="places">
+      <option value="" disabled selected>Bitte wählen</option>
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+      <option value="5">5</option>
+      <option value="6">6</option>
+      <option value="7">7</option>
+      <option value="8">8</option>
+      <option value="9">9</option>
+    </select>
+  </div>
+
+
+<!-- Kraftstoff & Partikelfilter -->
+
+  <div class="form-group">
+    <label for="kraftstoff">Kraftstoffart</label>
+    <select id="kraftstoff" name="verkauf_kraftstoff" required>
+      <option value="" disabled selected>Bitte wählen</option>
+      <option value="Benzin">Benzin</option>
+      <option value="Diesel">Diesel</option>
+      <option value="Elektro">Elektro</option>
+      <option value="Hybrid (Benzin)">Hybrid (Benzin)</option>
+      <option value="Hybrid (Diesel)">Hybrid (Diesel)</option>
+      <option value="Autogas (LPG)">Autogas (LPG)</option>
+      <option value="Wasserstoff">Wasserstoff</option>
+      <option value="Ethanol">Ethanol</option>
+    </select>
+  </div>
+  </div>
+
+  
+
+
+  <!-- Verbrauch & Emission (klassisch) -->
+<div class="form-row ice-only">
+  <div class="form-group">
+    <label for="verbrauch_kombiniert">Verbrauch (kombiniert)</label>
+    <input
+      type="number"
+      step="0.1"
+      min="0"
+      id="verbrauch_kombiniert"
+      name="verbrauch_kombiniert"
+      placeholder="z. B. 5,0">
+  </div>
   
   
-
     <div class="form-group">
-      <label for="partikelfilter">Partikelfilter</label>
-      <select id="partikelfilter" name="partikelfilter">
-        <option value="" disabled selected>Bitte wählen</option>
-        <option value="Ja">Ja</option>
-        <option value="Nein">Nein</option>
-      </select>
-    </div>
+    <label for="verbrauch_innerorts">Verbrauch (innerorts)</label>
+    <input
+      type="number"
+      step="0.1"
+      min="0"
+      id="verbrauch_innerorts"
+      name="verbrauch_innerorts"
+      placeholder="z. B. 5,4">
+  </div>
+  </div>
+  
+  
+  
+
+<div class="form-row ice-only">
+  <div class="form-group">
+    <label for="verbrauch_ausserorts">Verbrauch (außerorts)</label>
+    <input
+      type="number"
+      step="0.1"
+      min="0"
+      id="verbrauch_ausserorts"
+      name="verbrauch_ausserorts"
+      placeholder="z. B. 4,8">
+  </div>
+ 
+  
+  
+  
+  
+  <div class="form-group">
+    <label for="co2_emission">CO₂-Emissionen (g/km)</label>
+    <input
+      type="number"
+      step="1"
+      min="0"
+      id="co2_emission"
+      name="co2_emission"
+      placeholder="z. B. 132">
+  </div>
   </div>
 
-  <!-- Verbrauch & Emission -->
-  <div class="form-row">
-    <div class="form-group">
-      <label for="verbrauch_kombiniert">Verbrauch (kombiniert)</label>
-      <input type="number" step="0.1" id="verbrauch_kombiniert" name="verbrauch_kombiniert" placeholder="z. B. 5,0">
-    </div>
-
-    <div class="form-group">
-      <label for="co2_emission">CO₂-Emissionen (g/km)</label>
-      <input type="number" id="co2_emission" name="co2_emission" placeholder="z. B. 132">
-    </div>
+<div class="form-row ice-only">
+  <div class="form-group ice-only">
+    <label for="partikelfilter">Partikelfilter</label>
+    <select id="partikelfilter" name="partikelfilter">
+      <option value="" disabled selected>Bitte wählen</option>
+      <option value="Ja">Ja</option>
+      <option value="Nein">Nein</option>
+    </select>
   </div>
-
-  <div class="form-row">
-    <div class="form-group">
-      <label for="verbrauch_innerorts">Verbrauch (innerorts)</label>
-      <input type="number" step="0.1" id="verbrauch_innerorts" name="verbrauch_innerorts" placeholder="z. B. 5,4">
-    </div>
-
-    <div class="form-group">
-      <label for="verbrauch_ausserorts">Verbrauch (außerorts)</label>
-      <input type="number" step="0.1" id="verbrauch_ausserorts" name="verbrauch_ausserorts" placeholder="z. B. 4,8">
-    </div>
-  </div>
-
-<!-- Schadstoffklasse, Umweltplakette & Energieeffizienzklasse -->
-<div class="form-row form-row--three">
+  
+  
+  
+  <!-- Schadstoffklasse, Umweltplakette & Energieeffizienzklasse -->
+  
   <div class="form-group">
     <label for="schadstoffklasse">Schadstoffklasse</label>
     <select id="schadstoffklasse" name="schadstoffklasse">
@@ -408,7 +410,9 @@
       <option value="Euro 6d">Euro 6d</option>
     </select>
   </div>
+</div>
   
+  <div class="form-row ice-only">
   <div class="form-group">
     <label for="umweltplakette">Umweltplakette</label>
     <select id="umweltplakette" name="umweltplakette">
@@ -420,7 +424,8 @@
     </select>
   </div>
   
-  <div class="form-group">
+  <!-- wie bei Hubraum: auf Mobile ggf. volle Breite -->
+  <div class="form-group mobile-full">
     <label for="emissionsklasse">Energieeffizienzklasse</label>
     <select id="emissionsklasse" name="emissionsklasse">
       <option value="" disabled selected>Bitte wählen</option>
@@ -437,25 +442,27 @@
   </div>
 </div>
 
-<!-- Speichern + Zurück -->
+
+
+<!-- Speichern + Zurück (INNERHALB des Formulars) -->
 <div class="form-row" style="justify-content: space-between; margin-top: 30px;">
-  
-    <!-- Zurück (dynamisch per JS) -->
-    <a id="backButton" class="back-button">
-      <i class="fas fa-arrow-left"></i> Zurück
-    </a>
-    
-    <!-- Speichern (löst Form-Submit aus) -->
-    <button type="submit" class="save-button">
-      <i class="fas fa-save"></i> Speichern
-    </button>
-  
-  </div>
+  <a id="backButton" class="back-button">
+    <i class="fas fa-arrow-left"></i> Zurück
+  </a>
+
+  <button type="submit" class="save-button">
+    <i class="fas fa-save"></i> Speichern
+  </button>
+</div>
 
 </form>
-  </div>
+</div>
 </main>
 
 <script src="fahrzeugdaten.js"></script>
 </body>
 </html>
+
+
+
+

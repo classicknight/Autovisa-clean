@@ -1,200 +1,141 @@
-/* --- Allgemeine Stile --- */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* =========================
+   NAVBAR – Hintergrund + Logo + Tagline
+   ========================= */
 
-body {
-  font-family: 'Poppins', sans-serif;
-  background-color: #f5f8fc;
-  padding-top: 120px;
-}
-
-.navbar {
-position: fixed;
-top: 0; left: 0; right: 0;
-height: 120px;
-display: flex; align-items: center; justify-content: space-between;
-padding: 0 40px;
-z-index: 1000;
-
-/* Vertikal (oben hell → unten dunkel) + horizontal gespiegelt */
-background: linear-gradient(180deg, #2c5364 0%, #203a43 60%, #0f2027 100%),
-            linear-gradient(270deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 100%);
-box-shadow: 0 4px 20px rgba(0,0,0,.35);
-}
-
-/* Logo */
-.logo-container {
+/* ==== NAVBAR DESKTOP ==== */
+.navbar{
+  position: relative;
+  width: 100%;
+  height: 96px;
   display: flex;
-  align-items: flex-end;
-  height: 100%;
-  margin-left: -10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  z-index: 1000;
+
+  background: linear-gradient(180deg, #2c5364 0%, #203a43 60%, #0f2027 100%),
+              linear-gradient(270deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 100%);
+  box-shadow: 0 4px 20px rgba(0,0,0,.35);
 }
-.logo {
-  height: 120px;
+
+/* Logo + Linie + Tagline nebeneinander */
+.logo-container{
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 100%;
+  margin-left: 0;
+  text-decoration: none; /* wichtig, wenn <a> */
+}
+
+/* Logo-Größe */
+.logo{
+  height: 95px;
   width: auto;
 }
 
-/* Navigation */
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 50px;
-  list-style: none;
-}
-
-.nav-links li {
+/* Divider-Container */
+.logo-divider{
   position: relative;
-}
-
-.nav-links a {
-  text-decoration: none;
-  color: #ffffff;
-  font-weight: 500;
-  font-size: 18.5px;
+  width: 26px;
+  height: 46px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  transition: all 0.3s ease;
+  justify-content: center;
+
+  margin-left: -25px;
 }
 
-.nav-links a:hover {
-  color: #00ffcc;
+/* Schräge Linie */
+.logo-divider::before{
+  content: "";
+  width: 2px;
+  height: 65px;
+  border-radius: 999px;
+
+  background: linear-gradient(
+    180deg,
+    rgba(0, 184, 169, 0.0),
+    #00b8a9,
+    rgba(0, 184, 169, 0.0)
+  );
+  box-shadow: 0 0 10px rgba(0, 184, 169, 0.7);
+
+  transform: rotate(-25deg);
+  transform-origin: center;
 }
 
-/* Aktiver Link */
-.nav-links .active > a {
-  color: #00ffcc;
-  border-bottom: 2px solid #00ffcc;
+/* Tagline rechts vom Logo (2 Zeilen) */
+.logo-tagline{
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+
+  margin-left: -12px;
+  margin-bottom: 4px;
+
+  font-family: 'Poppins', sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  color: #e8f2f8;
+
+  white-space: normal;
+  line-height: 1.1;
+  opacity: 0.95;
 }
 
-/* Dropdown-Menü */
-.dropdown-menu {
-  display: none;
-  position: absolute;
-  top: 125%;
-  left: 0;
-  background: #1a2733;
-  border-radius: 8px;
-  min-width: 200px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-  z-index: 2000;
-}
-
-.dropdown-menu li {
-  width: 100%;
-}
-
-.dropdown-menu a {
-  padding: 12px 16px;
-  color: #ffffff;
+.tagline-line1,
+.tagline-line2{
   display: block;
-  font-size: 15px;
-  transition: background 0.2s ease;
 }
 
-.dropdown:hover .dropdown-menu {
-  display: block;
+/* leichte Einrückung der zweiten Zeile */
+.tagline-line2{
+  margin-left: 10px;
 }
 
-.dropdown-menu a:hover {
-  background: #2f3e4d;
-  color: #00ffcc;
-}
+/* =========================
+   MOBILE – nur Logo/Tagline
+   ========================= */
+@media (max-width: 900px){
 
-/* "Auto verkaufen"-Link */
-.highlight-link {
-  color: #00ffcc;
-  border: 2px solid #00ffcc;
-  border-radius: 6px;
-  padding: 6px 14px;
-  transition: all 0.3s ease;
-}
-.highlight-link:hover {
-  background-color: #00ffcc;
-  color: #003344;
-}
-
-/* Hamburger */
-.hamburger {
-  display: none;
-  font-size: 26px;
-  color: white;
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-
-/* --- Mobile Ansicht --- */
-@media screen and (max-width: 900px) {
-  body {
-    padding-top: 80px;
-  }
-
-  .navbar {
-    height: 80px;
-    padding: 0 20px;
-  }
-
-  .logo {
+  .navbar{
     height: 70px;
+    padding: 0 10px;
+    justify-content: flex-start;
   }
 
-  .logo-container {
-    margin-left: -10px;
-    margin-bottom: 8px;
+  .logo-container{
+    margin-left: -4px;
+    gap: 8px;
+    flex: 1 1 auto;
   }
 
-  .hamburger {
-    display: block;
+  .logo{
+    height: 60px;
   }
 
-  .nav-links {
-    display: none;
-    flex-direction: column;
-    position: absolute;
-    top: 80px;
-    left: 0;
-    background: #1a2733;
-    width: 100%;
-    padding: 20px;
-    gap: 15px;
-    border-bottom-left-radius: 10px;
-    border-bottom-right-radius: 10px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  .logo-divider{
+    margin-left: -12px;
+    height: 38px;
   }
 
-  .nav-links.active {
-    display: flex;
+  .logo-divider::before{
+    height: 48px;
+    box-shadow: 0 0 6px rgba(0, 184, 169, 0.6);
   }
 
-  .nav-links a {
-    font-size: 16px;
+  .logo-tagline{
+    margin-left: -4px;
+    margin-bottom: 0;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    line-height: 1.1;
   }
 
-  .dropdown-menu {
-    position: static;
-    background: #253544;
-    box-shadow: none;
-    border-radius: 0;
-  }
-
-  .dropdown-menu a {
-    color: white;
-    padding: 10px 20px;
-  }
-
-  .dropdown-menu a:hover {
-    background-color: #2f3e4d;
-    color: #00ffcc;
-  }
-
-  .highlight-link {
-    padding: 6px 12px;
-    font-size: 16px;
+  .tagline-line2{
+    margin-left: 6px;
   }
 }
 
@@ -310,6 +251,121 @@ body{
   box-shadow:0 2px 8px rgba(0,0,0,.25), 0 0 0 3px rgba(0,184,169,.25);
   pointer-events:none;
 }
+
+
+/* =========================
+   Progressbar – Mobile Fix (wenn Logo + Tagline in der Navbar sind)
+   ========================= */
+
+/* Tablet/Mobile: Progressbar rechts, kompakter, ohne unnötige Margins */
+@media (max-width: 900px){
+  .navbar{
+    gap: 10px; /* verhindert „unsichtbare“ Luft zwischen Logo und Progress */
+  }
+
+  .progress-wrapper{
+    flex: 0 1 360px;     /* nimmt Platz, aber quetscht Logo nicht */
+    margin: 0;           /* wichtig: entfernt die 40px/18px Außenluft */
+    gap: 8px;
+    margin-left: auto;   /* schiebt Progress nach rechts */
+  }
+
+  .progress-icon{
+    font-size: 18px;
+  }
+
+  .progress-track{
+    height: 12px;
+    min-width: 140px;    /* verhindert zu kurze Leiste */
+  }
+
+  .progress-thumb{
+    width: 16px;
+    height: 16px;
+    right: -8px;
+  }
+}
+
+/* =========================
+   MOBILE: Progressbar bleibt NEBEN Logo (eine Zeile)
+   Ganz ans Ende der CSS-Datei
+   ========================= */
+
+@media (max-width: 900px){
+  .navbar{
+    flex-wrap: nowrap;              /* NIE umbrechen */
+    height: 70px;
+    padding: 0 10px;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .logo-container{
+    flex: 0 0 auto;                /* Logo nimmt nur so viel wie nötig */
+    min-width: 0;
+  }
+
+  .progress-wrapper{
+    flex: 1 1 auto;                /* Progress nimmt den restlichen Platz */
+    min-width: 0;                  /* wichtig, damit sie nicht “drückt” */
+    margin: 0 !important;          /* killt dein späteres margin: 0 18px */
+    gap: 8px;
+    margin-left: auto;
+  }
+
+  .progress-track{
+    flex: 1 1 auto;
+    min-width: 0;                  /* darf schrumpfen */
+    height: 12px;
+  }
+
+  .progress-icon{ font-size: 18px; }
+  .progress-thumb{ width: 16px; height: 16px; right: -8px; }
+}
+
+/* Sehr kleine Geräte: optional Tagline ausblenden, damit alles in eine Zeile passt */
+@media (max-width: 420px){
+  .logo-tagline{ display: none; }
+}
+
+
+
+/* =========================
+   Navbar immer sichtbar (fixed) + Content Offset
+   ========================= */
+
+:root{
+  --nav-h: 96px; /* Desktop */
+}
+
+.navbar{
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  width: 100%;
+  z-index: 5000;
+
+  /* sorgt für sauberes Rendern beim Scrollen */
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+/* Content darf nicht unter der fixed Navbar starten */
+body{
+  padding-top: var(--nav-h);
+}
+
+/* Mobile: Höhe anpassen */
+@media (max-width: 900px){
+  :root{ --nav-h: 70px; }
+}
+
+/* Sehr kleine Geräte: Navbar kann 2-zeilig werden (Logo + Progress) */
+@media (max-width: 520px){
+  :root{ --nav-h: 116px; } /* praxisnaher Wert für 2 Zeilen */
+}
+
+
+
 
 /* ====== Formular-Raster ====== */
 .vehicle-form{ display:flex; flex-direction:column; gap:22px; }
@@ -527,4 +583,185 @@ select{
 
 @media (max-width: 900px){
   .form-row.form-row--three .form-group { grid-column: span 12; }
+}
+
+
+
+
+
+
+
+
+/* =========================
+   MOBILE ONLY: Navbar immer sichtbar (FIXED) ohne Extra-Lücke
+   ========================= */
+@media (max-width: 900px){
+
+  /* reale Navbar-Höhe (inkl. iPhone Notch / Safe Area) */
+  :root{
+    --nav-h: calc(70px + env(safe-area-inset-top));
+  }
+
+  .navbar{
+    position: fixed !important;
+    top: 0; left: 0; right: 0;
+    z-index: 6000;
+
+    /* Höhe + Safe-Area sauber einrechnen */
+    height: var(--nav-h);
+    padding-top: env(safe-area-inset-top);
+
+    /* iOS Rendering stabiler */
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+
+  /* Content startet exakt unter der Navbar */
+  body{
+    padding-top: var(--nav-h) !important;
+  }
+
+  /* Entfernt deinen Formular-Top-Abstand (60px), der wie "Lücke" wirkt */
+  .form-section{
+    padding-top: 0 !important;
+  }
+}
+
+
+
+
+
+
+
+
+
+/* =========================
+   MOBILE: NUR markierte Felder volle Breite
+   ========================= */
+@media (max-width: 900px){
+  .form-group.mobile-full{
+    grid-column: 1 / -1 !important; /* volle Zeile im 12er-Grid */
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .form-group.mobile-full input,
+  .form-group.mobile-full select{
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* =========================
+   Disabled-Felder: klare Kennzeichnung + Badge
+   ========================= */
+
+/* Der Form-Group-Wrapper bekommt das Badge */
+.form-group.is-disabled{
+  position: relative;
+}
+
+/* Inputs/Selects im disabled Zustand "bewusst" stylen */
+.form-group.is-disabled input,
+.form-group.is-disabled select,
+.form-group.is-disabled textarea{
+  opacity: 1;                 /* wir steuern Optik selbst */
+  background: rgba(31,43,56,.55);
+  border-color: rgba(227,233,239,.18);
+  color: rgba(231,237,243,.72);
+  filter: grayscale(0.2);
+}
+
+/* Placeholder etwas “ruhiger” */
+.form-group.is-disabled input::placeholder{
+  color: rgba(168,180,193,.55);
+}
+
+/* Badge oben rechts – Text kommt aus data-disabled-label */
+.form-group.is-disabled::after{
+  content: attr(data-disabled-label);
+  position: absolute;
+  top: 6px;
+  right: 8px;
+
+  max-width: 75%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .2px;
+
+  padding: 6px 10px;
+  border-radius: 999px;
+
+  color: rgba(231,237,243,.92);
+  background: rgba(10,18,23,.72);
+  border: 1px solid rgba(0,184,169,.22);
+  box-shadow: 0 10px 22px rgba(0,0,0,.18);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
+  pointer-events: none;
+}
+
+/* Kleines Lock-Icon rechts im Feld (optional) */
+.form-group.is-disabled::before{
+  content: ""; /* FontAwesome lock (solid) */
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+
+  font-size: 14px;
+  color: rgba(0,184,169,.55);
+
+  pointer-events: none;
+  opacity: .9;
+}
+
+/* Damit sich Lock & Select-Pfeil nicht beißen */
+.form-group.is-disabled select{
+  padding-right: 54px; /* vorher 40px */
+}
+
+/* Label leicht “entsättigen” */
+.form-group.is-disabled > label{
+  color: rgba(90,107,118,.95);
+}
+
+/* Optional: wenn du willst, dass disabled Felder NICHT hover-highlight bekommen */
+@media (hover:hover){
+  .form-group.is-disabled input:hover,
+  .form-group.is-disabled select:hover{
+    border-color: rgba(227,233,239,.18);
+  }
 }
