@@ -27,6 +27,40 @@ function formatEUR(value) {
   return String(value) + " €";
 }
 
+function extractPriceValue(obj) {
+  const unwrap = (v) => {
+    if (v == null) return null;
+    if (typeof v === "object") {
+      if (typeof v.value === "number" || typeof v.value === "string") return v.value;
+      if (typeof v.amount === "number" || typeof v.amount === "string") return v.amount;
+      if (typeof v.$numberDecimal === "string") return v.$numberDecimal;
+    }
+    return v;
+  };
+
+  const candidates = [
+    obj?.verkauf_brutto,
+    obj?.verkauf_preis,
+    obj?.preis,
+    obj?.verkauf_netto,
+    obj?.["netto-preis"],
+    obj?.["brutto-preis"],
+    obj?.brutto_preis,
+    obj?.netto_preis,
+    obj?.price,
+    obj?.price_eur,
+  ];
+
+  for (const c of candidates) {
+    const v = unwrap(c);
+    if (v == null) continue;
+    const s = String(v).trim();
+    if (!s) continue;
+    return v;
+  }
+  return "";
+}
+
 function formatKm(value) {
   if (value == null || value === "") return "— km";
   const n = Number(String(value).replace(/\./g, "").replace(",", "."));
@@ -45,6 +79,32 @@ function sellerInitials(name = "") {
   const parts = name.trim().split(/\s+/).slice(0, 2);
   const ini = parts.map(p => p[0]?.toUpperCase() || "").join("");
   return ini || "AV";
+}
+
+function applyDealerAvatar(avatarEl, imgEl, logoUrl) {
+  if (!avatarEl || !imgEl) return;
+
+  avatarEl.classList.remove("has-logo");
+  imgEl.removeAttribute("src");
+
+  if (!logoUrl) return;
+
+  try { imgEl.loading = "eager"; } catch {}
+
+  imgEl.addEventListener("load", () => {
+    if (imgEl.naturalWidth > 0) avatarEl.classList.add("has-logo");
+  }, { once: true });
+
+  imgEl.addEventListener("error", () => {
+    avatarEl.classList.remove("has-logo");
+    imgEl.removeAttribute("src");
+  }, { once: true });
+
+  imgEl.src = logoUrl;
+
+  if (imgEl.complete && imgEl.naturalWidth > 0) {
+    avatarEl.classList.add("has-logo");
+  }
 }
 
 function extractMongoId(doc) {
@@ -468,10 +528,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  const chatButton = `
-    <a href="chat.html" class="all-chats-btn" style="margin-left:auto;">
-      <i class="fas fa-envelope-open-text"></i> Alle Chats anzeigen
-    </a>`;
+  const chatButton = "";
 
   function updateTitle(section) {
     if (!titleEl) return;
@@ -1123,12 +1180,7 @@ function buildFahrzeugdatenFromInserat(ins) {
             <div class="car-top-row">
               <h2 class="car-title">${titleSafe}</h2>
             <p class="car-price">${
-                formatEUR(inserat.verkauf_brutto) ||
-                formatEUR(inserat.verkauf_preis) ||
-                formatEUR(inserat.preis) ||
-                formatEUR(inserat.verkauf_netto) ||
-                formatEUR(inserat["netto-preis"]) ||
-                "Preis fehlt"
+                formatEUR(extractPriceValue(inserat)) || "Preis fehlt"
               }</p>
             </div>
 
@@ -1213,28 +1265,7 @@ function buildFahrzeugdatenFromInserat(ins) {
       if (nameEl) nameEl.textContent = sellerName;
       if (locationEl) locationEl.textContent = sellerLocation;
 
-      avatar.classList.remove("has-logo");
-      img.removeAttribute("src");
-
-      if (sellerLogo) {
-        try { img.loading = "eager"; } catch {}
-
-        img.addEventListener("load", () => {
-          if (img.naturalWidth > 0) avatar.classList.add("has-logo");
-        }, { once: true });
-
-        img.addEventListener("error", () => {
-          avatar.classList.remove("has-logo");
-          img.removeAttribute("src");
-          console.warn("Logo konnte nicht geladen werden:", sellerLogo);
-        }, { once: true });
-
-        img.src = sellerLogo;
-
-        if (img.complete && img.naturalWidth > 0) {
-          avatar.classList.add("has-logo");
-        }
-      }
+      applyDealerAvatar(avatar, img, sellerLogo);
 
       // Hochformat-Erkennung (optional)
       wrapper.querySelectorAll(".slide").forEach((media) => {
@@ -1397,67 +1428,80 @@ async function fetchInbox(empfaengerId) {
   return await r.json();
 }
 
-function renderMessageCard(msg, ins, currentUserId) {
-  const firstImg = Array.isArray(ins.images) && ins.images[0] ? ins.images[0] : null;
+function shortId(id){ return (id || "").slice(0,6) + "…"; }
+function timeDesc(iso){
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleString("de-DE", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+}
 
-  // besser: auch verkauf_* berücksichtigen, falls vorhanden
-  const rawPrice = ins?.verkauf_brutto ?? ins?.verkauf_preis ?? ins?.preis;
-  const preis = formatEUR(rawPrice);
+async function loadAllMessagesFor(userId){
+  try{
+    const t = await fetch("/meine-nachrichten", { credentials: "include" });
+    if (t.ok) return await t.json();
+  }catch(_){}
+  return await fetchInbox(userId);
+}
 
-  const chatUrl = `chat.html?user1=${encodeURIComponent(currentUserId)}&user2=${encodeURIComponent(msg.senderId)}&fahrzeugId=${encodeURIComponent(msg.fahrzeugId)}`;
+function groupThreads(messages, meId){
+  const map = new Map();
+  for (const m of messages){
+    const otherId = (m.senderId === meId) ? m.empfaengerId : m.senderId;
+    const key = `${otherId}::${m.fahrzeugId}`;
+    if (!map.has(key)) map.set(key, { otherId, fahrzeugId: m.fahrzeugId, items: [] });
+    map.get(key).items.push(m);
+  }
+
+  const threads = [];
+  for (const t of map.values()){
+    t.items.sort((a,b)=> new Date(a.zeit) - new Date(b.zeit));
+    const last = t.items[t.items.length - 1];
+    const unread = t.items.filter(x => !x.gelesen && x.empfaengerId === meId).length;
+    const lastFromOther = last.senderId !== meId;
+    const nameForPreview = lastFromOther ? (last.absenderName || `Nutzer ${shortId(t.otherId)}`) : "Du";
+
+    threads.push({
+      otherId: t.otherId,
+      fahrzeugId: t.fahrzeugId,
+      last,
+      unread,
+      previewName: nameForPreview
+    });
+  }
+
+  threads.sort((a,b)=> new Date(b.last.zeit) - new Date(a.last.zeit));
+  return threads;
+}
+
+function renderThreadCard({ car, thread, meId }){
+  const titel = car?.titel || "Unbekanntes Fahrzeug";
+  const preis = formatEUR(extractPriceValue(car));
+  const carTitleLine = preis ? `${titel} • ${preis}` : titel;
+
+  const img =
+    (Array.isArray(car?.images) && car.images[0]) ? car.images[0] :
+    (Array.isArray(car?.bilder) && car.bilder[0]) ? car.bilder[0] :
+    "";
+
+  const previewText = (thread.last?.nachricht || "").split("\n").slice(0,2).join(" ");
+  const stamp = timeDesc(thread.last?.zeit);
+  const unreadBadge = thread.unread > 0 ? ` <span class="unread-badge">+${thread.unread}</span>` : "";
+
+  const openUrl = `nachricht.html?user1=${encodeURIComponent(meId)}&user2=${encodeURIComponent(thread.otherId)}&fahrzeugId=${encodeURIComponent(thread.fahrzeugId)}`;
 
   return `
-    <div class="car-card-wrapper" data-msg-id="${escapeHTML(String(msg.id || ""))}">
-      <div class="car-card horizontal">
-        <div class="car-card-media">
-          <div class="media-container">
-            <div class="slides">
-              ${firstImg ? `<img src="${escapeHTML(firstImg)}" alt="Bild" class="slide">` : ""}
-            </div>
-          </div>
-        </div>
-        <div class="car-details">
-          <div class="car-top-row">
-            <h2 class="car-title">${escapeHTML(ins.titel || "Ohne Titel")}</h2>
-            <p class="car-price">${preis || ""}</p>
-          </div>
-          <p class="car-subtitle">${escapeHTML(ins.verkauf_kurzbeschreibung || "")}</p>
-          <div class="car-info-grid">
-            <p><i class="fas fa-road"></i> ${escapeHTML(String(ins.verkauf_kilometer ?? "—"))} km</p>
-            <p><i class="fas fa-calendar-alt"></i> EZ ${escapeHTML(String(ins.verkauf_erstzulassung || "—"))}</p>
-            <p><i class="fas fa-gas-pump"></i> ${escapeHTML(String(ins.verkauf_kraftstoff || "—"))}</p>
-            <p><i class="fas fa-gauge-high"></i> ${escapeHTML(String(ins.verkauf_leistung ?? "—"))} PS</p>
-            <p><i class="fas fa-gears"></i> ${escapeHTML(String(ins.verkauf_getriebe || "—"))}</p>
-            ${ins.verkauf_verbrauch_kombiniert ? `<p><i class="fas fa-tint"></i> ${escapeHTML(String(ins.verkauf_verbrauch_kombiniert))} l/100 km</p>` : ""}
-          </div>
-          <div class="dealer-info">
-            <strong>${escapeHTML(ins.verkauf_name || "Anbieter")}</strong><br>
-            ${escapeHTML(ins.standort || "")}
-          </div>
-        </div>
+    <div class="chat-card" data-thread="${thread.otherId}::${thread.fahrzeugId}" data-open-url="${escapeHTML(openUrl)}">
+      <div class="chat-media">
+        ${img ? `<img src="${escapeHTML(img)}" alt="Auto">` : `<div class="chat-placeholder"></div>`}
       </div>
-
-      <div class="car-card-actions desktop-only">
-        <p class="interested-user">
-          <i class="fas fa-user"></i>
-          Nachricht von <strong>${escapeHTML(msg.absenderName || "Unbekannt")}</strong>
-        </p>
-        <a href="${chatUrl}" class="chat-btn"><i class="fas fa-comments"></i> Zum Chat</a>
-        <button class="mark-read-btn" data-id="${escapeHTML(String(msg.id || ""))}">
-          <i class="fas fa-check"></i> Als gelesen
-        </button>
+      <div class="chat-info">
+        <h2 class="chat-car-title">${escapeHTML(carTitleLine)}</h2>
+        <p class="chat-message-preview"><strong>${escapeHTML(thread.previewName)}:</strong> ${escapeHTML(previewText || "…")}</p>
+        <small class="chat-time">${escapeHTML(stamp)}${unreadBadge}</small>
       </div>
-
-      <div class="car-card-actions mobile-only">
-        <p class="interested-user">
-          <i class="fas fa-user"></i>
-          Nachricht von <strong>${escapeHTML(msg.absenderName || "Unbekannt")}</strong>
-        </p>
-        <a href="${chatUrl}" class="chat-btn"><i class="fas fa-comments"></i> Zum Chat</a>
-        <button class="mark-read-btn" data-id="${escapeHTML(String(msg.id || ""))}">
-          <i class="fas fa-check"></i> Als gelesen
-        </button>
-      </div>
+    </div>
+    <div class="chat-buttons">
+      <a href="${escapeHTML(openUrl)}" class="open-chat-btn"><i class="fas fa-comments"></i> Chat öffnen</a>
     </div>
   `;
 }
@@ -1467,64 +1511,57 @@ async function loadMessagesSection() {
   if (!messagesSection) return;
 
   try {
-    const user = await getLoggedInUser();
-    const inbox = await fetchInbox(user.nutzerId);
+    const loadingEl = messagesSection.querySelector("[data-loading]");
+    const listEl = document.getElementById("chat-list");
+    const emptyEl = document.getElementById("chat-empty");
 
-    if (!Array.isArray(inbox) || inbox.length === 0) {
-      messagesSection.innerHTML = `<p>Keine Nachrichten vorhanden.</p>`;
+    loadingEl?.classList.remove("hidden");
+    if (listEl) listEl.innerHTML = "";
+    emptyEl?.classList.add("hidden");
+
+    const user = await getLoggedInUser();
+    const allMessages = await loadAllMessagesFor(user.nutzerId);
+
+    if (!Array.isArray(allMessages) || allMessages.length === 0) {
+      loadingEl?.classList.add("hidden");
+      emptyEl?.classList.remove("hidden");
       return;
     }
 
-    const detailsMap = new Map();
-    const uniqueFahrzeuge = [...new Set(inbox.map(m => m.fahrzeugId))];
+    const threads = groupThreads(allMessages, user.nutzerId);
+    const uniqueFahrzeuge = [...new Set(threads.map(t => t.fahrzeugId))];
 
+    const detailsMap = new Map();
     await Promise.all(uniqueFahrzeuge.map(async (fid) => {
       const det = await fetchInseratDetails(fid);
       detailsMap.set(fid, det);
     }));
 
-    inbox.sort((a,b) => new Date(b.zeit) - new Date(a.zeit));
+    if (listEl) {
+      listEl.innerHTML = threads.map((thread) => {
+        const car = detailsMap.get(thread.fahrzeugId) || null;
+        return renderThreadCard({ car, thread, meId: user.nutzerId });
+      }).join("");
+    }
 
-    messagesSection.innerHTML = inbox.map(msg => {
-      const ins = detailsMap.get(msg.fahrzeugId) || {};
-      return renderMessageCard(msg, ins, user.nutzerId);
-    }).join("");
+    loadingEl?.classList.add("hidden");
 
-    // falls du später hier Slider brauchst:
-    // initializeSlider(messagesSection);
+    if (!document.documentElement.dataset.uebersichtChatDelegation) {
+      document.documentElement.dataset.uebersichtChatDelegation = "1";
+      document.addEventListener("click", (e) => {
+        const card = e.target.closest(".chat-card");
+        if (!card) return;
+        if (e.target.closest("a, button")) return;
+        const url = card.getAttribute("data-open-url");
+        if (url) window.location.href = url;
+      });
+    }
 
   } catch (e) {
     console.error(e);
     messagesSection.innerHTML = `<p>Fehler beim Laden der Nachrichten.</p>`;
   }
 }
-
-// Als gelesen markieren (PATCH)
-document.addEventListener("click", async (e) => {
-  const btn = e.target.closest(".mark-read-btn");
-  if (!btn) return;
-  const id = btn.dataset.id;
-  if (!id) return;
-
-  try {
-    const r = await fetch(`/nachrichten/${encodeURIComponent(id)}/gelesen`, {
-      method: "PATCH",
-      headers: { "Content-Type":"application/json" },
-      credentials: "include"
-    });
-    if (r.ok) {
-      btn.textContent = "Gelesen";
-      btn.disabled = true;
-      btn.classList.add("is-read");
-    } else {
-      const t = await r.text();
-      alert("Konnte nicht als gelesen markieren: " + t);
-    }
-  } catch (err) {
-    console.error(err);
-    alert("Netzwerkfehler.");
-  }
-});
 
 /* =========================================================
    Saved Cars
@@ -1545,12 +1582,7 @@ function buildSavedCardHTML(inserat, userId) {
     "Inserat";
 
   // WICHTIG: Kein ||-Chain mit formatEUR("—") mehr – wir nehmen die erste echte Zahl
-  const rawPrice =
-    inserat?.verkauf_brutto ??
-    inserat?.verkauf_preis ??
-    inserat?.preis ??
-    inserat?.verkauf_netto ??
-    inserat?.["netto-preis"];
+  const rawPrice = extractPriceValue(inserat);
   const price = formatEUR(rawPrice) || "—";
 
   const ez = formatEZ(inserat?.verkauf_erstzulassung || inserat?.erstzulassung);
@@ -1579,11 +1611,16 @@ function buildSavedCardHTML(inserat, userId) {
     inserat?.verkauf_name ||
     (String(inserat?.verkauf_verkaeufer || "").toLowerCase().includes("händ") ? "Händler" : "Privat");
 
+  const sellerLogo =
+    inserat?.seller?.logoUrl ||
+    inserat?.logoUrl ||
+    "";
+
   const sellerId = String(inserat?.verkaeuferId || inserat?.seller?.id || "").trim();
   const uid = String(userId || "").trim();
 
   const chatHref = (uid && sellerId && fahrzeugId)
-    ? `chat.html?user1=${encodeURIComponent(uid)}&user2=${encodeURIComponent(sellerId)}&fahrzeugId=${encodeURIComponent(fahrzeugId)}`
+    ? `nachricht.html?user1=${encodeURIComponent(uid)}&user2=${encodeURIComponent(sellerId)}&fahrzeugId=${encodeURIComponent(fahrzeugId)}`
     : `anzeige.html?id=${encodeURIComponent(fahrzeugId)}`;
 
   const contactBtnHTML = `
@@ -1640,10 +1677,10 @@ function buildSavedCardHTML(inserat, userId) {
 
           <div class="dealer-info-row">
             <div class="dealer-row">
-              <div class="dealer-avatar">
-                <img alt="${escapeHTML(sellerName)} Logo" decoding="async">
-                <span class="dealer-initials">${escapeHTML(sellerInitials(sellerName))}</span>
-              </div>
+          <div class="dealer-avatar" data-logo="${escapeHTML(sellerLogo)}">
+            <img alt="${escapeHTML(sellerName)} Logo" decoding="async">
+            <span class="dealer-initials">${escapeHTML(sellerInitials(sellerName))}</span>
+          </div>
               <div class="dealer-meta">
                 <div class="dealer-name">${escapeHTML(sellerName)}</div>
                 <div class="dealer-location">${escapeHTML(location)}</div>
@@ -1697,6 +1734,11 @@ async function loadSavedCarsSection() {
       const cardWrap = tmp.firstElementChild;
       if (!cardWrap) return;
 
+      const avatar = cardWrap.querySelector(".dealer-avatar");
+      const img = cardWrap.querySelector(".dealer-avatar img");
+      const logo = avatar?.dataset?.logo || "";
+      applyDealerAvatar(avatar, img, logo);
+
       // Klick auf Karte -> Inserat öffnen (aber nicht bei Buttons/Links)
       cardWrap.addEventListener("click", (e) => {
         const isInteractive = e.target.closest("button, a, input, textarea, select, .media-arrow");
@@ -1746,4 +1788,3 @@ async function loadSavedCarsSection() {
     if (listEl) listEl.innerHTML = `<p>Fehler beim Laden der gespeicherten Inserate.</p>`;
   }
 }
-
