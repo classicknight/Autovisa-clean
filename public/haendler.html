@@ -15,7 +15,7 @@
   <link href="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.min.js"></script>
 </head>
-<body data-pricing="intro-free">
+<body>
 
 <!-- Navbar (aus übersicht.html, Händler-kompatibel) -->
 <nav class="navbar">
@@ -119,7 +119,7 @@
         <ul class="dropdown-menu" id="dropdown-info">
           <li><a href="ueber-uns.html"><i class="fas fa-users"></i> Über uns</a></li>
           <li><a href="hilfe.html"><i class="fas fa-question-circle"></i> Hilfe &amp; FAQ</a></li>
-          <li><a href="preise.html"><i class="fas fa-euro-sign"></i> Tarife &amp; Preise</a></li>
+          
         </ul>
       </li>
 
@@ -148,80 +148,12 @@
   </div>
 </nav>
 
-  
-<section class="pricing-strip" aria-labelledby="pricingTitle">
-  <div class="pricing-strip__bar">
-    <div class="pricing-strip__icon" aria-hidden="true">
-      <i class="fas fa-tags"></i>
-    </div>
-
-    <div class="pricing-strip__content">
-      <div class="pricing-strip__top">
-        <h2 id="pricingTitle" class="pricing-strip__title">Startphase: Kostenlos für Händler</h2>
-        <span class="pricing-strip__pill">0 €</span>
-      </div>
-      <p class="pricing-strip__meta">
-        Aktuell kostenlos – Tarife sind nur zur Orientierung einsehbar.
-      </p>
-    </div>
-
-    <button
-      class="pricing-strip__toggle"
-      type="button"
-      id="pricingToggleBtn"
-      aria-expanded="false"
-      aria-controls="pricingDetails">
-      Tarife ansehen
-      <i class="fas fa-chevron-down" aria-hidden="true"></i>
-    </button>
-  </div>
-
-  <div class="pricing-details" id="pricingDetails" hidden>
-    <div class="pricing-rows" id="pricingRows">
-      <div class="pricing-row" data-tarif="0-3">
-        <span class="pricing-row__tier">0–3 Fahrzeuge</span>
-        <span class="pricing-row__price">Kostenlos</span>
-      </div>
-
-      <div class="pricing-row" data-tarif="4-10">
-        <span class="pricing-row__tier">4–10 Fahrzeuge</span>
-        <span class="pricing-row__price">4,90 € / Monat</span>
-      </div>
-
-      <div class="pricing-row" data-tarif="11-25">
-        <span class="pricing-row__tier">11–25 Fahrzeuge</span>
-        <span class="pricing-row__price">9,90 € / Monat</span>
-      </div>
-
-      <div class="pricing-row" data-tarif="26-50">
-        <span class="pricing-row__tier">26–50 Fahrzeuge</span>
-        <span class="pricing-row__price">17,90 € / Monat</span>
-      </div>
-
-      <div class="pricing-row" data-tarif="51-100">
-        <span class="pricing-row__tier">51–100 Fahrzeuge</span>
-        <span class="pricing-row__price">29,90 € / Monat</span>
-      </div>
-
-      <div class="pricing-row" data-tarif="100+">
-        <span class="pricing-row__tier">Über 100 Fahrzeuge</span>
-        <span class="pricing-row__price">Auf Anfrage</span>
-      </div>
-    </div>
-
-    <p class="pricing-note">
-      Hinweis: In der Startphase ist Autovisa für Händler kostenlos. Änderungen werden frühzeitig angekündigt.
-    </p>
-  </div>
-</section>
-
-
 <section class="step-container">
   <div class="step-box" data-step="1">
     <div class="step-header">
       <i class="fas fa-car-side"></i>
       <span class="step-title">1. Fahrzeugdaten</span>
-      <span class="step-status">✔️</span>
+      <span class="step-status"></span>
     </div>
     <p class="step-description">Marke, Modell, Erstzulassung, Leistung, Laufleistung und grundlegende technische Daten.</p>
   </div>
@@ -247,10 +179,10 @@
   <div class="step-box" data-step="4">
     <div class="step-header">
       <i class="fas fa-eye"></i>
-      <span class="step-title">4. Vorschau & Tarif</span>
+      <span class="step-title">4. Vorschau & Veröffentlichung</span>
       <span class="step-status"></span>
     </div>
-    <p class="step-description">Anzeige prüfen, Tarif auswählen und Inserat veröffentlichen.</p>
+    <p class="step-description">Anzeige prüfen und Inserat veröffentlichen.</p>
   </div>
 </section>
 

@@ -14,9 +14,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const myCarsLink    = document.getElementById("my-cars-link");
 
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-  // Pricing-Mode aus dem <body data-pricing="...">
-  const PRICING_MODE = document.body?.dataset?.pricing || "paid-live";
-  const INTRO_FREE = PRICING_MODE === "intro-free";
 
   function closeAllDropdowns(except = null) {
     dropdownLis.forEach(li => {
@@ -198,7 +195,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       // Nach Auth erst UI/Wizard initialisieren
-      initStepsAndTarifUI();
+      initStepsUI();
       initMobileImport();
       initWizard();
       
@@ -222,39 +219,21 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* =========================
-     Wizard / Steps / Tarif
+     Wizard / Steps
      ========================= */
   const STEP_STATE_KEY = "haendlerSteps";
-  const TARIF_KEY      = "haendlerTarif";
   let stepsState = {};
 
   // Exponiere Mini-APIs für andere Seiten
   window.markStepDone = (step) => markStepDone(step);
   window.showToast    = (msg, type) => showToast(msg, type);
-  window.toggleTarife = () => toggleTarife();
 
-  function initStepsAndTarifUI() {
+  function initStepsUI() {
     stepsState = loadSteps();
     setupToasts();
     renderStepsFromState();
     wireStepNavigation();
-    setupTarif();
   }
-
-function initPricingStripToggle() {
-  const btn = document.getElementById("pricingToggleBtn");
-  const details = document.getElementById("pricingDetails");
-  if (!btn || !details) return;
-
-  btn.addEventListener("click", () => {
-    const isOpen = btn.getAttribute("aria-expanded") === "true";
-    btn.setAttribute("aria-expanded", String(!isOpen));
-    details.hidden = isOpen; // wenn offen -> verstecken, sonst anzeigen
-  });
-}
-
-// Nach dem Login-Check dort, wo du UI initialisierst:
-initPricingStripToggle();
 
 
   async function initWizard() {
@@ -322,114 +301,6 @@ initPricingStripToggle();
       });
     });
   }
-  function setupTarif() {
-    const grid = document.getElementById("tarifGrid");
-    if (!grid) return;
-  
-    // =========================
-    // STARTPHASE: Tarife NUR ANZEIGEN (nicht auswählbar)
-    // - Preise bleiben wie im HTML (4,90 / 9,90 / ...)
-    // - keine Auswahl, kein Speichern, kein /saveTarif
-    // =========================
-    if (INTRO_FREE) {
-      // Sicherheit: nichts als selected markieren (auch wenn im HTML mal "selected" steht)
-      grid.querySelectorAll(".tarif-box").forEach(b => b.classList.remove("selected"));
-  
-      // Optional: Mobile "Mehr Tarife" Button ausblenden (wenn du willst)
-      const btn = document.querySelector(".tarif-toggle-btn.mobile-only");
-      if (btn) btn.style.display = "none";
-  
-      // Klicks komplett blocken (damit wirklich NICHTS auswählbar ist)
-      // Capture = true, damit es garantiert vor anderen Listenern greift
-      grid.addEventListener("click", (e) => {
-        const box = e.target.closest(".tarif-box");
-        if (!box) return;
-  
-        e.preventDefault();
-        e.stopPropagation();
-  
-        // Optionaler Hinweis (wenn du GAR KEINE Reaktion willst, Zeile entfernen)
-        showToast("Startphase: Tarife sind aktuell nur zur Ansicht – Händler nutzen Autovisa kostenlos ✅");
-      }, true);
-  
-      // Optional: Step 4 als erledigt markieren, damit der Wizard nicht blockiert
-      markStepDone(4);
-  
-      // WICHTIG: hier bewusst raus -> keine Auswahl, kein persistTarif, kein saveTarif
-      return;
-    }
-  
-    // =========================
-    // PAID-LIVE Modus (dein bisheriges Verhalten)
-    // =========================
-  
-    // Restore Auswahl im UI
-    const saved = safeGet(TARIF_KEY, "");
-    if (saved) {
-      const el = grid.querySelector(`.tarif-box[data-tarif="${cssEscape(saved)}"]`);
-      if (el) {
-        grid.querySelectorAll(".tarif-box").forEach(b => b.classList.remove("selected"));
-        el.classList.add("selected");
-      }
-    } else {
-      const first = grid.querySelector(".tarif-box");
-      if (first) {
-        first.classList.add("selected");
-        persistTarif(first.dataset.tarif || "");
-      }
-    }
-  
-    updateNavbarTarif();
-  
-    grid.addEventListener("click", async (e) => {
-      const box = e.target.closest(".tarif-box");
-      if (!box) return;
-  
-      grid.querySelectorAll(".tarif-box").forEach(b => b.classList.remove("selected"));
-      box.classList.add("selected");
-  
-      const code = box.dataset.tarif || "";
-      try {
-        const res = await fetch("/saveTarif", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ tarif: humanTarifLabel(code) }),
-        });
-  
-        const data = await res.json().catch(() => ({}));
-  
-        if (res.ok && data.success) {
-          persistTarif(code);
-          markStepDone(4);
-          showToast("Tarif gespeichert ✅");
-        } else {
-          showToast(data.error || "Tarif konnte nicht gespeichert werden", "error");
-        }
-      } catch (err) {
-        console.error(err);
-        showToast("Serverfehler beim Speichern des Tarifs", "error");
-      }
-    });
-  }
-  
-  function persistTarif(code) {
-    safeSet(TARIF_KEY, code);
-    updateNavbarTarif();
-  }
-
-  function updateNavbarTarif() {
-    const badge = document.getElementById("tarifAnzeige");
-    if (!badge) return;
-
-    const code = safeGet(TARIF_KEY, "");
-    if (!code) { badge.textContent = ""; return; }
-
-    const label = humanTarifLabel(code);
-    const price = tarifPrice(label);
-    badge.innerHTML = `<i class="fas fa-tag"></i> Aktiver Tarif: ${label}${price ? " – " + price : ""}`;
-  }
-
   /* ---------- Steps ---------- */
   function markStepDone(step) {
     const box = document.querySelector(`.step-box[data-step="${step}"]`);
@@ -489,69 +360,14 @@ initPricingStripToggle();
     }, 3000);
   }
 
-  /* ---------- Mobile Tarife Toggle ---------- */
-  function toggleTarife() {
-    document.querySelectorAll(".tarif-grid .hide-mobile")
-      .forEach(el => el.classList.toggle("hide-mobile"));
-
-    const btn = document.querySelector(".tarif-toggle-btn.mobile-only");
-    if (btn) {
-      btn.textContent = btn.textContent.includes("Mehr")
-        ? "Weniger Tarife anzeigen"
-        : "Mehr Tarife anzeigen";
-    }
-  }
-
-  /* ---------- Helpers ---------- */
-  function humanTarifLabel(code) {
-    const map = {
-      "0-3":   "0–3 Fahrzeuge",
-      "4-10":  "4–10 Fahrzeuge",
-      "11-25": "11–25 Fahrzeuge",
-      "26-50": "26–50 Fahrzeuge",
-      "51-100":"51–100 Fahrzeuge",
-      "100+":  "100+ Fahrzeuge",
-    };
-    return map[code] || code;
-  }
-
-  function tarifPrice(label) {
-    if (INTRO_FREE) return "Kostenlos";
-
-    const preisMap = {
-      "0–3 Fahrzeuge":   "Kostenlos",
-      "4–10 Fahrzeuge":  "4,90 € / Monat",
-      "11–25 Fahrzeuge": "9,90 € / Monat",
-      "26–50 Fahrzeuge": "17,90 € / Monat",
-      "51–100 Fahrzeuge":"29,90 € / Monat",
-      "100+ Fahrzeuge":  "Auf Anfrage",
-    };
-    return preisMap[label] || "";
-  }
-
-
-  function cssEscape(value) {
-    if (window.CSS && CSS.escape) return CSS.escape(value);
-    return String(value).replace(/["\\]/g, "\\$&");
-  }
-
-  function safeGet(key, fallback) {
-    try { return localStorage.getItem(key) || fallback; } catch { return fallback; }
-  }
-
-  function safeSet(key, val) {
-    try { localStorage.setItem(key, val); } catch {}
-  }
 });
 
 /* =========================
    Wizard & lokale Draft-Daten zurücksetzen (global)
    ========================= */
 function clearWizardState() {
-  // Steps & Tarif
+  // Steps
   try { localStorage.removeItem("haendlerSteps"); } catch {}
-  // optional: Tarif behalten oder löschen – ich lasse ihn bewusst stehen
-  // try { localStorage.removeItem("haendlerTarif"); } catch {}
 
   // Step-Daten (neuer Standard)
   try { localStorage.removeItem("fahrzeugdaten"); } catch {}
@@ -581,9 +397,6 @@ function clearWizardState() {
     if (s) s.textContent = "";
   });
 }
-
-
-
 
 
 
