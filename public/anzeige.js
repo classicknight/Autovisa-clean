@@ -1338,7 +1338,8 @@ function fillOpeningHours(seller, inserat, isDealer) {
 // === Google-Maps Karte für Händler & Privat =======================
 // - Händler: komplette Adresse (Straße + Hausnr + PLZ + Ort + Land)
 // - Privat: nur Ort/PLZ-Ort
-function renderSellerMap(inserat, sellerName, sellerAddr, isDealer) {
+function renderSellerMap(inserat, sellerName, sellerAddr, isDealer, opts = {}) {
+  const { keepBox = false } = opts || {};
   const box   = $id("sellerMapBox");
   const frame = $id("sellerMapFrame");
   const note  = $id("sellerMapNote");
@@ -1394,15 +1395,27 @@ function renderSellerMap(inserat, sellerName, sellerAddr, isDealer) {
   else if (s(inserat.standort)) query = s(inserat.standort);
 
   if (!query) {
-    // gar nichts bekannt → Karte ausblenden
-    box.style.display = "none";
+    // gar nichts bekannt → Karte ausblenden (aber Impressum ggf. behalten)
     frame.src = "";
+    frame.style.display = "none";
+    note.style.display = "none";
+    const heading = box.querySelector(".seller-subheading");
+    if (heading) heading.style.display = keepBox ? "none" : "";
+    if (!keepBox) {
+      box.style.display = "none";
+    } else {
+      box.style.display = "";
+    }
     return;
   }
 
   frame.src = `https://www.google.com/maps?q=${encodeURIComponent(
     query
   )}&hl=de&z=12&output=embed`;
+  frame.style.display = "";
+  note.style.display = "";
+  const heading = box.querySelector(".seller-subheading");
+  if (heading) heading.style.display = "";
   box.style.display = "";
 }
 
@@ -2437,20 +2450,21 @@ async function renderSeller() {
     renderHours(hours);
   }
 
-  // --- Standort / Karte (Händler: volle Adresse, Privat: Ort) ---
-  if (typeof renderSellerMap === "function") {
-    renderSellerMap(inserat, name, fullAddress, isDealer);
-  }
-
   // --- Impressum (nur Händler, unter der Karte ausklappbar) ---
   const impressumRaw =
     profile.impressum || inserat.impressum || "";
+  const hasImpressum = isDealer && String(impressumRaw || "").trim().length > 0;
+
+  // --- Standort / Karte (Händler: volle Adresse, Privat: Ort) ---
+  if (typeof renderSellerMap === "function") {
+    renderSellerMap(inserat, name, fullAddress, isDealer, { keepBox: hasImpressum });
+  }
 
   const impressumBox     = $id("sellerImpressumBox");
   const impressumToggle  = $id("impressumToggle");
   const impressumContent = $id("sellerImpressumContent");
 
-  if (isDealer && impressumRaw && impressumBox && impressumToggle && impressumContent) {
+  if (hasImpressum && impressumBox && impressumToggle && impressumContent) {
     const html =
       typeof renderMultilineToHTML === "function"
         ? renderMultilineToHTML(impressumRaw)

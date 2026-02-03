@@ -2340,6 +2340,15 @@ img, video, canvas {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
+/* Sprachen dürfen umbrechen (kein ...-Abschneiden) */
+#sellerLanguages{
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+}
+
 /* Öffnungszeiten */
 .hours{ list-style:none; display:flex; flex-direction:column; gap:8px; font-size:14px; }
 .hours li{ display:flex; justify-content:space-between; gap:10px; }
