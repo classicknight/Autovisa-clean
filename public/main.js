@@ -208,11 +208,17 @@ document.addEventListener("DOMContentLoaded", () => {
   // Navbar Login/Logout (ohne localStorage.clear)
   // =========================
   const authLink = document.getElementById("auth-link");
+  const authLoginHTML = authLink ? authLink.innerHTML : "";
 
   const clearAuthStorage = () => {
     ["isLoggedIn", "userRole", "userId"].forEach((k) => localStorage.removeItem(k));
     localStorage.removeItem("redirectAfterLogin");
   };
+
+  function renderLogin() {
+    if (!authLink) return;
+    authLink.innerHTML = authLoginHTML;
+  }
 
   function renderLogout() {
     if (!authLink) return;
@@ -235,14 +241,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const isLoggedInLS = localStorage.getItem("isLoggedIn") === "true";
     if (isLoggedInLS) {
       renderLogout();
-    } else {
-      fetch("/getNutzerInfo", { credentials: "include" })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data?.eingeloggt) renderLogout();
-        })
-        .catch((err) => console.error("Fehler beim Abrufen des Login-Zustands:", err));
     }
+    fetch("/getNutzerInfo", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.eingeloggt) {
+          renderLogout();
+        } else {
+          ["isLoggedIn", "userRole", "userId"].forEach((k) => localStorage.removeItem(k));
+          renderLogin();
+        }
+      })
+      .catch((err) => console.error("Fehler beim Abrufen des Login-Zustands:", err));
   }
 
   // =========================
@@ -711,9 +721,10 @@ const modelGroups = {
       const rx = modelGroups[val];
       if (rx) {
         currentModelValues.forEach((m) => {
+          if (/\(alle\)/i.test(m)) return;
           if (rx.test(m)) all.add(m);
         });
-        all.add(val);
+        return;
       } else {
         all.add(val);
       }

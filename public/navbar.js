@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Auth container (Login/Logout)
   const authLi = document.getElementById("auth-link");
+  const authLoginHTML = authLi ? authLi.innerHTML : "";
 
   const closeMenu = () => {
     if (navLinks) navLinks.classList.remove("active");
@@ -112,16 +113,29 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function renderLogin() {
+    if (!authLi) return;
+    authLi.innerHTML = authLoginHTML;
+  }
+
+  const clearAuthFlags = () => {
+    ["isLoggedIn", "userRole", "userId"].forEach((k) => localStorage.removeItem(k));
+  };
+
   // Optional: schnelle UI via localStorage
   const isLoggedInLS = localStorage.getItem("isLoggedIn") === "true";
   if (isLoggedInLS) {
     renderLogout();
-  } else {
-    fetch("/getNutzerInfo", { credentials: "include" })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.eingeloggt) renderLogout();
-      })
-      .catch(() => {});
   }
+  fetch("/getNutzerInfo", { credentials: "include" })
+    .then((res) => res.json())
+    .then((data) => {
+      if (data?.eingeloggt) {
+        renderLogout();
+      } else {
+        clearAuthFlags();
+        renderLogin();
+      }
+    })
+    .catch(() => {});
 });
