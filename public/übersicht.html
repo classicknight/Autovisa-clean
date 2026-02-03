@@ -158,6 +158,10 @@
             <div class="profile-logo-wrapper">
               <img src="" alt="" class="profile-logo" />
               <span class="profile-initials">AV</span>
+              <button type="button" class="profile-logo-edit" aria-label="Profilbild ändern">
+                <i class="fas fa-camera"></i>
+              </button>
+              <input type="file" class="profile-logo-input" accept="image/*" hidden>
             </div>
             <div class="profile-text">
               <h2 class="profile-name" id="profil-heading">Dein Profil</h2>
@@ -274,6 +278,36 @@
                           class="profile-edit-inline"
                           data-edit-type="website"
                           aria-label="Website bearbeiten">
+                    <i class="fas fa-pen"></i>
+                  </button>
+                </dd>
+              </div>
+
+              <div class="profile-info-row is-editable haendler-only">
+                <dt>Sprachen</dt>
+                <dd>
+                  <span class="profile-info-value"
+                        data-profile-field="languages">–</span>
+                  <button type="button"
+                          class="profile-edit-inline"
+                          data-edit-type="languages"
+                          aria-label="Sprachen bearbeiten">
+                    <i class="fas fa-pen"></i>
+                  </button>
+                </dd>
+              </div>
+
+              <div class="profile-info-row is-editable haendler-only">
+                <dt>Impressum</dt>
+                <dd>
+                  <span class="profile-info-value profile-info-value--multiline"
+                        data-profile-field="impressum">
+                    Noch kein Impressum hinterlegt
+                  </span>
+                  <button type="button"
+                          class="profile-edit-inline"
+                          data-edit-type="impressum"
+                          aria-label="Impressum bearbeiten">
                     <i class="fas fa-pen"></i>
                   </button>
                 </dd>

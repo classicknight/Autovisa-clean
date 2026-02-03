@@ -744,8 +744,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       valueEl.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
-          e.preventDefault();
-          exitEditMode(true);
+          const allowNewline = fieldKey === "impressum" && e.shiftKey;
+          if (!allowNewline) {
+            e.preventDefault();
+            exitEditMode(true);
+          }
         } else if (e.key === "Escape") {
           e.preventDefault();
           exitEditMode(false);
@@ -896,9 +899,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  function renderProfileSection(nutzerData, drafts, online) {
-    const section = document.querySelector(".profile-section");
-    if (!section || !nutzerData) return;
+function renderProfileSection(nutzerData, drafts, online) {
+  const section = document.querySelector(".profile-section");
+  if (!section || !nutzerData) return;
 
     const roleRaw = (nutzerData.role || nutzerData.rolle || "privat").toLowerCase();
     const isHaendler =
@@ -922,6 +925,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const logoWrapper = section.querySelector(".profile-logo-wrapper");
     const logoImg = section.querySelector(".profile-logo");
+    const logoInput = section.querySelector(".profile-logo-input");
+    const logoEditBtn = section.querySelector(".profile-logo-edit");
     const logoUrl = nutzerData.logoUrl || "";
     if (logoImg && logoWrapper) {
       if (logoUrl) {
@@ -932,6 +937,80 @@ document.addEventListener("DOMContentLoaded", async () => {
         logoImg.removeAttribute("src");
         logoWrapper.classList.remove("has-logo");
       }
+    }
+
+    if (logoWrapper) {
+      logoWrapper.classList.toggle("is-editable", isHaendler);
+    }
+    if (logoEditBtn) {
+      logoEditBtn.style.display = isHaendler ? "" : "none";
+    }
+    if (logoInput) {
+      logoInput.disabled = !isHaendler;
+    }
+
+    if (logoWrapper && logoInput && logoEditBtn && !logoWrapper.dataset.logoUploadBound) {
+      logoWrapper.dataset.logoUploadBound = "1";
+
+      const openPicker = () => {
+        if (logoInput.disabled) return;
+        logoInput.click();
+      };
+
+      logoEditBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openPicker();
+      });
+
+      logoWrapper.addEventListener("click", (e) => {
+        if (e.target?.closest?.(".profile-logo-edit")) return;
+        if (!isHaendler) return;
+        openPicker();
+      });
+
+      logoInput.addEventListener("change", async () => {
+        const file = logoInput.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith("image/")) {
+          alert("Bitte eine Bilddatei (PNG/JPG/WEBP) auswählen.");
+          logoInput.value = "";
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("logo", file);
+
+        logoEditBtn.classList.add("is-loading");
+
+        try {
+          const res = await fetch("/haendler/logo", {
+            method: "POST",
+            credentials: "include",
+            body: formData
+          });
+
+          if (!res.ok) {
+            const t = await res.text().catch(() => "");
+            throw new Error(t || "Upload fehlgeschlagen");
+          }
+
+          const data = await res.json();
+          const newUrl = data?.logoUrl || "";
+          if (newUrl && logoImg) {
+            logoImg.src = newUrl;
+            logoImg.alt = displayName + " Logo";
+            logoWrapper.classList.add("has-logo");
+          }
+        } catch (err) {
+          console.error(err);
+          alert("Logo konnte nicht aktualisiert werden.");
+        } finally {
+          logoEditBtn.classList.remove("is-loading");
+          logoInput.value = "";
+        }
+      });
     }
 
     const locParts = [];
@@ -1008,6 +1087,41 @@ document.addEventListener("DOMContentLoaded", async () => {
       } else {
         websiteEl.textContent = "–";
       }
+    }
+
+    const languagesEl = section.querySelector('[data-profile-field="languages"]');
+    if (languagesEl) {
+      const langs = nutzerData.sprachen || nutzerData.languages || [];
+      const langMap = {
+        de: "Deutsch",
+        en: "Englisch",
+        tr: "Türkisch",
+        ar: "Arabisch",
+        ru: "Russisch",
+        pl: "Polnisch",
+        fr: "Französisch",
+        it: "Italienisch",
+        es: "Spanisch"
+      };
+      let text = "";
+      if (Array.isArray(langs)) {
+        text = langs
+          .map((l) => {
+            const key = String(l || "").trim().toLowerCase();
+            return langMap[key] || l;
+          })
+          .filter(Boolean)
+          .join(", ");
+      } else if (typeof langs === "string") {
+        text = langs.trim();
+      }
+      languagesEl.textContent = text || "–";
+    }
+
+    const impressumEl = section.querySelector('[data-profile-field="impressum"]');
+    if (impressumEl) {
+      const impr = (nutzerData.impressum || "").trim();
+      impressumEl.textContent = impr || "Noch kein Impressum hinterlegt";
     }
 
     const openingEl = section.querySelector('[data-profile-field="openingHours"]');

@@ -1116,6 +1116,7 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
     normalizeHuParams(params);
     // Client-only: nicht ans Backend senden
     params.delete("verbrauch_max");
+    params.delete("sellerName");
     params.set("page", String(p));
     params.set("limit", String(limit));
     const res = await fetch(`/api/search?${params.toString()}`, { credentials: "omit" });
@@ -2480,6 +2481,12 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
   
     // URL-Params
     const sp = new URLSearchParams(location.search);
+    const sellerIdParam =
+      sp.get("sellerId") ||
+      sp.get("haendlerId") ||
+      sp.get("anbieterId") ||
+      "";
+    const sellerNameParam = sp.get("sellerName") || "";
   
     // Merkmale (CSV) – hier kann „Scheckheftgepflegt“ drinstehen
     const splitCsv = (v) => v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : [];
@@ -2707,6 +2714,11 @@ const psMaxEff = (() => {
     }
   
     // Weitere URL-basierte Chips
+    if (sellerIdParam) {
+      const labelName = sellerNameParam || sellerIdParam;
+      chips.push({ key: "sellerId", label: `Anbieter: ${labelName}` });
+    }
+
     if (qp.marke)
       chips.push({ key: "marke", label: `Marke: ${qp.marke}` });
   
@@ -2938,6 +2950,13 @@ function removeFilterChip(key, val = "") {
       break;
     }
 
+    case "sellerId":
+      params.delete("sellerId");
+      params.delete("sellerName");
+      params.delete("haendlerId");
+      params.delete("anbieterId");
+      break;
+
     case "marke":
       params.delete("marke");
       break;
@@ -3081,6 +3100,7 @@ function clearAllFilters() {
     "partikelfilter","scheckheft","fahrtauglich",
     "farbe",
     "merkmale", // ⬅️ wichtig: Merkmale-CSV auch zurücksetzen
+    "sellerId","sellerName","haendlerId","anbieterId",
     // HU-Parameter (alle Varianten)
     "hu","hu_bis","inspectionUntil","hu_min_monate","hu_min_months",
     // Max. Halter

@@ -1870,7 +1870,8 @@ app.get("/getNutzerInfo", async (req, res) => {
           "öffnungszeiten": 1,
           oeffnungszeitenDetails: 1,
 
-          sprachen: 1
+          sprachen: 1,
+          impressum: 1
         }
       }
     );
@@ -1960,6 +1961,7 @@ app.get("/getNutzerInfo", async (req, res) => {
       oeffnungszeitenDetails: nutzer.oeffnungszeitenDetails || null,
 
       sprachen: Array.isArray(nutzer.sprachen) ? nutzer.sprachen : [],
+      impressum: nutzer.impressum || "",
 
       ratingAvg,
       ratingCount
@@ -2005,6 +2007,18 @@ app.post("/profil/update", checkLogin, async (req, res) => {
       case "openingHours":
         update.oeffnungszeiten = v; // bearbeiteter Text inkl. Template
         break;
+      case "impressum":
+        update.impressum = v;
+        break;
+      case "languages": {
+        const raw = String(value ?? "").replace(/\n+/g, ",");
+        const list = raw
+          .split(",")
+          .map(s => s.trim())
+          .filter(Boolean);
+        update.sprachen = list;
+        break;
+      }
       default:
         return res.status(400).json({
           error: "Dieses Feld darf nicht aktualisiert werden."
@@ -2566,9 +2580,9 @@ app.post("/nachricht-senden", checkLogin, async (req, res) => {
           if (recipientEmail) {
             const { appUrl } = getAppUrls();
             const chatUrl =
-              `${appUrl}/chat.html?user=${encodeURIComponent(empfaengerId)}` +
-              `&with=${encodeURIComponent(senderId)}` +
-              `&fahrzeug=${encodeURIComponent(fahrzeugId)}`;
+              `${appUrl}/nachricht.html?user1=${encodeURIComponent(empfaengerId)}` +
+              `&user2=${encodeURIComponent(senderId)}` +
+              `&fahrzeugId=${encodeURIComponent(fahrzeugId)}`;
 
             await sendNewMessageEmail({
               to: recipientEmail,
@@ -3691,7 +3705,11 @@ app.get("/api/search", async (req, res) => {
       farbe,
       plakette,
       merkmale,
-      unfallfrei
+      unfallfrei,
+      // Anbieter-Filter (vom Inserat aus)
+      sellerId,
+      haendlerId,
+      anbieterId
     } = req.query;
 
     const p    = Math.max(parseInt(page, 10)  || 1, 1);
@@ -3731,6 +3749,29 @@ app.get("/api/search", async (req, res) => {
             { unfall: 0 }
           ];
         }
+
+    // ---- Anbieter/Händler-Filter (z. B. aus anzeige.html)
+    const sellerIdRaw = sellerId || haendlerId || anbieterId;
+    const sellerIdNorm = String(sellerIdRaw || "").trim();
+    if (sellerIdNorm) {
+      const sellerOr = [
+        { verkaeuferId: sellerIdNorm },
+        { "seller.id": sellerIdNorm },
+        { sellerId: sellerIdNorm }
+      ];
+
+      if (baseMatch.$or) {
+        baseMatch.$and = [
+          { $or: baseMatch.$or },
+          { $or: sellerOr }
+        ];
+        delete baseMatch.$or;
+      } else if (Array.isArray(baseMatch.$and)) {
+        baseMatch.$and.push({ $or: sellerOr });
+      } else {
+        baseMatch.$and = [{ $or: sellerOr }];
+      }
+    }
         
 
     // ---- Zahlen aus Query
@@ -4609,10 +4650,6 @@ app.get("/api/bewertungen/:sellerId", async (req, res) => {
 
   res.json(ratings);
 });
-
-
-
-
 
 
 

@@ -2330,11 +2330,20 @@ async function renderSeller() {
   if (isDealer && sellerId) {
     if (sellerCarsBtn) {
       sellerCarsBtn.style.display = "inline-flex";
+      const sellerName =
+        (name ||
+          profile.firma ||
+          profile.name ||
+          inserat.verkauf_name ||
+          "").trim();
+      const params = new URLSearchParams();
+      params.set("sellerId", String(sellerId));
+      if (sellerName) params.set("sellerName", sellerName);
+      const targetUrl = `suche.html?${params.toString()}`;
+      sellerCarsBtn.href = targetUrl;
       sellerCarsBtn.addEventListener("click", (e) => {
         e.preventDefault();
-        window.location.href = `haendler.html?id=${encodeURIComponent(
-          sellerId
-        )}`;
+        window.location.href = targetUrl;
       });
     }
   } else {
@@ -2874,7 +2883,6 @@ function setupToggleRatingList(sellerId) {
     }
   });
 }
-
 
 
 

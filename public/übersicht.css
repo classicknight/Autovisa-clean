@@ -2045,15 +2045,52 @@ img, video, canvas {
     height: 64px;
     flex: 0 0 64px;                  /* fester Kreis, wird nicht gestreckt */
     border-radius: 999px;
-    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    background: #f1f5f9;
+    border: 1px solid #e3e9ef;
     display: flex;
     align-items: center;             /* vertikal zentriert */
     justify-content: center;         /* horizontal zentriert */
     overflow: hidden;
-    color: #ffffff;
+    color: #1a2a33;
     font-weight: 600;
     font-size: 22px;
     text-transform: uppercase;
+  }
+
+  .profile-logo-wrapper.is-editable {
+    cursor: pointer;
+  }
+
+  .profile-logo-edit {
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    border: 1px solid #dfe6ec;
+    background: #ffffff;
+    color: #1a2a33;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,.12);
+    cursor: pointer;
+    transition: transform .15s ease, box-shadow .2s ease;
+  }
+
+  .profile-logo-edit:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(0,0,0,.16);
+  }
+
+  .profile-logo-edit.is-loading {
+    opacity: .6;
+    pointer-events: none;
+  }
+
+  .profile-logo-wrapper.is-editable .profile-logo-edit {
+    display: inline-flex;
   }
   
   .profile-logo {
@@ -2294,10 +2331,15 @@ img, video, canvas {
     padding: 2px;
   }
   
-  .profile-edit-inline i {
-    font-size: 14px;
-  }
-  
+.profile-edit-inline i {
+  font-size: 14px;
+}
+
+.profile-info-value--multiline {
+  white-space: pre-line;
+  line-height: 1.45;
+}
+
   .profile-info-row.is-editing .profile-info-value[contenteditable="true"],
   .profile-opening-wrapper.is-editing .profile-opening-text[contenteditable="true"] {
     outline: 2px solid #00b8a9;
