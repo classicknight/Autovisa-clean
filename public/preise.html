@@ -1,3 +1,4 @@
+<!-- preise.html (NEU) -->
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -12,155 +13,193 @@
 
   <link rel="stylesheet" href="preise.css" />
 </head>
+
 <body class="prices-body">
   <!-- NAVBAR hier -->
 
   <main class="prices-main" id="main">
-    <!-- Hero -->
-    <section class="hero-prices">
-      <div class="hero-overlay"></div>
-      <div class="container hero-content">
-        <h1><i class="fas fa-tags"></i> Preise</h1>
-        <p class="subtitle">
-          Klare, transparente Tarife – fair für Händler und Privatverkäufer.  
-          Keine versteckten Kosten, jederzeit kündbar.
+    <!-- HERO -->
+    <section class="prices-hero">
+      <div class="prices-hero__overlay" aria-hidden="true"></div>
+      <div class="container prices-hero__content">
+        <h1 class="prices-hero__title">
+          <i class="fa-solid fa-tag" aria-hidden="true"></i>
+          Preise
+        </h1>
+        <p class="prices-hero__subtitle">
+          Autovisa befindet sich aktuell in der Startphase und ist derzeit kostenfrei nutzbar.
         </p>
-      </div>
-    </section>
-
-    <!-- Händler -->
-    <section class="tarif-section">
-      <h2 class="tarif-title"><i class="fas fa-building"></i> Händler-Tarife</h2>
-      <p class="tarif-subtitle">
-        Wähle den passenden Tarif basierend auf der Anzahl deiner Inserate.  
-        Alle Tarife sind monatlich kündbar – ohne Mindestlaufzeit.
-      </p>
-
-      <div class="tarif-grid" id="tarifGrid">
-        <div class="tarif-box selected" data-tarif="0-3">
-          <h3>0–3 Fahrzeuge</h3>
-          <p class="tarif-price">Kostenlos</p>
-        </div>
-        <div class="tarif-box" data-tarif="4-10">
-          <h3>4–10 Fahrzeuge</h3>
-          <p class="tarif-price">4,90 € / Monat</p>
-        </div>
-        <div class="tarif-box hide-mobile" data-tarif="11-25">
-          <h3>11–25 Fahrzeuge</h3>
-          <p class="tarif-price">9,90 € / Monat</p>
-        </div>
-        <div class="tarif-box hide-mobile" data-tarif="26-50">
-          <h3>26–50 Fahrzeuge</h3>
-          <p class="tarif-price">17,90 € / Monat</p>
-        </div>
-        <div class="tarif-box hide-mobile" data-tarif="51-100">
-          <h3>51–100 Fahrzeuge</h3>
-          <p class="tarif-price">29,90 € / Monat</p>
-        </div>
-        <div class="tarif-box hide-mobile" data-tarif="100+">
-          <h3>Über 100 Fahrzeuge</h3>
-          <p class="tarif-price">Auf Anfrage</p>
+        <div class="prices-hero__badge" role="status" aria-live="polite">
+          <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+          Aktuell kostenlos
         </div>
       </div>
     </section>
 
-    <!-- Privat -->
-    <section class="tarif-section">
-      <h2 class="tarif-title"><i class="fas fa-user-tag"></i> Privatverkäufer-Tarife</h2>
-      <p class="tarif-subtitle">Wähle das passende Paket – jedes Inserat bleibt 6 Monate online.</p>
-      
-      <div class="tarif-grid" id="privatTarifGrid">
-        <div class="tarif-box selected" data-tarif="1">
-          <h3>1 Inserat</h3>
-          <p class="tarif-price">Kostenlos</p>
-        </div>
-        <div class="tarif-box" data-tarif="2">
-          <h3>2 Inserate</h3>
-          <p class="tarif-price">2,90 € einmalig</p>
-        </div>
-        <div class="tarif-box hide-mobile" data-tarif="3">
-          <h3>3 Inserate</h3>
-          <p class="tarif-price">5,90 € einmalig</p>
-        </div>
-        <div class="tarif-box hide-mobile" data-tarif="4-5">
-          <h3>4–5 Inserate</h3>
-          <p class="tarif-price">9,90 € einmalig</p>
-        </div>
-      </div>
-    </section>
+    <!-- CONTENT -->
+    <section class="prices-section">
+      <div class="container">
+        <div class="prices-card">
+          <div class="prices-card__header">
+            <h2 class="prices-card__title">Startphase</h2>
+            <p class="prices-card__lead">
+              In der Startphase kannst du Autovisa kostenlos nutzen – ohne Verpflichtungen.
+            </p>
+          </div>
 
-    <!-- CTA -->
-    <section class="section cta-prices">
-      <div class="container cta-box">
-        <div>
-          <h2>Jetzt starten</h2>
-          <p>Wähle den passenden Tarif und inseriere dein Fahrzeug in wenigen Minuten.</p>
-        </div>
-        <div class="cta-actions">
-          <a class="btn btn-primary" href="verkaufen.html">Fahrzeug inserieren</a>
+          <div class="prices-features" role="list">
+            <div class="prices-feature" role="listitem">
+              <span class="prices-feature__icon" aria-hidden="true"><i class="fa-solid fa-car"></i></span>
+              <div class="prices-feature__text">
+                <p class="prices-feature__title">Inserate erstellen</p>
+                <p class="prices-feature__desc">Fahrzeuge einstellen, bearbeiten und verwalten.</p>
+              </div>
+            </div>
+
+            <div class="prices-feature" role="listitem">
+              <span class="prices-feature__icon" aria-hidden="true"><i class="fa-solid fa-comments"></i></span>
+              <div class="prices-feature__text">
+                <p class="prices-feature__title">Anfragen erhalten</p>
+                <p class="prices-feature__desc">Nachrichten und Kontaktanfragen direkt über Autovisa.</p>
+              </div>
+            </div>
+
+            <div class="prices-feature" role="listitem">
+              <span class="prices-feature__icon" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>
+              <div class="prices-feature__text">
+                <p class="prices-feature__title">Sichtbarkeit in der Suche</p>
+                <p class="prices-feature__desc">Deine Inserate werden ganz normal in der Suche angezeigt.</p>
+              </div>
+            </div>
+
+            <div class="prices-feature" role="listitem">
+              <span class="prices-feature__icon" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span>
+              <div class="prices-feature__text">
+                <p class="prices-feature__title">Einfach & transparent</p>
+                <p class="prices-feature__desc">Keine versteckten Bedingungen – Fokus auf eine saubere Plattform.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="prices-divider" aria-hidden="true"></div>
+
+          <details class="prices-faq">
+            <summary class="prices-faq__summary">
+              <span>Warum ist Autovisa aktuell kostenlos?</span>
+              <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+            </summary>
+            <div class="prices-faq__content">
+              <p>
+                Autovisa befindet sich in der Entwicklung und wird aktuell aktiv verbessert.
+                In dieser Phase steht Feedback, Stabilität und Nutzererlebnis im Vordergrund.
+              </p>
+            </div>
+          </details>
+
+          <details class="prices-faq">
+            <summary class="prices-faq__summary">
+              <span>Gibt es eine Kündigungsfrist?</span>
+              <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+            </summary>
+            <div class="prices-faq__content">
+              <p>
+                Nein. Da Autovisa aktuell kostenfrei nutzbar ist, gibt es keine Laufzeiten oder Fristen.
+              </p>
+            </div>
+          </details>
+
+          <details class="prices-faq">
+            <summary class="prices-faq__summary">
+              <span>Wo finde ich Hilfe oder Support?</span>
+              <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+            </summary>
+            <div class="prices-faq__content">
+              <p>
+                Bei Fragen erreichst du uns über die Kontaktseite. Wir helfen dir gerne weiter.
+              </p>
+            </div>
+          </details>
+
+          <div class="prices-actions">
+            <a class="btn btn-primary" href="verkaufen.html">
+              <i class="fa-solid fa-plus" aria-hidden="true"></i>
+              Jetzt Inserat erstellen
+            </a>
+            <a class="btn btn-ghost" href="kontakt.html">
+              Kontakt
+            </a>
+          </div>
+
+          <p class="prices-footnote">
+            Stand: <span id="pricesDate"></span>
+          </p>
         </div>
       </div>
     </section>
   </main>
 
-  <!-- FOOTER hier -->
-  <footer class="site-footer" role="contentinfo">
-    <div class="container footer-grid">
-      <section class="footer-brand">
-        <a class="brand" href="index.html" aria-label="Autovisa Startseite">
-          AUTOVISA
-        </a>
-        <p class="brand-sub">Autos kaufen & verkaufen, modern gedacht.</p>
-        <ul class="social" role="list">
-          <li><a href="#" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a></li>
-          <li><a href="#" aria-label="X / Twitter"><i class="fa-brands fa-x-twitter"></i></a></li>
-          <li><a href="#" aria-label="YouTube"><i class="fa-brands fa-youtube"></i></a></li>
-        </ul>
-      </section>
-      
-      <nav class="footer-col" aria-labelledby="f-marktplatz">
-        <h3 id="f-marktplatz">Marktplatz</h3>
-        <ul role="list">
-          <li><a href="suche.html">Fahrzeuge suchen</a></li>
-          <li><a href="verkaufen.html">Fahrzeug inserieren</a></li>
-          <li><a href="haendler.html">Händler</a></li>
-          <li><a href="ueber-uns.html">Über uns</a></li>
-        </ul>
-      </nav>
-      
-      <nav class="footer-col" aria-labelledby="f-support">
-        <h3 id="f-support">Support</h3>
-        <ul role="list">
-          <li><a href="kontakt.html">Kontakt</a></li>
-          <li><a href="hilfe.html">Hilfe / FAQ</a></li>
-          <li><a href="preise.html">Preise</a></li>
-        </ul>
-      </nav>
-      
-      <nav class="footer-col" aria-labelledby="f-recht">
-        <h3 id="f-recht">Rechtliches</h3>
-        <ul role="list">
-          <li><a href="impressum.html">Impressum</a></li>
-          <li><a href="datenschutz.html">Datenschutz</a></li>
-          <li><a href="agb.html">AGB</a></li>
-          
-        </ul>
-      </nav>
-    </div>
-    
-    <div class="footer-bottom">
-      <div class="container bottom-inner">
-        <p>© <span id="year"></span> Autovisa. Alle Rechte vorbehalten.</p>
-        <a href="#main" class="to-top" aria-label="Nach oben">Nach oben ↑</a>
-      </div>
-    </div>
-  </footer>
-  
-  <!-- Jahr & „Nach oben“ -->
-  <script>
-    document.getElementById('year').textContent = new Date().getFullYear();
-  </script>
-<!-- FOOTER -->
+  <!-- FOOTER hier (optional) -->
   <script src="preise.js" defer></script>
+  
+  
+  
+  <footer class="site-footer" role="contentinfo">
+  <div class="container footer-grid">
+    <section class="footer-brand">
+      <a class="brand" href="index.html" aria-label="Autovisa Startseite">
+        AUTOVISA
+      </a>
+      <p class="brand-sub">Autos kaufen & verkaufen, modern gedacht.</p>
+      <ul class="social" role="list">
+        <li><a href="#" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a></li>
+        <li><a href="#" aria-label="X / Twitter"><i class="fa-brands fa-x-twitter"></i></a></li>
+        <li><a href="#" aria-label="YouTube"><i class="fa-brands fa-youtube"></i></a></li>
+      </ul>
+    </section>
+    
+    <nav class="footer-col" aria-labelledby="f-marktplatz">
+      <h3 id="f-marktplatz">Marktplatz</h3>
+      <ul role="list">
+        <li><a href="suche.html">Fahrzeuge suchen</a></li>
+        <li><a href="verkaufen.html">Fahrzeug inserieren</a></li>
+        <li><a href="haendler.html">Händler</a></li>
+        <li><a href="ueber-uns.html">Über uns</a></li>
+      </ul>
+    </nav>
+    
+    <nav class="footer-col" aria-labelledby="f-support">
+      <h3 id="f-support">Support</h3>
+      <ul role="list">
+        <li><a href="kontakt.html">Kontakt</a></li>
+        <li><a href="hilfe.html">Hilfe / FAQ</a></li>
+        <li><a href="preise.html">Preise</a></li>
+      </ul>
+    </nav>
+    
+    <nav class="footer-col" aria-labelledby="f-recht">
+      <h3 id="f-recht">Rechtliches</h3>
+      <ul role="list">
+        <li><a href="impressum.html">Impressum</a></li>
+        <li><a href="datenschutz.html">Datenschutz</a></li>
+        <li><a href="agb.html">AGB</a></li>
+        
+      </ul>
+    </nav>
+  </div>
+  
+  <div class="footer-bottom">
+    <div class="container bottom-inner">
+      <p>© <span id="year"></span> Autovisa. Alle Rechte vorbehalten.</p>
+      <a href="#top" class="to-top" aria-label="Nach oben">Nach oben ↑</a>
+      <script>
+        document.querySelector('.to-top')?.addEventListener('click', (e) => {
+          e.preventDefault();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      </script>
+      
+    </div>
+  </div>
+</footer>
 </body>
 </html>

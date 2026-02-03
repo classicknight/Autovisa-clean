@@ -1402,9 +1402,15 @@ img, video, canvas {
     }
     
     .results-section {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .car-results{
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
     }
     
     .car-card {

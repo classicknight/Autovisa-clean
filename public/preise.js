@@ -1,17 +1,19 @@
-// Highlight-Logik für ausgewählte Tarife
+// preise.js (NEU)
 document.addEventListener("DOMContentLoaded", () => {
-    function setupTarifGrid(gridId) {
-      const grid = document.getElementById(gridId);
-      if (!grid) return;
-      
-      grid.querySelectorAll(".tarif-box").forEach(box => {
-        box.addEventListener("click", () => {
-          grid.querySelectorAll(".tarif-box").forEach(b => b.classList.remove("selected"));
-          box.classList.add("selected");
-        });
-      });
-    }
-    
-    setupTarifGrid("tarifGrid"); // Händler
-    setupTarifGrid("privatTarifGrid"); // Privat
+  // Datum unten eintragen
+  const el = document.getElementById("pricesDate");
+  if (el) {
+    const d = new Date();
+    const fmt = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+    el.textContent = fmt.format(d);
+  }
+  
+  // Optional: nur ein FAQ gleichzeitig offen halten (sauberer UX)
+  const faqs = Array.from(document.querySelectorAll(".prices-faq"));
+  faqs.forEach(faq => {
+    faq.addEventListener("toggle", () => {
+      if (!faq.open) return;
+      faqs.forEach(other => { if (other !== faq) other.open = false; });
+    });
   });
+});
