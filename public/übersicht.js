@@ -1088,23 +1088,28 @@ function buildFahrzeugdatenFromInserat(ins) {
       if (realId) inseratById.set(String(realId), inserat);
 
       const isOnline = wrapper.dataset.status === "online";
-      const publishBtnLabel = isOnline ? "Online" : "Veröffentlichen";
-      const publishBtnAttrs = isOnline
-        ? 'disabled class="publish-btn published" type="button"'
-        : 'class="publish-btn" type="button"';
+      const publishTitle = isOnline ? "Bereits online" : "Veröffentlichen";
+      const publishBtnAttrs =
+        `class="publish-btn${isOnline ? " published" : ""}" ` +
+        `type="button" ` +
+        `${isOnline ? "disabled aria-disabled='true'" : ""} ` +
+        `title="${publishTitle}" aria-label="${publishTitle}"`;
 
       const titleSafe = escapeHTML(inserat.titel || "Titel fehlt");
       const subtitleSafe = escapeHTML(inserat.verkauf_kurzbeschreibung || "Besondere Ausstattung");
 
-      wrapper.innerHTML = `
-        <div class="car-card-actions mobile-only">
-          <button ${publishBtnAttrs}><i class="fas fa-globe"></i> ${publishBtnLabel}</button>
-          <button class="edit-btn" type="button"><i class="fas fa-pen"></i> Bearbeiten</button>
-          <button class="remove-saved-btn" type="button"><i class="fas fa-trash"></i> Entfernen</button>
-        </div>
+      const actionButtonsHTML = `
+        <button ${publishBtnAttrs}><i class="fas fa-globe"></i></button>
+        <button class="edit-btn" type="button" title="Bearbeiten" aria-label="Bearbeiten"><i class="fas fa-pen"></i></button>
+        <button class="remove-saved-btn" type="button" title="Entfernen" aria-label="Entfernen"><i class="fas fa-trash"></i></button>
+      `;
 
+      wrapper.innerHTML = `
         <div class="car-card horizontal">
           <div class="car-card-media">
+            <div class="card-actions mobile-only">
+              ${actionButtonsHTML}
+            </div>
             <div class="media-container">
               <div class="slides">
                 ${generateSlides(inserat)}
@@ -1117,10 +1122,12 @@ function buildFahrzeugdatenFromInserat(ins) {
           <div class="car-details">
             <div class="car-top-row">
               <h2 class="car-title">${titleSafe}</h2>
-              <p class="car-price">${
+            <p class="car-price">${
                 formatEUR(inserat.verkauf_brutto) ||
                 formatEUR(inserat.verkauf_preis) ||
                 formatEUR(inserat.preis) ||
+                formatEUR(inserat.verkauf_netto) ||
+                formatEUR(inserat["netto-preis"]) ||
                 "Preis fehlt"
               }</p>
             </div>
@@ -1136,14 +1143,22 @@ function buildFahrzeugdatenFromInserat(ins) {
               <p><i class="fas fa-tint"></i> ${escapeHTML(String(inserat.verkauf_verbrauch_kombiniert || "—"))} l/100 km</p>
             </div>
 
-            <div class="dealer-info"></div>
+            <div class="dealer-info-row">
+              <div class="dealer-row">
+                <div class="dealer-avatar">
+                  <img alt="">
+                  <span class="dealer-initials"></span>
+                </div>
+                <div class="dealer-meta">
+                  <div class="dealer-name"></div>
+                  <div class="dealer-location"></div>
+                </div>
+              </div>
+              <div class="card-actions desktop-only">
+                ${actionButtonsHTML}
+              </div>
+            </div>
           </div>
-        </div>
-
-        <div class="car-card-actions desktop-only">
-          <button ${publishBtnAttrs}><i class="fas fa-globe"></i> ${publishBtnLabel}</button>
-          <button class="edit-btn" type="button"><i class="fas fa-pen"></i> Bearbeiten</button>
-          <button class="remove-saved-btn" type="button"><i class="fas fa-trash"></i> Entfernen</button>
         </div>
       `;
 
@@ -1164,8 +1179,6 @@ function buildFahrzeugdatenFromInserat(ins) {
       initializeSlider(wrapper);
 
       // --- Verkäuferzeile (Logo + Name + Standort) ---
-      const dealerInfoEl = wrapper.querySelector(".dealer-info");
-
       const rawType = String(inserat?.seller?.type || inserat?.verkauf_verkaeufer || "").toLowerCase();
       const isHaendler =
         rawType === "haendler" ||
@@ -1190,21 +1203,15 @@ function buildFahrzeugdatenFromInserat(ins) {
         (typeof inserat?.seller?.logoUrl === "string" && inserat.seller.logoUrl.trim()) ||
         (belongsToMe ? (nutzerData?.logoUrl || "") : "");
 
-      dealerInfoEl.innerHTML = `
-        <div class="dealer-row">
-          <div class="dealer-avatar">
-            <img alt="${escapeHTML(sellerName)} Logo" decoding="async" style="display:block">
-            <span class="dealer-initials">${sellerInitials(sellerName)}</span>
-          </div>
-          <div class="dealer-meta">
-            <div class="dealer-name">${escapeHTML(sellerName)}</div>
-            <div class="dealer-location">${escapeHTML(sellerLocation)}</div>
-          </div>
-        </div>
-      `;
+      const avatar = wrapper.querySelector(".dealer-avatar");
+      const img    = wrapper.querySelector(".dealer-avatar img");
+      const initialsEl = wrapper.querySelector(".dealer-initials");
+      const nameEl = wrapper.querySelector(".dealer-name");
+      const locationEl = wrapper.querySelector(".dealer-location");
 
-      const avatar = dealerInfoEl.querySelector(".dealer-avatar");
-      const img    = dealerInfoEl.querySelector(".dealer-avatar img");
+      if (initialsEl) initialsEl.textContent = sellerInitials(sellerName);
+      if (nameEl) nameEl.textContent = sellerName;
+      if (locationEl) locationEl.textContent = sellerLocation;
 
       avatar.classList.remove("has-logo");
       img.removeAttribute("src");
@@ -1538,7 +1545,12 @@ function buildSavedCardHTML(inserat, userId) {
     "Inserat";
 
   // WICHTIG: Kein ||-Chain mit formatEUR("—") mehr – wir nehmen die erste echte Zahl
-  const rawPrice = inserat?.verkauf_brutto ?? inserat?.verkauf_preis ?? inserat?.preis;
+  const rawPrice =
+    inserat?.verkauf_brutto ??
+    inserat?.verkauf_preis ??
+    inserat?.preis ??
+    inserat?.verkauf_netto ??
+    inserat?.["netto-preis"];
   const price = formatEUR(rawPrice) || "—";
 
   const ez = formatEZ(inserat?.verkauf_erstzulassung || inserat?.erstzulassung);
@@ -1574,22 +1586,28 @@ function buildSavedCardHTML(inserat, userId) {
     ? `chat.html?user1=${encodeURIComponent(uid)}&user2=${encodeURIComponent(sellerId)}&fahrzeugId=${encodeURIComponent(fahrzeugId)}`
     : `anzeige.html?id=${encodeURIComponent(fahrzeugId)}`;
 
+  const contactBtnHTML = `
+    <a href="${chatHref}" class="contact-btn" title="Kontakt aufnehmen" aria-label="Kontakt aufnehmen">
+      <i class="fas fa-comments"></i>
+    </a>
+  `;
+  const removeBtnHTML = `
+    <button class="remove-saved-btn" type="button" data-fahrzeug-id="${escapeHTML(fahrzeugId)}" title="Entfernen" aria-label="Entfernen">
+      <i class="fas fa-heart-broken"></i>
+    </button>
+  `;
+  const actionButtonsHTML = `${contactBtnHTML}${removeBtnHTML}`;
+
   return `
     <div class="car-card-wrapper"
          data-saved-id="${escapeHTML(savedDocId)}"
          data-fahrzeug-id="${escapeHTML(fahrzeugId)}">
 
-      <div class="car-card-actions mobile-only">
-        <a href="${chatHref}" class="contact-btn">
-          <i class="fas fa-comments"></i> Kontakt aufnehmen
-        </a>
-        <button class="remove-saved-btn" type="button" data-fahrzeug-id="${escapeHTML(fahrzeugId)}">
-          <i class="fas fa-heart-broken"></i> Entfernen
-        </button>
-      </div>
-
       <div class="car-card horizontal">
         <div class="car-card-media">
+          <div class="card-actions mobile-only">
+            ${actionButtonsHTML}
+          </div>
           <div class="media-container">
             <div class="slides">
               ${generateSlides(inserat)}
@@ -1620,20 +1638,22 @@ function buildSavedCardHTML(inserat, userId) {
             <p><i class="fas fa-tint"></i> ${escapeHTML(verbrauch)}</p>
           </div>
 
-          <div class="dealer-info">
-            <strong>${escapeHTML(sellerName)}</strong><br>
-            ${escapeHTML(location)}
+          <div class="dealer-info-row">
+            <div class="dealer-row">
+              <div class="dealer-avatar">
+                <img alt="${escapeHTML(sellerName)} Logo" decoding="async">
+                <span class="dealer-initials">${escapeHTML(sellerInitials(sellerName))}</span>
+              </div>
+              <div class="dealer-meta">
+                <div class="dealer-name">${escapeHTML(sellerName)}</div>
+                <div class="dealer-location">${escapeHTML(location)}</div>
+              </div>
+            </div>
+            <div class="card-actions desktop-only">
+              ${actionButtonsHTML}
+            </div>
           </div>
         </div>
-      </div>
-
-      <div class="car-card-actions desktop-only">
-        <a href="${chatHref}" class="contact-btn">
-          <i class="fas fa-comments"></i> Kontakt aufnehmen
-        </a>
-        <button class="remove-saved-btn" type="button" data-fahrzeug-id="${escapeHTML(fahrzeugId)}">
-          <i class="fas fa-heart-broken"></i> Entfernen
-        </button>
       </div>
     </div>
   `;
@@ -1726,7 +1746,4 @@ async function loadSavedCarsSection() {
     if (listEl) listEl.innerHTML = `<p>Fehler beim Laden der gespeicherten Inserate.</p>`;
   }
 }
-
-
-
 

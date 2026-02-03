@@ -2466,3 +2466,444 @@ img, video, canvas {
   color: #7a8b97;
   font-size: 12px;
 }
+
+/* =========================================================
+   Übersicht: Karten wie Suche (Meine Autos / Gespeicherte Autos)
+   ========================================================= */
+.meine-autos-seite .car-card-wrapper,
+.gespeicherte-autos-seite .car-card-wrapper{
+  display: block;
+  margin-bottom: 24px;
+}
+
+.meine-autos-seite .car-card,
+.gespeicherte-autos-seite .car-card{
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  min-height: 220px;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.04);
+  overflow: hidden;
+  border: 1px solid #e3e9ef;
+  transition: transform .25s ease, box-shadow .3s ease;
+  margin-bottom: 0;
+  cursor: pointer;
+}
+
+.meine-autos-seite .car-card:hover,
+.gespeicherte-autos-seite .car-card:hover{
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0,0,0,.08);
+}
+
+.meine-autos-seite .car-card-media,
+.gespeicherte-autos-seite .car-card-media{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #f3f6f9;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.meine-autos-seite .media-container,
+.gespeicherte-autos-seite .media-container{
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.meine-autos-seite .slides,
+.gespeicherte-autos-seite .slides{
+  width: 100%;
+  height: 100%;
+  display: flex;
+  transition: transform .5s ease-in-out;
+  will-change: transform;
+  touch-action: pan-y;
+}
+
+.meine-autos-seite .slide,
+.gespeicherte-autos-seite .slide{
+  flex: 0 0 100%;
+  min-width: 100%;
+  width: 100%;
+  height: 100%;
+  display: block;
+  box-sizing: border-box;
+  object-fit: cover;
+  object-position: center;
+}
+
+.meine-autos-seite .car-details,
+.gespeicherte-autos-seite .car-details{
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.meine-autos-seite .car-top-row,
+.gespeicherte-autos-seite .car-top-row{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.meine-autos-seite .car-title,
+.gespeicherte-autos-seite .car-title{
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a2a33;
+  margin: 0;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.meine-autos-seite .car-price,
+.gespeicherte-autos-seite .car-price{
+  font-size: 17px;
+  padding: 6px 10px;
+  background: #e6f0f4;
+  border-radius: 8px;
+  color: #1a2a33;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1.3;
+  text-align: center;
+  min-width: 76px;
+}
+
+.meine-autos-seite .car-subtitle,
+.gespeicherte-autos-seite .car-subtitle{
+  font-size: 14px;
+  color: #6c7a89;
+  margin: 0;
+}
+
+.meine-autos-seite .car-info-grid,
+.gespeicherte-autos-seite .car-info-grid{
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 20px;
+  font-size: 14px;
+  color: #37444f;
+  border-top: 1px solid #f0f2f5;
+  padding-top: 10px;
+}
+
+.meine-autos-seite .car-info-grid p,
+.gespeicherte-autos-seite .car-info-grid p{
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.meine-autos-seite .car-info-grid i,
+.gespeicherte-autos-seite .car-info-grid i{
+  color: #00b8a9;
+  font-size: 13px;
+}
+
+.meine-autos-seite .dealer-info-row,
+.gespeicherte-autos-seite .dealer-info-row{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e6eaf0;
+}
+
+.meine-autos-seite .dealer-row,
+.gespeicherte-autos-seite .dealer-row{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.meine-autos-seite .dealer-avatar,
+.gespeicherte-autos-seite .dealer-avatar{
+  width: 34px;
+  height: 34px;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid #e3e9ef;
+  background: #ffffff;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.meine-autos-seite .dealer-avatar img,
+.meine-autos-seite .dealer-avatar .dealer-initials,
+.gespeicherte-autos-seite .dealer-avatar img,
+.gespeicherte-autos-seite .dealer-avatar .dealer-initials{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.meine-autos-seite .dealer-avatar img,
+.gespeicherte-autos-seite .dealer-avatar img{
+  object-fit: cover;
+  display: block;
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+
+.meine-autos-seite .dealer-avatar.has-logo img,
+.gespeicherte-autos-seite .dealer-avatar.has-logo img{
+  opacity: 1;
+}
+
+.meine-autos-seite .dealer-initials,
+.gespeicherte-autos-seite .dealer-initials{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  color: #253544;
+  background: #e9eef3;
+  letter-spacing: .3px;
+}
+
+.meine-autos-seite .dealer-avatar.has-logo .dealer-initials,
+.gespeicherte-autos-seite .dealer-avatar.has-logo .dealer-initials{
+  display: none;
+}
+
+.meine-autos-seite .dealer-meta,
+.gespeicherte-autos-seite .dealer-meta{
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.meine-autos-seite .dealer-meta .dealer-name,
+.gespeicherte-autos-seite .dealer-meta .dealer-name{
+  font-weight: 600;
+  color: #1a2a33;
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meine-autos-seite .dealer-meta .dealer-location,
+.gespeicherte-autos-seite .dealer-meta .dealer-location{
+  color: #6b7a88;
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meine-autos-seite .card-actions,
+.gespeicherte-autos-seite .card-actions{
+  display: flex;
+  gap: 10px;
+}
+
+.meine-autos-seite .card-actions button,
+.meine-autos-seite .card-actions a,
+.gespeicherte-autos-seite .card-actions button,
+.gespeicherte-autos-seite .card-actions a{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 184, 169, 0.0);
+  border: 1px solid #ccd5df;
+  border-radius: 50%;
+  padding: 10px;
+  font-size: 16px;
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.meine-autos-seite .card-actions button:hover,
+.meine-autos-seite .card-actions a:hover,
+.gespeicherte-autos-seite .card-actions button:hover,
+.gespeicherte-autos-seite .card-actions a:hover{
+  background: #00b8a9;
+  color: #ffffff;
+}
+
+.meine-autos-seite .card-actions button i,
+.meine-autos-seite .card-actions a i,
+.gespeicherte-autos-seite .card-actions button i,
+.gespeicherte-autos-seite .card-actions a i{
+  color: #1a2a33;
+  transition: color 0.2s ease;
+}
+
+.meine-autos-seite .card-actions button:hover i,
+.meine-autos-seite .card-actions a:hover i,
+.gespeicherte-autos-seite .card-actions button:hover i,
+.gespeicherte-autos-seite .card-actions a:hover i{
+  color: #ffffff;
+}
+
+.meine-autos-seite .publish-btn.published,
+.gespeicherte-autos-seite .publish-btn.published{
+  background: #00b8a9;
+  color: #ffffff;
+  border-color: #00b8a9;
+}
+
+.meine-autos-seite .publish-btn.published i,
+.gespeicherte-autos-seite .publish-btn.published i{
+  color: #ffffff;
+}
+
+.meine-autos-seite .card-actions button[disabled],
+.gespeicherte-autos-seite .card-actions button[disabled]{
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.meine-autos-seite .card-actions.mobile-only,
+.gespeicherte-autos-seite .card-actions.mobile-only{
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  display: flex;
+  gap: 10px;
+}
+
+.meine-autos-seite .card-actions.desktop-only,
+.gespeicherte-autos-seite .card-actions.desktop-only{
+  display: none;
+}
+
+@media screen and (min-width: 901px) {
+  .meine-autos-seite .card-actions.mobile-only,
+  .gespeicherte-autos-seite .card-actions.mobile-only{
+    display: none;
+  }
+  .meine-autos-seite .card-actions.desktop-only,
+  .gespeicherte-autos-seite .card-actions.desktop-only{
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+  }
+}
+
+@media screen and (max-width: 900px) {
+  .meine-autos-seite .car-card,
+  .gespeicherte-autos-seite .car-card{
+    width: 95vw;
+    margin: 0 -10px;
+    display: flex;
+    flex-direction: column;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    background-color: #ffffff;
+    min-height: 480px;
+    max-height: none;
+    height: auto;
+    box-sizing: border-box;
+  }
+
+  .meine-autos-seite .car-card-media,
+  .gespeicherte-autos-seite .car-card-media{
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    border-radius: 12px 12px 0 0;
+    overflow: hidden;
+    flex-shrink: 0;
+    max-height: 300px;
+  }
+
+  .meine-autos-seite .media-container,
+  .gespeicherte-autos-seite .media-container{
+    height: 100%;
+    width: 100%;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .meine-autos-seite .car-details,
+  .gespeicherte-autos-seite .car-details{
+    padding: 16px 18px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 10px;
+    flex: 1;
+    box-sizing: border-box;
+  }
+
+  .meine-autos-seite .car-top-row,
+  .gespeicherte-autos-seite .car-top-row{
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .meine-autos-seite .car-title,
+  .gespeicherte-autos-seite .car-title{
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a2a33;
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .meine-autos-seite .car-price,
+  .gespeicherte-autos-seite .car-price{
+    font-size: 17px;
+    padding: 6px 10px;
+    background: #e6f0f4;
+    border-radius: 8px;
+    color: #1a2a33;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 76px;
+    text-align: center;
+  }
+
+  .meine-autos-seite .car-subtitle,
+  .gespeicherte-autos-seite .car-subtitle{
+    font-size: 13.5px;
+    color: #6c7a89;
+    margin-bottom: 8px;
+  }
+
+  .meine-autos-seite .car-info-grid,
+  .gespeicherte-autos-seite .car-info-grid{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 14px;
+    font-size: 13.5px;
+    color: #37444f;
+    padding-top: 8px;
+    border-top: 1px solid #f0f2f5;
+  }
+}

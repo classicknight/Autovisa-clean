@@ -8,11 +8,27 @@
   --shadow: 0 8px 24px rgba(0,0,0,.45);
 }
 
+*{ box-sizing: border-box; }
+
 body.help-body{
   margin: 0;
   background: var(--bg-grad);
   color: var(--text);
   font-family: "Inter", sans-serif;
+  line-height: 1.5;
+}
+
+/* Layout helpers */
+.container{
+  width: min(1100px, 92vw);
+  margin-inline: auto;
+}
+.section{
+  padding: clamp(40px, 6vw, 72px) 0;
+}
+
+main.help-main{
+  padding-bottom: clamp(24px, 4vw, 48px);
 }
 
 /* Hero */
