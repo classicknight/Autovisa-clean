@@ -158,8 +158,8 @@
   
 <div class="media-detail-actions-outside">
   <div class="left-actions">
-    <button class="back-to-search-btn" onclick="history.back()">
-      <i class="fas fa-arrow-left"></i> Zurück zur Suche
+    <button class="back-to-search-btn" id="backButton" type="button">
+      <i class="fas fa-arrow-left"></i> Zurück
     </button>
   </div>
   
@@ -416,6 +416,16 @@
         <span class="data-value" id="v-karosseriefarbe">–</span>
       </div>
 
+      <div class="data-item">
+        <span class="data-label">Scheinwerfer</span>
+        <span class="data-value" id="v-scheinwerfer">–</span>
+      </div>
+
+      <div class="data-item">
+        <span class="data-label">Tagfahrlicht</span>
+        <span class="data-value" id="v-tagfahrlicht">–</span>
+      </div>
+
       
     </div>
   </div>
@@ -510,10 +520,6 @@
           <li id="sellerPhoneRow">
             <span><i class="fas fa-phone"></i> Telefon</span>
             <strong id="sellerPhoneDisplay">–</strong>
-          </li>
-          <li id="sellerMailRow">
-            <span><i class="fas fa-envelope"></i> E-Mail</span>
-            <strong id="sellerMailDisplay">–</strong>
           </li>
           <li id="sellerWebsiteRow">
             <span><i class="fas fa-globe"></i> Website</span>

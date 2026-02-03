@@ -70,6 +70,55 @@ const pickPrice = (...vals) => {
 };
 const sellerInitials = (name = "") =>
   name.trim().split(/\s+/).slice(0, 2).map((p) => (p[0] || "").toUpperCase()).join("") || "AV";
+const formatLanguages = (raw) => {
+  const langMap = {
+    de: "Deutsch",
+    deutsch: "Deutsch",
+    en: "Englisch",
+    englisch: "Englisch",
+    tr: "Türkisch",
+    türkisch: "Türkisch",
+    ar: "Arabisch",
+    arabisch: "Arabisch",
+    ru: "Russisch",
+    russisch: "Russisch",
+    pl: "Polnisch",
+    polnisch: "Polnisch",
+    fr: "Französisch",
+    französisch: "Französisch",
+    it: "Italienisch",
+    italienisch: "Italienisch",
+    es: "Spanisch",
+    spanisch: "Spanisch"
+  };
+
+  let list = [];
+  if (Array.isArray(raw)) {
+    list = raw;
+  } else if (typeof raw === "string") {
+    const s = raw.trim();
+    if (!s) return "";
+    if (/^[a-z]{2}(\s*\/\s*[a-z]{2})+$/i.test(s)) {
+      list = s.split("/");
+    } else if (/^[a-z]{2}(\s+[a-z]{2})+$/i.test(s)) {
+      list = s.split(/\s+/);
+    } else {
+      list = s.split(/[;,]/);
+    }
+  } else {
+    return "";
+  }
+
+  return list
+    .map((l) => {
+      const key = String(l || "").trim();
+      if (!key) return "";
+      const norm = key.toLowerCase();
+      return langMap[norm] || key;
+    })
+    .filter(Boolean)
+    .join(", ");
+};
 const getDocId = (doc) => {
   if (!doc) return null;
   if (doc._id && typeof doc._id === "object" && typeof doc._id.$oid === "string") return doc._id.$oid;
@@ -211,6 +260,52 @@ function setupNavbarShortcuts() {
   document.getElementById("my-cars-link")?.addEventListener("click", async (e) => {
     e.preventDefault();
     window.location.href = (await guard()) ? "meine-autos.html" : "login.html";
+  });
+}
+
+function setupBackButton() {
+  const btn = document.getElementById("backButton") || document.querySelector(".back-to-search-btn");
+  if (!btn) return;
+
+  let ref = "";
+  let sameOrigin = false;
+  let refUrl = null;
+
+  try {
+    ref = document.referrer || "";
+    if (ref) {
+      refUrl = new URL(ref);
+      sameOrigin = refUrl.origin === window.location.origin;
+    }
+  } catch {
+    ref = "";
+    refUrl = null;
+    sameOrigin = false;
+  }
+
+  let label = "Zurück";
+  if (sameOrigin && refUrl) {
+    const path = refUrl.pathname || "";
+    if (path.endsWith("/suche.html")) label = "Zurück zur Suche";
+    else if (path.endsWith("/übersicht.html") || path.endsWith("/uebersicht.html"))
+      label = "Zurück zur Übersicht";
+  }
+
+  btn.innerHTML = `<i class="fas fa-arrow-left"></i> ${label}`;
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+
+    if (sameOrigin && window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+
+    if (sameOrigin && refUrl) {
+      window.location.href = refUrl.href;
+      return;
+    }
+
+    window.location.href = "index.html";
   });
 }
 
@@ -823,7 +918,6 @@ function fillSellerCard(inserat) {
   const phoneRow    = document.getElementById("sellerPhoneRow");
   const phoneDisplay= document.getElementById("sellerPhoneDisplay");
   const mailRow     = document.getElementById("sellerMailRow");
-  const mailDisplay = document.getElementById("sellerMailDisplay");
   const websiteRow  = document.getElementById("sellerWebsiteRow");
   const websiteLink = document.getElementById("sellerWebsiteLink");
   const languageRow = document.getElementById("sellerLanguageRow");
@@ -956,17 +1050,8 @@ function fillSellerCard(inserat) {
     }
   }
 
-  // --- E-Mail: nur bei Händlern; bei Privat komplett raus ---
-  const rawMail = isDealer ? (seller.email || inserat.email || "") : "";
-
-  if (mailRow && mailDisplay) {
-    if (isDealer && rawMail) {
-      mailDisplay.textContent = rawMail;
-      mailRow.style.display = "";
-    } else {
-      mailRow.style.display = "none";
-    }
-  }
+  // --- E-Mail: in der Anzeige nicht anzeigen ---
+  if (mailRow) mailRow.style.display = "none";
 
   // --- Website: nur wenn vorhanden ---
   const rawWebsite =
@@ -995,10 +1080,7 @@ function fillSellerCard(inserat) {
     null;
 
   if (languageRow && languageEl) {
-    let text = "";
-    if (Array.isArray(langs)) text = langs.join(", ");
-    else if (typeof langs === "string") text = langs;
-
+    const text = formatLanguages(langs);
     if (text && text.trim()) {
       languageEl.textContent = text.trim();
       languageRow.style.display = "";
@@ -2227,10 +2309,6 @@ async function renderSeller() {
     inserat.telefon ||
     profile.phone ||
     "";
-  const mail =
-    profile.email ||
-    inserat.email ||
-    "";
   const web = ensureHttp(
     profile.website ||
       profile.webseite ||
@@ -2245,11 +2323,9 @@ async function renderSeller() {
   if (phoneDisplay) phoneDisplay.textContent = phone || "–";
   if (phoneRow) phoneRow.style.display = phone ? "" : "none";
 
-  // E-Mail
+  // E-Mail: in der Anzeige nicht anzeigen
   const mailRow = $id("sellerMailRow");
-  const mailDisplay = $id("sellerMailDisplay");
-  if (mailDisplay) mailDisplay.textContent = mail || "–";
-  if (mailRow) mailRow.style.display = mail ? "" : "none";
+  if (mailRow) mailRow.style.display = "none";
 
   // Website
   const webRow  = $id("sellerWebsiteRow");
@@ -2264,25 +2340,16 @@ async function renderSeller() {
   if (webRow) webRow.style.display = web ? "" : "none";
 
   // --- Sprachen ---
-  const langs = (() => {
-    const l =
-      profile.sprachen ||
-      profile.languages ||
-      inserat.sprachen ||
-      [];
-    if (Array.isArray(l)) return l;
-    if (typeof l === "string") {
-      return l
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-    }
-    return [];
-  })();
+  const langsRaw =
+    profile.sprachen ||
+    profile.languages ||
+    inserat.sprachen ||
+    [];
 
   const langRow = $id("sellerLanguageRow");
-  if (langs.length) {
-    setText("sellerLanguages", langs.join(", "));
+  const langText = formatLanguages(langsRaw);
+  if (langText) {
+    setText("sellerLanguages", langText);
     if (langRow) langRow.style.display = "";
   } else if (langRow) {
     langRow.style.display = "none";
@@ -2529,6 +2596,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Navbar / Auth / Panels
   setupAuthLink();
   setupNavbarShortcuts();
+  setupBackButton();
   setupMessageForm();
   setupRatingPanel();
 
@@ -2883,9 +2951,3 @@ function setupToggleRatingList(sellerId) {
     }
   });
 }
-
-
-
-
-
-
