@@ -2497,12 +2497,15 @@ async function renderSeller() {
 
     impressumContent.innerHTML = html;
     impressumBox.style.display = "";
-    impressumBox.classList.remove("open");
-    impressumToggle.setAttribute("aria-expanded", "false");
+    impressumBox.classList.add("open");
+    impressumToggle.setAttribute("aria-expanded", "true");
+    const labelEl = impressumToggle.querySelector(".impressum-toggle-label");
+    if (labelEl) labelEl.textContent = "Impressum verbergen";
 
     impressumToggle.addEventListener("click", () => {
       const open = impressumBox.classList.toggle("open");
       impressumToggle.setAttribute("aria-expanded", open ? "true" : "false");
+      if (labelEl) labelEl.textContent = open ? "Impressum verbergen" : "Impressum anzeigen";
     });
   } else if (impressumBox) {
     // Privat oder kein Impressum: komplett verstecken

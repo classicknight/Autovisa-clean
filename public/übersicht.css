@@ -2388,6 +2388,13 @@ img, video, canvas {
 
 /* ===== Bewertungen im Profil-Header (nur Händler) ===== */
 
+.profile-head-right{
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
 .profile-rating {
   min-width: 190px;
   padding: 10px 14px;
@@ -2410,22 +2417,25 @@ img, video, canvas {
 
 /* default (empty) */
 .profile-rating-stars i {
-  color: #c9d2db;
+  color: #e0e5ea;
 }
 
 /* full */
 .profile-rating-stars i.star-full {
-  color: #ffc107;
+  background: linear-gradient(90deg, #00ffcc, #00bfa6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 /* empty */
 .profile-rating-stars i.star-empty {
-  color: #c9d2db;
+  color: #e0e5ea;
 }
 
 /* half: optisch halb/halb */
 .profile-rating-stars i.star-half {
-  background: linear-gradient(90deg, #ffc107 50%, #c9d2db 50%);
+  background: linear-gradient(90deg, #00ffcc 50%, #e0e5ea 50%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -2446,13 +2456,48 @@ img, video, canvas {
   text-decoration: underline;
 }
 
+/* Toggle-Button (neues Design) */
+.rating-toggle-wrap{
+  display: flex;
+  justify-content: flex-end;
+}
+.rating-toggle{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,184,169,.35);
+  background: rgba(0,184,169,.12);
+  color: #007a71;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background .2s ease, box-shadow .2s ease, color .2s ease;
+}
+.rating-toggle i{
+  font-size: 0.85em;
+}
+.rating-toggle:hover{
+  background: rgba(0,184,169,.2);
+  box-shadow: 0 0 0 3px rgba(0,184,169,.16);
+  color: #006b61;
+}
+
 /* Mobile: Bewertungen unter dem Profil, linksbündig */
 @media (max-width: 900px) {
+  .profile-head-right{
+    align-items: flex-start;
+    width: 100%;
+  }
   .profile-rating {
     align-items: flex-start;
     text-align: left;
     width: 100%;
     margin-top: 8px;
+  }
+  .rating-toggle-wrap{
+    justify-content: flex-start;
   }
 }
 
@@ -2492,7 +2537,7 @@ img, video, canvas {
 }
 
 .rating-item .stars {
-  color: #ffc107;
+  color: #00b8a9;
   margin-bottom: 4px;
   font-size: 14px;
 }
