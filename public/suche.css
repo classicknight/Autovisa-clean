@@ -805,8 +805,7 @@ img, video, canvas {
     background-color: #ffffff;
   }
   
-  .filter-group select,
-  .filter-group input[type="month"] {
+  .filter-group select {
     flex: 1;
     padding: 10px 12px;
     border-radius: 8px;
@@ -823,6 +822,55 @@ img, video, canvas {
     background-position: right 12px center;
     background-size: 16px;
     padding-right: 36px;
+  }
+
+  .filter-group input[type="month"] {
+    -webkit-appearance: auto;
+    appearance: auto;
+    background-image: none;
+    padding-right: 12px;
+  }
+
+  .month-range {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .month-range .range-item {
+    flex: 1 1 calc(50% - 5px);
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .month-range .range-sub {
+    font-size: 12px;
+    color: #6b7a86;
+  }
+
+  .month-range .range-item input {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
+  .month-range .month-fallback {
+    display: none;
+    gap: 8px;
+  }
+
+  .month-range .month-fallback select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .month-range.is-fallback input[type="month"] {
+    display: none;
+  }
+
+  .month-range.is-fallback .month-fallback {
+    display: flex;
   }
   
   /* Spezielle Zentrierung nur für die Checkboxgruppe */

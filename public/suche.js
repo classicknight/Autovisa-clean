@@ -37,6 +37,52 @@ function orderYM(from, to) {
   return [from || "", to || ""];
 }
 
+// ---- Erstzulassung: Month-Input Fallback ----
+let useEzFallback = false;
+function supportsMonthInput() {
+  const input = document.createElement("input");
+  input.type = "month";
+  return input.type === "month";
+}
+
+function fillYearSelect(selectEl) {
+  if (!selectEl) return;
+  if (selectEl.options.length > 1) return;
+  const currentYear = new Date().getFullYear();
+  for (let year = currentYear; year >= 1900; year--) {
+    const opt = document.createElement("option");
+    opt.value = String(year);
+    opt.textContent = String(year);
+    selectEl.appendChild(opt);
+  }
+}
+
+function setupEzMonthFallback() {
+  const rangeEl = document.getElementById("firstRegRange");
+  if (!rangeEl) return false;
+
+  const ua = navigator.userAgent || "";
+  const isMac = /Macintosh/.test(ua) && !/iPad|iPhone|iPod/.test(ua);
+  const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR/i.test(ua);
+  const shouldFallback = !supportsMonthInput() || (isMac && isSafari);
+
+  if (shouldFallback) {
+    rangeEl.classList.add("is-fallback");
+    const fromEl = document.getElementById("firstRegFrom");
+    const toEl = document.getElementById("firstRegTo");
+    if (fromEl) fromEl.value = "";
+    if (toEl) toEl.value = "";
+  } else {
+    rangeEl.classList.remove("is-fallback");
+  }
+
+  return shouldFallback;
+}
+
+useEzFallback = setupEzMonthFallback();
+fillYearSelect(document.getElementById("first-registration-year"));
+fillYearSelect(document.getElementById("first-registration-year-to"));
+
 // Labels für Chips
 const FUEL_LABELS = {
   benzin: "Benzin",
@@ -345,8 +391,11 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
 
   // EZ Felder
   const firstRegFromEl  = document.getElementById("firstRegFrom");
+  const firstRegToEl    = document.getElementById("firstRegTo");
   const firstRegMonthEl = document.getElementById("first-registration-month");
   const firstRegYearEl  = document.getElementById("first-registration-year");
+  const firstRegMonthToEl = document.getElementById("first-registration-month-to");
+  const firstRegYearToEl  = document.getElementById("first-registration-year-to");
   const ezVonEl = document.getElementById("ez-von");
   const ezBisEl = document.getElementById("ez-bis");
 
@@ -519,11 +568,17 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   })();
 
   // --- EZ Prefill ---
-  if (firstRegFromEl && QP.ezFrom) firstRegFromEl.value = QP.ezFrom;
+  if (!useEzFallback && firstRegFromEl && QP.ezFrom) firstRegFromEl.value = QP.ezFrom;
+  if (!useEzFallback && firstRegToEl && QP.ezTo)     firstRegToEl.value   = QP.ezTo;
   if (QP.ezFrom && firstRegMonthEl && firstRegYearEl) {
     const [y, m] = QP.ezFrom.split("-");
     if (y) firstRegYearEl.value  = y;
     if (m) firstRegMonthEl.value = m;
+  }
+  if (QP.ezTo && firstRegMonthToEl && firstRegYearToEl) {
+    const [y, m] = QP.ezTo.split("-");
+    if (y) firstRegYearToEl.value  = y;
+    if (m) firstRegMonthToEl.value = m;
   }
   if (ezVonEl && QP.ezFrom) ezVonEl.value = QP.ezFrom;
   if (ezBisEl && QP.ezTo)   ezBisEl.value = QP.ezTo;
@@ -1091,8 +1146,11 @@ function getCombinedConsumption(item) {
                           || document.getElementById("inspectionMinMonths");
 
   const firstRegFromEl    = document.getElementById("firstRegFrom");
+  const firstRegToEl      = document.getElementById("firstRegTo");
   const firstRegMonthEl   = document.getElementById("first-registration-month");
   const firstRegYearEl    = document.getElementById("first-registration-year");
+  const firstRegMonthToEl = document.getElementById("first-registration-month-to");
+  const firstRegYearToEl  = document.getElementById("first-registration-year-to");
 
   const markeEl           = document.getElementById("marke");
   const modellEl          = document.getElementById("modell");
@@ -1210,12 +1268,17 @@ function getCombinedConsumption(item) {
     (firstRegYearEl?.value && firstRegMonthEl?.value
       ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2, "0")}`
       : "");
+  const firstRegToUI =
+    (firstRegToEl?.value) ||
+    (firstRegYearToEl?.value && firstRegMonthToEl?.value
+      ? `${firstRegYearToEl.value}-${String(firstRegMonthToEl.value).padStart(2, "0")}`
+      : "");
 
   const priceToEff   = (!isNaN(priceTo)   && priceTo   > 0) ? priceTo   : toNum(sp.get("price_max"));
   const mileageToEff = (!isNaN(mileageTo) && mileageTo > 0) ? mileageTo : toNum(sp.get("km_max"));
 
   const ezFromEff = parseYM(firstRegFromUI || sp.get("ezFrom") || "", 1);
-  const ezToEff   = parseYM(sp.get("ezTo") || "", 12);
+  const ezToEff   = parseYM(firstRegToUI   || sp.get("ezTo")   || "", 12);
 
   // Marke/Modell
   let brandEff  = sp.get("marke") ? norm(sp.get("marke")) : "";
@@ -2145,8 +2208,11 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
     const driveEl = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
   
     const firstRegFromEl  = document.getElementById("firstRegFrom");
+    const firstRegToEl    = document.getElementById("firstRegTo");
     const firstRegMonthEl = document.getElementById("first-registration-month");
     const firstRegYearEl  = document.getElementById("first-registration-year");
+    const firstRegMonthToEl = document.getElementById("first-registration-month-to");
+    const firstRegYearToEl  = document.getElementById("first-registration-year-to");
   
     const accidentFreeEl = document.getElementById("accidentFree") || document.getElementById("unfallfrei");
     const scheckheftEl   = document.getElementById("scheckheft"); // optionales UI-Checkbox-Element
@@ -2312,8 +2378,12 @@ const psMaxEff = (() => {
       (firstRegFromEl?.value?.trim()) ||
       (firstRegYearEl?.value && firstRegMonthEl?.value ? `${firstRegYearEl.value}-${pad2(firstRegMonthEl.value)}` : "") ||
       "";
+    const ezToUIraw =
+      (firstRegToEl?.value?.trim()) ||
+      (firstRegYearToEl?.value && firstRegMonthToEl?.value ? `${firstRegYearToEl.value}-${pad2(firstRegMonthToEl.value)}` : "") ||
+      "";
     const ezFromEff = normalizeYMAny(ezFromUIraw || qp.ezFrom);
-    const ezToEff   = normalizeYMAny(qp.ezTo);
+    const ezToEff   = normalizeYMAny(ezToUIraw   || qp.ezTo);
   
     // HU (beide Varianten)
     const huUntilEff = normalizeYMAny(
@@ -2517,9 +2587,18 @@ function removeFilterChip(key, val = "") {
       params.delete("ezFrom");
       break;
     }
-    case "ezTo":
+    case "ezTo": {
+      const toEl = document.getElementById("firstRegTo");
+      if (toEl) toEl.value = "";
+      const m = document.getElementById("first-registration-month-to");
+      const y = document.getElementById("first-registration-year-to");
+      if (m) m.value = "";
+      if (y) y.value = "";
+      const ezBis = document.getElementById("ez-bis");
+      if (ezBis) ezBis.value = "";
       params.delete("ezTo");
       break;
+    }
 
     // HU (alle Varianten gemeinsam entfernen)
     case "hu":
@@ -2884,11 +2963,6 @@ function clearAllFilters() {
 
 
 });
-
-
-
-
-
 
 
 

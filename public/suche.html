@@ -155,9 +155,58 @@
 
     <!-- Erstzulassung -->
     <div class="filter-group">
-      <label for="firstRegFrom">Erstzulassung</label>
-      <div class="range-inputs">
-        <input type="month" id="firstRegFrom" />
+      <label>Erstzulassung</label>
+      <div class="range-inputs month-range" id="firstRegRange">
+        <div class="range-item">
+          <span class="range-sub">von</span>
+          <input type="month" id="firstRegFrom" aria-label="Erstzulassung von" />
+          <div class="month-fallback">
+            <select id="first-registration-month" aria-label="Erstzulassung von Monat">
+              <option value="">Monat</option>
+              <option value="01">Januar</option>
+              <option value="02">Februar</option>
+              <option value="03">März</option>
+              <option value="04">April</option>
+              <option value="05">Mai</option>
+              <option value="06">Juni</option>
+              <option value="07">Juli</option>
+              <option value="08">August</option>
+              <option value="09">September</option>
+              <option value="10">Oktober</option>
+              <option value="11">November</option>
+              <option value="12">Dezember</option>
+            </select>
+            <select id="first-registration-year" aria-label="Erstzulassung von Jahr">
+              <option value="">Jahr</option>
+              <!-- wird per JS befüllt -->
+            </select>
+          </div>
+        </div>
+        <div class="range-item">
+          <span class="range-sub">bis</span>
+          <input type="month" id="firstRegTo" aria-label="Erstzulassung bis" />
+          <div class="month-fallback">
+            <select id="first-registration-month-to" aria-label="Erstzulassung bis Monat">
+              <option value="">Monat</option>
+              <option value="01">Januar</option>
+              <option value="02">Februar</option>
+              <option value="03">März</option>
+              <option value="04">April</option>
+              <option value="05">Mai</option>
+              <option value="06">Juni</option>
+              <option value="07">Juli</option>
+              <option value="08">August</option>
+              <option value="09">September</option>
+              <option value="10">Oktober</option>
+              <option value="11">November</option>
+              <option value="12">Dezember</option>
+            </select>
+            <select id="first-registration-year-to" aria-label="Erstzulassung bis Jahr">
+              <option value="">Jahr</option>
+              <!-- wird per JS befüllt -->
+            </select>
+          </div>
+        </div>
       </div>
     </div>
 
