@@ -2467,6 +2467,53 @@ img, video, canvas {
   font-size: 12px;
 }
 
+/* ===== Dealer Rating (Stars) ===== */
+.dealer-rating{
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin: 6px 0 2px;
+  font-size: 13px;
+  line-height: 1.1;
+  max-width: 100%;
+  font-style: normal;
+  color: #37444f;
+}
+
+.dealer-rating .stars{
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #00b8a9;
+}
+
+.dealer-rating .stars i{
+  font-size: 13px;
+  transform: translateY(0.5px);
+}
+
+.dealer-rating__value{
+  font-weight: 800;
+  color: #1a2a33;
+}
+
+.dealer-rating__count{
+  color: #6b7a88;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px){
+  .dealer-rating{
+    font-size: 12.5px;
+    gap: 6px;
+  }
+  .dealer-rating .stars i{
+    font-size: 12.5px;
+  }
+}
+
 /* =========================================================
    Nachrichten: Chat-Look (wie chats.html)
    ========================================================= */

@@ -409,57 +409,9 @@
 
     <!-- Verkaufte Autos -->
     <section class="sold-cars hidden" id="sold-cars">
-      <div class="car-card-wrapper">
-
-        <!-- Mobile: Buttons über dem Inserat -->
-        <div class="car-card-actions mobile-only">
-          <button class="relist-btn">
-            <i class="fas fa-undo"></i> Wieder online stellen
-          </button>
-          <button class="archive-btn">
-            <i class="fas fa-box-archive"></i> Archivieren
-          </button>
-        </div>
-
-        <!-- Fahrzeugkarte -->
-        <div class="car-card horizontal">
-          <div class="car-card-media">
-            <div class="media-container">
-              <div class="slides">
-                <img src="6.jpeg" alt="Bild" class="slide active" />
-              </div>
-            </div>
-          </div>
-          <div class="car-details">
-            <div class="car-top-row">
-              <h2 class="car-title">Opel Astra Sports Tourer</h2>
-              <p class="car-price">8.990 €</p>
-            </div>
-            <p class="car-subtitle">Euro 6 • Navi • LED</p>
-            <div class="car-info-grid">
-              <p><i class="fas fa-road"></i> 110.000 km</p>
-              <p><i class="fas fa-calendar-alt"></i> EZ 06/2016</p>
-              <p><i class="fas fa-gas-pump"></i> Benzin</p>
-              <p><i class="fas fa-gauge-high"></i> 125 PS</p>
-              <p><i class="fas fa-gears"></i> Schaltgetriebe</p>
-            </div>
-            <div class="dealer-info">
-              <strong>Autohaus Schneider</strong><br>
-              Jens Schneider • Leipzig
-            </div>
-          </div>
-        </div>
-
-        <!-- Desktop: Buttons rechts neben dem Inserat -->
-        <div class="car-card-actions desktop-only">
-          <button class="relist-btn">
-            <i class="fas fa-undo"></i> Wieder online stellen
-          </button>
-          <button class="archive-btn">
-            <i class="fas fa-box-archive"></i> Archivieren
-          </button>
-        </div>
-      </div>
+      <div class="loading hidden" id="soldCarsLoading">Lade verkaufte Autos…</div>
+      <div id="soldCarsList"></div>
+      <p class="hidden" id="soldCarsEmpty">Du hast noch keine verkauften Autos.</p>
     </section>
 
   </main>

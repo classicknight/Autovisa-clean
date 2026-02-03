@@ -334,24 +334,118 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("resize", repositionOpen);
   window.addEventListener("scroll", repositionOpen);
   
-  // ===== Login-Handling (dein bestehender Code) =====
-  const isLoggedIn = false; // später dynamisch setzen
+  // ===== Auth + Guards =====
+  const authLi = document.getElementById("auth-link");
+  const authLoginHTML = authLi ? authLi.innerHTML : "";
+
   const savedCarsLink = document.getElementById("saved-cars-link");
   const myCarsLink = document.getElementById("my-cars-link");
-  
-  if (savedCarsLink) {
-    savedCarsLink.addEventListener("click", (e) => {
-      e.preventDefault();
-      window.location.href = isLoggedIn ? "gespeicherte-autos.html" : "login.html";
-    });
+  const soldCarsLink = document.getElementById("sold-cars-link");
+  const messagesLink = document.getElementById("messages-link");
+
+  const mobileSaved = document.getElementById("mobile-saved");
+  const mobileMessages = document.getElementById("mobile-messages");
+
+  const closeMenu = () => {
+    navLinks?.classList.remove("active");
+    hamburger?.setAttribute("aria-expanded", "false");
+    closeAllDropdowns();
+  };
+
+  function checkLoginAndRedirect(targetUrl) {
+    fetch("/getNutzerInfo", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.eingeloggt) {
+          window.location.href = targetUrl;
+        } else {
+          localStorage.setItem("redirectAfterLogin", targetUrl);
+          window.location.href = "login.html";
+        }
+      })
+      .catch(() => {
+        localStorage.setItem("redirectAfterLogin", targetUrl);
+        window.location.href = "login.html";
+      });
   }
-  if (myCarsLink) {
-    myCarsLink.addEventListener("click", (e) => {
+
+  const bindGuard = (el, url) => {
+    if (!el) return;
+    el.addEventListener("click", (e) => {
       e.preventDefault();
-      window.location.href = isLoggedIn ? "meine-autos.html" : "login.html";
+      closeMenu();
+      checkLoginAndRedirect(url);
     });
+  };
+
+  bindGuard(savedCarsLink, "übersicht.html#saved-cars");
+  bindGuard(myCarsLink, "übersicht.html#car-list");
+  bindGuard(soldCarsLink, "übersicht.html#sold-cars");
+  bindGuard(messagesLink, "übersicht.html#messages-list");
+  bindGuard(mobileSaved, "übersicht.html#saved-cars");
+  bindGuard(mobileMessages, "übersicht.html#messages-list");
+
+  const clearAuthStorage = () => {
+    ["isLoggedIn", "userRole", "userId"].forEach((k) => localStorage.removeItem(k));
+    localStorage.removeItem("redirectAfterLogin");
+  };
+
+  const clearAuthFlags = () => {
+    ["isLoggedIn", "userRole", "userId"].forEach((k) => localStorage.removeItem(k));
+  };
+
+  function renderLogin() {
+    if (!authLi) return;
+    authLi.innerHTML = authLoginHTML;
   }
-  
+
+  function renderLogout() {
+    if (!authLi) return;
+    authLi.innerHTML = `
+      <a href="#" id="logout-link">
+        <i class="fas fa-sign-out-alt"></i> Abmelden
+      </a>
+    `;
+    const logoutLink = document.getElementById("logout-link");
+    if (logoutLink) {
+      logoutLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        closeMenu();
+        fetch("/logout", { method: "POST", credentials: "include" })
+          .finally(() => {
+            clearAuthStorage();
+            window.location.href = "index.html";
+          });
+      });
+    }
+  }
+
+  if (authLi) {
+    const isLoggedInLS = localStorage.getItem("isLoggedIn") === "true";
+    if (isLoggedInLS) {
+      renderLogout();
+    }
+  }
+
+  fetch("/getNutzerInfo", { credentials: "include" })
+    .then((res) => res.json())
+    .then((data) => {
+      if (data?.eingeloggt) {
+        try {
+          localStorage.setItem("isLoggedIn", "true");
+          const roleValue = data?.role || data?.rolle;
+          if (roleValue) localStorage.setItem("userRole", String(roleValue));
+          const userIdValue = data?.id || data?._id || data?.userId || data?.nutzerId;
+          if (userIdValue) localStorage.setItem("userId", String(userIdValue));
+        } catch {}
+        renderLogout();
+      } else {
+        clearAuthFlags();
+        renderLogin();
+      }
+    })
+    .catch(() => {});
+
   // ===== Smooth Scroll =====
   const searchLink = document.querySelector('a[href="#search-section"]');
   if (searchLink) {

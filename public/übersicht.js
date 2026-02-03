@@ -6,6 +6,9 @@ document.documentElement.classList.remove("no-js");
    Shared Utils (global, damit ALLE Bereiche dieselben Helfer nutzen)
    ========================================================= */
 
+let cachedMyInserate = [];
+let cachedUserData = null;
+
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
@@ -107,6 +110,42 @@ function applyDealerAvatar(avatarEl, imgEl, logoUrl) {
   }
 }
 
+function fmtRating(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(1).replace(".", ",") : "";
+}
+
+function starsHTML(avg) {
+  const a = Number(avg);
+  if (!Number.isFinite(a) || a <= 0) return "";
+  let out = `<span class="stars" aria-hidden="true">`;
+  for (let i = 1; i <= 5; i++) {
+    if (a >= i - 0.25) out += `<i class="fa-solid fa-star"></i>`;
+    else if (a >= i - 0.75) out += `<i class="fa-solid fa-star-half-stroke"></i>`;
+    else out += `<i class="fa-regular fa-star"></i>`;
+  }
+  out += `</span>`;
+  return out;
+}
+
+function ratingBlock({ isHaendler, avg, count }) {
+  const c = Number(count);
+  const a = Number(avg);
+
+  if (!isHaendler) return "";
+  if (!Number.isFinite(c) || c <= 0) return "";
+  if (!Number.isFinite(a) || a <= 0) return "";
+
+  const label = `Bewertung ${fmtRating(a)} von 5 Sternen (${c} Bewertungen)`;
+  return `
+    <div class="dealer-rating" aria-label="${label}">
+      ${starsHTML(a)}
+      <span class="dealer-rating__value">${fmtRating(a)}</span>
+      <span class="dealer-rating__count" title="${c} Bewertungen">(${c})</span>
+    </div>
+  `;
+}
+
 function extractMongoId(doc) {
   if (!doc) return null;
   if (typeof doc._id === "string") return doc._id;
@@ -156,129 +195,181 @@ function generateSlides(inserat) {
 /* =========================================================
    ONE Slider System (Swipe + Pfeile) – für alle Cards
    ========================================================= */
-function initMediaSlider(mediaContainer) {
-  if (!mediaContainer) return;
-  if (mediaContainer.dataset.sliderBound === "1") return;
-  mediaContainer.dataset.sliderBound = "1";
+function initMediaSlider(container) {
+  if (!container) return;
 
-  const slidesWrapper = mediaContainer.querySelector(".slides");
+  // nicht doppelt initialisieren
+  if (container.dataset.sliderInit === "1") return;
+  container.dataset.sliderInit = "1";
+
+  const slidesWrapper = container.querySelector(".slides");
   if (!slidesWrapper) return;
 
-  const slides = Array.from(slidesWrapper.children);
+  const slides = Array.from(slidesWrapper.children || []);
   if (!slides.length) return;
 
-  // Basis-Layout
+  const state = {
+    index: 0,
+    dragging: false,
+    axis: null,
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    prevTranslate: 0,
+    currentTranslate: 0,
+    blockClickUntil: 0,
+    hadRealSwipe: false,
+    captured: false,
+  };
+
   slidesWrapper.style.display = "flex";
   slidesWrapper.style.willChange = "transform";
-  slidesWrapper.style.transition = "transform 0.25s ease";
-  slides.forEach(slide => {
+  slides.forEach((slide) => {
     slide.style.flex = "0 0 100%";
     slide.style.minWidth = "100%";
   });
 
-  // wichtig für Touch: Vertical scroll erlauben, horizontal wird via Pointer handled
-  try { slidesWrapper.style.touchAction = "pan-y"; } catch {}
+  const btnLeft = container.querySelector(".media-arrow.left");
+  const btnRight = container.querySelector(".media-arrow.right");
 
-  let index = 0;
-  let dragging = false;
-  let startX = 0;
-  let currentX = 0;
+  const width = () => (container.getBoundingClientRect().width || container.clientWidth || 1);
 
-  const getWidth = () => {
-    const w = mediaContainer.clientWidth || mediaContainer.getBoundingClientRect().width;
-    return w > 0 ? w : 1;
+  const setTranslate = (x, animate) => {
+    slidesWrapper.style.transition = animate
+      ? "transform 0.28s cubic-bezier(.2,.8,.2,1)"
+      : "none";
+    slidesWrapper.style.transform = `translateX(${x}px)`;
   };
 
-  const setTranslatePx = (px, withTransition = true) => {
-    slidesWrapper.style.transition = withTransition ? "transform 0.25s ease" : "none";
-    slidesWrapper.style.transform = `translateX(${px}px)`;
+  const updateArrows = () => {
+    if (btnLeft) btnLeft.disabled = state.index <= 0;
+    if (btnRight) btnRight.disabled = state.index >= slides.length - 1;
   };
 
-  const snap = () => {
-    const w = getWidth();
-    setTranslatePx(-index * w, true);
+  const pauseInactiveVideos = () => {
+    slides.forEach((s, idx) => {
+      const v = s?.tagName === "VIDEO" ? s : s?.querySelector?.("video");
+      if (!v) return;
+      if (idx !== state.index && !v.paused) {
+        try { v.pause(); } catch {}
+      }
+    });
   };
 
-  const onPointerDown = (e) => {
-    // nur linke Maus / Touch / Pen
-    if (e.pointerType === "mouse" && e.button !== 0) return;
-
-    dragging = true;
-    startX = e.clientX;
-    currentX = startX;
-
-    slidesWrapper.style.transition = "none";
-
-    // Pointer Capture (damit Move/Up sicher kommen)
-    try { slidesWrapper.setPointerCapture(e.pointerId); } catch {}
-
-    // verhindert Text-Selection
-    if (e.cancelable) e.preventDefault();
+  const snapTo = (i, animate = true) => {
+    state.index = Math.max(0, Math.min(i, slides.length - 1));
+    state.prevTranslate = -state.index * width();
+    state.currentTranslate = state.prevTranslate;
+    setTranslate(state.currentTranslate, animate);
+    updateArrows();
+    pauseInactiveVideos();
   };
 
-  const onPointerMove = (e) => {
-    if (!dragging) return;
-
-    currentX = e.clientX;
-    const dx = currentX - startX;
-    const w = getWidth();
-    const base = -index * w;
-
-    // Edge-Resistance
-    let next = base + dx;
-    if (index === 0 && dx > 0) next = base + dx * 0.35;
-    if (index === slides.length - 1 && dx < 0) next = base + dx * 0.35;
-
-    if (e.cancelable) e.preventDefault();
-    slidesWrapper.style.transform = `translateX(${next}px)`;
-  };
-
-  const onPointerUp = (e) => {
-    if (!dragging) return;
-    dragging = false;
-
-    const dx = currentX - startX;
-    const w = getWidth();
-    const threshold = Math.min(90, w * 0.20);
-
-    if (dx < -threshold && index < slides.length - 1) index++;
-    else if (dx > threshold && index > 0) index--;
-
-    try { slidesWrapper.releasePointerCapture(e.pointerId); } catch {}
-    snap();
-  };
-
-  slidesWrapper.addEventListener("pointerdown", onPointerDown, { passive: false });
-  slidesWrapper.addEventListener("pointermove", onPointerMove, { passive: false });
-  slidesWrapper.addEventListener("pointerup", onPointerUp, { passive: true });
-  slidesWrapper.addEventListener("pointercancel", onPointerUp, { passive: true });
-  slidesWrapper.addEventListener("pointerleave", onPointerUp, { passive: true });
-
-  // Pfeile
-  const leftArrow = mediaContainer.querySelector(".media-arrow.left");
-  const rightArrow = mediaContainer.querySelector(".media-arrow.right");
-
-  leftArrow?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (index > 0) { index--; snap(); }
-  });
-
-  rightArrow?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (index < slides.length - 1) { index++; snap(); }
-  });
-
-  // resize-snap (und abmelden wenn Element weg ist)
-  const onResize = () => {
-    if (!document.body.contains(mediaContainer)) {
-      window.removeEventListener("resize", onResize);
-      return;
+  // Swipe → Click block (nur nach echtem Swipe)
+  container.addEventListener("click", (e) => {
+    if (Date.now() < state.blockClickUntil) {
+      e.preventDefault();
+      e.stopPropagation();
     }
-    snap();
-  };
-  window.addEventListener("resize", onResize);
+  }, true);
 
-  snap();
+  const startDrag = (e) => {
+    if (e.button != null && e.button !== 0) return;
+    if (e.target?.closest?.(".media-arrow")) return;
+
+    state.dragging = true;
+    state.axis = null;
+    state.pointerId = e.pointerId ?? null;
+    state.startX = e.clientX;
+    state.startY = e.clientY;
+    state.hadRealSwipe = false;
+
+    state.captured = false;
+    slidesWrapper.style.transition = "none";
+  };
+
+  const moveDrag = (e) => {
+    if (!state.dragging) return;
+    if (state.pointerId != null && e.pointerId != null && e.pointerId !== state.pointerId) return;
+
+    const dx = e.clientX - state.startX;
+    const dy = e.clientY - state.startY;
+
+    if (state.axis == null) {
+      const adx = Math.abs(dx);
+      const ady = Math.abs(dy);
+      if (adx < 6 && ady < 6) return;
+
+      state.axis = adx > ady ? "x" : "y";
+      if (state.axis === "y") {
+        state.dragging = false;
+        state.pointerId = null;
+        return;
+      }
+
+      if (!state.captured && e.pointerId != null && container.setPointerCapture) {
+        try {
+          container.setPointerCapture(e.pointerId);
+          state.captured = true;
+        } catch {}
+      }
+    }
+
+    if (state.axis !== "x") return;
+
+    if (Math.abs(dx) > 10) state.hadRealSwipe = true;
+    if (e.cancelable) e.preventDefault();
+
+    state.currentTranslate = state.prevTranslate + dx;
+    setTranslate(state.currentTranslate, false);
+  };
+
+  const endDrag = (e) => {
+    if (!state.dragging) return;
+    if (state.pointerId != null && e?.pointerId != null && e.pointerId !== state.pointerId) return;
+
+    state.dragging = false;
+
+    const movedBy = state.currentTranslate - state.prevTranslate;
+    const w = width();
+    const threshold = Math.max(40, w * 0.12);
+
+    if (movedBy < -threshold && state.index < slides.length - 1) state.index++;
+    else if (movedBy > threshold && state.index > 0) state.index--;
+
+    state.blockClickUntil = state.hadRealSwipe ? Date.now() + 220 : 0;
+
+    snapTo(state.index, true);
+
+    if (state.captured && e?.pointerId != null && container.releasePointerCapture) {
+      try { container.releasePointerCapture(e.pointerId); } catch {}
+    }
+
+    state.pointerId = null;
+    state.axis = null;
+    state.captured = false;
+    state.hadRealSwipe = false;
+  };
+
+  container.addEventListener("pointerdown", startDrag, { passive: false });
+  container.addEventListener("pointermove", moveDrag, { passive: false });
+  container.addEventListener("pointerup", endDrag, { passive: true });
+  container.addEventListener("pointercancel", endDrag, { passive: true });
+  container.addEventListener("pointerleave", endDrag, { passive: true });
+
+  btnRight?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    snapTo(state.index + 1, true);
+  });
+
+  btnLeft?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    snapTo(state.index - 1, true);
+  });
+
+  window.addEventListener("resize", () => snapTo(state.index, false), { passive: true });
+
+  snapTo(0, false);
 }
 
 function initializeSlider(root) {
@@ -585,6 +676,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (sectionName === "messages-list") loadMessagesSection();
     if (sectionName === "saved-cars") loadSavedCarsSection();
+    if (sectionName === "sold-cars") loadSoldCarsSection();
   }
 
   sidebarLinks.forEach(link => {
@@ -1127,6 +1219,9 @@ function buildFahrzeugdatenFromInserat(ins) {
       ...(Array.isArray(online) ? online.map(o => ({ ...o, __status: "online" })) : [])
     ];
 
+    cachedMyInserate = items;
+    cachedUserData = nutzerData;
+
     if (!items.length) {
       carList.innerHTML = "<p>Keine Inserate gefunden.</p>";
       return;
@@ -1563,6 +1658,219 @@ async function loadMessagesSection() {
   }
 }
 
+function isSoldInserat(inserat) {
+  const statusRaw = String(
+    inserat?.status ||
+    inserat?.verkauf_status ||
+    inserat?.verkaufsstatus ||
+    inserat?.verkauf_status_text ||
+    ""
+  ).toLowerCase();
+
+  if (statusRaw.includes("verkauft") || statusRaw.includes("sold")) return true;
+  if (inserat?.verkauft === true || inserat?.sold === true) return true;
+
+  return false;
+}
+
+function buildSoldCardHTML(inserat) {
+  const title =
+    inserat?.titel ||
+    [inserat?.verkauf_marke, inserat?.verkauf_modell, inserat?.verkauf_variante]
+      .filter(Boolean)
+      .join(" ")
+      .trim() ||
+    "Inserat";
+
+  const rawPrice = extractPriceValue(inserat);
+  const price = formatEUR(rawPrice) || "—";
+
+  const ez = formatEZ(inserat?.verkauf_erstzulassung || inserat?.erstzulassung);
+  const km = formatKm(inserat?.verkauf_kilometer ?? inserat?.kilometer);
+  const ps = inserat?.verkauf_leistung ? `${inserat.verkauf_leistung} PS` : "— PS";
+  const fuel = inserat?.verkauf_kraftstoff || inserat?.kraftstoff || "—";
+  const getriebe = inserat?.verkauf_getriebe || inserat?.getriebe || "—";
+
+  const verbrauchRaw = inserat?.verkauf_verbrauch_kombiniert || inserat?.verbrauch_kombiniert || "";
+  const verbrauch = verbrauchRaw
+    ? (String(verbrauchRaw).includes("l/100") ? String(verbrauchRaw) : `${verbrauchRaw} l/100 km`)
+    : "— l/100 km";
+
+  const subtitle =
+    (inserat?.verkauf_kurzbeschreibung || inserat?.kurzbeschreibung || "").trim() ||
+    "Besondere Ausstattung";
+
+  const standort = (inserat?.verkauf_standort || inserat?.standort || "").trim();
+  const ort = (inserat?.verkauf_ort || inserat?.ort || "").trim();
+  const plz = (inserat?.verkauf_plz || inserat?.plz || "").trim();
+  const location = standort || [plz, ort].filter(Boolean).join(" ").trim() || "—";
+
+  const rawType = String(
+    inserat?.seller?.type ||
+    inserat?.verkauf_verkaeufer ||
+    inserat?.verkaeufer ||
+    ""
+  ).toLowerCase();
+  const isHaendler =
+    rawType === "haendler" ||
+    rawType === "händler" ||
+    rawType.includes("händ") ||
+    rawType.includes("haend");
+
+  const sellerName =
+    inserat?.seller?.name ||
+    inserat?.sellerName ||
+    inserat?.verkauf_name ||
+    (isHaendler ? "Händler" : "Privat");
+
+  const sellerLogo =
+    inserat?.seller?.logoUrl ||
+    inserat?.logoUrl ||
+    "";
+
+  const ratingAvg =
+    inserat?.seller?.ratingAvg ??
+    inserat?.seller?.rating_avg ??
+    inserat?.ratingAvg ??
+    inserat?.rating_avg;
+
+  const ratingCount =
+    inserat?.seller?.ratingCount ??
+    inserat?.seller?.rating_count ??
+    inserat?.ratingCount ??
+    inserat?.rating_count;
+
+  const dealerRatingHTML = ratingBlock({
+    isHaendler,
+    avg: ratingAvg,
+    count: ratingCount
+  });
+
+  return `
+    <div class="car-card-wrapper">
+      <div class="car-card horizontal">
+        <div class="car-card-media">
+          <div class="media-container">
+            <div class="slides">
+              ${generateSlides(inserat)}
+            </div>
+            <button class="media-arrow left" type="button" aria-label="Zurück">
+              <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="media-arrow right" type="button" aria-label="Weiter">
+              <i class="fas fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="car-details">
+          <div class="car-top-row">
+            <h2 class="car-title">${escapeHTML(title)}</h2>
+            <p class="car-price">${escapeHTML(price)}</p>
+          </div>
+
+          <p class="car-subtitle">${escapeHTML(subtitle)}</p>
+
+          <div class="car-info-grid">
+            <p><i class="fas fa-road"></i> ${escapeHTML(km)}</p>
+            <p><i class="fas fa-calendar-alt"></i> EZ ${escapeHTML(ez)}</p>
+            <p><i class="fas fa-gas-pump"></i> ${escapeHTML(fuel)}</p>
+            <p><i class="fas fa-gauge-high"></i> ${escapeHTML(ps)}</p>
+            <p><i class="fas fa-gears"></i> ${escapeHTML(getriebe)}</p>
+            <p><i class="fas fa-tint"></i> ${escapeHTML(verbrauch)}</p>
+          </div>
+
+          <div class="dealer-info-row">
+            <div class="dealer-row">
+              <div class="dealer-avatar" data-logo="${escapeHTML(sellerLogo)}">
+                <img alt="${escapeHTML(sellerName)} Logo" decoding="async">
+                <span class="dealer-initials">${escapeHTML(sellerInitials(sellerName))}</span>
+              </div>
+              <div class="dealer-meta">
+                <div class="dealer-name">${escapeHTML(sellerName)}</div>
+                ${dealerRatingHTML}
+                <div class="dealer-location">${escapeHTML(location)}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function loadSoldCarsSection() {
+  const section = document.getElementById("sold-cars");
+  if (!section) return;
+
+  const loadingEl = document.getElementById("soldCarsLoading");
+  const listEl = document.getElementById("soldCarsList");
+  const emptyEl = document.getElementById("soldCarsEmpty");
+
+  if (listEl) listEl.innerHTML = "";
+  emptyEl?.classList.add("hidden");
+  loadingEl?.classList.remove("hidden");
+
+  try {
+    let items = Array.isArray(cachedMyInserate) ? cachedMyInserate : [];
+
+    if (!items.length) {
+      const [draftRes, onlineRes] = await Promise.all([
+        fetch("/getVehicleData", { credentials: "include" }),
+        fetch("/meine-inserate", { credentials: "include" })
+      ]);
+      const drafts = await draftRes.json();
+      const online = await onlineRes.json();
+      items = [
+        ...(Array.isArray(drafts) ? drafts.map(d => ({ ...d, __status: "draft" })) : []),
+        ...(Array.isArray(online) ? online.map(o => ({ ...o, __status: "online" })) : [])
+      ];
+    }
+
+    const soldItems = items.filter(isSoldInserat);
+
+    loadingEl?.classList.add("hidden");
+
+    if (!soldItems.length) {
+      emptyEl?.classList.remove("hidden");
+      return;
+    }
+
+    soldItems.forEach((inserat) => {
+      const tmp = document.createElement("div");
+      tmp.innerHTML = buildSoldCardHTML(inserat);
+
+      const cardWrap = tmp.firstElementChild;
+      if (!cardWrap) return;
+
+      const avatar = cardWrap.querySelector(".dealer-avatar");
+      const img = cardWrap.querySelector(".dealer-avatar img");
+      const logo = avatar?.dataset?.logo || "";
+      applyDealerAvatar(avatar, img, logo);
+      initializeSlider(cardWrap);
+
+      cardWrap.addEventListener("click", (e) => {
+        const isInteractive = e.target.closest("button, a, input, textarea, select, .media-arrow");
+        if (isInteractive) return;
+
+        const fahrzeugId = extractMongoId(inserat) || inserat?.id || inserat?._id || "";
+        try { localStorage.setItem("ausgewaehltesInserat", JSON.stringify(inserat)); } catch {}
+        if (fahrzeugId) {
+          window.location.href = `anzeige.html?id=${encodeURIComponent(fahrzeugId)}`;
+        } else {
+          window.location.href = "anzeige.html";
+        }
+      });
+
+      listEl?.appendChild(cardWrap);
+    });
+  } catch (err) {
+    console.error("Fehler beim Laden verkaufter Autos:", err);
+    loadingEl?.classList.add("hidden");
+    emptyEl?.classList.remove("hidden");
+  }
+}
+
 /* =========================================================
    Saved Cars
    ========================================================= */
@@ -1605,16 +1913,46 @@ function buildSavedCardHTML(inserat, userId) {
   const plz = (inserat?.verkauf_plz || inserat?.plz || "").trim();
   const location = standort || [plz, ort].filter(Boolean).join(" ").trim() || "—";
 
+  const rawType = String(
+    inserat?.seller?.type ||
+    inserat?.verkauf_verkaeufer ||
+    inserat?.verkaeufer ||
+    ""
+  ).toLowerCase();
+  const isHaendler =
+    rawType === "haendler" ||
+    rawType === "händler" ||
+    rawType.includes("händ") ||
+    rawType.includes("haend");
+
   const sellerName =
     inserat?.seller?.name ||
     inserat?.sellerName ||
     inserat?.verkauf_name ||
-    (String(inserat?.verkauf_verkaeufer || "").toLowerCase().includes("händ") ? "Händler" : "Privat");
+    (isHaendler ? "Händler" : "Privat");
 
   const sellerLogo =
     inserat?.seller?.logoUrl ||
     inserat?.logoUrl ||
     "";
+
+  const ratingAvg =
+    inserat?.seller?.ratingAvg ??
+    inserat?.seller?.rating_avg ??
+    inserat?.ratingAvg ??
+    inserat?.rating_avg;
+
+  const ratingCount =
+    inserat?.seller?.ratingCount ??
+    inserat?.seller?.rating_count ??
+    inserat?.ratingCount ??
+    inserat?.rating_count;
+
+  const dealerRatingHTML = ratingBlock({
+    isHaendler,
+    avg: ratingAvg,
+    count: ratingCount
+  });
 
   const sellerId = String(inserat?.verkaeuferId || inserat?.seller?.id || "").trim();
   const uid = String(userId || "").trim();
@@ -1681,8 +2019,9 @@ function buildSavedCardHTML(inserat, userId) {
             <img alt="${escapeHTML(sellerName)} Logo" decoding="async">
             <span class="dealer-initials">${escapeHTML(sellerInitials(sellerName))}</span>
           </div>
-              <div class="dealer-meta">
+            <div class="dealer-meta">
                 <div class="dealer-name">${escapeHTML(sellerName)}</div>
+                ${dealerRatingHTML}
                 <div class="dealer-location">${escapeHTML(location)}</div>
               </div>
             </div>
@@ -1738,6 +2077,8 @@ async function loadSavedCarsSection() {
       const img = cardWrap.querySelector(".dealer-avatar img");
       const logo = avatar?.dataset?.logo || "";
       applyDealerAvatar(avatar, img, logo);
+
+      initializeSlider(cardWrap);
 
       // Klick auf Karte -> Inserat öffnen (aber nicht bei Buttons/Links)
       cardWrap.addEventListener("click", (e) => {
