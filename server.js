@@ -4454,7 +4454,8 @@ app.get("/api/search", async (req, res) => {
               }
             },
             { $skip: skip },
-            { $limit: lim }
+            { $limit: lim },
+            ...projectWithSeller()
           ],
           total: [{ $count: "count" }]
         }
@@ -4608,7 +4609,6 @@ app.get("/api/bewertungen/:sellerId", async (req, res) => {
 
   res.json(ratings);
 });
-
 
 
 

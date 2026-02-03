@@ -1055,7 +1055,8 @@ img, video, canvas {
     .filter-sidebar.visible {
       display: block;
       opacity: 1;
-      max-height: 2000px;
+      max-height: none;
+      overflow: visible;
     }
     
     .range-inputs input {
@@ -1110,6 +1111,7 @@ img, video, canvas {
   display:flex;
   transition:transform .5s ease-in-out;
   will-change:transform;
+  touch-action: pan-y;
 }
 /* WICHTIG: .slide ist direkt <img> oder <video> */
 .slide{
@@ -1121,7 +1123,6 @@ img, video, canvas {
   box-sizing:border-box;
   object-fit:cover;            /* immer zentriert & randlos */
   object-position:center;
-  touch-action:none;
 }
 
 /* --- Details --- */
@@ -1396,7 +1397,8 @@ img, video, canvas {
     .filter-sidebar.visible {
       display: block;
       opacity: 1;
-      max-height: 2000px;
+      max-height: none;
+      overflow: visible;
     }
     
     .results-section {
@@ -1687,7 +1689,7 @@ img, video, canvas {
   }
   
   .slide {
-    touch-action: none;
+    touch-action: pan-y;
   }
   
   
@@ -1749,7 +1751,8 @@ img, video, canvas {
   
     .filter-sidebar.visible {
       display: block;
-      max-height: 2000px;
+      max-height: none;
+      overflow: visible;
       opacity: 1;
     }
   
@@ -1790,6 +1793,20 @@ img, video, canvas {
       width: 100% !important;
       object-fit: cover !important;
       object-position: center !important;
+    }
+
+    .results-section{
+      gap: 24px;
+    }
+
+    .car-results{
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .car-results .car-card{
+      margin-bottom: 0;
     }
   }
   
@@ -2451,26 +2468,34 @@ img, video, canvas {
   /* Mobile: kompakter (Text bei Zurück/Weiter ausblenden) */
   @media (max-width: 520px){
     .pager-nav{
-      justify-content:space-between;
+      justify-content:center;
+      gap:6px;
     }
     .pager-pages{
-      order: 3;
-      width: 100%;
+      order: 0;
+      width: auto;
+      flex-wrap: nowrap;
       justify-content:center;
     }
     .pager-meta{
-      order: 4;
+      order: 2;
+      flex-basis: 100%;
     }
-  
+
     .pager-prev span,
     .pager-next span{
       display:none;
     }
-  
+
+    .pager-btn{
+      min-width: 36px;
+      padding: 8px 9px;
+      font-size: 13px;
+    }
+
     .pager-prev,
     .pager-next{
-      min-width: 44px;
-      padding: 9px 10px;
+      min-width: 36px;
     }
   }
 

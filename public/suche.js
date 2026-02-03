@@ -870,16 +870,6 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   window.addEventListener("resize", repositionOpen);
   window.addEventListener("scroll", repositionOpen);
 
-  // ===== Filter-Sidebar Toggle =====
-  if (toggleBtn && sidebar) {
-    toggleBtn.addEventListener("click", () => {
-      const isOpen = sidebar.classList.toggle("open");
-      const txtOpen  = toggleBtn.getAttribute("data-open-text")  || "Filter schließen";
-      const txtClose = toggleBtn.getAttribute("data-close-text") || "Filter anzeigen";
-      toggleBtn.textContent = isOpen ? txtOpen : txtClose;
-    });
-  }
-
   // ===== Smooth Scroll (optional) =====
   searchLink?.addEventListener("click", (e) => {
     e.preventDefault();
@@ -942,147 +932,180 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   document.getElementById("saved-cars-link")?.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndGo("gespeicherte-autos.html"); });
   document.getElementById("my-cars-link")?.addEventListener("click",    (e) => { e.preventDefault(); checkLoginAndGo("meine-autos.html"); });
 
-  // ===== Medien-Slider (Pointer Events, sauberer Drag) =====
-  function initMediaSlider(mediaContainer) {
-    if (!mediaContainer) return;
-    const slidesWrapper = mediaContainer.querySelector(".slides");
+  // ===== Medien-Slider (wie auf der Startseite) =====
+  function initMediaSlider(container) {
+    if (!container) return;
+
+    if (container.dataset.sliderInit === "1") return;
+    container.dataset.sliderInit = "1";
+
+    const slidesWrapper = container.querySelector(".slides");
     if (!slidesWrapper) return;
 
-    const slides = Array.from(slidesWrapper.children);
-    const btnLeft  = mediaContainer.querySelector(".media-arrow.left");
-    const btnRight = mediaContainer.querySelector(".media-arrow.right");
-
-    // A11y
-    btnLeft?.setAttribute("aria-label", "Vorheriges Bild");
-    btnRight?.setAttribute("aria-label", "Nächstes Bild");
-
-    // Keine Slider-Controls nötig bei 0/1 Slide
-    const hasMultiple = slides.length > 1;
-    if (!hasMultiple) {
-      btnLeft?.setAttribute("disabled", "true");
-      btnRight?.setAttribute("disabled", "true");
-    }
-
-    // Grundlayout
-    slidesWrapper.style.display = "flex";
-    slidesWrapper.style.willChange = "transform";
-    slidesWrapper.style.transition = "transform 0.3s ease";
-    slidesWrapper.style.touchAction = "pan-y"; // Scrollen vertikal erlauben
-    slides.forEach(slide => {
-      slide.style.flex = "0 0 100%";
-      slide.style.minWidth = "100%";
-      slide.addEventListener("dragstart", e => e.preventDefault());
-    });
+    const slides = Array.from(slidesWrapper.children || []);
+    if (!slides.length) return;
 
     const state = {
-      idx: 0,
-      isDragging: false,
+      index: 0,
+      dragging: false,
+      axis: null,
       pointerId: null,
       startX: 0,
-      prevX: 0,
-      startTranslate: 0,
+      startY: 0,
+      prevTranslate: 0,
       currentTranslate: 0,
-      hasMoved: false
+      blockClickUntil: 0,
+      hadRealSwipe: false,
+      captured: false,
     };
 
-    const width = () => mediaContainer.clientWidth;
-    const snap = () => {
-      state.currentTranslate = -state.idx * width();
-      slidesWrapper.style.transition = "transform 0.3s ease";
-      setTransform(state.currentTranslate);
-    };
-    const clampIndex = (i) => clamp(i, 0, Math.max(0, slides.length - 1));
-    const setTransform = (x) => { slidesWrapper.style.transform = `translateX(${x}px)`; };
-
-    function goTo(i) {
-      state.idx = clampIndex(i);
-      snap();
-      updateArrows();
-    }
-
-    function updateArrows() {
-      if (!hasMultiple) return;
-      if (btnLeft)  btnLeft.disabled  = state.idx <= 0;
-      if (btnRight) btnRight.disabled = state.idx >= slides.length - 1;
-    }
-    updateArrows();
-
-    // === Pointer Events ===
-    function onPointerDown(e) {
-      if (!hasMultiple) return;
-      state.isDragging = true;
-      state.pointerId = e.pointerId ?? null;
-      slidesWrapper.setPointerCapture?.(state.pointerId);
-      state.startX = e.clientX;
-      state.prevX = e.clientX;
-      state.startTranslate = state.currentTranslate;
-      state.hasMoved = false;
-      slidesWrapper.style.transition = "none";
-      document.body.style.userSelect = "none";
-    }
-
-    function onPointerMove(e) {
-      if (!state.isDragging) return;
-      const dx = e.clientX - state.prevX;
-      state.prevX = e.clientX;
-      if (Math.abs(e.clientX - state.startX) > 2) state.hasMoved = true;
-      // leichte Gummi-Zone am Rand
-      const maxTranslate = 0;
-      const minTranslate = -(slides.length - 1) * width();
-      let next = state.currentTranslate + dx;
-      if (next > maxTranslate) next = maxTranslate + (next - maxTranslate) * 0.35;
-      if (next < minTranslate) next = minTranslate + (next - minTranslate) * 0.35;
-      state.currentTranslate = next;
-      setTransform(state.currentTranslate);
-    }
-
-    function onPointerUpOrCancel() {
-      if (!state.isDragging) return;
-      state.isDragging = false;
-      document.body.style.userSelect = "";
-
-      // snap nach Threshold
-      const moved = state.currentTranslate - state.startTranslate;
-      const threshold = Math.max(40, width() * 0.18);
-      if (moved <= -threshold) state.idx = clampIndex(state.idx + 1);
-      else if (moved >= threshold) state.idx = clampIndex(state.idx - 1);
-
-      snap();
-    }
-
-    slidesWrapper.addEventListener("pointerdown", onPointerDown, { passive: true });
-    slidesWrapper.addEventListener("pointermove", onPointerMove, { passive: true });
-    slidesWrapper.addEventListener("pointerup", onPointerUpOrCancel, { passive: true });
-    slidesWrapper.addEventListener("pointercancel", onPointerUpOrCancel, { passive: true });
-    slidesWrapper.addEventListener("pointerleave", onPointerUpOrCancel, { passive: true });
-
-    // Tastatur-Navigation
-    slidesWrapper.tabIndex = 0;
-    slidesWrapper.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowRight") goTo(state.idx + 1);
-      if (e.key === "ArrowLeft")  goTo(state.idx - 1);
+    slidesWrapper.style.display = "flex";
+    slidesWrapper.style.willChange = "transform";
+    slides.forEach((slide) => {
+      slide.style.flex = "0 0 100%";
+      slide.style.minWidth = "100%";
     });
 
-    // Klicks nach Drag nicht durchlassen (z. B. Card-Click)
-    slidesWrapper.addEventListener("click", (e) => {
-      if (state.hasMoved) e.stopPropagation();
+    const btnLeft = container.querySelector(".media-arrow.left");
+    const btnRight = container.querySelector(".media-arrow.right");
+
+    const width = () => (container.getBoundingClientRect().width || container.clientWidth || 1);
+
+    const setTranslate = (x, animate) => {
+      slidesWrapper.style.transition = animate
+        ? "transform 0.28s cubic-bezier(.2,.8,.2,1)"
+        : "none";
+      slidesWrapper.style.transform = `translateX(${x}px)`;
+    };
+
+    const updateArrows = () => {
+      if (btnLeft) btnLeft.disabled = state.index <= 0;
+      if (btnRight) btnRight.disabled = state.index >= slides.length - 1;
+    };
+
+    const pauseInactiveVideos = () => {
+      slides.forEach((s, idx) => {
+        const v = s?.tagName === "VIDEO" ? s : s?.querySelector?.("video");
+        if (!v) return;
+        if (idx !== state.index && !v.paused) {
+          try { v.pause(); } catch {}
+        }
+      });
+    };
+
+    const snapTo = (i, animate = true) => {
+      state.index = Math.max(0, Math.min(i, slides.length - 1));
+      state.prevTranslate = -state.index * width();
+      state.currentTranslate = state.prevTranslate;
+      setTranslate(state.currentTranslate, animate);
+      updateArrows();
+      pauseInactiveVideos();
+    };
+
+    container.addEventListener("click", (e) => {
+      if (Date.now() < state.blockClickUntil) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
     }, true);
 
-    // Pfeile
-    btnRight?.addEventListener("click", (e) => { e.stopPropagation(); goTo(state.idx + 1); });
-    btnLeft?.addEventListener("click",  (e) => { e.stopPropagation(); goTo(state.idx - 1); });
+    const startDrag = (e) => {
+      if (e.button != null && e.button !== 0) return;
+      if (e.target?.closest?.(".media-arrow")) return;
 
-    // Resize
-    let ro;
-    if ("ResizeObserver" in window) {
-      ro = new ResizeObserver(() => snap());
-      ro.observe(mediaContainer);
-    } else {
-      window.addEventListener("resize", snap);
-    }
+      state.dragging = true;
+      state.axis = null;
+      state.pointerId = e.pointerId ?? null;
+      state.startX = e.clientX;
+      state.startY = e.clientY;
+      state.hadRealSwipe = false;
 
-    // Initial
-    snap();
+      state.captured = false;
+      slidesWrapper.style.transition = "none";
+    };
+
+    const moveDrag = (e) => {
+      if (!state.dragging) return;
+      if (state.pointerId != null && e.pointerId != null && e.pointerId !== state.pointerId) return;
+
+      const dx = e.clientX - state.startX;
+      const dy = e.clientY - state.startY;
+
+      if (state.axis == null) {
+        const adx = Math.abs(dx);
+        const ady = Math.abs(dy);
+        if (adx < 6 && ady < 6) return;
+
+        state.axis = adx > ady ? "x" : "y";
+        if (state.axis === "y") {
+          state.dragging = false;
+          state.pointerId = null;
+          return;
+        }
+
+        if (!state.captured && e.pointerId != null && container.setPointerCapture) {
+          try {
+            container.setPointerCapture(e.pointerId);
+            state.captured = true;
+          } catch {}
+        }
+      }
+
+      if (state.axis !== "x") return;
+
+      if (Math.abs(dx) > 10) state.hadRealSwipe = true;
+      if (e.cancelable) e.preventDefault();
+
+      state.currentTranslate = state.prevTranslate + dx;
+      setTranslate(state.currentTranslate, false);
+    };
+
+    const endDrag = (e) => {
+      if (!state.dragging) return;
+      if (state.pointerId != null && e?.pointerId != null && e.pointerId !== state.pointerId) return;
+
+      state.dragging = false;
+
+      const movedBy = state.currentTranslate - state.prevTranslate;
+      const w = width();
+      const threshold = Math.max(40, w * 0.12);
+
+      if (movedBy < -threshold && state.index < slides.length - 1) state.index++;
+      else if (movedBy > threshold && state.index > 0) state.index--;
+
+      state.blockClickUntil = state.hadRealSwipe ? Date.now() + 220 : 0;
+
+      snapTo(state.index, true);
+
+      if (state.captured && e?.pointerId != null && container.releasePointerCapture) {
+        try { container.releasePointerCapture(e.pointerId); } catch {}
+      }
+
+      state.pointerId = null;
+      state.axis = null;
+      state.captured = false;
+      state.hadRealSwipe = false;
+    };
+
+    container.addEventListener("pointerdown", startDrag, { passive: false });
+    container.addEventListener("pointermove", moveDrag, { passive: false });
+    container.addEventListener("pointerup", endDrag, { passive: true });
+    container.addEventListener("pointercancel", endDrag, { passive: true });
+    container.addEventListener("pointerleave", endDrag, { passive: true });
+
+    btnRight?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      snapTo(state.index + 1, true);
+    });
+
+    btnLeft?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      snapTo(state.index - 1, true);
+    });
+
+    window.addEventListener("resize", () => snapTo(state.index, false), { passive: true });
+
+    snapTo(0, false);
   }
   // --- Ende initMediaSlider ---
 
@@ -1158,6 +1181,8 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
             : Array.isArray(raw.media)  ? raw.media.map(m => m.url || m)
             : [],
       video: raw.video || "",
+
+      seller: raw.seller || null,
 
       raw
     };
@@ -1855,6 +1880,7 @@ function getCombinedConsumption(item) {
       // Verkäuferdaten robust bestimmen
       const rawType = String(
         inserat.seller?.type ||
+        inserat.raw?.seller?.type ||
         inserat.verkaeufer ||
         inserat.raw?.verkauf_verkaeufer ||
         ""
@@ -1868,6 +1894,7 @@ function getCombinedConsumption(item) {
   
       const sellerName =
         inserat.seller?.name ||
+        inserat.raw?.seller?.name ||
         inserat.name ||
         inserat.raw?.verkauf_name ||
         (isHaendler ? "Händler" : "Privatanbieter");
@@ -2097,7 +2124,7 @@ function getCombinedConsumption(item) {
     const s = String(val).trim();
     if (s === "" || s === "Beliebig" || s === "-" || s === "any" || s === "alle" || s === "all") params.delete(key);
     else params.set(key, s);
-  }function updateUrlFromUiAndReload() {
+  }function updateUrlFromUiAndReload(opts = {}) {
     const params = new URLSearchParams(window.location.search);
   
     const setOrDelete = (p, k, v) => {
@@ -2352,8 +2379,14 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
   
     // Seite 1 + neu laden
     params.delete("page");
-    history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
-    loadAndRender(1);
+    const qs = params.toString();
+    if (opts.replace !== false) {
+      history.replaceState(null, "", `${location.pathname}${qs ? `?${qs}` : ""}`);
+    }
+    if (opts.reload !== false) {
+      loadAndRender(1);
+    }
+    return params;
   }
   
   // Falls noch nicht gebunden:
@@ -2361,7 +2394,14 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
     e.preventDefault();
     updateUrlFromUiAndReload();
   });
-  
+
+  document.getElementById("moreFiltersBtn")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    const params = updateUrlFromUiAndReload({ reload: false, replace: false }) || new URLSearchParams();
+    const qs = params.toString();
+    window.location.href = `suchkriterien.html${qs ? `?${qs}` : ""}`;
+  });
+
   document.getElementById("sortBy")?.addEventListener("change", () => {
     updateUrlFromUiAndReload();
   });
