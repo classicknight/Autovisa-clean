@@ -37,6 +37,124 @@ function orderYM(from, to) {
   return [from || "", to || ""];
 }
 
+/* =========================
+   Saved (Herz) – Suche
+   Nutzt: /saved/status/:id  und  /saved/toggle
+========================= */
+
+function setSaveBtnUI(btn, saved) {
+  if (!btn) return;
+
+  const isSaved = !!saved;
+
+  btn.classList.toggle("is-saved", isSaved);
+  btn.setAttribute("aria-pressed", isSaved ? "true" : "false");
+  btn.title = isSaved ? "Gespeichert" : "Auto speichern";
+
+  const icon = btn.querySelector("i");
+  if (icon) {
+    icon.classList.add("fa-heart");
+    icon.classList.remove("fa-solid", "fa-regular", "fas", "far");
+    if (isSaved) {
+      icon.classList.add("fa-solid", "fas");
+    } else {
+      icon.classList.add("fa-regular", "far");
+    }
+  }
+
+  if (isSaved) {
+    btn.classList.remove("pulse");
+    void btn.offsetWidth;
+    btn.classList.add("pulse");
+    window.setTimeout(() => btn.classList.remove("pulse"), 500);
+  } else {
+    btn.classList.remove("pulse");
+  }
+}
+
+function getRedirectTarget() {
+  const path = window.location.pathname || "";
+  const isRoot = path === "/" || path === "";
+  const file = isRoot ? "index.html" : (path.split("/").pop() || "index.html");
+  return file + (window.location.search || "") + (window.location.hash || "");
+}
+
+async function fetchSaveStatus(fahrzeugId) {
+  const res = await fetch(`/saved/status/${encodeURIComponent(fahrzeugId)}`, {
+    credentials: "include",
+  });
+  if (res.status === 401 || res.status === 403) return null;
+  if (!res.ok) throw new Error("Fehler beim Laden des Save-Status");
+  const data = await res.json().catch(() => ({}));
+  return !!data.saved;
+}
+
+function syncSaveButtonsById(fahrzeugId, saved) {
+  if (!fahrzeugId) return;
+  const safeId = String(fahrzeugId).replace(/"/g, '\\"');
+  document.querySelectorAll(`button.save-btn[data-inserat-id="${safeId}"]`)
+    .forEach((btn) => setSaveBtnUI(btn, saved));
+}
+
+async function toggleSaveBtn(btn) {
+  const fahrzeugId = (btn?.dataset?.inseratId || "").trim();
+  if (!fahrzeugId) return;
+
+  if (btn.dataset.busy === "1") return;
+  btn.dataset.busy = "1";
+
+  try {
+    const res = await fetch("/saved/toggle", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fahrzeugId }),
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      localStorage.setItem("redirectAfterLogin", getRedirectTarget());
+      window.location.href = "login.html";
+      return;
+    }
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Speichern fehlgeschlagen");
+
+    syncSaveButtonsById(fahrzeugId, !!data.saved);
+  } catch (err) {
+    console.error("❌ Save toggle error:", err);
+  } finally {
+    btn.dataset.busy = "0";
+  }
+}
+
+function hydrateSaveButtons(scope = document) {
+  const buttons = Array.from(scope.querySelectorAll("button.save-btn[data-inserat-id]"));
+  if (!buttons.length) return;
+
+  const ids = [...new Set(buttons.map((b) => (b.dataset.inseratId || "").trim()).filter(Boolean))];
+  if (!ids.length) return;
+
+  Promise.allSettled(
+    ids.map(async (id) => {
+      const saved = await fetchSaveStatus(id);
+      if (saved === null) return;
+      syncSaveButtonsById(id, saved);
+    })
+  ).catch(() => {});
+}
+
+if (!window.__autovisaSaveDelegationBound) {
+  window.__autovisaSaveDelegationBound = true;
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("button.save-btn[data-inserat-id]");
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    toggleSaveBtn(btn);
+  });
+}
+
 // ---- Erstzulassung: Month-Input Fallback ----
 let useEzFallback = false;
 function supportsMonthInput() {
@@ -300,6 +418,15 @@ const container     = document.getElementById("carResults");
 const pager         = document.getElementById("pager");
 const sortBy        = document.getElementById("sortBy");
 const applyFilters  = document.getElementById("applyFiltersBtn");
+
+  // Mobile/Tablet: Filter-Sidebar ein-/ausblenden
+  if (toggleBtn && sidebar) {
+    toggleBtn.addEventListener("click", () => {
+      const next = !sidebar.classList.contains("visible");
+      sidebar.classList.toggle("visible", next);
+      toggleBtn.setAttribute("aria-expanded", String(next));
+    });
+  }
 // --- Prefill aus URL in die UI ---
 (function prefillFromQuery () {
   const sp = new URLSearchParams(location.search);
@@ -1640,6 +1767,42 @@ function getCombinedConsumption(item) {
     const parts = name.trim().split(/\s+/).slice(0, 2);
     return parts.map(p => (p[0] || "").toUpperCase()).join("") || "AV";
   }
+
+  const fmtRating = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n.toFixed(1).replace(".", ",") : "";
+  };
+
+  const starsHTML = (avg) => {
+    const a = Number(avg);
+    if (!Number.isFinite(a) || a <= 0) return "";
+    let out = `<span class="stars" aria-hidden="true">`;
+    for (let i = 1; i <= 5; i++) {
+      if (a >= i - 0.25) out += `<i class="fa-solid fa-star"></i>`;
+      else if (a >= i - 0.75) out += `<i class="fa-solid fa-star-half-stroke"></i>`;
+      else out += `<i class="fa-regular fa-star"></i>`;
+    }
+    out += `</span>`;
+    return out;
+  };
+
+  const ratingBlock = ({ isHaendler, avg, count }) => {
+    const c = Number(count);
+    const a = Number(avg);
+
+    if (!isHaendler) return "";
+    if (!Number.isFinite(c) || c <= 0) return "";
+    if (!Number.isFinite(a) || a <= 0) return "";
+
+    const label = `Bewertung ${fmtRating(a)} von 5 Sternen (${c} Bewertungen)`;
+    return `
+      <div class="dealer-rating" aria-label="${label}">
+        ${starsHTML(a)}
+        <span class="dealer-rating__value">${fmtRating(a)}</span>
+        <span class="dealer-rating__count" title="${c} Bewertungen">(${c})</span>
+      </div>
+    `;
+  };
   function renderItems() {
     if (!container) return;
     container.innerHTML = "";
@@ -1720,12 +1883,34 @@ function getCombinedConsumption(item) {
         inserat.raw?.standort ||
         [inserat.plz, inserat.ort].filter(Boolean).join(" ") ||
         "Standort nicht angegeben";
-  
+
+      const ratingAvg =
+        inserat.seller?.ratingAvg ??
+        inserat.raw?.seller?.ratingAvg ??
+        inserat.raw?.seller?.rating_avg ??
+        inserat.raw?.ratingAvg ??
+        inserat.raw?.rating_avg;
+
+      const ratingCount =
+        inserat.seller?.ratingCount ??
+        inserat.raw?.seller?.ratingCount ??
+        inserat.raw?.seller?.rating_count ??
+        inserat.raw?.ratingCount ??
+        inserat.raw?.rating_count;
+
+      const dealerRatingHTML = ratingBlock({
+        isHaendler,
+        avg: ratingAvg,
+        count: ratingCount
+      });
+
       // 🔹 Verbrauch fürs UI robust ermitteln (gleicher Parser wie Filter)
       const vShow = getCombinedConsumption(inserat);
       const vShowText = Number.isFinite(vShow)
         ? String(vShow.toFixed(1)).replace('.', ',')   // z. B. "5,3"
         : '?';
+
+      const realId = getMongoId(inserat) || "";
   
       // Karte rendern (ohne gefährliche Text-Injektionen)
       const card = document.createElement("div");
@@ -1733,7 +1918,16 @@ function getCombinedConsumption(item) {
       card.innerHTML = `
         <div class="car-card-media">
           <div class="card-actions mobile-only">
-            <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
+            <button
+              class="save-btn"
+              type="button"
+              title="Auto speichern"
+              aria-pressed="false"
+              data-inserat-id="${realId}"
+              ${realId ? "" : "disabled aria-disabled='true'"}
+            >
+              <i class="far fa-heart" aria-hidden="true"></i>
+            </button>
             <a href="${phoneHref}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${phoneHref === "#" ? "aria-disabled='true'" : ""}>
               <i class="fas fa-phone"></i>
             </a>
@@ -1773,11 +1967,21 @@ function getCombinedConsumption(item) {
               </div>
               <div class="dealer-meta">
                 <div class="dealer-name"></div>
+                ${dealerRatingHTML}
                 <div class="dealer-location"></div>
               </div>
             </div>
             <div class="card-actions desktop-only">
-              <button class="save-btn" title="Auto speichern"><i class="fas fa-heart"></i></button>
+              <button
+                class="save-btn"
+                type="button"
+                title="Auto speichern"
+                aria-pressed="false"
+                data-inserat-id="${realId}"
+                ${realId ? "" : "disabled aria-disabled='true'"}
+              >
+                <i class="far fa-heart" aria-hidden="true"></i>
+              </button>
               <a href="${phoneHref}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${phoneHref === "#" ? "aria-disabled='true'" : ""}>
                 <i class="fas fa-phone"></i>
               </a>
@@ -1831,7 +2035,6 @@ function getCombinedConsumption(item) {
       });
   
       // Karte klickbar (nicht auf Buttons/Arrows)
-      const realId = getMongoId(inserat);
       card.dataset.id = realId || "";
       card.addEventListener("click", (e) => {
         if (e.target.closest("button, a, .media-arrow")) return;
@@ -1843,7 +2046,10 @@ function getCombinedConsumption(item) {
         window.location.href = `anzeige.html${qs}`;
       });
     });
-  
+
+    // Nach dem Rendern gespeicherte Herzen hydraten
+    hydrateSaveButtons(container);
+
     renderPager(serverTotal); // Wichtig: Gesamttreffer vom Server
   }
   
@@ -2963,6 +3169,3 @@ function clearAllFilters() {
 
 
 });
-
-
-

@@ -1,11 +1,6 @@
-
-
-
-
-
-
 /* ==== Reset & Base ==== */
 * {
+
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -419,20 +414,20 @@ body {
   .tagline-line2 {
     margin-left: 6px;
   }
-
+  
   .mobile-shortcuts {
     display: flex;
     gap: 10px;
     align-items: center;
   }
-
+  
   .mobile-shortcuts a {
     display: flex;
     align-items: center;
     justify-content: center;
     width: 36px;
     height: 36px;
-    background: rgba(0,184,169,.12);
+    background: rgba(0, 184, 169, .12);
     border-radius: 50%;
     color: #00b8a9;
     font-size: 17px;
@@ -441,17 +436,17 @@ body {
       background-color .2s ease,
       color .2s ease;
   }
-
+  
   .mobile-shortcuts a:hover {
-    background: rgba(0,184,169,.2);
+    background: rgba(0, 184, 169, .2);
     color: #009e92;
     transform: scale(1.08);
   }
-
+  
   .hamburger {
     display: flex;
   }
-
+  
   /* Burger-Menü Panel – zentriert, einheitliche Breite */
   .nav-links {
     display: none;
@@ -467,20 +462,20 @@ body {
     padding: 14px 14px 18px;
     gap: 10px;
     border-radius: 0 0 18px 18px;
-    box-shadow: 0 14px 30px rgba(0,0,0,.35);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, .35);
     z-index: 999;
     overflow-x: hidden;
   }
-
+  
   .nav-links.active {
     display: flex;
   }
-
-  .nav-links > li {
+  
+  .nav-links>li {
     width: 100%;
   }
-
-  .nav-links > li > a {
+  
+  .nav-links>li>a {
     width: 100%;
     font-size: 16px;
     padding: 10px 12px;
@@ -489,28 +484,28 @@ body {
     justify-content: space-between;
     gap: 8px;
     border-radius: 10px;
-    background: rgba(255,255,255,.04);
+    background: rgba(255, 255, 255, .04);
     transition:
       background-color .25s ease,
       transform .15s ease,
       color .25s ease;
   }
-
-  .nav-links > li > a:hover {
-    background: rgba(255,255,255,.08);
+  
+  .nav-links>li>a:hover {
+    background: rgba(255, 255, 255, .08);
     transform: scale(1.02);
   }
-
-  .nav-links > li > a:active {
+  
+  .nav-links>li>a:active {
     transform: scale(.97);
-    background: rgba(0,184,169,.15);
+    background: rgba(0, 184, 169, .15);
   }
-
-  .dropdown > a {
+  
+  .dropdown>a {
     width: 100%;
   }
-
-  .nav-links > li > a.highlight-link {
+  
+  .nav-links>li>a.highlight-link {
     justify-content: center;
     gap: 8px;
     border-radius: 999px;
@@ -519,17 +514,17 @@ body {
     color: #021b24;
     font-weight: 600;
   }
-
-  .nav-links > li > a.highlight-link i {
+  
+  .nav-links>li>a.highlight-link i {
     font-size: 17px;
     margin: 0;
   }
-
-  .nav-links > li > a.highlight-link:hover {
+  
+  .nav-links>li>a.highlight-link:hover {
     background: linear-gradient(135deg, #00e6c3, #00b8a9);
     transform: scale(1.02);
   }
-
+  
   .dropdown-menu {
     position: static;
     min-width: unset;
@@ -537,7 +532,7 @@ body {
     background: transparent;
     box-shadow: none;
     margin-top: 4px;
-
+    
     display: block;
     max-height: 0;
     opacity: 0;
@@ -550,14 +545,14 @@ body {
       opacity .22s ease,
       padding .22s ease;
   }
-
+  
   .dropdown.open .dropdown-menu {
     max-height: 1000px;
     opacity: 1;
     pointer-events: auto;
     padding: 4px 0 2px;
   }
-
+  
   .dropdown-menu a {
     display: flex;
     align-items: center;
@@ -570,7 +565,7 @@ body {
     background: transparent;
     position: relative;
   }
-
+  
   .dropdown-menu a::before {
     content: "";
     position: absolute;
@@ -583,36 +578,36 @@ body {
     background: #00b8a9;
     opacity: 0.75;
   }
-
+  
   .dropdown-menu a:hover,
   .dropdown-menu a:focus {
-    background: rgba(255,255,255,.06);
+    background: rgba(255, 255, 255, .06);
     color: #00ffcc;
     padding-left: 32px;
   }
-
-  .dropdown.open > a::after {
+  
+  .dropdown.open>a::after {
     display: none;
   }
-
+  
   .nav-arrow {
     display: inline-block;
     margin-left: 6px;
     line-height: 1;
     opacity: .95;
     transition:
-      transform .22s cubic-bezier(.3,.7,.2,1.2),
+      transform .22s cubic-bezier(.3, .7, .2, 1.2),
       color .2s ease;
   }
-
-  .dropdown > a:hover .nav-arrow {
+  
+  .dropdown>a:hover .nav-arrow {
     color: #00ffcc;
   }
-
-  .dropdown > a[aria-expanded="true"] .nav-arrow {
+  
+  .dropdown>a[aria-expanded="true"] .nav-arrow {
     transform: rotate(90deg);
   }
-}
+  }
 
 /* sorgt dafür, dass Anker-Ziele unter einer (ursprünglich fixen) Navbar korrekt einrasten */
 #results-section,
@@ -632,13 +627,12 @@ html {
   scroll-behavior: smooth;
 }
 
-/* === Anti-Overscroll (Seite) === */
 html, body {
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;           /* kein horizontales Scrollen */
-  overscroll-behavior-x: none;  /* verhindert iOS/Android "Seitwärts-Ziehen" */
-  touch-action: pan-y;          /* nur vertikales Scrollen auf der Seite */
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
 }
 
 /* Clip alles, was ggf. aus dem Viewport ragen könnte */
@@ -685,6 +679,78 @@ img, video, canvas {
   }
 }
 
+
+  
+/* Force: gleiche Ausrichtung wie anzeige.html (Menü startet am linken Pill-Rand) */
+.navbar .dropdown { position: relative; }           /* falls nicht schon so */
+.navbar .dropdown-menu{
+  left: 0 !important;
+  right: auto !important;
+  transform: translateY(6px) scale(.98) !important; /* X-Übersetzung entfernen */
+}
+
+  
+  
+  
+
+
+.logo-container {
+  display: flex;
+  align-items: center;
+
+  text-decoration: none;
+  color: inherit;
+}
+
+.logo-container:focus-visible {
+  outline: 2px solid rgba(0,184,169,.65);
+  outline-offset: 6px;
+  border-radius: 14px;
+}
+
+
+
+
+
+
+
+.logo-container:focus-visible {
+  outline: 2px solid rgba(0, 184, 169, .65);
+  outline-offset: 6px;
+  border-radius: 14px;
+}
+
+
+
+
+
+/* Desktop: nav-icon-only = nur Icon sichtbar */
+.nav-icon-only a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+}
+
+.nav-icon-only a span {
+  display: none;
+}
+
+
+
+
+@media (max-width: 900px) {
+
+
+
+  .nav-links .nav-icon-only a span{
+    display: inline;
+  }
+
+
+}
 
 
   
@@ -1539,8 +1605,14 @@ img, video, canvas {
   
   /* Desktop-Aktionen rechts fixiert */
   .dealer-info-row .card-actions.desktop-only{
-    display:flex;
-    gap:10px;
+    display:none;
+  }
+
+  @media screen and (min-width: 901px) {
+    .dealer-info-row .card-actions.desktop-only{
+      display:flex;
+      gap:10px;
+    }
   }
   
   @media (min-width:700px){
@@ -1773,6 +1845,22 @@ img, video, canvas {
   .clean-phone:hover i {
     color: white;
   }
+
+  .clean-phone[aria-disabled="true"]{
+    opacity: .35;
+    pointer-events: none;
+    cursor: not-allowed;
+  }
+
+  /* Saved-State wie Hover (Herz gefüllt) */
+  .save-btn.is-saved{
+    background:#00b8a9;
+    color:#fff;
+    border-color:#00b8a9;
+  }
+  .save-btn.is-saved i{
+    color:#fff;
+  }
   
   /* === Sichtbarkeit Mobile/Desktop === */
   .mobile-only {
@@ -1816,6 +1904,53 @@ img, video, canvas {
     font-style: italic;
     line-height: 1.4;
     flex: 1;
+  }
+
+  /* ===== Dealer Rating (Stars) ===== */
+  .dealer-rating{
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    margin: 6px 0 2px;
+    font-size: 13px;
+    line-height: 1.1;
+    max-width: 100%;
+    font-style: normal;
+    color: #37444f;
+  }
+
+  .dealer-rating .stars{
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--accent, #00b8a9);
+  }
+
+  .dealer-rating .stars i{
+    font-size: 13px;
+    transform: translateY(0.5px);
+  }
+
+  .dealer-rating__value{
+    font-weight: 800;
+    color: #1a2a33;
+  }
+
+  .dealer-rating__count{
+    color: #6b7a88;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 700px){
+    .dealer-rating{
+      font-size: 12.5px;
+      gap: 6px;
+    }
+    .dealer-rating .stars i{
+      font-size: 12.5px;
+    }
   }
   
   
@@ -2336,6 +2471,42 @@ img, video, canvas {
     .pager-next{
       min-width: 44px;
       padding: 9px 10px;
+    }
+  }
+
+  /* Tablet Landscape (z. B. iPad quer): Desktop-Layout behalten */
+  @media screen and (min-width: 901px) and (max-width: 1024px) and (orientation: landscape){
+    .search-layout{
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 30px;
+    }
+
+    .toggle-filters{
+      display: none !important;
+    }
+
+    .filter-sidebar{
+      display: block;
+      max-height: none;
+      opacity: 1;
+      width: 300px;
+    }
+
+    .filter-sidebar.visible{
+      display: block;
+      opacity: 1;
+      max-height: none;
+    }
+
+    .results-section{
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    .car-card{
+      grid-template-columns: 320px 1fr;
     }
   }
   
