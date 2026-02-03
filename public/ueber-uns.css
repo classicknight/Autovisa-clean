@@ -21,7 +21,7 @@
     max-width:100%;
     overflow-x:hidden;           /* kein horizontales Scrollen */
     overscroll-behavior-x:none;  /* verhindert iOS/Android "Seitwärts-Ziehen" */
-    touch-action: pan-y;         /* nur vertikales Scrollen erlaubt */
+    touch-action: auto;         /* nur vertikales Scrollen erlaubt */
   }
   
   /* Clip alles, was ggf. aus dem Viewport ragen könnte */

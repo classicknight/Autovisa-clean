@@ -1680,29 +1680,36 @@ function openFullscreen(media) {
   overlay._onKey = onKey;
   window.addEventListener("keydown", onKey);
 
-  // Pointer-Swipe nur Desktop (kein zusätzlicher Inline-Style am Media)
+  // Swipe (Desktop + Mobile)
   if (!overlay._lbBound) {
+    const getX = (ev) =>
+      typeof ev.clientX === "number"
+        ? ev.clientX
+        : (ev.touches && ev.touches[0]?.clientX) || lbStartX;
+    let lbLastX = 0;
+    overlay._lbDidMove = false;
+
     const down = (e) => {
-      const isMob = window.matchMedia("(max-width: 768px)").matches;
-      if (isMob) return;
       lbDragging = true;
-      lbStartX = e.clientX;
+      lbStartX = getX(e);
+      lbLastX = lbStartX;
+      overlay._lbDidMove = false;
       overlay.classList.add("dragging");
     };
     const move = (e) => {
-      const isMob = window.matchMedia("(max-width: 768px)").matches;
-      if (isMob || !lbDragging) return;
+      if (!lbDragging) return;
       e.preventDefault();
-      const deltaX = e.clientX - lbStartX;
+      lbLastX = getX(e);
+      const deltaX = lbLastX - lbStartX;
+      if (Math.abs(deltaX) > 6) overlay._lbDidMove = true;
       const mediaEl = document.querySelector("#lightbox-content .lightbox-inner-media");
       if (mediaEl) mediaEl.style.transform = `translateX(${deltaX}px)`;
     };
-    const end = (e) => {
-      const isMob = window.matchMedia("(max-width: 768px)").matches;
-      if (isMob || !lbDragging) return;
+    const end = () => {
+      if (!lbDragging) return;
       lbDragging = false;
       overlay.classList.remove("dragging");
-      const deltaX = e.clientX - lbStartX;
+      const deltaX = lbLastX - lbStartX;
       if (Math.abs(deltaX) > 80) {
         navigateLightbox(deltaX > 0 ? -1 : 1);
       } else {
@@ -1721,7 +1728,25 @@ function openFullscreen(media) {
       el?.addEventListener("pointerup", end);
       el?.addEventListener("pointercancel", end);
       el?.addEventListener("pointerleave", end);
+
+      el?.addEventListener("touchstart", down, { passive: false });
+      el?.addEventListener("touchmove", move, { passive: false });
+      el?.addEventListener("touchend", end);
+      el?.addEventListener("touchcancel", end);
     });
+
+    // Swipe nicht als Klick werten (sonst schließt die Lightbox)
+    overlay.addEventListener(
+      "click",
+      (e) => {
+        if (overlay._lbDidMove) {
+          overlay._lbDidMove = false;
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      },
+      true
+    );
 
     overlay._lbBound = true;
   }

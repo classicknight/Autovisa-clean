@@ -635,7 +635,7 @@ html, body {
   max-width: 100%;
   overflow-x: hidden;           /* kein horizontales Scrollen */
   overscroll-behavior-x: none;  /* verhindert iOS/Android "Seitwärts-Ziehen" */
-  touch-action: pan-y;          /* nur vertikales Scrollen auf der Seite */
+  touch-action: auto;          /* nur vertikales Scrollen auf der Seite */
 }
 
 /* Clip alles, was ggf. aus dem Viewport ragen könnte */

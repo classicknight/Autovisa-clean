@@ -632,7 +632,7 @@ html, body {
   max-width: 100%;
   overflow-x: clip;
   overscroll-behavior-x: none;
-  touch-action: pan-y;
+  touch-action: auto;
 }
 
 /* Clip alles, was ggf. aus dem Viewport ragen könnte */
@@ -1380,7 +1380,7 @@ img, video, canvas {
     cursor: grabbing;
   }
   body, html {
-    touch-action: pan-y;
+    touch-action: auto;
   }
   
   #lightbox-content .lightbox-inner-media {
@@ -1528,7 +1528,9 @@ img, video, canvas {
     
     .lightbox-prev,
     .lightbox-next {
-      display: none;}
+      display: flex;
+      opacity: 1;
+    }
   }
   
   
@@ -2672,6 +2674,14 @@ img, video, canvas {
 .lightbox-prev:hover,
 .lightbox-next:hover {
   background: rgba(255,255,255,0.15) !important; /* kein Grün */
+}
+
+/* Touch-Geräte: Pfeile sichtbar (kein Hover nötig) */
+@media (hover: none) {
+  .lightbox-prev,
+  .lightbox-next {
+    opacity: 1;
+  }
 }
 
 /* Zähler neutralisieren oder ausblenden */
