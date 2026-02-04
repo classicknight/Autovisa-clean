@@ -2230,16 +2230,18 @@ function renderHours(hours) {
 
 
 // === Anbieter-Box (Händler + Privat) ==============================
-async function renderSeller() {
+async function renderSeller(inseratArg = null) {
   const box = $id("anbieter") || $id("sellerCard");
   if (!box) return;
 
-  // --- Inserat aus localStorage holen ---
-  let inserat = {};
-  try {
-    inserat = JSON.parse(localStorage.getItem("ausgewaehltesInserat") || "{}");
-  } catch {
-    inserat = {};
+  // --- Inserat aus Param oder localStorage holen ---
+  let inserat = inseratArg || {};
+  if (!inserat || !Object.keys(inserat).length) {
+    try {
+      inserat = JSON.parse(localStorage.getItem("ausgewaehltesInserat") || "{}");
+    } catch {
+      inserat = {};
+    }
   }
 
   // Snapshot aus /inserat-details/:id (hat alle Daten aus "nutzer")
@@ -2496,7 +2498,7 @@ async function renderSeller() {
   // --- Impressum (nur Händler, unter der Karte ausklappbar) ---
   let impressumRaw =
     profile.impressum || inserat.impressum || "";
-  if (isDealer && !String(impressumRaw || "").trim() && sellerId && typeof fetchSellerProfile === "function") {
+  if (!String(impressumRaw || "").trim() && sellerId && typeof fetchSellerProfile === "function") {
     try {
       const fresh = await fetchSellerProfile(sellerId);
       if (fresh?.impressum) {
@@ -2504,7 +2506,7 @@ async function renderSeller() {
       }
     } catch {}
   }
-  const hasImpressum = isDealer && String(impressumRaw || "").trim().length > 0;
+  const hasImpressum = String(impressumRaw || "").trim().length > 0;
 
   // --- Standort / Karte (Händler: volle Adresse, Privat: Ort) ---
   if (typeof renderSellerMap === "function") {
@@ -2709,7 +2711,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   fillAusstattung(inserat);
   fillSellerCard(inserat);
   fillDescription(inserat);
-  renderSeller();
+  renderSeller(inserat);
   initSaveButton(inserat);
   initStickySummary(inserat);
 

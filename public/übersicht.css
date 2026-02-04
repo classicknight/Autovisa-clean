@@ -2853,13 +2853,6 @@ img, video, canvas {
   margin: 0;
 }
 
-.meine-autos-seite .car-id-line{
-  margin: 0;
-  font-size: 12.5px;
-  color: #7b8896;
-  word-break: break-all;
-}
-
 .meine-autos-seite .car-info-grid,
 .gespeicherte-autos-seite .car-info-grid{
   display: grid;
@@ -2925,6 +2918,11 @@ img, video, canvas {
   font-size: 12.5px;
   line-height: 1.1;
   white-space: nowrap;
+}
+
+.meine-autos-seite .car-stat--wide{
+  white-space: normal;
+  line-height: 1.2;
 }
 
 .meine-autos-seite .car-stat i{

@@ -815,6 +815,66 @@ document.addEventListener("DOMContentLoaded", async () => {
     return out;
   }
 
+  async function getMessageThreadCounts(userId) {
+    const counts = new Map();
+    if (!userId) return counts;
+    try {
+      const messages = await loadAllMessagesFor(userId);
+      if (!Array.isArray(messages)) return counts;
+
+      const perFahrzeug = new Map();
+      for (const m of messages) {
+        const fid = String(m?.fahrzeugId || "").trim();
+        if (!fid) continue;
+        const otherId = (m.senderId === userId) ? m.empfaengerId : m.senderId;
+        const threadKey = `${otherId || "unknown"}::${fid}`;
+        if (!perFahrzeug.has(fid)) perFahrzeug.set(fid, new Set());
+        perFahrzeug.get(fid).add(threadKey);
+      }
+
+      for (const [fid, set] of perFahrzeug.entries()) {
+        counts.set(fid, set.size);
+      }
+    } catch (err) {
+      console.warn("Konnte Nachrichten-Counts nicht laden:", err);
+    }
+
+    return counts;
+  }
+
+  function getOnlineSinceLabel(inserat) {
+    const statusRaw = String(
+      inserat?.__status ||
+      inserat?.status ||
+      inserat?.verkauf_status ||
+      inserat?.verkaufsstatus ||
+      ""
+    ).toLowerCase();
+
+    const isOnline = statusRaw.includes("online");
+    if (!isOnline) return "Noch nicht online";
+
+    const rawDate =
+      inserat?.veroeffentlichtAm ||
+      inserat?.veroeffentlicht_at ||
+      inserat?.publishedAt ||
+      inserat?.createdAt ||
+      inserat?.erstelltAm ||
+      "";
+
+    if (!rawDate) return "Online seit –";
+
+    const d = new Date(rawDate);
+    if (Number.isNaN(d.getTime())) return "Online seit –";
+
+    const dateStr = d.toLocaleDateString("de-DE");
+    const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+    if (!Number.isFinite(days)) return `Online seit ${dateStr}`;
+
+    if (days <= 0) return `Online seit ${dateStr} (heute)`;
+    return `Online seit ${dateStr} (${days} Tag${days === 1 ? "" : "e"})`;
+  }
+
   async function ladeHändlerBewertung(userId) {
     if (!userId) return;
     try {
@@ -1370,6 +1430,7 @@ function buildFahrzeugdatenFromInserat(ins) {
       .map((ins) => String(extractMongoId(ins) || ins?.fahrzeugId || ins?._id || "").trim())
       .filter(Boolean);
     const statsById = await fetchInseratStats(idsForStats);
+    const messageCounts = await getMessageThreadCounts(nutzerData.nutzerId);
 
     items.forEach((inserat) => {
       const wrapper = document.createElement("div");
@@ -1383,6 +1444,8 @@ function buildFahrzeugdatenFromInserat(ins) {
 
       const listingId = String(realId || inserat?.fahrzeugId || inserat?._id || "").trim();
       const stats = statsById.get(listingId) || { views: 0, saves: 0 };
+      const messageCount = messageCounts.get(listingId) || 0;
+      const onlineSinceLabel = getOnlineSinceLabel(inserat);
 
       const isOnline = wrapper.dataset.status === "online";
       const publishTitle = isOnline ? "Bereits online" : "Veröffentlichen";
@@ -1427,9 +1490,6 @@ function buildFahrzeugdatenFromInserat(ins) {
             </div>
 
             <p class="car-subtitle">${subtitleSafe}</p>
-            <p class="car-id-line" title="${escapeHTML(listingId || "—")}">
-              ID: ${escapeHTML(listingId || "—")}
-            </p>
 
             <div class="car-info-grid">
               <p><i class="fas fa-road"></i> ${escapeHTML(String(inserat.verkauf_kilometer ?? "—"))} km</p>
@@ -1447,6 +1507,12 @@ function buildFahrzeugdatenFromInserat(ins) {
                 </span>
                 <span class="car-stat">
                   <i class="fas fa-heart"></i> ${saves} gespeichert
+                </span>
+                <span class="car-stat">
+                  <i class="fas fa-comments"></i> ${messageCount} Anfrage${messageCount === 1 ? "" : "n"}
+                </span>
+                <span class="car-stat car-stat--wide" title="${escapeHTML(onlineSinceLabel)}">
+                  <i class="fas fa-calendar-day"></i> ${escapeHTML(onlineSinceLabel)}
                 </span>
               </div>
               <div class="card-actions desktop-only">
