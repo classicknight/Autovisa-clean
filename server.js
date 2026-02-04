@@ -961,6 +961,7 @@ async function publishOrUpdateFromDraft({
     ...baseUpdate,
     verkaeuferId: sellerId,
     veroeffentlichtAm: new Date(),
+    viewCount: 0,
 
     verkauf_verkaeufer: (seller.type === "haendler") ? "Händler" : "Privatverkäufer",
     verkauf_name: req.body?.name || payload.verkauf_name || seller.name,
@@ -1194,6 +1195,7 @@ app.post("/entwurf/:id/publish", checkLogin, async (req, res) => {
       verkaeuferId: req.nutzer.id,
       status: "online",
       veroeffentlichtAm: new Date(),
+      viewCount: 0,
       verkauf_kurzbeschreibung: getZufaelligeAusstattung(draft.verkauf_ausstattung || []),
       seller
     };
@@ -2823,6 +2825,89 @@ app.post("/inserat/unsave", checkLogin, async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------
+// === Inserat-Views zählen (jedes Öffnen zählt)
+// ------------------------------------------------------------
+app.post("/inserat/:id/view", async (req, res) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!id) return res.status(400).json({ error: "ID fehlt." });
+
+    let oid;
+    try { oid = new ObjectId(id); }
+    catch { return res.status(400).json({ error: "Ungültige ID." }); }
+
+    const coll = db.collection("inserate");
+    await coll.updateOne(
+      { _id: oid },
+      { $inc: { viewCount: 1 } }
+    );
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Fehler bei /inserat/:id/view:", err);
+    return res.status(500).json({ error: "Serverfehler" });
+  }
+});
+
+// ------------------------------------------------------------
+// === Inserat-Stats (Views + Saved-Count) für mehrere IDs
+// -> nur für eingeloggte Nutzer (Übersicht)
+// ------------------------------------------------------------
+app.get("/inserat/stats", checkLogin, async (req, res) => {
+  try {
+    const idsParam = String(req.query.ids || "").trim();
+    const ids = idsParam
+      .split(",")
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    if (!ids.length) return res.json({});
+
+    const objectIds = [];
+    for (const id of ids) {
+      try { objectIds.push(new ObjectId(id)); }
+      catch {}
+    }
+
+    const inserateColl = db.collection("inserate");
+    const savedColl = db.collection("savedInserate");
+
+    const docs = objectIds.length
+      ? await inserateColl
+          .find({ _id: { $in: objectIds } })
+          .project({ viewCount: 1 })
+          .toArray()
+      : [];
+
+    const viewsMap = new Map(
+      docs.map(d => [String(d._id), Number(d.viewCount || 0)])
+    );
+
+    const savedAgg = await savedColl.aggregate([
+      { $match: { fahrzeugId: { $in: ids } } },
+      { $group: { _id: "$fahrzeugId", count: { $sum: 1 } } }
+    ]).toArray();
+
+    const savedMap = new Map(
+      savedAgg.map(d => [String(d._id), Number(d.count || 0)])
+    );
+
+    const out = {};
+    for (const id of ids) {
+      out[id] = {
+        views: viewsMap.get(id) || 0,
+        saves: savedMap.get(id) || 0
+      };
+    }
+
+    return res.json(out);
+  } catch (err) {
+    console.error("❌ Fehler bei /inserat/stats:", err);
+    return res.status(500).json({ error: "Serverfehler" });
+  }
+});
+
 
 // ------------------------------------------------------------
 // === Nachrichten für Empfänger abrufen
@@ -3078,6 +3163,7 @@ async function publishFromDraft(req, res, { requireId = false } = {}) {
       verkaeuferId: sellerId,
       status: "online",
       veroeffentlichtAm: new Date(),
+      viewCount: 0,
 
       verkauf_kurzbeschreibung: getZufaelligeAusstattung(payload.verkauf_ausstattung || []),
 
@@ -4650,7 +4736,3 @@ app.get("/api/bewertungen/:sellerId", async (req, res) => {
 
   res.json(ratings);
 });
-
-
-
-

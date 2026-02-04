@@ -357,6 +357,13 @@ async function loadInseratData() {
     }
   }
 
+  // View-Count: jedes Öffnen zählt
+  if (id && /^[0-9a-fA-F]{24}$/.test(String(id))) {
+    try {
+      fetch(api(`/inserat/${encodeURIComponent(id)}/view`), { method: "POST" });
+    } catch {}
+  }
+
   // 5) Wenn wir eine vernünftig aussehende ObjectId haben → Server fragen
   if (id && /^[0-9a-fA-F]{24}$/.test(String(id))) {
     try {
@@ -922,6 +929,8 @@ function fillSellerCard(inserat) {
   const websiteLink = document.getElementById("sellerWebsiteLink");
   const languageRow = document.getElementById("sellerLanguageRow");
   const languageEl  = document.getElementById("sellerLanguages");
+  const listingIdRow= document.getElementById("listingIdRow");
+  const listingIdEl = document.getElementById("listingId");
   const memberRow   = document.getElementById("sellerMemberSinceRow");
   const memberEl    = document.getElementById("sellerMemberSince");
   const impressumRow= document.getElementById("sellerImpressumRow");
@@ -1088,6 +1097,10 @@ function fillSellerCard(inserat) {
       languageRow.style.display = "none";
     }
   }
+
+  const listingId = getDocId(inserat) || "";
+  if (listingIdEl) listingIdEl.textContent = listingId || "–";
+  if (listingIdRow) listingIdRow.style.display = listingId ? "" : "none";
 
   // --- Mitglied seit (Jahr) ---
   const createdRaw =
@@ -2392,6 +2405,11 @@ async function renderSeller() {
   } else if (langRow) {
     langRow.style.display = "none";
   }
+
+  const listingId = getDocId(inserat) || "";
+  setText("listingId", listingId || "–");
+  const listingIdRow = $id("listingIdRow");
+  if (listingIdRow) listingIdRow.style.display = listingId ? "" : "none";
 
   // --- "Bei Autovisa seit" ---
   const memberSinceRow = $id("sellerMemberSinceRow");

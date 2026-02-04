@@ -792,63 +792,27 @@ document.addEventListener("DOMContentLoaded", async () => {
   const carList = document.querySelector(".car-list");
   if (!carList) return;
 
-  function countImages(inserat) {
-    const images =
-      Array.isArray(inserat?.images) ? inserat.images :
-      Array.isArray(inserat?.bilder) ? inserat.bilder :
-      Array.isArray(inserat?.mediaImages) ? inserat.mediaImages :
-      [];
-    return images.length;
-  }
+  async function fetchInseratStats(ids) {
+    const out = new Map();
+    const list = Array.isArray(ids) ? ids.filter(Boolean) : [];
+    if (!list.length) return out;
 
-  function formatDateShort(value) {
-    if (!value) return "";
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "";
-    return d.toLocaleDateString("de-DE");
-  }
-
-  function getStatusInfo(inserat) {
-    if (isSoldInserat(inserat)) return { label: "Verkauft", key: "sold" };
-    const raw = String(
-      inserat?.__status ||
-      inserat?.status ||
-      inserat?.verkauf_status ||
-      inserat?.verkaufsstatus ||
-      ""
-    ).toLowerCase();
-
-    if (raw.includes("draft") || raw.includes("entwurf")) return { label: "Entwurf", key: "draft" };
-    if (raw.includes("online") || raw.includes("aktiv")) return { label: "Online", key: "online" };
-    if (raw.includes("inaktiv") || raw.includes("offline")) return { label: "Inaktiv", key: "offline" };
-    return { label: "Status offen", key: "unknown" };
-  }
-
-  async function getMessageThreadCounts(userId) {
-    const counts = new Map();
-    if (!userId) return counts;
     try {
-      const messages = await loadAllMessagesFor(userId);
-      if (!Array.isArray(messages)) return counts;
-
-      const perFahrzeug = new Map();
-      for (const m of messages) {
-        const fid = String(m?.fahrzeugId || "").trim();
-        if (!fid) continue;
-        const otherId = (m.senderId === userId) ? m.empfaengerId : m.senderId;
-        const threadKey = `${otherId || "unknown"}::${fid}`;
-        if (!perFahrzeug.has(fid)) perFahrzeug.set(fid, new Set());
-        perFahrzeug.get(fid).add(threadKey);
-      }
-
-      for (const [fid, set] of perFahrzeug.entries()) {
-        counts.set(fid, set.size);
-      }
+      const query = encodeURIComponent(list.join(","));
+      const res = await fetch(`/inserat/stats?ids=${query}`, { credentials: "include" });
+      if (!res.ok) return out;
+      const data = await res.json();
+      Object.entries(data || {}).forEach(([id, stats]) => {
+        out.set(String(id), {
+          views: Number(stats?.views || 0),
+          saves: Number(stats?.saves || 0)
+        });
+      });
     } catch (err) {
-      console.warn("Konnte Nachrichten-Counts nicht laden:", err);
+      console.warn("Konnte Inserat-Stats nicht laden:", err);
     }
 
-    return counts;
+    return out;
   }
 
   async function ladeHändlerBewertung(userId) {
@@ -1402,7 +1366,10 @@ function buildFahrzeugdatenFromInserat(ins) {
 
     carList.innerHTML = "";
 
-    const messageCounts = await getMessageThreadCounts(nutzerData.nutzerId);
+    const idsForStats = items
+      .map((ins) => String(extractMongoId(ins) || ins?.fahrzeugId || ins?._id || "").trim())
+      .filter(Boolean);
+    const statsById = await fetchInseratStats(idsForStats);
 
     items.forEach((inserat) => {
       const wrapper = document.createElement("div");
@@ -1414,6 +1381,9 @@ function buildFahrzeugdatenFromInserat(ins) {
 
       if (realId) inseratById.set(String(realId), inserat);
 
+      const listingId = String(realId || inserat?.fahrzeugId || inserat?._id || "").trim();
+      const stats = statsById.get(listingId) || { views: 0, saves: 0 };
+
       const isOnline = wrapper.dataset.status === "online";
       const publishTitle = isOnline ? "Bereits online" : "Veröffentlichen";
       const publishBtnAttrs =
@@ -1424,18 +1394,8 @@ function buildFahrzeugdatenFromInserat(ins) {
 
       const titleSafe = escapeHTML(inserat.titel || "Titel fehlt");
       const subtitleSafe = escapeHTML(inserat.verkauf_kurzbeschreibung || "Besondere Ausstattung");
-      const imageCount = countImages(inserat);
-      const { label: statusLabel, key: statusKey } = getStatusInfo(inserat);
-      const updatedRaw =
-        inserat?.updatedAt ||
-        inserat?.aktualisiertAm ||
-        inserat?.verkauf_updatedAt ||
-        inserat?.erstelltAm ||
-        inserat?.createdAt ||
-        "";
-      const updatedLabel = formatDateShort(updatedRaw);
-      const fahrzeugIdKey = String(realId || inserat?.fahrzeugId || inserat?._id || "").trim();
-      const messageCount = messageCounts.get(fahrzeugIdKey) || 0;
+      const views = Number(stats.views || 0);
+      const saves = Number(stats.saves || 0);
 
       const actionButtonsHTML = `
         <button ${publishBtnAttrs}><i class="fas fa-globe"></i></button>
@@ -1467,6 +1427,9 @@ function buildFahrzeugdatenFromInserat(ins) {
             </div>
 
             <p class="car-subtitle">${subtitleSafe}</p>
+            <p class="car-id-line" title="${escapeHTML(listingId || "—")}">
+              ID: ${escapeHTML(listingId || "—")}
+            </p>
 
             <div class="car-info-grid">
               <p><i class="fas fa-road"></i> ${escapeHTML(String(inserat.verkauf_kilometer ?? "—"))} km</p>
@@ -1479,17 +1442,11 @@ function buildFahrzeugdatenFromInserat(ins) {
 
             <div class="car-stats-row">
               <div class="car-stats">
-                <span class="car-stat status-label" data-status="${escapeHTML(statusKey)}">
-                  <i class="fas fa-circle"></i> ${escapeHTML(statusLabel)}
+                <span class="car-stat">
+                  <i class="fas fa-eye"></i> ${views} Aufruf${views === 1 ? "" : "e"}
                 </span>
                 <span class="car-stat">
-                  <i class="fas fa-images"></i> ${imageCount} Bild${imageCount === 1 ? "" : "er"}
-                </span>
-                <span class="car-stat">
-                  <i class="fas fa-comments"></i> ${messageCount} Anfrage${messageCount === 1 ? "" : "n"}
-                </span>
-                <span class="car-stat">
-                  <i class="fas fa-clock"></i> ${updatedLabel ? `Aktualisiert ${escapeHTML(updatedLabel)}` : "Aktualisiert –"}
+                  <i class="fas fa-heart"></i> ${saves} gespeichert
                 </span>
               </div>
               <div class="card-actions desktop-only">
