@@ -2498,13 +2498,22 @@ async function renderSeller(inseratArg = null) {
   // --- Impressum (nur Händler, unter der Karte ausklappbar) ---
   let impressumRaw =
     profile.impressum || inserat.impressum || "";
-  if (!String(impressumRaw || "").trim() && sellerId && typeof fetchSellerProfile === "function") {
-    try {
-      const fresh = await fetchSellerProfile(sellerId);
-      if (fresh?.impressum) {
-        impressumRaw = String(fresh.impressum || "");
-      }
-    } catch {}
+
+  // Fallback: direkt Inserat-Details laden (falls LocalStorage/Daten lückenhaft)
+  if (!String(impressumRaw || "").trim()) {
+    const listingId = getDocId(inserat);
+    if (listingId) {
+      try {
+        const res = await fetch(api(`/inserat-details/${encodeURIComponent(listingId)}`), { credentials: "include" });
+        if (res.ok) {
+          const details = await res.json();
+          impressumRaw =
+            details?.seller?.impressum ||
+            details?.impressum ||
+            impressumRaw;
+        }
+      } catch {}
+    }
   }
   const hasImpressum = String(impressumRaw || "").trim().length > 0;
 

@@ -52,6 +52,17 @@ async function loadChat(u1, u2, fid){
   return await r.json();
 }
 
+async function markThreadRead(u1, u2, fid){
+  try{
+    await fetch("/chat/mark-read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ user1: u1, user2: u2, fahrzeugId: fid })
+    });
+  }catch{}
+}
+
 async function sendMessage({ empfaengerId, fahrzeugId, absenderName, nachricht }){
   const r = await fetch("/nachricht-senden", {
     method: "POST",
@@ -135,6 +146,11 @@ async function refreshChat(forceScroll){
       box.scrollTop = box.scrollHeight;
     }
     lastRenderedCount = list.length;
+
+    const hasUnread = list.some(m => m.empfaengerId === me.nutzerId && !m.gelesen);
+    if (hasUnread) {
+      await markThreadRead(user1, user2, fahrzeugId);
+    }
   }catch(e){
     console.error(e);
   }

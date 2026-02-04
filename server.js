@@ -2988,6 +2988,39 @@ app.get("/chat", checkLogin, async (req, res) => {
   }
 });
 
+// Chat: alle Nachrichten für Thread als gelesen markieren
+app.post("/chat/mark-read", checkLogin, async (req, res) => {
+  try {
+    const { user1, user2, fahrzeugId } = req.body || {};
+    if (!user1 || !user2 || !fahrzeugId) {
+      return res.status(400).json({ error: "Unvollständige Anfrage." });
+    }
+
+    const requester = String(req.nutzer.id);
+    if (requester !== String(user1) && requester !== String(user2)) {
+      return res.status(403).json({ error: "Zugriff verweigert." });
+    }
+
+    const otherId = requester === String(user1) ? String(user2) : String(user1);
+
+    const coll = db.collection("nachrichten");
+    const result = await coll.updateMany(
+      {
+        senderId: otherId,
+        empfaengerId: requester,
+        fahrzeugId: String(fahrzeugId),
+        gelesen: { $ne: true }
+      },
+      { $set: { gelesen: true } }
+    );
+
+    return res.json({ success: true, updated: result?.modifiedCount || 0 });
+  } catch (err) {
+    console.error("❌ Fehler bei /chat/mark-read:", err);
+    return res.status(500).json({ error: "Update fehlgeschlagen" });
+  }
+});
+
 // Alle Nachrichten, an denen der eingeloggte Nutzer beteiligt ist
 app.get("/meine-nachrichten", checkLogin, async (req, res) => {
   try {
