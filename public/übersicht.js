@@ -967,6 +967,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const deleteListingBtn = document.getElementById("deleteListingBtn");
   const cancelListingBtn = document.getElementById("cancelListingBtn");
   const modalBackdrop = actionModal?.querySelector("[data-close]");
+  const listingActionName = document.getElementById("listingActionName");
 
   const listingActionState = {
     id: "",
@@ -977,6 +978,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!actionModal) return;
     listingActionState.id = id || "";
     listingActionState.status = status || "";
+    if (listingActionName) {
+      const inserat = inseratById.get(String(id || ""));
+      const title =
+        inserat?.titel ||
+        [inserat?.verkauf_marke, inserat?.verkauf_modell, inserat?.verkauf_variante]
+          .filter(Boolean)
+          .join(" ")
+          .trim() ||
+        "";
+      listingActionName.textContent = title || "–";
+    }
     actionModal.classList.add("show");
     actionModal.classList.remove("hidden");
     document.body.classList.add("modal-open");
@@ -1766,7 +1778,7 @@ function buildFahrzeugdatenFromInserat(ins) {
       const actionButtonsHTML = `
         <button ${publishBtnAttrs}><i class="fas fa-globe"></i></button>
         <button class="edit-btn" type="button" title="Bearbeiten" aria-label="Bearbeiten"><i class="fas fa-pen"></i></button>
-        <button class="remove-saved-btn" type="button" title="Entfernen" aria-label="Entfernen"><i class="fas fa-trash"></i></button>
+        <button class="remove-saved-btn" type="button" title="Verwalten" aria-label="Verwalten"><i class="fas fa-ellipsis-vertical"></i></button>
       `;
 
       wrapper.innerHTML = `

@@ -455,14 +455,24 @@
   <div class="listing-action-modal hidden" id="listingActionModal" role="dialog" aria-modal="true" aria-labelledby="listingActionTitle">
     <div class="listing-action-backdrop" data-close></div>
     <div class="listing-action-card">
-      <h3 id="listingActionTitle">Inserat verwalten</h3>
+      <div class="listing-action-head">
+        <div class="listing-action-icon">
+          <i class="fas fa-sliders-h"></i>
+        </div>
+        <div>
+          <h3 id="listingActionTitle">Inserat verwalten</h3>
+          <p class="listing-action-sub" id="listingActionName">–</p>
+        </div>
+      </div>
       <p class="listing-action-text">Was möchtest du mit diesem Inserat machen?</p>
       <div class="listing-action-buttons">
-        <button class="btn-primary" type="button" id="markSoldBtn">
-          <i class="fas fa-check"></i> Als verkauft markieren
+        <button class="listing-action-btn sell" type="button" id="markSoldBtn">
+          <span class="label"><i class="fas fa-check"></i> Als verkauft markieren</span>
+          <span class="desc">Wird in „Verkaufte Autos“ verschoben</span>
         </button>
-        <button class="btn-danger" type="button" id="deleteListingBtn">
-          <i class="fas fa-trash"></i> Inserat löschen
+        <button class="listing-action-btn delete" type="button" id="deleteListingBtn">
+          <span class="label"><i class="fas fa-circle-xmark"></i> Inserat löschen</span>
+          <span class="desc">Wird dauerhaft entfernt (inkl. Medien)</span>
         </button>
         <button class="btn-soft" type="button" id="cancelListingBtn">
           Abbrechen
@@ -498,5 +508,6 @@
   </div>
 
   <script src="übersicht.js"></script>
+  <script src="ui-feedback.js" defer></script>
 </body>
 </html>
