@@ -960,6 +960,7 @@ async function publishOrUpdateFromDraft({
   const neuesInserat = {
     ...baseUpdate,
     verkaeuferId: sellerId,
+    sellerId: sellerId,
     veroeffentlichtAm: new Date(),
     viewCount: 0,
 
@@ -1180,19 +1181,34 @@ app.post("/entwurf/:id/publish", checkLogin, async (req, res) => {
 
     const haendler = await nutzerCollection.findOne(
       { id: req.nutzer.id },
-      { projection: { id: 1, role: 1, firma: 1, name: 1, logoUrl: 1 } }
+      {
+        projection: {
+          id: 1,
+          role: 1,
+          firma: 1,
+          name: 1,
+          logoUrl: 1,
+          impressum: 1,
+          oeffnungszeiten: 1,
+          sprachen: 1
+        }
+      }
     );
 
     const seller = {
       type: haendler?.role || "privat",
       id:   haendler?.id || req.nutzer.id,
       name: haendler?.firma || haendler?.name || "Anbieter",
-      logoUrl: haendler?.logoUrl || ""
+      logoUrl: haendler?.logoUrl || "",
+      impressum: haendler?.impressum || "",
+      oeffnungszeiten: haendler?.oeffnungszeiten || "",
+      sprachen: Array.isArray(haendler?.sprachen) ? haendler.sprachen : []
     };
 
     const neuesInserat = {
       ...draft,
       verkaeuferId: req.nutzer.id,
+      sellerId: req.nutzer.id,
       status: "online",
       veroeffentlichtAm: new Date(),
       viewCount: 0,
@@ -2630,7 +2646,12 @@ app.get("/inserat-details/:id", async (req, res) => {
 
     // Verkäufer-ID
     const sellerId = String(
-      doc.seller?.id || doc.verkaeuferId || ""
+      doc.seller?.id ||
+      doc.verkaeuferId ||
+      doc.nutzerId ||
+      doc.sellerId ||
+      doc.anbieterId ||
+      ""
     ).trim();
 
     // Vollständiges Profil laden (Privat + Händler)
@@ -3372,6 +3393,9 @@ async function publishFromDraft(req, res, { requireId = false } = {}) {
       plz:        haendler?.plz        || "",
       ort:        haendler?.ort        || "",
       land:       haendler?.land       || "",
+      impressum: haendler?.impressum || "",
+      oeffnungszeiten: haendler?.oeffnungszeiten || "",
+      sprachen: Array.isArray(haendler?.sprachen) ? haendler.sprachen : []
     };
 
     const draftMongoId = draft._id;
@@ -3389,6 +3413,7 @@ async function publishFromDraft(req, res, { requireId = false } = {}) {
       ...payload,
 
       verkaeuferId: sellerId,
+      sellerId: sellerId,
       status: "online",
       veroeffentlichtAm: new Date(),
       viewCount: 0,

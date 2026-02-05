@@ -2599,6 +2599,10 @@ async function renderSeller(inseratArg = null) {
     impressumBox.style.display = "none";
   }
 
+  if (hasImpressum && mapBox) {
+    mapBox.style.display = "";
+  }
+
   // --- Weitere Fahrzeuge des Händlers (optional) ---
   if (isDealer && sellerMoreSec && sellerId && typeof fetchSellerCars === "function") {
     try {

@@ -2349,6 +2349,13 @@ img, video, canvas {
   margin: 6px 0 6px 18px;
 }
 
+.profile-info-row.is-editing,
+.profile-opening-wrapper.is-editing{
+  background: rgba(0, 184, 169, 0.04);
+  border-radius: 10px;
+  padding: 6px;
+}
+
   .profile-info-row.is-editing .profile-info-value[contenteditable="true"],
   .profile-opening-wrapper.is-editing .profile-opening-text[contenteditable="true"] {
     outline: 2px solid #00b8a9;
@@ -3429,6 +3436,12 @@ body.modal-open{
   line-height: 1.5;
   background: #fbfcfe;
   outline: none;
+}
+
+.impressum-editor:focus{
+  border-color: #00b8a9;
+  box-shadow: 0 0 0 3px rgba(0, 184, 169, 0.12);
+  background: #ffffff;
 }
 
 .impressum-actions{
