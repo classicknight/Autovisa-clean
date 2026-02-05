@@ -2336,8 +2336,17 @@ img, video, canvas {
 }
 
 .profile-info-value--multiline {
-  white-space: pre-line;
+  white-space: normal;
   line-height: 1.45;
+}
+
+.profile-info-value--multiline p{
+  margin: 0 0 6px 0;
+}
+
+.profile-info-value--multiline ul,
+.profile-info-value--multiline ol{
+  margin: 6px 0 6px 18px;
 }
 
   .profile-info-row.is-editing .profile-info-value[contenteditable="true"],
@@ -3255,3 +3264,178 @@ img, video, canvas {
     border-top: 1px solid #f0f2f5;
   }
 }
+
+/* ===== Gespeicherte Autos: Nicht verfügbar ===== */
+.gespeicherte-autos-seite .car-card-wrapper.is-unavailable .car-card{
+  opacity: 0.9;
+}
+
+.gespeicherte-autos-seite .listing-unavailable-badge{
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(15, 31, 38, 0.78);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: none;
+}
+
+/* ===== Modal: Inserat verwalten ===== */
+.listing-action-modal{
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.listing-action-modal.show{
+  display: flex;
+}
+
+.listing-action-backdrop{
+  position: absolute;
+  inset: 0;
+  background: rgba(12, 18, 22, 0.55);
+}
+
+.listing-action-card{
+  position: relative;
+  z-index: 1;
+  width: min(520px, 92vw);
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 22px 24px;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.18);
+}
+
+.listing-action-card h3{
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  color: #1a2a33;
+}
+
+.listing-action-text{
+  margin: 0 0 18px 0;
+  color: #5b6773;
+  font-size: 14px;
+}
+
+.listing-action-buttons{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btn-danger{
+  background: #f4dada;
+  color: #7d1c1c;
+  border: 1px solid #efc2c2;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-danger:hover{
+  background: #f0caca;
+}
+
+body.modal-open{
+  overflow: hidden;
+}
+
+/* ===== Impressum Editor ===== */
+.impressum-modal{
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.impressum-modal.show{
+  display: flex;
+}
+
+.impressum-backdrop{
+  position: absolute;
+  inset: 0;
+  background: rgba(12, 18, 22, 0.55);
+}
+
+.impressum-card{
+  position: relative;
+  z-index: 1;
+  width: min(720px, 92vw);
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 22px 24px;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.18);
+}
+
+.impressum-card h3{
+  margin: 0 0 6px 0;
+  font-size: 18px;
+  color: #1a2a33;
+}
+
+.impressum-hint{
+  margin: 0 0 14px 0;
+  color: #5b6773;
+  font-size: 13.5px;
+}
+
+.impressum-toolbar{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.impressum-tool{
+  border: 1px solid #e1e6ee;
+  background: #f6f8fb;
+  color: #1a2733;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.impressum-tool:hover{
+  border-color: #00b8a9;
+  box-shadow: 0 0 0 2px rgba(0, 184, 169, 0.12);
+}
+
+.impressum-editor{
+  min-height: 200px;
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid #e3e9ef;
+  border-radius: 12px;
+  padding: 12px;
+  line-height: 1.5;
+  background: #fbfcfe;
+  outline: none;
+}
+
+.impressum-actions{
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.imp-small{ font-size: 0.9em; }
+.imp-large{ font-size: 1.1em; font-weight: 600; }

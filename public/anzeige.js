@@ -59,6 +59,49 @@ const renderMultilineToHTML = (text = "") => {
   return safe.replace(/\n/g, "<br>");
 };
 
+const renderImpressumHTML = (input = "") => {
+  const raw = String(input || "");
+  if (!raw.trim()) return "";
+
+  const hasTags = /<[^>]+>/.test(raw);
+  const source = hasTags
+    ? raw
+    : escapeHTML(raw).replace(/\r\n/g, "\n").replace(/\n/g, "<br>");
+
+  const allowedTags = new Set([
+    "B","STRONG","I","EM","U","BR","P","UL","OL","LI","H4","H5","SPAN","DIV"
+  ]);
+  const allowedClasses = new Set(["imp-small","imp-large"]);
+
+  const doc = new DOMParser().parseFromString(source, "text/html");
+  const walk = (node) => {
+    [...node.children].forEach((child) => {
+      if (!allowedTags.has(child.tagName)) {
+        const frag = document.createDocumentFragment();
+        while (child.firstChild) frag.appendChild(child.firstChild);
+        child.replaceWith(frag);
+        return;
+      }
+
+      [...child.attributes].forEach((attr) => {
+        if (child.tagName === "SPAN" && attr.name === "class") {
+          const keep = attr.value
+            .split(/\s+/)
+            .filter((c) => allowedClasses.has(c));
+          if (keep.length) child.setAttribute("class", keep.join(" "));
+          else child.removeAttribute("class");
+        } else {
+          child.removeAttribute(attr.name);
+        }
+      });
+
+      walk(child);
+    });
+  };
+  walk(doc.body);
+  return doc.body.innerHTML;
+};
+
 const sanitizePhone = (p) => String(p || "").replace(/[^\d+]/g, "");
 const ensureHttp = (u) => (!u ? "" : /^https?:\/\//i.test(u) ? u : "https://" + String(u).trim());
 const pickPrice = (...vals) => {
@@ -2515,6 +2558,16 @@ async function renderSeller(inseratArg = null) {
       } catch {}
     }
   }
+
+  // Fallback: Händlerprofil per ID (öffentliche API)
+  if (!String(impressumRaw || "").trim() && sellerId && typeof fetchSellerProfile === "function") {
+    try {
+      const fresh = await fetchSellerProfile(sellerId);
+      if (fresh?.impressum) {
+        impressumRaw = String(fresh.impressum || "");
+      }
+    } catch {}
+  }
   const hasImpressum = String(impressumRaw || "").trim().length > 0;
 
   // --- Standort / Karte (Händler: volle Adresse, Privat: Ort) ---
@@ -2527,10 +2580,7 @@ async function renderSeller(inseratArg = null) {
   const impressumContent = $id("sellerImpressumContent");
 
   if (hasImpressum && impressumBox && impressumToggle && impressumContent) {
-    const html =
-      typeof renderMultilineToHTML === "function"
-        ? renderMultilineToHTML(impressumRaw)
-        : String(impressumRaw);
+    const html = renderImpressumHTML(impressumRaw);
 
     impressumContent.innerHTML = html;
     impressumBox.style.display = "";

@@ -2772,6 +2772,74 @@ app.get("/inserat-details/:id", async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------
+// === Public Seller Profile (für Anzeige/Impressum)
+// ------------------------------------------------------------
+app.get("/api/seller", async (req, res) => {
+  try {
+    const sellerId = String(req.query?.id || "").trim();
+    if (!sellerId) return res.status(400).json({ error: "ID fehlt." });
+
+    const seller = await db.collection("nutzer").findOne(
+      { id: sellerId },
+      {
+        projection: {
+          id: 1,
+          role: 1,
+          firma: 1,
+          name: 1,
+          logoUrl: 1,
+          strasse: 1,
+          hausnummer: 1,
+          plz: 1,
+          ort: 1,
+          land: 1,
+          telefon: 1,
+          telefon2: 1,
+          email: 1,
+          website: 1,
+          webseite: 1,
+          sprachen: 1,
+          languages: 1,
+          createdAt: 1,
+          erstelltAm: 1,
+          oeffnungszeiten: 1,
+          impressum: 1,
+        }
+      }
+    );
+
+    if (!seller) return res.status(404).json({ error: "Nicht gefunden" });
+
+    const role = seller?.role || "privat";
+    const isHaendler = isHaendlerRole(role);
+
+    res.json({
+      id: seller.id || sellerId,
+      type: isHaendler ? "haendler" : "privat",
+      role,
+      firma: seller.firma || "",
+      name: seller.name || "",
+      logoUrl: seller.logoUrl || "",
+      strasse: seller.strasse || "",
+      hausnummer: seller.hausnummer || "",
+      plz: seller.plz || "",
+      ort: seller.ort || "",
+      land: seller.land || "",
+      telefon: seller.telefon || seller.telefon2 || "",
+      email: seller.email || "",
+      website: seller.website || seller.webseite || "",
+      sprachen: seller.sprachen || seller.languages || [],
+      createdAt: seller.createdAt || seller.erstelltAm || null,
+      oeffnungszeiten: seller.oeffnungszeiten || "",
+      impressum: seller.impressum || ""
+    });
+  } catch (err) {
+    console.error("❌ Fehler bei /api/seller:", err);
+    return res.status(500).json({ error: "Serverfehler" });
+  }
+});
+
 
 // ------------------------------------------------------------
 // === Legacy: Inserat speichern/entspeichern
@@ -2822,6 +2890,133 @@ app.post("/inserat/unsave", checkLogin, async (req, res) => {
   } catch (err) {
     console.error("❌ Fehler /inserat/unsave:", err);
     return res.status(500).json({ error: "Löschen fehlgeschlagen." });
+  }
+});
+
+// ------------------------------------------------------------
+// === Inserat als verkauft markieren
+// ------------------------------------------------------------
+app.post("/inserat/:id/sold", checkLogin, async (req, res) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!id) return res.status(400).json({ error: "ID fehlt." });
+
+    let oid;
+    try { oid = new ObjectId(id); }
+    catch { return res.status(400).json({ error: "Ungültige ID." }); }
+
+    const coll = db.collection("inserate");
+    const doc = await coll.findOne({ _id: oid });
+    if (!doc) return res.status(404).json({ error: "Inserat nicht gefunden." });
+
+    const ownerId = doc.verkaeuferId || doc.nutzerId;
+    if (String(ownerId) !== String(req.nutzer.id)) {
+      return res.status(403).json({ error: "Kein Zugriff auf dieses Inserat." });
+    }
+
+    await coll.updateOne(
+      { _id: oid },
+      {
+        $set: {
+          status: "verkauft",
+          verkauf_status: "verkauft",
+          verkauft: true,
+          verkauftAm: new Date()
+        }
+      }
+    );
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Fehler bei /inserat/:id/sold:", err);
+    return res.status(500).json({ error: "Serverfehler" });
+  }
+});
+
+function extractCloudinaryPublicId(url) {
+  try {
+    const u = new URL(String(url || ""));
+    const m = u.pathname.match(/\/(image|video)\/upload\/(.+)$/);
+    if (!m) return null;
+    const resourceType = m[1];
+    const parts = m[2].split("/").filter(Boolean);
+    const vIdx = parts.findIndex(p => /^v\d+$/.test(p));
+    const publicParts = vIdx >= 0 ? parts.slice(vIdx + 1) : parts;
+    if (!publicParts.length) return null;
+    let publicId = publicParts.join("/");
+    publicId = publicId.replace(/\.[a-z0-9]+$/i, "");
+    return { publicId, resourceType };
+  } catch {
+    return null;
+  }
+}
+
+async function deleteCloudinaryAssetsFromDoc(doc) {
+  const urls = [];
+  if (Array.isArray(doc?.images)) urls.push(...doc.images);
+  if (Array.isArray(doc?.bilder)) urls.push(...doc.bilder);
+  if (Array.isArray(doc?.mediaImages)) urls.push(...doc.mediaImages);
+  if (doc?.video) urls.push(doc.video);
+  if (Array.isArray(doc?.videos)) urls.push(...doc.videos);
+  if (Array.isArray(doc?.mediaVideos)) urls.push(...doc.mediaVideos);
+
+  const unique = [...new Set(urls.filter(Boolean))];
+  if (!unique.length) return;
+
+  await Promise.all(unique.map(async (url) => {
+    const info = extractCloudinaryPublicId(url);
+    if (!info?.publicId) return;
+    try {
+      await cloudinary.uploader.destroy(info.publicId, {
+        resource_type: info.resourceType || "image"
+      });
+    } catch (err) {
+      console.warn("Cloudinary delete failed:", info.publicId, err?.message || err);
+    }
+  }));
+}
+
+// ------------------------------------------------------------
+// === Inserat löschen (DB + Cloudinary)
+// ------------------------------------------------------------
+app.post("/inserat/:id/delete", checkLogin, async (req, res) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!id) return res.status(400).json({ error: "ID fehlt." });
+
+    let oid;
+    try { oid = new ObjectId(id); }
+    catch { return res.status(400).json({ error: "Ungültige ID." }); }
+
+    // 1) Online-Inserate
+    const inserateColl = db.collection("inserate");
+    const onlineDoc = await inserateColl.findOne({ _id: oid });
+    if (onlineDoc) {
+      const ownerId = onlineDoc.verkaeuferId || onlineDoc.nutzerId;
+      if (String(ownerId) !== String(req.nutzer.id)) {
+        return res.status(403).json({ error: "Kein Zugriff auf dieses Inserat." });
+      }
+
+      await deleteCloudinaryAssetsFromDoc(onlineDoc);
+      await inserateColl.deleteOne({ _id: oid });
+      await db.collection("savedInserate").deleteMany({ fahrzeugId: String(id) });
+
+      return res.json({ success: true, deletedFrom: "inserate" });
+    }
+
+    // 2) Drafts (Entwürfe)
+    const draftsColl = db.collection("fahrzeugeEntwurf");
+    const draftDoc = await draftsColl.findOne({ _id: oid, nutzerId: req.nutzer.id });
+    if (draftDoc) {
+      await deleteCloudinaryAssetsFromDoc(draftDoc);
+      await draftsColl.deleteOne({ _id: oid, nutzerId: req.nutzer.id });
+      return res.json({ success: true, deletedFrom: "entwurf" });
+    }
+
+    return res.status(404).json({ error: "Inserat nicht gefunden." });
+  } catch (err) {
+    console.error("❌ Fehler bei /inserat/:id/delete:", err);
+    return res.status(500).json({ error: "Serverfehler" });
   }
 });
 

@@ -2361,6 +2361,9 @@ img, video, canvas {
   font-size: 0.92em;
 }
 
+.seller-impressum-content .imp-small{ font-size: 0.9em; }
+.seller-impressum-content .imp-large{ font-size: 1.1em; font-weight: 600; }
+
 /* Öffnungszeiten */
 .hours{ list-style:none; display:flex; flex-direction:column; gap:8px; font-size:14px; }
 .hours li{ display:flex; justify-content:space-between; gap:10px; }

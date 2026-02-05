@@ -22,6 +22,49 @@ function escapeHTML(str = "") {
     .replace(/'/g, "&#039;");
 }
 
+function sanitizeImpressumHTML(input = "") {
+  const raw = String(input || "");
+  if (!raw.trim()) return "";
+
+  const hasTags = /<[^>]+>/.test(raw);
+  const source = hasTags
+    ? raw
+    : escapeHTML(raw).replace(/\r\n/g, "\n").replace(/\n/g, "<br>");
+
+  const allowedTags = new Set([
+    "B","STRONG","I","EM","U","BR","P","UL","OL","LI","H4","H5","SPAN","DIV"
+  ]);
+  const allowedClasses = new Set(["imp-small","imp-large"]);
+
+  const doc = new DOMParser().parseFromString(source, "text/html");
+  const walk = (node) => {
+    [...node.children].forEach((child) => {
+      if (!allowedTags.has(child.tagName)) {
+        const frag = document.createDocumentFragment();
+        while (child.firstChild) frag.appendChild(child.firstChild);
+        child.replaceWith(frag);
+        return;
+      }
+
+      [...child.attributes].forEach((attr) => {
+        if (child.tagName === "SPAN" && attr.name === "class") {
+          const keep = attr.value
+            .split(/\s+/)
+            .filter((c) => allowedClasses.has(c));
+          if (keep.length) child.setAttribute("class", keep.join(" "));
+          else child.removeAttribute("class");
+        } else {
+          child.removeAttribute(attr.name);
+        }
+      });
+
+      walk(child);
+    });
+  };
+  walk(doc.body);
+  return doc.body.innerHTML;
+}
+
 // WICHTIG: gibt "" zurück wenn leer -> damit || Fallbacks funktionieren
 function formatEUR(value) {
   if (value == null || value === "") return "";
@@ -695,6 +738,124 @@ document.addEventListener("DOMContentLoaded", () => {
   applyHash();
 
   /* =========================
+     Impressum Editor (Modal)
+     ========================= */
+  const impressumModal = document.getElementById("impressumModal");
+  const impressumEditor = document.getElementById("impressumEditor");
+  const impressumSaveBtn = document.getElementById("impressumSave");
+  const impressumCancelBtn = document.getElementById("impressumCancel");
+  const impressumBackdrop = impressumModal?.querySelector("[data-close]");
+  const impressumToolbar = impressumModal?.querySelector(".impressum-toolbar");
+  const impressumValueEl = document.querySelector('[data-profile-field="impressum"]');
+  const impressumEditBtn = document.querySelector('[data-edit-type="impressum"]');
+
+  function openImpressumModal() {
+    if (!impressumModal || !impressumEditor || !impressumValueEl) return;
+    try {
+      document.execCommand("defaultParagraphSeparator", false, "p");
+    } catch {}
+
+    const raw = impressumValueEl.dataset.rawImpressum || "";
+    const html = sanitizeImpressumHTML(raw);
+    impressumEditor.innerHTML = html || "";
+
+    impressumModal.classList.add("show");
+    impressumModal.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+    setTimeout(() => impressumEditor.focus(), 50);
+  }
+
+  function closeImpressumModal() {
+    if (!impressumModal) return;
+    impressumModal.classList.remove("show");
+    impressumModal.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+  }
+
+  function applySpanClass(className) {
+    if (!impressumEditor) return;
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed) return;
+    const text = sel.toString();
+    if (!text) return;
+    const html = `<span class="${className}">${escapeHTML(text)}</span>`;
+    try {
+      document.execCommand("insertHTML", false, html);
+    } catch {}
+  }
+
+  function handleImpressumCommand(cmd) {
+    if (!impressumEditor) return;
+    impressumEditor.focus();
+
+    switch (cmd) {
+      case "bold":
+        document.execCommand("bold");
+        break;
+      case "italic":
+        document.execCommand("italic");
+        break;
+      case "h4":
+        document.execCommand("formatBlock", false, "h4");
+        break;
+      case "p":
+        document.execCommand("formatBlock", false, "p");
+        break;
+      case "small":
+        applySpanClass("imp-small");
+        break;
+      case "large":
+        applySpanClass("imp-large");
+        break;
+      case "ul":
+        document.execCommand("insertUnorderedList");
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (impressumToolbar) {
+    impressumToolbar.addEventListener("click", (e) => {
+      const btn = e.target.closest(".impressum-tool");
+      if (!btn) return;
+      e.preventDefault();
+      const cmd = btn.dataset.cmd;
+      if (cmd) handleImpressumCommand(cmd);
+    });
+  }
+
+  if (impressumEditBtn) {
+    impressumEditBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openImpressumModal();
+    });
+  }
+
+  if (impressumCancelBtn) impressumCancelBtn.addEventListener("click", closeImpressumModal);
+  if (impressumBackdrop) impressumBackdrop.addEventListener("click", closeImpressumModal);
+
+  if (impressumSaveBtn) {
+    impressumSaveBtn.addEventListener("click", async () => {
+      if (!impressumEditor || !impressumValueEl) return;
+      const rawHtml = impressumEditor.innerHTML || "";
+      const sanitized = sanitizeImpressumHTML(rawHtml);
+
+      if (sanitized) {
+        impressumValueEl.innerHTML = sanitized;
+        impressumValueEl.dataset.rawImpressum = sanitized;
+      } else {
+        impressumValueEl.textContent = "Noch kein Impressum hinterlegt";
+        impressumValueEl.dataset.rawImpressum = "";
+      }
+
+      await saveProfileField("impressum", sanitized);
+      closeImpressumModal();
+    });
+  }
+
+  /* =========================
      Profil: Inline bearbeiten
      ========================= */
   function enableProfileInlineEditing() {
@@ -711,6 +872,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const fieldKey = valueEl.dataset.profileField;
       if (!fieldKey) return;
+
+      if (fieldKey === "impressum") {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openImpressumModal();
+        });
+        return;
+      }
 
       function enterEditMode() {
         group.classList.add("is-editing");
@@ -791,6 +961,132 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const carList = document.querySelector(".car-list");
   if (!carList) return;
+
+  const actionModal = document.getElementById("listingActionModal");
+  const markSoldBtn = document.getElementById("markSoldBtn");
+  const deleteListingBtn = document.getElementById("deleteListingBtn");
+  const cancelListingBtn = document.getElementById("cancelListingBtn");
+  const modalBackdrop = actionModal?.querySelector("[data-close]");
+
+  const listingActionState = {
+    id: "",
+    status: ""
+  };
+
+  function openListingActionModal({ id, status }) {
+    if (!actionModal) return;
+    listingActionState.id = id || "";
+    listingActionState.status = status || "";
+    actionModal.classList.add("show");
+    actionModal.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+  }
+
+  function closeListingActionModal() {
+    if (!actionModal) return;
+    actionModal.classList.remove("show");
+    actionModal.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+  }
+
+  function removeListingFromCache(listingId) {
+    const id = String(listingId || "");
+    cachedMyInserate = Array.isArray(cachedMyInserate)
+      ? cachedMyInserate.filter(ins => {
+          const insId = String(extractMongoId(ins) || ins?.fahrzeugId || ins?._id || "");
+          return insId !== id;
+        })
+      : [];
+    inseratById.delete(id);
+  }
+
+  function updateListingAsSold(listingId) {
+    const id = String(listingId || "");
+    const soldPatch = {
+      status: "verkauft",
+      verkauf_status: "verkauft",
+      verkauft: true,
+      verkauftAm: new Date().toISOString()
+    };
+    if (!Array.isArray(cachedMyInserate)) return;
+    cachedMyInserate = cachedMyInserate.map(ins => {
+      const insId = String(extractMongoId(ins) || ins?.fahrzeugId || ins?._id || "");
+      if (insId !== id) return ins;
+      return { ...ins, ...soldPatch };
+    });
+    if (inseratById.has(id)) {
+      const current = inseratById.get(id);
+      inseratById.set(id, { ...current, ...soldPatch });
+    }
+  }
+
+  if (cancelListingBtn) cancelListingBtn.addEventListener("click", closeListingActionModal);
+  if (modalBackdrop) modalBackdrop.addEventListener("click", closeListingActionModal);
+
+  if (markSoldBtn) {
+    markSoldBtn.addEventListener("click", async () => {
+      const id = listingActionState.id;
+      const status = String(listingActionState.status || "").toLowerCase();
+      if (!id) return closeListingActionModal();
+
+      if (status !== "online") {
+        alert("Nur Online-Inserate können als verkauft markiert werden.");
+        return closeListingActionModal();
+      }
+
+      try {
+        const res = await fetch(`/inserat/${encodeURIComponent(id)}/sold`, {
+          method: "POST",
+          credentials: "include"
+        });
+        if (!res.ok) {
+          const msg = await res.text().catch(() => "");
+          alert("Fehler beim Markieren: " + (msg || res.status));
+          return;
+        }
+
+        updateListingAsSold(id);
+        document.querySelectorAll(`.car-card-wrapper[data-id="${CSS.escape(id)}"]`).forEach(el => el.remove());
+        alert("✅ Inserat wurde als verkauft markiert.");
+      } catch (err) {
+        console.error(err);
+        alert("❌ Netzwerkfehler.");
+      } finally {
+        closeListingActionModal();
+      }
+    });
+  }
+
+  if (deleteListingBtn) {
+    deleteListingBtn.addEventListener("click", async () => {
+      const id = listingActionState.id;
+      if (!id) return closeListingActionModal();
+
+      const ok = confirm("Inserat wirklich löschen? Das kann nicht rückgängig gemacht werden.");
+      if (!ok) return;
+
+      try {
+        const res = await fetch(`/inserat/${encodeURIComponent(id)}/delete`, {
+          method: "POST",
+          credentials: "include"
+        });
+        if (!res.ok) {
+          const msg = await res.text().catch(() => "");
+          alert("Fehler beim Löschen: " + (msg || res.status));
+          return;
+        }
+
+        removeListingFromCache(id);
+        document.querySelectorAll(`.car-card-wrapper[data-id="${CSS.escape(id)}"]`).forEach(el => el.remove());
+        alert("✅ Inserat wurde gelöscht.");
+      } catch (err) {
+        console.error(err);
+        alert("❌ Netzwerkfehler.");
+      } finally {
+        closeListingActionModal();
+      }
+    });
+  }
 
   async function fetchInseratStats(ids) {
     const out = new Map();
@@ -1203,8 +1499,15 @@ function renderProfileSection(nutzerData, drafts, online) {
 
     const impressumEl = section.querySelector('[data-profile-field="impressum"]');
     if (impressumEl) {
-      const impr = (nutzerData.impressum || "").trim();
-      impressumEl.textContent = impr || "Noch kein Impressum hinterlegt";
+      const imprRaw = String(nutzerData.impressum || "");
+      const html = sanitizeImpressumHTML(imprRaw);
+      if (html) {
+        impressumEl.innerHTML = html;
+        impressumEl.dataset.rawImpressum = imprRaw;
+      } else {
+        impressumEl.textContent = "Noch kein Impressum hinterlegt";
+        impressumEl.dataset.rawImpressum = "";
+      }
     }
 
     const openingEl = section.querySelector('[data-profile-field="openingHours"]');
@@ -1603,14 +1906,24 @@ function buildFahrzeugdatenFromInserat(ins) {
       }, true);
     }
 
-    // Entfernen (UI-only)
+    // Entfernen (Meine Autos -> Auswahl: verkauft oder löschen)
     document.addEventListener("click", (e) => {
       const btn = e.target.closest(".remove-saved-btn");
       if (!btn) return;
       const wrapper = btn.closest(".car-card-wrapper");
       if (!wrapper) return;
+
+      // Nur für "Meine Autos" (nicht gespeicherte Autos)
+      if (!wrapper.closest("#car-list")) return;
+
       e.stopPropagation();
-      if (confirm("Möchtest du dieses Fahrzeug wirklich entfernen?")) wrapper.remove();
+      const realId = String(wrapper.dataset.id || "").trim();
+      if (!realId) return alert("ID fehlt");
+
+      openListingActionModal({
+        id: realId,
+        status: wrapper.dataset.status || ""
+      });
     });
 
   } catch (error) {
@@ -2134,6 +2447,14 @@ function buildSavedCardHTML(inserat, userId) {
   const sellerId = String(inserat?.verkaeuferId || inserat?.seller?.id || "").trim();
   const uid = String(userId || "").trim();
 
+  const statusRaw = String(
+    inserat?.status ||
+    inserat?.verkauf_status ||
+    inserat?.verkaufsstatus ||
+    ""
+  ).toLowerCase();
+  const isUnavailable = isSoldInserat(inserat) || (statusRaw && statusRaw !== "online");
+
   const chatHref = (uid && sellerId && fahrzeugId)
     ? `nachricht.html?user1=${encodeURIComponent(uid)}&user2=${encodeURIComponent(sellerId)}&fahrzeugId=${encodeURIComponent(fahrzeugId)}`
     : `anzeige.html?id=${encodeURIComponent(fahrzeugId)}`;
@@ -2148,15 +2469,19 @@ function buildSavedCardHTML(inserat, userId) {
       <i class="fas fa-heart-broken"></i>
     </button>
   `;
-  const actionButtonsHTML = `${contactBtnHTML}${removeBtnHTML}`;
+  const actionButtonsHTML = isUnavailable ? `${removeBtnHTML}` : `${contactBtnHTML}${removeBtnHTML}`;
+  const unavailableBadge = isUnavailable
+    ? `<div class="listing-unavailable-badge"><i class="fas fa-ban"></i> Nicht verfügbar</div>`
+    : "";
 
   return `
-    <div class="car-card-wrapper"
+    <div class="car-card-wrapper${isUnavailable ? " is-unavailable" : ""}"
          data-saved-id="${escapeHTML(savedDocId)}"
          data-fahrzeug-id="${escapeHTML(fahrzeugId)}">
 
       <div class="car-card horizontal">
         <div class="car-card-media">
+          ${unavailableBadge}
           <div class="card-actions mobile-only">
             ${actionButtonsHTML}
           </div>

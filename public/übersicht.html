@@ -451,6 +451,51 @@
   </main>
 </div>
 
+  <!-- Aktion: Inserat verwalten -->
+  <div class="listing-action-modal hidden" id="listingActionModal" role="dialog" aria-modal="true" aria-labelledby="listingActionTitle">
+    <div class="listing-action-backdrop" data-close></div>
+    <div class="listing-action-card">
+      <h3 id="listingActionTitle">Inserat verwalten</h3>
+      <p class="listing-action-text">Was möchtest du mit diesem Inserat machen?</p>
+      <div class="listing-action-buttons">
+        <button class="btn-primary" type="button" id="markSoldBtn">
+          <i class="fas fa-check"></i> Als verkauft markieren
+        </button>
+        <button class="btn-danger" type="button" id="deleteListingBtn">
+          <i class="fas fa-trash"></i> Inserat löschen
+        </button>
+        <button class="btn-soft" type="button" id="cancelListingBtn">
+          Abbrechen
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Impressum-Editor -->
+  <div class="impressum-modal hidden" id="impressumModal" role="dialog" aria-modal="true" aria-labelledby="impressumTitle">
+    <div class="impressum-backdrop" data-close></div>
+    <div class="impressum-card">
+      <h3 id="impressumTitle">Impressum bearbeiten</h3>
+      <p class="impressum-hint">Du kannst Text, Überschriften und Hervorhebungen verwenden.</p>
+
+      <div class="impressum-toolbar" role="toolbar" aria-label="Impressum Formatierung">
+        <button type="button" class="impressum-tool" data-cmd="bold"><strong>Fett</strong></button>
+        <button type="button" class="impressum-tool" data-cmd="italic"><em>Kursiv</em></button>
+        <button type="button" class="impressum-tool" data-cmd="h4">Überschrift</button>
+        <button type="button" class="impressum-tool" data-cmd="p">Normal</button>
+        <button type="button" class="impressum-tool" data-cmd="small">Klein</button>
+        <button type="button" class="impressum-tool" data-cmd="large">Groß</button>
+        <button type="button" class="impressum-tool" data-cmd="ul">Liste</button>
+      </div>
+
+      <div class="impressum-editor" id="impressumEditor" contenteditable="true" aria-label="Impressum Text"></div>
+
+      <div class="impressum-actions">
+        <button type="button" class="btn-primary" id="impressumSave">Speichern</button>
+        <button type="button" class="btn-soft" id="impressumCancel">Abbrechen</button>
+      </div>
+    </div>
+  </div>
 
   <script src="übersicht.js"></script>
 </body>
