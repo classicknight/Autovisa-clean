@@ -2954,6 +2954,47 @@ app.post("/inserat/:id/sold", checkLogin, async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------
+// === Inserat wieder online stellen
+// ------------------------------------------------------------
+app.post("/inserat/:id/relist", checkLogin, async (req, res) => {
+  try {
+    const id = String(req.params.id || "").trim();
+    if (!id) return res.status(400).json({ error: "ID fehlt." });
+
+    let oid;
+    try { oid = new ObjectId(id); }
+    catch { return res.status(400).json({ error: "Ungültige ID." }); }
+
+    const coll = db.collection("inserate");
+    const doc = await coll.findOne({ _id: oid });
+    if (!doc) return res.status(404).json({ error: "Inserat nicht gefunden." });
+
+    const ownerId = doc.verkaeuferId || doc.nutzerId;
+    if (String(ownerId) !== String(req.nutzer.id)) {
+      return res.status(403).json({ error: "Kein Zugriff auf dieses Inserat." });
+    }
+
+    await coll.updateOne(
+      { _id: oid },
+      {
+        $set: {
+          status: "online",
+          verkauf_status: "online",
+          verkauft: false,
+          veroeffentlichtAm: new Date()
+        },
+        $unset: { verkauftAm: "" }
+      }
+    );
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Fehler bei /inserat/:id/relist:", err);
+    return res.status(500).json({ error: "Serverfehler" });
+  }
+});
+
 function extractCloudinaryPublicId(url) {
   try {
     const u = new URL(String(url || ""));

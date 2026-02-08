@@ -121,6 +121,13 @@ function formatEZ(value) {
   return v || "—";
 }
 
+function formatDateShort(value) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("de-DE");
+}
+
 function sellerInitials(name = "") {
   const parts = name.trim().split(/\s+/).slice(0, 2);
   const ini = parts.map(p => p[0]?.toUpperCase() || "").join("");
@@ -1032,6 +1039,30 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
+  function updateListingAsOnline(listingId) {
+    const id = String(listingId || "");
+    const patch = {
+      status: "online",
+      verkauf_status: "online",
+      verkauft: false,
+      veroeffentlichtAm: new Date().toISOString()
+    };
+    if (!Array.isArray(cachedMyInserate)) return;
+    cachedMyInserate = cachedMyInserate.map(ins => {
+      const insId = String(extractMongoId(ins) || ins?.fahrzeugId || ins?._id || "");
+      if (insId !== id) return ins;
+      const clean = { ...ins, ...patch };
+      delete clean.verkauftAm;
+      return clean;
+    });
+    if (inseratById.has(id)) {
+      const current = inseratById.get(id);
+      const clean = { ...current, ...patch };
+      delete clean.verkauftAm;
+      inseratById.set(id, clean);
+    }
+  }
+
   if (cancelListingBtn) cancelListingBtn.addEventListener("click", closeListingActionModal);
   if (modalBackdrop) modalBackdrop.addEventListener("click", closeListingActionModal);
 
@@ -1525,7 +1556,7 @@ function renderProfileSection(nutzerData, drafts, online) {
     const openingEl = section.querySelector('[data-profile-field="openingHours"]');
     if (openingEl) {
       const text = nutzerData.oeffnungszeiten || nutzerData["öffnungszeiten"] || "";
-      openingEl.textContent = text || openingEl.textContent || "Noch keine Öffnungszeiten hinterlegt.";
+      openingEl.textContent = text || "";
     }
 
     section.querySelectorAll(".haendler-only").forEach(el => {
@@ -1720,34 +1751,36 @@ function buildFahrzeugdatenFromInserat(ins) {
     ]);
 
     const drafts = await draftRes.json();
-    const online = await onlineRes.json();
+    const onlineAll = await onlineRes.json();
 
-    renderProfileSection(nutzerData, drafts, online);
+    renderProfileSection(nutzerData, drafts, onlineAll);
     ladeHändlerBewertung(nutzerData.nutzerId);
     ladeBewertungen(nutzerData.nutzerId);
 
     const items = [
       ...(Array.isArray(drafts) ? drafts.map(d => ({ ...d, __status: "draft" })) : []),
-      ...(Array.isArray(online) ? online.map(o => ({ ...o, __status: "online" })) : [])
+      ...(Array.isArray(onlineAll) ? onlineAll.map(o => ({ ...o, __status: "online" })) : [])
     ];
 
     cachedMyInserate = items;
     cachedUserData = nutzerData;
 
-    if (!items.length) {
+    const visibleItems = items.filter(ins => !isSoldInserat(ins));
+
+    if (!visibleItems.length) {
       carList.innerHTML = "<p>Keine Inserate gefunden.</p>";
       return;
     }
 
     carList.innerHTML = "";
 
-    const idsForStats = items
+    const idsForStats = visibleItems
       .map((ins) => String(extractMongoId(ins) || ins?.fahrzeugId || ins?._id || "").trim())
       .filter(Boolean);
     const statsById = await fetchInseratStats(idsForStats);
     const messageCounts = await getMessageThreadCounts(nutzerData.nutzerId);
 
-    items.forEach((inserat) => {
+    visibleItems.forEach((inserat) => {
       const wrapper = document.createElement("div");
       wrapper.className = "car-card-wrapper";
 
@@ -1778,7 +1811,7 @@ function buildFahrzeugdatenFromInserat(ins) {
       const actionButtonsHTML = `
         <button ${publishBtnAttrs}><i class="fas fa-globe"></i></button>
         <button class="edit-btn" type="button" title="Bearbeiten" aria-label="Bearbeiten"><i class="fas fa-pen"></i></button>
-        <button class="remove-saved-btn" type="button" title="Verwalten" aria-label="Verwalten"><i class="fas fa-ellipsis-vertical"></i></button>
+        <button class="remove-saved-btn" type="button" title="Verwalten" aria-label="Verwalten"><i class="fas fa-ellipsis-v"></i></button>
       `;
 
       wrapper.innerHTML = `
@@ -1982,6 +2015,51 @@ document.addEventListener("click", async (e) => {
   } catch (err) {
     console.error("Netzwerkfehler:", err);
     alert("❌ Netzwerkfehler beim Veröffentlichen.");
+  }
+});
+
+/* =========================================================
+   Wieder online stellen (Verkaufte Autos)
+   ========================================================= */
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".relist-btn");
+  if (!btn) return;
+
+  const wrapper = btn.closest(".car-card-wrapper");
+  const inseratId = wrapper?.dataset?.id || "";
+  if (!inseratId || !/^[a-f\d]{24}$/i.test(inseratId)) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  const ok = confirm("Inserat wieder online stellen?");
+  if (!ok) return;
+
+  try {
+    const res = await fetch(`/inserat/${encodeURIComponent(inseratId)}/relist`, {
+      method: "POST",
+      credentials: "include"
+    });
+    if (!res.ok) {
+      const msg = await res.text().catch(() => "");
+      alert("Fehler: " + (msg || res.status));
+      return;
+    }
+
+    updateListingAsOnline(inseratId);
+    wrapper?.remove();
+
+    const listEl = document.getElementById("soldCarsList");
+    const emptyEl = document.getElementById("soldCarsEmpty");
+    if (listEl && emptyEl) {
+      const hasAny = listEl.querySelector(".car-card-wrapper");
+      emptyEl.classList.toggle("hidden", !!hasAny);
+    }
+
+    alert("✅ Inserat ist wieder online.");
+  } catch (err) {
+    console.error(err);
+    alert("❌ Netzwerkfehler.");
   }
 });
 
@@ -2202,6 +2280,14 @@ function buildSoldCardHTML(inserat) {
     (inserat?.verkauf_kurzbeschreibung || inserat?.kurzbeschreibung || "").trim() ||
     "Besondere Ausstattung";
 
+  const soldDate = formatDateShort(
+    inserat?.verkauftAm ||
+    inserat?.soldAt ||
+    inserat?.verkauf_verkauftAm ||
+    inserat?.verkauf_sold_at ||
+    ""
+  );
+
   const standort = (inserat?.verkauf_standort || inserat?.standort || "").trim();
   const ort = (inserat?.verkauf_ort || inserat?.ort || "").trim();
   const plz = (inserat?.verkauf_plz || inserat?.plz || "").trim();
@@ -2248,10 +2334,17 @@ function buildSoldCardHTML(inserat) {
     count: ratingCount
   });
 
+  const fahrzeugId = extractMongoId(inserat) || inserat?.id || inserat?._id || "";
+
   return `
-    <div class="car-card-wrapper">
+    <div class="car-card-wrapper" data-id="${escapeHTML(String(fahrzeugId || ""))}">
       <div class="car-card horizontal">
         <div class="car-card-media">
+          <div class="card-actions mobile-only">
+            <button class="relist-btn" type="button" title="Wieder online" aria-label="Wieder online">
+              <i class="fas fa-undo"></i>
+            </button>
+          </div>
           <div class="media-container">
             <div class="slides">
               ${generateSlides(inserat)}
@@ -2280,6 +2373,7 @@ function buildSoldCardHTML(inserat) {
             <p><i class="fas fa-gauge-high"></i> ${escapeHTML(ps)}</p>
             <p><i class="fas fa-gears"></i> ${escapeHTML(getriebe)}</p>
             <p><i class="fas fa-tint"></i> ${escapeHTML(verbrauch)}</p>
+            <p><i class="fas fa-check-circle"></i> Verkauft am ${escapeHTML(soldDate)}</p>
           </div>
 
           <div class="dealer-info-row">
@@ -2293,6 +2387,11 @@ function buildSoldCardHTML(inserat) {
                 ${dealerRatingHTML}
                 <div class="dealer-location">${escapeHTML(location)}</div>
               </div>
+            </div>
+            <div class="card-actions desktop-only">
+              <button class="relist-btn" type="button" title="Wieder online" aria-label="Wieder online">
+                <i class="fas fa-undo"></i>
+              </button>
             </div>
           </div>
         </div>
