@@ -107,7 +107,7 @@ function extractPriceValue(obj) {
   return "";
 }
 
-function getMwstLabel(obj) {
+function hasMwstHint(obj) {
   const raw =
     obj?.verkauf_mwst ??
     obj?.mwst ??
@@ -119,17 +119,17 @@ function getMwstLabel(obj) {
     obj?.raw?.mwstType ??
     "";
 
-  if (raw === true) return "zzgl. MwSt.";
-  if (raw === false) return "keine MwSt.";
+  if (raw === true) return true;
+  if (raw === false) return false;
 
   const str = String(raw || "").trim();
-  if (!str) return "";
+  if (!str) return false;
   const low = str.toLowerCase();
-  if (low.includes("zzgl")) return "zzgl. MwSt.";
-  if (low.includes("keine")) return "keine MwSt.";
-  if (low.includes("inkl")) return "inkl. MwSt.";
-  if (low.includes("mwst") || low.includes("ust")) return str;
-  return "";
+  if (low.includes("keine") || low.includes("nicht")) return false;
+  if (low.includes("zzgl")) return true;
+  if (low.includes("inkl")) return true;
+  if (low.includes("mwst") || low.includes("ust")) return true;
+  return false;
 }
 
 function formatKm(value) {
@@ -1828,6 +1828,8 @@ function buildFahrzeugdatenFromInserat(ins) {
 
     if (!visibleItems.length) {
       carList.innerHTML = "<p>Keine Inserate gefunden.</p>";
+      const footnote = document.getElementById("vatFootnoteMyCars");
+      if (footnote) footnote.hidden = true;
       return;
     }
 
@@ -1839,6 +1841,7 @@ function buildFahrzeugdatenFromInserat(ins) {
     const statsById = await fetchInseratStats(idsForStats);
     const messageCounts = await getMessageThreadCounts(nutzerData.nutzerId);
 
+    let hasMwstAny = false;
     visibleItems.forEach((inserat) => {
       const wrapper = document.createElement("div");
       wrapper.className = "car-card-wrapper";
@@ -1866,9 +1869,9 @@ function buildFahrzeugdatenFromInserat(ins) {
       const subtitleSafe = escapeHTML(inserat.verkauf_kurzbeschreibung || "Besondere Ausstattung");
       const views = Number(stats.views || 0);
       const saves = Number(stats.saves || 0);
-      const mwstLabel = getMwstLabel(inserat);
-      const mwstSup = mwstLabel ? `<sup class="price-sup">1</sup>` : "";
-      const mwstNote = mwstLabel ? `<span class="price-vat">¹ ${escapeHTML(mwstLabel)}</span>` : "";
+      const hasMwst = hasMwstHint(inserat);
+      const mwstSup = hasMwst ? `<sup class="price-sup">1</sup>` : "";
+      if (hasMwst) hasMwstAny = true;
 
       const actionButtonsHTML = `
         <button ${publishBtnAttrs}><i class="fas fa-globe"></i></button>
@@ -1898,7 +1901,6 @@ function buildFahrzeugdatenFromInserat(ins) {
                 <p class="car-price">${
                   formatEUR(extractPriceValue(inserat)) || "Preis fehlt"
                 }${mwstSup}</p>
-                ${mwstNote}
               </div>
             </div>
 
@@ -1965,6 +1967,9 @@ function buildFahrzeugdatenFromInserat(ins) {
         }
       });
     });
+
+    const footnote = document.getElementById("vatFootnoteMyCars");
+    if (footnote) footnote.hidden = !hasMwstAny;
 
     // =========================
     // BEARBEITEN – EINMALIG per Delegation
@@ -2329,9 +2334,8 @@ function buildSoldCardHTML(inserat) {
 
   const rawPrice = extractPriceValue(inserat);
   const price = formatEUR(rawPrice) || "—";
-  const mwstLabel = getMwstLabel(inserat);
-  const mwstSup = mwstLabel ? `<sup class="price-sup">1</sup>` : "";
-  const mwstNote = mwstLabel ? `<span class="price-vat">¹ ${escapeHTML(mwstLabel)}</span>` : "";
+  const hasMwst = hasMwstHint(inserat);
+  const mwstSup = hasMwst ? `<sup class="price-sup">1</sup>` : "";
 
   const ez = formatEZ(inserat?.verkauf_erstzulassung || inserat?.erstzulassung);
   const km = formatKm(inserat?.verkauf_kilometer ?? inserat?.kilometer);
@@ -2426,12 +2430,11 @@ function buildSoldCardHTML(inserat) {
           </div>
         </div>
 
-        <div class="car-details">
+          <div class="car-details">
           <div class="car-top-row">
             <h2 class="car-title">${escapeHTML(title)}</h2>
             <div class="car-price-wrap">
               <p class="car-price">${escapeHTML(price)}${mwstSup}</p>
-              ${mwstNote}
             </div>
           </div>
 
@@ -2505,9 +2508,12 @@ async function loadSoldCarsSection() {
 
     if (!soldItems.length) {
       emptyEl?.classList.remove("hidden");
+      const footnote = document.getElementById("vatFootnoteSold");
+      if (footnote) footnote.hidden = true;
       return;
     }
 
+    let hasMwstAny = false;
     soldItems.forEach((inserat) => {
       const tmp = document.createElement("div");
       tmp.innerHTML = buildSoldCardHTML(inserat);
@@ -2535,11 +2541,17 @@ async function loadSoldCarsSection() {
       });
 
       listEl?.appendChild(cardWrap);
+      if (hasMwstHint(inserat)) hasMwstAny = true;
     });
+
+    const footnote = document.getElementById("vatFootnoteSold");
+    if (footnote) footnote.hidden = !hasMwstAny;
   } catch (err) {
     console.error("Fehler beim Laden verkaufter Autos:", err);
     loadingEl?.classList.add("hidden");
     emptyEl?.classList.remove("hidden");
+    const footnote = document.getElementById("vatFootnoteSold");
+    if (footnote) footnote.hidden = true;
   }
 }
 
@@ -2564,6 +2576,8 @@ function buildSavedCardHTML(inserat, userId) {
   // WICHTIG: Kein ||-Chain mit formatEUR("—") mehr – wir nehmen die erste echte Zahl
   const rawPrice = extractPriceValue(inserat);
   const price = formatEUR(rawPrice) || "—";
+  const hasMwst = hasMwstHint(inserat);
+  const mwstSup = hasMwst ? `<sup class="price-sup">1</sup>` : "";
 
   const ez = formatEZ(inserat?.verkauf_erstzulassung || inserat?.erstzulassung);
   const km = formatKm(inserat?.verkauf_kilometer ?? inserat?.kilometer);
@@ -2685,7 +2699,6 @@ function buildSavedCardHTML(inserat, userId) {
             <h2 class="car-title">${escapeHTML(title)}</h2>
             <div class="car-price-wrap">
               <p class="car-price">${escapeHTML(price)}${mwstSup}</p>
-              ${mwstNote}
             </div>
           </div>
 
@@ -2750,9 +2763,12 @@ async function loadSavedCarsSection() {
 
     if (!Array.isArray(inserate) || inserate.length === 0) {
       emptyEl?.classList.remove("hidden");
+      const footnote = document.getElementById("vatFootnoteSaved");
+      if (footnote) footnote.hidden = true;
       return;
     }
 
+    let hasMwstAny = false;
     inserate.forEach((inserat) => {
       const tmp = document.createElement("div");
       tmp.innerHTML = buildSavedCardHTML(inserat, userId);
@@ -2808,11 +2824,18 @@ async function loadSavedCarsSection() {
 
       // Slider init (Swipe + Pfeile)
       initializeSlider(cardWrap);
+
+      if (hasMwstHint(inserat)) hasMwstAny = true;
     });
+
+    const footnote = document.getElementById("vatFootnoteSaved");
+    if (footnote) footnote.hidden = !hasMwstAny;
 
   } catch (e) {
     console.error(e);
     loadingEl?.classList.add("hidden");
     if (listEl) listEl.innerHTML = `<p>Fehler beim Laden der gespeicherten Inserate.</p>`;
+    const footnote = document.getElementById("vatFootnoteSaved");
+    if (footnote) footnote.hidden = true;
   }
 }

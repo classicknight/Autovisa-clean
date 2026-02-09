@@ -1035,7 +1035,7 @@ function fmtEUR(v) {
   return Number.isFinite(n) ? n.toLocaleString("de-DE") + " €" : "Preis n. a.";
 }
 
-function getMwstLabel(obj) {
+function hasMwstHint(obj) {
   const raw =
     obj?.verkauf_mwst ??
     obj?.mwst ??
@@ -1047,17 +1047,17 @@ function getMwstLabel(obj) {
     obj?.raw?.mwstType ??
     "";
 
-  if (raw === true) return "zzgl. MwSt.";
-  if (raw === false) return "keine MwSt.";
+  if (raw === true) return true;
+  if (raw === false) return false;
 
   const str = String(raw || "").trim();
-  if (!str) return "";
+  if (!str) return false;
   const low = str.toLowerCase();
-  if (low.includes("zzgl")) return "zzgl. MwSt.";
-  if (low.includes("keine")) return "keine MwSt.";
-  if (low.includes("inkl")) return "inkl. MwSt.";
-  if (low.includes("mwst") || low.includes("ust")) return str;
-  return "";
+  if (low.includes("keine") || low.includes("nicht")) return false;
+  if (low.includes("zzgl")) return true;
+  if (low.includes("inkl")) return true;
+  if (low.includes("mwst") || low.includes("ust")) return true;
+  return false;
 }
 
 function sanitizePhone(raw) {
@@ -1338,6 +1338,8 @@ async function loadHomeListings() {
 
     container.innerHTML = "";
 
+    let hasMwstAny = false;
+
     list.forEach((inserat) => {
       const imgs = Array.isArray(inserat.images) ? inserat.images : [];
       const tel = sanitizePhone(inserat.telefon);
@@ -1352,9 +1354,9 @@ async function loadHomeListings() {
         inserat.verkauf_netto
       );
       const preis = fmtEUR(preisNum);
-      const mwstLabel = getMwstLabel(inserat);
-      const mwstSup = mwstLabel ? `<sup class="price-sup">1</sup>` : "";
-      const mwstNote = mwstLabel ? `<span class="price-vat">¹ ${mwstLabel}</span>` : "";
+      const hasMwst = hasMwstHint(inserat);
+      const mwstSup = hasMwst ? `<sup class="price-sup">1</sup>` : "";
+      if (hasMwst) hasMwstAny = true;
 
       const kurz = inserat.verkauf_kurzbeschreibung || "";
       const _id = getDocId(inserat) || "";
@@ -1425,12 +1427,11 @@ async function loadHomeListings() {
           </div>
         </div>
 
-        <div class="car-details">
+          <div class="car-details">
           <div class="car-top-row">
             <h2 class="car-title">${titel}</h2>
             <div class="car-price-wrap">
               <p class="car-price">${preis}${mwstSup}</p>
-              ${mwstNote}
             </div>
           </div>
 
@@ -1522,6 +1523,9 @@ async function loadHomeListings() {
         }
       });
     });
+
+    const footnote = document.getElementById("vatFootnoteHome");
+    if (footnote) footnote.hidden = !hasMwstAny;
 
     // WICHTIG: Nach dem Rendern gespeicherte Herzen „hydraten“
     hydrateSaveButtons(container);

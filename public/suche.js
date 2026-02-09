@@ -11,7 +11,7 @@ const toNum = (v) => {
   return Number(String(v).replace(/\./g, "").replace(",", "."));
 };
 
-function getMwstLabel(obj) {
+function hasMwstHint(obj) {
   const raw =
     obj?.verkauf_mwst ??
     obj?.mwst ??
@@ -23,17 +23,17 @@ function getMwstLabel(obj) {
     obj?.raw?.mwstType ??
     "";
 
-  if (raw === true) return "zzgl. MwSt.";
-  if (raw === false) return "keine MwSt.";
+  if (raw === true) return true;
+  if (raw === false) return false;
 
   const str = String(raw || "").trim();
-  if (!str) return "";
+  if (!str) return false;
   const low = str.toLowerCase();
-  if (low.includes("zzgl")) return "zzgl. MwSt.";
-  if (low.includes("keine")) return "keine MwSt.";
-  if (low.includes("inkl")) return "inkl. MwSt.";
-  if (low.includes("mwst") || low.includes("ust")) return str;
-  return "";
+  if (low.includes("keine") || low.includes("nicht")) return false;
+  if (low.includes("zzgl")) return true;
+  if (low.includes("inkl")) return true;
+  if (low.includes("mwst") || low.includes("ust")) return true;
+  return false;
 }
 
 // NEU: Akzeptiert YYYY, YYYY-MM, MM/YYYY, YYYY-MM-DD und gibt "YYYY-MM" zurück
@@ -1864,6 +1864,8 @@ function getCombinedConsumption(item) {
     if (!view.length) {
       container.innerHTML = "<p>❌ Keine Fahrzeuge gefunden.</p>";
       renderPager(serverTotal);
+      const footnote = document.getElementById("vatFootnoteSearch");
+      if (footnote) footnote.hidden = true;
       return;
     }
   
@@ -1891,6 +1893,7 @@ function getCombinedConsumption(item) {
       return merged;
     }
   
+    let hasMwstAny = false;
     view.forEach(inserat => {
       // Medien säubern
       const imgs = (Array.isArray(inserat.images) ? inserat.images : [])
@@ -1902,9 +1905,9 @@ function getCombinedConsumption(item) {
   
       const priceNum = toNum(inserat.preis);
       const kmNum    = toNum(inserat.kilometer);
-      const mwstLabel = getMwstLabel(inserat);
-      const mwstSup = mwstLabel ? `<sup class="price-sup">1</sup>` : "";
-      const mwstNote = mwstLabel ? `<span class="price-vat">¹ ${mwstLabel}</span>` : "";
+      const hasMwst = hasMwstHint(inserat);
+      const mwstSup = hasMwst ? `<sup class="price-sup">1</sup>` : "";
+      if (hasMwst) hasMwstAny = true;
   
       // Verkäuferdaten robust bestimmen
       const rawType = String(
@@ -2003,7 +2006,6 @@ function getCombinedConsumption(item) {
             <h2 class="car-title"></h2>
             <div class="car-price-wrap">
               <p class="car-price">${isNaN(priceNum) ? "Preis n. a." : priceNum.toLocaleString("de-DE") + " €"}${mwstSup}</p>
-              ${mwstNote}
             </div>
           </div>
   
@@ -2105,6 +2107,9 @@ function getCombinedConsumption(item) {
         window.location.href = `anzeige.html${qs}`;
       });
     });
+
+    const footnote = document.getElementById("vatFootnoteSearch");
+    if (footnote) footnote.hidden = !hasMwstAny;
 
     // Nach dem Rendern gespeicherte Herzen hydraten
     hydrateSaveButtons(container);
