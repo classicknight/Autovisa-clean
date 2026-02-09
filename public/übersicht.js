@@ -857,7 +857,8 @@ document.addEventListener("DOMContentLoaded", () => {
         impressumValueEl.dataset.rawImpressum = "";
       }
 
-      await saveProfileField("impressum", sanitized);
+      const result = await saveProfileField("impressum", sanitized);
+      if (!result?.ok) return;
       closeImpressumModal();
     });
   }
@@ -891,6 +892,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       function enterEditMode() {
         group.classList.add("is-editing");
+        valueEl.dataset.originalValue = valueEl.textContent.trim();
         valueEl.setAttribute("contenteditable", "true");
 
         const range = document.createRange();
@@ -903,12 +905,28 @@ document.addEventListener("DOMContentLoaded", () => {
         valueEl.focus();
       }
 
-      function exitEditMode(save) {
+      async function exitEditMode(save) {
         group.classList.remove("is-editing");
         valueEl.setAttribute("contenteditable", "false");
         if (save) {
           const newValue = valueEl.textContent.trim();
-          saveProfileField(fieldKey, newValue);
+          const result = await saveProfileField(fieldKey, newValue);
+          if (!result?.ok) {
+            const fallback = valueEl.dataset.originalValue;
+            if (typeof fallback === "string") valueEl.textContent = fallback;
+            return;
+          }
+          if (fieldKey === "address") {
+            const normalized = result?.data?.normalizedAddress;
+            if (normalized) valueEl.textContent = normalized;
+
+            const addr = result?.data?.address || null;
+            if (addr?.postcode || addr?.city) {
+              const locationEl = document.querySelector('[data-profile-field="location"]');
+              const loc = [addr?.postcode, addr?.city].filter(Boolean).join(" ");
+              if (locationEl && loc) locationEl.textContent = loc;
+            }
+          }
         }
       }
 
@@ -916,7 +934,7 @@ document.addEventListener("DOMContentLoaded", () => {
         e.stopPropagation();
         const isEditing = group.classList.contains("is-editing");
         if (!isEditing) enterEditMode();
-        else exitEditMode(true);
+        else void exitEditMode(true);
       });
 
       valueEl.addEventListener("keydown", (e) => {
@@ -924,16 +942,16 @@ document.addEventListener("DOMContentLoaded", () => {
           const allowNewline = fieldKey === "impressum" && e.shiftKey;
           if (!allowNewline) {
             e.preventDefault();
-            exitEditMode(true);
+            void exitEditMode(true);
           }
         } else if (e.key === "Escape") {
           e.preventDefault();
-          exitEditMode(false);
+          void exitEditMode(false);
         }
       });
 
       valueEl.addEventListener("blur", () => {
-        if (group.classList.contains("is-editing")) exitEditMode(true);
+        if (group.classList.contains("is-editing")) void exitEditMode(true);
       });
     });
   }
@@ -947,12 +965,28 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify({ field, value }),
       });
 
-      if (!res.ok) {
-        const msg = await res.text();
-        console.error("Profil-Update fehlgeschlagen:", msg);
+      let data = null;
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
       }
+
+      if (!res.ok) {
+        const msg =
+          data?.error ||
+          data?.message ||
+          "Profil-Update fehlgeschlagen.";
+        console.error("Profil-Update fehlgeschlagen:", msg);
+        alert(msg);
+        return { ok: false, error: msg, data };
+      }
+
+      return { ok: true, data };
     } catch (err) {
       console.error("Netzwerkfehler beim Profil-Update:", err);
+      alert("Netzwerkfehler beim Speichern. Bitte erneut versuchen.");
+      return { ok: false, error: "Netzwerkfehler" };
     }
   }
 
@@ -2373,7 +2407,6 @@ function buildSoldCardHTML(inserat) {
             <p><i class="fas fa-gauge-high"></i> ${escapeHTML(ps)}</p>
             <p><i class="fas fa-gears"></i> ${escapeHTML(getriebe)}</p>
             <p><i class="fas fa-tint"></i> ${escapeHTML(verbrauch)}</p>
-            <p><i class="fas fa-check-circle"></i> Verkauft am ${escapeHTML(soldDate)}</p>
           </div>
 
           <div class="dealer-info-row">
@@ -2385,6 +2418,7 @@ function buildSoldCardHTML(inserat) {
               <div class="dealer-meta">
                 <div class="dealer-name">${escapeHTML(sellerName)}</div>
                 ${dealerRatingHTML}
+                <div class="sold-date"><i class="fas fa-check-circle"></i> Verkauft am ${escapeHTML(soldDate)}</div>
                 <div class="dealer-location">${escapeHTML(location)}</div>
               </div>
             </div>

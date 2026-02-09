@@ -2002,6 +2002,122 @@ app.get("/getNutzerInfo", async (req, res) => {
 // Profil-Felder (Adresse, Telefon, Website, Öffnungszeiten) speichern
 // -> jetzt mit checkLogin, damit verified + req.nutzer sauber genutzt wird
 // ------------------------------------------------------------
+async function normalizeProfileAddress(rawAddress) {
+  const q = String(rawAddress || "").trim();
+  if (!q) return null;
+
+  const key = `addr:${q.toLowerCase()}`;
+  const cacheColl = db.collection("geocache");
+  const cached = await cacheColl.findOne({ key });
+  if (cached?.address) return cached.address;
+
+  const headers = {
+    "User-Agent": "autovisa/1.0 (contact: info@autovisa.de)",
+    "Accept-Language": "de-DE,de;q=0.9,en;q=0.6",
+  };
+
+  const fetchJson = async (url, timeoutMs = 4000) => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { headers, signal: ctrl.signal });
+      if (!res.ok) return null;
+      return await res.json().catch(() => null);
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(t);
+    }
+  };
+
+  const pickCity = (a = {}) =>
+    a.city || a.town || a.village || a.hamlet || a.suburb || a.locality || a.municipality || "";
+
+  const pickStreet = (a = {}) =>
+    a.road || a.pedestrian || a.residential || a.footway || a.path || a.cycleway || a.highway || "";
+
+  const formatAddress = ({ street, houseNumber, postcode, city, country }, fallback) => {
+    const line1 = [street, houseNumber].filter(Boolean).join(" ");
+    const line2 = [postcode, city].filter(Boolean).join(" ");
+    const formatted = [line1, line2, country].filter(Boolean).join(", ");
+    return formatted || fallback || q;
+  };
+
+  let result = null;
+
+  // 1) Nominatim (DE, addressdetails)
+  const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&countrycodes=de&q=${encodeURIComponent(q)}`;
+  const nomArr = await fetchJson(nomUrl, 4000);
+  const nomItem = Array.isArray(nomArr) ? nomArr[0] : null;
+  if (nomItem) {
+    const a = nomItem.address || {};
+    const street = pickStreet(a);
+    const houseNumber = a.house_number || "";
+    const postcode = a.postcode || "";
+    const city = pickCity(a);
+    const country = a.country || "Deutschland";
+    const lat = Number(nomItem.lat);
+    const lon = Number(nomItem.lon);
+
+    result = {
+      street,
+      houseNumber,
+      postcode,
+      city,
+      country,
+      lat: Number.isFinite(lat) ? lat : null,
+      lon: Number.isFinite(lon) ? lon : null,
+      formatted: formatAddress(
+        { street, houseNumber, postcode, city, country },
+        nomItem.display_name
+      ),
+    };
+  }
+
+  // 2) Photon Fallback
+  if (!result) {
+    const phoUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&lang=de&limit=1`;
+    const pho = await fetchJson(phoUrl, 4000);
+    const feat = Array.isArray(pho?.features) ? pho.features[0] : null;
+    if (feat) {
+      const p = feat.properties || {};
+      const street = p.street || p.name || "";
+      const houseNumber = p.housenumber || "";
+      const postcode = p.postcode || "";
+      const city =
+        p.city || p.town || p.village || p.locality || p.state || p.county || "";
+      const country = p.country || "Deutschland";
+      const coords = feat.geometry?.coordinates || [];
+      const lon = Number(coords[0]);
+      const lat = Number(coords[1]);
+
+      result = {
+        street,
+        houseNumber,
+        postcode,
+        city,
+        country,
+        lat: Number.isFinite(lat) ? lat : null,
+        lon: Number.isFinite(lon) ? lon : null,
+        formatted: formatAddress(
+          { street, houseNumber, postcode, city, country },
+          p.name
+        ),
+      };
+    }
+  }
+
+  if (!result) return null;
+
+  await cacheColl.updateOne(
+    { key },
+    { $set: { key, address: result, updatedAt: new Date() } },
+    { upsert: true }
+  );
+
+  return result;
+}
+
 app.post("/profil/update", checkLogin, async (req, res) => {
   try {
     const { field, value } = req.body || {};
@@ -2011,11 +2127,39 @@ app.post("/profil/update", checkLogin, async (req, res) => {
 
     const v = (value ?? "").toString().trim();
     const update = {};
+    let normalizedAddress = "";
+    let addressPayload = null;
 
     switch (field) {
-      case "address":
-        update.adresse = v; // freie Textadresse
+      case "address": {
+        if (!v) {
+          return res.status(400).json({ error: "Adresse darf nicht leer sein." });
+        }
+
+        const geo = await normalizeProfileAddress(v);
+        if (!geo || !geo.postcode || !geo.city) {
+          return res.status(400).json({
+            error: "Adresse nicht gefunden. Bitte Straße, PLZ und Ort eingeben."
+          });
+        }
+
+        normalizedAddress = geo.formatted || v;
+        addressPayload = {
+          street: geo.street || "",
+          houseNumber: geo.houseNumber || "",
+          postcode: geo.postcode || "",
+          city: geo.city || "",
+          country: geo.country || "Deutschland",
+        };
+
+        update.adresse = normalizedAddress;
+        update.strasse = addressPayload.street;
+        update.hausnummer = addressPayload.houseNumber;
+        update.plz = addressPayload.postcode;
+        update.ort = addressPayload.city;
+        update.land = addressPayload.country;
         break;
+      }
       case "phone":
         update.telefon = v;
         break;
@@ -2048,7 +2192,13 @@ app.post("/profil/update", checkLogin, async (req, res) => {
       { $set: update }
     );
 
-    return res.json({ success: true });
+    const payload = { success: true };
+    if (field === "address") {
+      payload.normalizedAddress = normalizedAddress;
+      payload.address = addressPayload;
+    }
+
+    return res.json(payload);
   } catch (err) {
     console.error("❌ Fehler bei /profil/update:", err);
     return res.status(500).json({ error: "Interner Serverfehler." });

@@ -3069,6 +3069,20 @@ img, video, canvas {
   text-overflow: ellipsis;
 }
 
+.sold-cars .sold-date{
+  color: #0b5e56;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.sold-cars .sold-date i{
+  color: #00b8a9;
+  font-size: 12px;
+}
+
 .meine-autos-seite .card-actions,
 .gespeicherte-autos-seite .card-actions{
   display: flex;
