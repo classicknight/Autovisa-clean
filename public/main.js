@@ -1035,6 +1035,31 @@ function fmtEUR(v) {
   return Number.isFinite(n) ? n.toLocaleString("de-DE") + " €" : "Preis n. a.";
 }
 
+function getMwstLabel(obj) {
+  const raw =
+    obj?.verkauf_mwst ??
+    obj?.mwst ??
+    obj?.mwst_type ??
+    obj?.mwstType ??
+    obj?.raw?.verkauf_mwst ??
+    obj?.raw?.mwst ??
+    obj?.raw?.mwst_type ??
+    obj?.raw?.mwstType ??
+    "";
+
+  if (raw === true) return "zzgl. MwSt.";
+  if (raw === false) return "keine MwSt.";
+
+  const str = String(raw || "").trim();
+  if (!str) return "";
+  const low = str.toLowerCase();
+  if (low.includes("zzgl")) return "zzgl. MwSt.";
+  if (low.includes("keine")) return "keine MwSt.";
+  if (low.includes("inkl")) return "inkl. MwSt.";
+  if (low.includes("mwst") || low.includes("ust")) return str;
+  return "";
+}
+
 function sanitizePhone(raw) {
   return raw ? String(raw).replace(/[^\d+]/g, "") : "";
 }
@@ -1327,6 +1352,9 @@ async function loadHomeListings() {
         inserat.verkauf_netto
       );
       const preis = fmtEUR(preisNum);
+      const mwstLabel = getMwstLabel(inserat);
+      const mwstSup = mwstLabel ? `<sup class="price-sup">1</sup>` : "";
+      const mwstNote = mwstLabel ? `<span class="price-vat">¹ ${mwstLabel}</span>` : "";
 
       const kurz = inserat.verkauf_kurzbeschreibung || "";
       const _id = getDocId(inserat) || "";
@@ -1400,7 +1428,10 @@ async function loadHomeListings() {
         <div class="car-details">
           <div class="car-top-row">
             <h2 class="car-title">${titel}</h2>
-            <p class="car-price">${preis}</p>
+            <div class="car-price-wrap">
+              <p class="car-price">${preis}${mwstSup}</p>
+              ${mwstNote}
+            </div>
           </div>
 
           <p class="car-subtitle">${kurz}</p>

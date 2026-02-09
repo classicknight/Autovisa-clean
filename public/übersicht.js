@@ -107,6 +107,31 @@ function extractPriceValue(obj) {
   return "";
 }
 
+function getMwstLabel(obj) {
+  const raw =
+    obj?.verkauf_mwst ??
+    obj?.mwst ??
+    obj?.mwst_type ??
+    obj?.mwstType ??
+    obj?.raw?.verkauf_mwst ??
+    obj?.raw?.mwst ??
+    obj?.raw?.mwst_type ??
+    obj?.raw?.mwstType ??
+    "";
+
+  if (raw === true) return "zzgl. MwSt.";
+  if (raw === false) return "keine MwSt.";
+
+  const str = String(raw || "").trim();
+  if (!str) return "";
+  const low = str.toLowerCase();
+  if (low.includes("zzgl")) return "zzgl. MwSt.";
+  if (low.includes("keine")) return "keine MwSt.";
+  if (low.includes("inkl")) return "inkl. MwSt.";
+  if (low.includes("mwst") || low.includes("ust")) return str;
+  return "";
+}
+
 function formatKm(value) {
   if (value == null || value === "") return "— km";
   const n = Number(String(value).replace(/\./g, "").replace(",", "."));
@@ -1841,6 +1866,9 @@ function buildFahrzeugdatenFromInserat(ins) {
       const subtitleSafe = escapeHTML(inserat.verkauf_kurzbeschreibung || "Besondere Ausstattung");
       const views = Number(stats.views || 0);
       const saves = Number(stats.saves || 0);
+      const mwstLabel = getMwstLabel(inserat);
+      const mwstSup = mwstLabel ? `<sup class="price-sup">1</sup>` : "";
+      const mwstNote = mwstLabel ? `<span class="price-vat">¹ ${escapeHTML(mwstLabel)}</span>` : "";
 
       const actionButtonsHTML = `
         <button ${publishBtnAttrs}><i class="fas fa-globe"></i></button>
@@ -1866,9 +1894,12 @@ function buildFahrzeugdatenFromInserat(ins) {
           <div class="car-details">
             <div class="car-top-row">
               <h2 class="car-title">${titleSafe}</h2>
-            <p class="car-price">${
-                formatEUR(extractPriceValue(inserat)) || "Preis fehlt"
-              }</p>
+              <div class="car-price-wrap">
+                <p class="car-price">${
+                  formatEUR(extractPriceValue(inserat)) || "Preis fehlt"
+                }${mwstSup}</p>
+                ${mwstNote}
+              </div>
             </div>
 
             <p class="car-subtitle">${subtitleSafe}</p>
@@ -2298,6 +2329,9 @@ function buildSoldCardHTML(inserat) {
 
   const rawPrice = extractPriceValue(inserat);
   const price = formatEUR(rawPrice) || "—";
+  const mwstLabel = getMwstLabel(inserat);
+  const mwstSup = mwstLabel ? `<sup class="price-sup">1</sup>` : "";
+  const mwstNote = mwstLabel ? `<span class="price-vat">¹ ${escapeHTML(mwstLabel)}</span>` : "";
 
   const ez = formatEZ(inserat?.verkauf_erstzulassung || inserat?.erstzulassung);
   const km = formatKm(inserat?.verkauf_kilometer ?? inserat?.kilometer);
@@ -2395,7 +2429,10 @@ function buildSoldCardHTML(inserat) {
         <div class="car-details">
           <div class="car-top-row">
             <h2 class="car-title">${escapeHTML(title)}</h2>
-            <p class="car-price">${escapeHTML(price)}</p>
+            <div class="car-price-wrap">
+              <p class="car-price">${escapeHTML(price)}${mwstSup}</p>
+              ${mwstNote}
+            </div>
           </div>
 
           <p class="car-subtitle">${escapeHTML(subtitle)}</p>
@@ -2646,7 +2683,10 @@ function buildSavedCardHTML(inserat, userId) {
         <div class="car-details">
           <div class="car-top-row">
             <h2 class="car-title">${escapeHTML(title)}</h2>
-            <p class="car-price">${escapeHTML(price)}</p>
+            <div class="car-price-wrap">
+              <p class="car-price">${escapeHTML(price)}${mwstSup}</p>
+              ${mwstNote}
+            </div>
           </div>
 
           <p class="car-subtitle">${escapeHTML(subtitle)}</p>

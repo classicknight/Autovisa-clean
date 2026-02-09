@@ -2346,6 +2346,58 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
       });
     }
 
+    if (!_strasse || !_hausnummer || !_plz || !_ort) {
+      return res.status(400).json({
+        error: "Bitte Straße, Hausnummer, PLZ und Ort vollständig angeben.",
+      });
+    }
+
+    const normPlz = (v) => String(v || "").replace(/\s+/g, "");
+    const normCity = (v) =>
+      String(v || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/\p{Diacritic}/gu, "")
+        .replace(/[^a-z0-9]/g, "");
+
+    const addressQuery = [
+      _strasse,
+      _hausnummer,
+      `${_plz} ${_ort}`.trim(),
+      _land,
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    const geo = await normalizeProfileAddress(addressQuery);
+    if (!geo || !geo.postcode || !geo.city) {
+      return res.status(400).json({
+        error:
+          "Adresse nicht gefunden. Bitte Straße, PLZ und Ort prüfen und erneut versuchen.",
+      });
+    }
+
+    if (normPlz(_plz) && geo.postcode && normPlz(_plz) !== normPlz(geo.postcode)) {
+      return res.status(400).json({
+        error: "Die PLZ passt nicht zur eingegebenen Adresse.",
+      });
+    }
+
+    const inputCity = normCity(_ort);
+    const geoCity = normCity(geo.city);
+    if (inputCity && geoCity && !geoCity.includes(inputCity) && !inputCity.includes(geoCity)) {
+      return res.status(400).json({
+        error: "Der Ort passt nicht zur eingegebenen Adresse.",
+      });
+    }
+
+    const normalizedAddress = geo.formatted || addressQuery;
+    const addressStreet = geo.street || _strasse;
+    const addressHouse = geo.houseNumber || _hausnummer;
+    const addressPlz = geo.postcode || _plz;
+    const addressCity = geo.city || _ort;
+    const addressCountry = geo.country || _land || "Deutschland";
+
     const newId = crypto.randomUUID();
     const token = crypto.randomBytes(32).toString("hex");
     const hash  = await bcrypt.hash(password, 12);
@@ -2379,11 +2431,13 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
 
       // Firma / Kontakt
       firma:       _firma,
-      strasse:     _strasse,
-      hausnummer:  _hausnummer,
-      plz:         _plz,
-      ort:         _ort,
-      land:        _land,
+      strasse:     addressStreet,
+      hausnummer:  addressHouse,
+      plz:         addressPlz,
+      ort:         addressCity,
+      land:        addressCountry,
+      adresse:     normalizedAddress,
+      standort:    [addressPlz, addressCity].filter(Boolean).join(" "),
       telefon:     _telefon,
       telefon2:    _telefon2,
       email:       _email,

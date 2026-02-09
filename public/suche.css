@@ -1157,6 +1157,14 @@ img, video, canvas {
   white-space:nowrap;
   text-overflow:ellipsis;
 }
+.car-price-wrap{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:4px;
+  flex-shrink:0;
+  align-self:flex-start;
+}
 .car-price{
   font-size:17px;
   padding:6px 10px;
@@ -1169,6 +1177,15 @@ img, video, canvas {
   line-height:1.3;
   text-align:center;
   min-width:76px;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+}
+.car-price .price-sup{
+  font-size:11px; font-weight:600; line-height:1; vertical-align:super;
+}
+.price-vat{
+  font-size:11px; color:#6b7a86; line-height:1;
 }
 .car-subtitle{
   font-size:14px;
@@ -2298,6 +2315,14 @@ img, video, canvas {
 .filter-sidebar .filter-group{ margin:1rem 0 1.2rem; }
 .filter-sidebar .range-inputs{ display:grid; grid-template-columns:1fr 1fr; gap:.6rem; }
 @media (max-width:520px){ .filter-sidebar .range-inputs{ grid-template-columns:1fr; } }
+
+/* Erstzulassung: immer 2 pro Reihe (von/bis untereinander), nie 4 nebeneinander */
+.filter-sidebar .month-range{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.filter-sidebar .month-range .range-item{ width:100%; }
 
 
 

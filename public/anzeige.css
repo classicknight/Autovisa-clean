@@ -2351,7 +2351,7 @@ img, video, canvas {
   line-height: 1.3;
 }
 
-#listingId{
+#listing-id{
   white-space: normal;
   overflow: visible;
   text-overflow: unset;

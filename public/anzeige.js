@@ -972,8 +972,8 @@ function fillSellerCard(inserat) {
   const websiteLink = document.getElementById("sellerWebsiteLink");
   const languageRow = document.getElementById("sellerLanguageRow");
   const languageEl  = document.getElementById("sellerLanguages");
-  const listingIdRow= document.getElementById("listingIdRow");
-  const listingIdEl = document.getElementById("listingId");
+  const listingIdRow= document.getElementById("listing-id-row");
+  const listingIdEl = document.getElementById("listing-id");
   const memberRow   = document.getElementById("sellerMemberSinceRow");
   const memberEl    = document.getElementById("sellerMemberSince");
   const impressumRow= document.getElementById("sellerImpressumRow");
@@ -2306,8 +2306,13 @@ async function renderSeller(inseratArg = null) {
     profile.role === "haendler";
 
   // --- Seller-ID bestimmen ---
-  const sellerId =
-    profile.id || inserat.verkaeuferId || inserat.sellerId || "";
+  let sellerId =
+    profile.id ||
+    inserat.verkaeuferId ||
+    inserat.sellerId ||
+    inserat.nutzerId ||
+    inserat.anbieterId ||
+    "";
 
   // --- Name + Initialen + Typ ---
   const name =
@@ -2324,40 +2329,46 @@ async function renderSeller(inseratArg = null) {
   setText("sellerInitials", initials);
   setText("sellerType", isDealer ? "Händler" : "Privatanbieter");
 
-  // --- Adresse: Händler = volle Adresse, Privat = nur Ort ---
-  const fullAddress = (() => {
+  const buildSellerAddress = (profileData, inseratData, dealer) => {
     const s = (t) => (t == null ? "" : String(t).trim());
 
-    if (isDealer) {
-      const street = [s(profile.strasse), s(profile.hausnummer)]
+    if (dealer) {
+      const street = [s(profileData?.strasse), s(profileData?.hausnummer)]
         .filter(Boolean)
         .join(" ");
-      const zipCity = [s(profile.plz), s(profile.ort)]
+      const zipCity = [s(profileData?.plz), s(profileData?.ort)]
         .filter(Boolean)
         .join(" ");
-      const country = s(profile.land);
+      const country = s(profileData?.land);
       const parts = [street, zipCity, country].filter(Boolean);
       if (parts.length) return parts.join(", ");
+
+      const rawAddress =
+        s(profileData?.adresse) || s(inseratData?.adresse) || "";
+      if (rawAddress) return rawAddress;
     }
 
     // Privat: nur Stadt/Ort anzeigen
-    const cityDirect = s(inserat.ort || profile.ort);
+    const cityDirect = s(inseratData?.ort || profileData?.ort);
     if (cityDirect) return cityDirect;
 
-    const rawStandort = s(inserat.standort);
+    const rawStandort = s(inseratData?.standort);
     if (rawStandort) {
       const m = rawStandort.match(/^\s*\d{4,5}\s+(.+)$/); // "45731 Waltrop" → "Waltrop"
       if (m) return m[1];
       return rawStandort;
     }
 
-    const zipCity = [s(inserat.plz), s(inserat.ort)]
+    const zipCity = [s(inseratData?.plz), s(inseratData?.ort)]
       .filter(Boolean)
       .join(" ");
     if (zipCity) return zipCity;
 
     return "Standort nicht angegeben";
-  })();
+  };
+
+  // --- Adresse: Händler = volle Adresse, Privat = nur Ort ---
+  let fullAddress = buildSellerAddress(profile, inserat, isDealer);
 
   setText("sellerAddress", fullAddress);
 
@@ -2452,8 +2463,8 @@ async function renderSeller(inseratArg = null) {
   }
 
   const listingId = getDocId(inserat) || "";
-  setText("listingId", listingId || "–");
-  const listingIdRow = $id("listingIdRow");
+  setText("listing-id", listingId || "–");
+  const listingIdRow = $id("listing-id-row");
   if (listingIdRow) listingIdRow.style.display = listingId ? "" : "none";
 
   // --- "Bei Autovisa seit" ---
@@ -2538,37 +2549,60 @@ async function renderSeller(inseratArg = null) {
     renderHours(hours);
   }
 
+  const isBlankImpressum = (val) => {
+    const t = String(val || "").trim();
+    if (!t) return true;
+    const s = t.toLowerCase();
+    return s === "-" || s === "–" || s === "—" || s.includes("kein impressum");
+  };
+  const shouldPreferImpressum = (candidate, current) => {
+    if (!candidate || isBlankImpressum(candidate)) return false;
+    if (isBlankImpressum(current)) return true;
+    return String(candidate).trim().length > String(current).trim().length;
+  };
+
   // --- Impressum (nur Händler, unter der Karte ausklappbar) ---
   let impressumRaw =
     profile.impressum || inserat.impressum || "";
 
   // Fallback: direkt Inserat-Details laden (falls LocalStorage/Daten lückenhaft)
-  if (!String(impressumRaw || "").trim()) {
-    const listingId = getDocId(inserat);
-    if (listingId) {
-      try {
-        const res = await fetch(api(`/inserat-details/${encodeURIComponent(listingId)}`), { credentials: "include" });
-        if (res.ok) {
-          const details = await res.json();
-          impressumRaw =
-            details?.seller?.impressum ||
-            details?.impressum ||
-            impressumRaw;
-        }
-      } catch {}
-    }
-  }
-
-  // Fallback: Händlerprofil per ID (öffentliche API)
-  if (!String(impressumRaw || "").trim() && sellerId && typeof fetchSellerProfile === "function") {
+  if (listingId) {
     try {
-      const fresh = await fetchSellerProfile(sellerId);
-      if (fresh?.impressum) {
-        impressumRaw = String(fresh.impressum || "");
+      const res = await fetch(api(`/inserat-details/${encodeURIComponent(listingId)}`), { credentials: "include" });
+      if (res.ok) {
+        const details = await res.json();
+        if (!sellerId && details?.seller?.id) sellerId = details.seller.id;
+        const candidate =
+          details?.seller?.impressum ||
+          details?.impressum ||
+          "";
+        if (shouldPreferImpressum(candidate, impressumRaw)) {
+          impressumRaw = String(candidate || "");
+        }
       }
     } catch {}
   }
-  const hasImpressum = String(impressumRaw || "").trim().length > 0;
+
+  // Händlerprofil per ID (öffentliche API) → aktuelle Daten (Adresse/Impressum)
+  let freshProfile = null;
+  if (sellerId && isDealer && typeof fetchSellerProfile === "function") {
+    try {
+      freshProfile = await fetchSellerProfile(sellerId);
+      const candidate = freshProfile?.impressum || "";
+      if (shouldPreferImpressum(candidate, impressumRaw)) {
+        impressumRaw = String(candidate || "");
+      }
+    } catch {}
+  }
+
+  if (freshProfile && isDealer) {
+    const freshAddress = buildSellerAddress(freshProfile, inserat, isDealer);
+    if (freshAddress && freshAddress !== fullAddress) {
+      fullAddress = freshAddress;
+      setText("sellerAddress", fullAddress);
+    }
+  }
+  const hasImpressum = !isBlankImpressum(impressumRaw);
 
   // --- Standort / Karte (Händler: volle Adresse, Privat: Ort) ---
   if (typeof renderSellerMap === "function") {

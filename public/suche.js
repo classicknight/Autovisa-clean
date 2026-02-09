@@ -11,6 +11,31 @@ const toNum = (v) => {
   return Number(String(v).replace(/\./g, "").replace(",", "."));
 };
 
+function getMwstLabel(obj) {
+  const raw =
+    obj?.verkauf_mwst ??
+    obj?.mwst ??
+    obj?.mwst_type ??
+    obj?.mwstType ??
+    obj?.raw?.verkauf_mwst ??
+    obj?.raw?.mwst ??
+    obj?.raw?.mwst_type ??
+    obj?.raw?.mwstType ??
+    "";
+
+  if (raw === true) return "zzgl. MwSt.";
+  if (raw === false) return "keine MwSt.";
+
+  const str = String(raw || "").trim();
+  if (!str) return "";
+  const low = str.toLowerCase();
+  if (low.includes("zzgl")) return "zzgl. MwSt.";
+  if (low.includes("keine")) return "keine MwSt.";
+  if (low.includes("inkl")) return "inkl. MwSt.";
+  if (low.includes("mwst") || low.includes("ust")) return str;
+  return "";
+}
+
 // NEU: Akzeptiert YYYY, YYYY-MM, MM/YYYY, YYYY-MM-DD und gibt "YYYY-MM" zurück
 function normalizeYMAny(raw, fallbackMonthIfYearOnly = null) {
   const s = String(raw || "").trim();
@@ -1877,6 +1902,9 @@ function getCombinedConsumption(item) {
   
       const priceNum = toNum(inserat.preis);
       const kmNum    = toNum(inserat.kilometer);
+      const mwstLabel = getMwstLabel(inserat);
+      const mwstSup = mwstLabel ? `<sup class="price-sup">1</sup>` : "";
+      const mwstNote = mwstLabel ? `<span class="price-vat">¹ ${mwstLabel}</span>` : "";
   
       // Verkäuferdaten robust bestimmen
       const rawType = String(
@@ -1973,7 +2001,10 @@ function getCombinedConsumption(item) {
         <div class="car-details">
           <div class="car-top-row">
             <h2 class="car-title"></h2>
-            <p class="car-price">${isNaN(priceNum) ? "Preis n. a." : priceNum.toLocaleString("de-DE") + " €"}</p>
+            <div class="car-price-wrap">
+              <p class="car-price">${isNaN(priceNum) ? "Preis n. a." : priceNum.toLocaleString("de-DE") + " €"}${mwstSup}</p>
+              ${mwstNote}
+            </div>
           </div>
   
           <p class="car-subtitle"></p>
