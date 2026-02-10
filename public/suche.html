@@ -9,21 +9,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet" />
-
-
-    <!-- Font: Inter -->
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
-    <!-- Icons (optional) -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
-  
-
-  <link rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
-  integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkfYV9Z8HfC1Fe1ZC1vZ1tcHTul3e8Dqg3Oq2v5E3WfWUE+Kf4Z5qXQ2A=="
-  crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkfYV9Z8HfC1Fe1ZC1vZ1tcHTul3e8Dqg3Oq2v5E3WfWUE+Kf4Z5qXQ2A=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
 
   <!-- Slim Select v2.6.0 – für korrektes Custom-Styling -->
   <link href="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.css" rel="stylesheet">
@@ -331,7 +323,30 @@
 
     <div class="filter-group">
       <label for="inspectionUntil">HU gültig bis</label>
-      <input type="month" id="inspectionUntil" class="avf-month" />
+      <div class="month-single" id="inspectionRange">
+        <input type="month" id="inspectionUntil" class="avf-month" />
+        <div class="month-fallback">
+          <select id="inspection-month" aria-label="HU gültig bis Monat">
+            <option value="">Monat</option>
+            <option value="01">Januar</option>
+            <option value="02">Februar</option>
+            <option value="03">März</option>
+            <option value="04">April</option>
+            <option value="05">Mai</option>
+            <option value="06">Juni</option>
+            <option value="07">Juli</option>
+            <option value="08">August</option>
+            <option value="09">September</option>
+            <option value="10">Oktober</option>
+            <option value="11">November</option>
+            <option value="12">Dezember</option>
+          </select>
+          <select id="inspection-year" aria-label="HU gültig bis Jahr">
+            <option value="">Jahr</option>
+            <!-- wird per JS befüllt -->
+          </select>
+        </div>
+      </div>
     </div>
 
     <div class="filter-button-wrapper">
@@ -353,6 +368,7 @@
             <option value="mileage-asc">Kilometer aufsteigend</option>
           </select>
         </div>
+        <div class="result-count" id="resultCount" aria-live="polite"></div>
       </div>
      
       <!-- Aktive Filter -->

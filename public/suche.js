@@ -182,17 +182,17 @@ if (!window.__autovisaSaveDelegationBound) {
 
 // ---- Erstzulassung: Month-Input Fallback ----
 let useEzFallback = false;
+let useHuFallback = false;
 function supportsMonthInput() {
   const input = document.createElement("input");
   input.type = "month";
   return input.type === "month";
 }
 
-function fillYearSelect(selectEl) {
+function fillYearSelect(selectEl, { minYear = 1900, maxYear = new Date().getFullYear() } = {}) {
   if (!selectEl) return;
   if (selectEl.options.length > 1) return;
-  const currentYear = new Date().getFullYear();
-  for (let year = currentYear; year >= 1900; year--) {
+  for (let year = maxYear; year >= minYear; year--) {
     const opt = document.createElement("option");
     opt.value = String(year);
     opt.textContent = String(year);
@@ -200,21 +200,19 @@ function fillYearSelect(selectEl) {
   }
 }
 
-function setupEzMonthFallback() {
-  const rangeEl = document.getElementById("firstRegRange");
+function setupMonthFallback(rangeId) {
+  const rangeEl = document.getElementById(rangeId);
   if (!rangeEl) return false;
 
   const ua = navigator.userAgent || "";
   const isMac = /Macintosh/.test(ua) && !/iPad|iPhone|iPod/.test(ua);
-  const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR/i.test(ua);
-  const shouldFallback = !supportsMonthInput() || (isMac && isSafari);
+  const shouldFallback = !supportsMonthInput() || isMac;
 
   if (shouldFallback) {
     rangeEl.classList.add("is-fallback");
-    const fromEl = document.getElementById("firstRegFrom");
-    const toEl = document.getElementById("firstRegTo");
-    if (fromEl) fromEl.value = "";
-    if (toEl) toEl.value = "";
+    rangeEl.querySelectorAll('input[type="month"]').forEach((el) => {
+      el.value = "";
+    });
   } else {
     rangeEl.classList.remove("is-fallback");
   }
@@ -222,9 +220,12 @@ function setupEzMonthFallback() {
   return shouldFallback;
 }
 
-useEzFallback = setupEzMonthFallback();
-fillYearSelect(document.getElementById("first-registration-year"));
-fillYearSelect(document.getElementById("first-registration-year-to"));
+useEzFallback = setupMonthFallback("firstRegRange");
+useHuFallback = setupMonthFallback("inspectionRange");
+const _currentYear = new Date().getFullYear();
+fillYearSelect(document.getElementById("first-registration-year"), { maxYear: _currentYear });
+fillYearSelect(document.getElementById("first-registration-year-to"), { maxYear: _currentYear });
+fillYearSelect(document.getElementById("inspection-year"), { maxYear: _currentYear + 3 });
 
 // Labels für Chips
 const FUEL_LABELS = {
@@ -443,6 +444,131 @@ const container     = document.getElementById("carResults");
 const pager         = document.getElementById("pager");
 const sortBy        = document.getElementById("sortBy");
 const applyFilters  = document.getElementById("applyFiltersBtn");
+const resultCountEl = document.getElementById("resultCount");
+
+  function setResultCount(shown, total) {
+    if (!resultCountEl) return;
+    const t = Number.isFinite(total) ? total : shown;
+    if (!t && !shown) {
+      resultCountEl.textContent = "0 Treffer";
+      return;
+    }
+    resultCountEl.textContent = (t && shown && t !== shown)
+      ? `${shown} von ${t} Treffern`
+      : `${shown} Treffer`;
+  }
+
+  function renderResultsState(kind) {
+    if (!container) return;
+    const footnote = document.getElementById("vatFootnoteSearch");
+    if (footnote) footnote.hidden = true;
+    if (pager) pager.innerHTML = "";
+    if (resultCountEl) resultCountEl.textContent = "";
+
+    const states = {
+      loading: {
+        icon: `<div class="results-state__spinner" aria-hidden="true"></div>`,
+        title: "Lade Fahrzeuge…",
+        text: "Einen Moment bitte."
+      },
+      empty: {
+        icon: `<div class="results-state__icon"><i class="fa-regular fa-face-frown"></i></div>`,
+        title: "Keine Fahrzeuge gefunden",
+        text: "Passe die Filter an oder setze sie zurück.",
+        action: "Filter zurücksetzen",
+        actionId: "reset"
+      },
+      error: {
+        icon: `<div class="results-state__icon"><i class="fa-solid fa-triangle-exclamation"></i></div>`,
+        title: "Fehler beim Laden",
+        text: "Bitte versuche es erneut.",
+        action: "Erneut versuchen",
+        actionId: "retry"
+      }
+    };
+
+    const s = states[kind] || states.error;
+    container.innerHTML = `
+      <div class="results-state results-state--${kind}">
+        ${s.icon}
+        <div class="results-state__title">${s.title}</div>
+        <div class="results-state__text">${s.text}</div>
+        ${s.action ? `<button class="results-state__action" type="button" data-action="${s.actionId}">${s.action}</button>` : ""}
+      </div>
+    `;
+
+    const btn = container.querySelector(".results-state__action");
+    if (!btn) return;
+
+    if (btn.dataset.action === "reset") {
+      btn.addEventListener("click", () => {
+        if (typeof clearAllFilters === "function") {
+          clearAllFilters();
+        } else {
+          window.location.href = "suche.html";
+        }
+      });
+    } else if (btn.dataset.action === "retry") {
+      btn.addEventListener("click", () => {
+        loadAndRender(page || 1);
+      });
+    }
+  }
+
+  function normalizeRangeInputs() {
+    const swapNumeric = (fromId, toId) => {
+      const fromEl = document.getElementById(fromId);
+      const toEl = document.getElementById(toId);
+      if (!fromEl || !toEl) return;
+      const from = parseInt(fromEl.value || "", 10);
+      const to = parseInt(toEl.value || "", 10);
+      if (Number.isFinite(from) && Number.isFinite(to) && from > to) {
+        fromEl.value = String(to);
+        toEl.value = String(from);
+      }
+    };
+
+    swapNumeric("priceFrom", "priceTo");
+    swapNumeric("mileageFrom", "mileageTo");
+    swapNumeric("powerFrom", "powerTo");
+
+    const firstRegFromEl     = document.getElementById("firstRegFrom");
+    const firstRegMonthEl    = document.getElementById("first-registration-month");
+    const firstRegYearEl     = document.getElementById("first-registration-year");
+    const firstRegToEl       = document.getElementById("firstRegTo");
+    const firstRegMonthToEl  = document.getElementById("first-registration-month-to");
+    const firstRegYearToEl   = document.getElementById("first-registration-year-to");
+
+    const fromRaw =
+      firstRegFromEl?.value ||
+      (firstRegYearEl?.value && firstRegMonthEl?.value
+        ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2, "0")}`
+        : "");
+
+    const toRaw =
+      firstRegToEl?.value ||
+      (firstRegYearToEl?.value && firstRegMonthToEl?.value
+        ? `${firstRegYearToEl.value}-${String(firstRegMonthToEl.value).padStart(2, "0")}`
+        : "");
+
+    const [ezFrom, ezTo] = orderYM(parseYM(fromRaw), parseYM(toRaw));
+
+    const setMonthYear = (inputEl, monthEl, yearEl, ym) => {
+      if (inputEl) inputEl.value = ym || "";
+      if (!monthEl || !yearEl) return;
+      if (!ym) {
+        monthEl.value = "";
+        yearEl.value = "";
+        return;
+      }
+      const [y, m] = ym.split("-");
+      yearEl.value = y || "";
+      monthEl.value = m || "";
+    };
+
+    setMonthYear(firstRegFromEl, firstRegMonthEl, firstRegYearEl, ezFrom);
+    setMonthYear(firstRegToEl, firstRegMonthToEl, firstRegYearToEl, ezTo);
+  }
 
   // Mobile/Tablet: Filter-Sidebar ein-/ausblenden
   if (toggleBtn && sidebar) {
@@ -553,12 +679,19 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
 
   // HU (bis Datum) – aus URL übernehmen (YYYY-MM normalisiert)
   const inspectionUntilEl = document.getElementById("inspectionUntil");
+  const inspectionMonthEl = document.getElementById("inspection-month");
+  const inspectionYearEl  = document.getElementById("inspection-year");
   let huBis =
     normalizeYMAny(QP.hu_bis) ||
     normalizeYMAny(QP.hu_text) ||                 // ?hu=2026-06 ODER "Mind. 6 Monate"
     normalizeYMAny(sp.get("inspectionUntil")) ||  // falls anders gesetzt
     "";
   if (inspectionUntilEl && huBis) inspectionUntilEl.value = huBis;
+  if (huBis && inspectionMonthEl && inspectionYearEl) {
+    const [y, m] = huBis.split("-");
+    if (y) inspectionYearEl.value = y;
+    if (m) inspectionMonthEl.value = m;
+  }
 
   // HU (mind. Monate) – aus expliziten Parametern oder Text „Mind. X Monate“
   const huMinSel = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
@@ -748,6 +881,8 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   if (pfEl) pfEl.checked = isTruthyRaw(QP.partikelfilter);
   if (shEl) shEl.checked = isTruthyRaw(QP.scheckheft);
   if (ufEl) ufEl.checked = isTruthyRaw(QP.unfallfrei);
+
+  normalizeRangeInputs();
 })();
 
 
@@ -1320,6 +1455,8 @@ function getCombinedConsumption(item) {
     document.getElementById("accidentFree");
 
   const inspectionUntilEl = document.getElementById("inspectionUntil");     // HU bis (YYYY-MM)
+  const inspectionMonthEl = document.getElementById("inspection-month");
+  const inspectionYearEl  = document.getElementById("inspection-year");
   const huMinMonthsEl     = document.getElementById("huMinMonths")          // optionales Feld "HU mind. (Monate)"
                           || document.getElementById("inspectionMinMonths");
 
@@ -1422,7 +1559,11 @@ function getCombinedConsumption(item) {
     isTruthyRaw(sp.get("unfallfrei") || sp.get("accidentFree"));
 
   // HU: UI & URL-Fallbacks
-  const inspectionUntilUI = inspectionUntilEl?.value || ""; // erwartet YYYY-MM
+  const inspectionUntilUI =
+    inspectionUntilEl?.value ||
+    (inspectionYearEl?.value && inspectionMonthEl?.value
+      ? `${inspectionYearEl.value}-${String(inspectionMonthEl.value).padStart(2, "0")}`
+      : "");
   // - hu_bis / inspectionUntil / hu (Text) -> mind. gültig bis Datum
   const huUntilEff = normalizeYMAny(
     inspectionUntilUI ||
@@ -1862,12 +2003,12 @@ function getCombinedConsumption(item) {
     const view = filteredItems;
   
     if (!view.length) {
-      container.innerHTML = "<p>❌ Keine Fahrzeuge gefunden.</p>";
-      renderPager(serverTotal);
-      const footnote = document.getElementById("vatFootnoteSearch");
-      if (footnote) footnote.hidden = true;
+      setResultCount(0, serverTotal);
+      renderResultsState("empty");
       return;
     }
+
+    setResultCount(view.length, serverTotal);
   
     // Helper: Datensatz für anzeige.html zusammenbauen
     function toAnzeigePayload(item) {
@@ -2123,6 +2264,7 @@ function getCombinedConsumption(item) {
 
   async function loadAndRender(p = 1) {
     try {
+      renderResultsState("loading");
       const { page: serverPage, limit: serverLimit, total, results } = await fetchSearch(p, pageSize);
 
       serverTotal   = total;
@@ -2143,7 +2285,7 @@ function getCombinedConsumption(item) {
     } catch (err) {
       if (String(err?.message || "").toLowerCase() === "stale") return; // alte Antwort ignorieren
       console.error("Fehler beim Laden der Suche:", err);
-      if (container) container.innerHTML = "<p>🚫 Fehler beim Laden der Ergebnisse.</p>";
+      renderResultsState("error");
     }
   }
 
@@ -2165,6 +2307,7 @@ function getCombinedConsumption(item) {
     if (s === "" || s === "Beliebig" || s === "-" || s === "any" || s === "alle" || s === "all") params.delete(key);
     else params.set(key, s);
   }function updateUrlFromUiAndReload(opts = {}) {
+    normalizeRangeInputs();
     const params = new URLSearchParams(window.location.search);
   
     const setOrDelete = (p, k, v) => {
@@ -2297,9 +2440,16 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
         document.getElementById("inspectionUntil") ||
         document.getElementById("huUntil") ||
         null;
-  
+
       if (huUntilEl) {
-        const raw = (huUntilEl.value || "").trim();
+        const huMonthEl = document.getElementById("inspection-month");
+        const huYearEl  = document.getElementById("inspection-year");
+        const raw = (
+          huUntilEl.value ||
+          (huYearEl?.value && huMonthEl?.value
+            ? `${huYearEl.value}-${String(huMonthEl.value).padStart(2, "0")}`
+            : "")
+        ).trim();
         let val = "";
         if (/^\d{4}-(0[1-9]|1[0-2])$/.test(raw)) {
           val = raw;
@@ -2505,6 +2655,8 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
   
     // HU Felder
     const inspectionEl  = document.getElementById("inspectionUntil"); // HU bis (YYYY-MM)
+    const inspectionMonthEl = document.getElementById("inspection-month");
+    const inspectionYearEl  = document.getElementById("inspection-year");
     const huMinMonthsEl = document.getElementById("huMinMonths") || document.getElementById("inspectionMinMonths");
   
     // Max. Fahrzeughalter (div. IDs abdecken)
@@ -2679,7 +2831,15 @@ const psMaxEff = (() => {
   
     // HU (beide Varianten)
     const huUntilEff = normalizeYMAny(
-      (inspectionEl?.value || qp.hu_bis || qp.hu_text || "").trim(),
+      (
+        inspectionEl?.value ||
+        (inspectionYearEl?.value && inspectionMonthEl?.value
+          ? `${inspectionYearEl.value}-${String(inspectionMonthEl.value).padStart(2, "0")}`
+          : "") ||
+        qp.hu_bis ||
+        qp.hu_text ||
+        ""
+      ).trim(),
       12 // Jahresangabe -> Dezember
     );
     const huMinMonthsEff = (() => {
@@ -3163,7 +3323,8 @@ function clearAllFilters() {
   [
     "first-registration-month","first-registration-year",
     "first-registration-month-to","first-registration-year-to",
-    "ez-von","ez-bis"
+    "ez-von","ez-bis",
+    "inspection-month","inspection-year"
   ].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
 
   // HU mind. Monate (UI)
