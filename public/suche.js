@@ -65,6 +65,21 @@ function orderYM(from, to) {
   return [from || "", to || ""];
 }
 
+function readEzValue(inputEl, yearEl, monthEl, fallbackMonthIfYearOnly) {
+  const rawInput = (inputEl?.value || "").trim();
+  if (rawInput) {
+    const parsed = parseYM(rawInput, fallbackMonthIfYearOnly);
+    return parsed || rawInput;
+  }
+  const year = (yearEl?.value || "").trim();
+  if (!year) return "";
+  const month = (monthEl?.value || "").trim();
+  const mm = month
+    ? String(month).padStart(2, "0")
+    : String(fallbackMonthIfYearOnly || "01").padStart(2, "0");
+  return `${year}-${mm}`;
+}
+
 /* =========================
    Saved (Herz) – Suche
    Nutzt: /saved/status/:id  und  /saved/toggle
@@ -1439,16 +1454,8 @@ function getCombinedConsumption(item) {
     return (Number.isFinite(qp) && qp > 0) ? qp : NaN;
   })();
 
-  const firstRegFromUI =
-    (firstRegFromEl?.value) ||
-    (firstRegYearEl?.value && firstRegMonthEl?.value
-      ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2, "0")}`
-      : "");
-  const firstRegToUI =
-    (firstRegToEl?.value) ||
-    (firstRegYearToEl?.value && firstRegMonthToEl?.value
-      ? `${firstRegYearToEl.value}-${String(firstRegMonthToEl.value).padStart(2, "0")}`
-      : "");
+  const firstRegFromUI = readEzValue(firstRegFromEl, firstRegYearEl, firstRegMonthEl, 1);
+  const firstRegToUI   = readEzValue(firstRegToEl, firstRegYearToEl, firstRegMonthToEl, 12);
 
   const priceToEff   = (!isNaN(priceTo)   && priceTo   > 0) ? priceTo   : toNum(sp.get("price_max"));
   const mileageToEff = (!isNaN(mileageTo) && mileageTo > 0) ? mileageTo : toNum(sp.get("km_max"));
@@ -2198,17 +2205,11 @@ function getCombinedConsumption(item) {
     const ezBisEl            = document.getElementById("ez-bis");
   
     const fromRaw =
-      firstRegFromEl?.value ||
-      (firstRegYearEl?.value && firstRegMonthEl?.value
-        ? `${firstRegYearEl.value}-${String(firstRegMonthEl.value).padStart(2, "0")}`
-        : "") ||
+      readEzValue(firstRegFromEl, firstRegYearEl, firstRegMonthEl, 1) ||
       ezVonEl?.value || "";
   
     const toRaw =
-      firstRegToEl?.value ||
-      (firstRegYearToEl?.value && firstRegMonthToEl?.value
-        ? `${firstRegYearToEl.value}-${String(firstRegMonthToEl.value).padStart(2, "0")}`
-        : "") ||
+      readEzValue(firstRegToEl, firstRegYearToEl, firstRegMonthToEl, 12) ||
       ezBisEl?.value || "";
   
     let [ezFrom, ezTo] = orderYM(parseYM(fromRaw, 1), parseYM(toRaw, 12));
@@ -2666,14 +2667,8 @@ const psMaxEff = (() => {
     const colorList    = uniq([...colorFromUrl, ...colorFromUI]).filter(Boolean);
   
     // EZ
-    const ezFromUIraw =
-      (firstRegFromEl?.value?.trim()) ||
-      (firstRegYearEl?.value && firstRegMonthEl?.value ? `${firstRegYearEl.value}-${pad2(firstRegMonthEl.value)}` : "") ||
-      "";
-    const ezToUIraw =
-      (firstRegToEl?.value?.trim()) ||
-      (firstRegYearToEl?.value && firstRegMonthToEl?.value ? `${firstRegYearToEl.value}-${pad2(firstRegMonthToEl.value)}` : "") ||
-      "";
+    const ezFromUIraw = readEzValue(firstRegFromEl, firstRegYearEl, firstRegMonthEl, 1) || "";
+    const ezToUIraw   = readEzValue(firstRegToEl, firstRegYearToEl, firstRegMonthToEl, 12) || "";
     const ezFromEff = normalizeYMAny(ezFromUIraw || qp.ezFrom);
     const ezToEff   = normalizeYMAny(ezToUIraw   || qp.ezTo);
   

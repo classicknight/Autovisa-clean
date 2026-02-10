@@ -69,9 +69,8 @@ const renderImpressumHTML = (input = "") => {
     : escapeHTML(raw).replace(/\r\n/g, "\n").replace(/\n/g, "<br>");
 
   const allowedTags = new Set([
-    "B","STRONG","I","EM","U","BR","P","UL","OL","LI","H4","H5","SPAN","DIV"
+    "B","STRONG","I","EM","BR","P","DIV"
   ]);
-  const allowedClasses = new Set(["imp-small","imp-large"]);
 
   const doc = new DOMParser().parseFromString(source, "text/html");
   const walk = (node) => {
@@ -84,15 +83,7 @@ const renderImpressumHTML = (input = "") => {
       }
 
       [...child.attributes].forEach((attr) => {
-        if (child.tagName === "SPAN" && attr.name === "class") {
-          const keep = attr.value
-            .split(/\s+/)
-            .filter((c) => allowedClasses.has(c));
-          if (keep.length) child.setAttribute("class", keep.join(" "));
-          else child.removeAttribute("class");
-        } else {
-          child.removeAttribute(attr.name);
-        }
+        child.removeAttribute(attr.name);
       });
 
       walk(child);

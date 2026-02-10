@@ -2170,6 +2170,9 @@ app.post("/profil/update", checkLogin, async (req, res) => {
       case "phone":
         update.telefon = v;
         break;
+      case "phone2":
+        update.telefon2 = v;
+        break;
       case "website":
         update.website = v;
         break;

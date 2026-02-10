@@ -32,9 +32,8 @@ function sanitizeImpressumHTML(input = "") {
     : escapeHTML(raw).replace(/\r\n/g, "\n").replace(/\n/g, "<br>");
 
   const allowedTags = new Set([
-    "B","STRONG","I","EM","U","BR","P","UL","OL","LI","H4","H5","SPAN","DIV"
+    "B","STRONG","I","EM","BR","P","DIV"
   ]);
-  const allowedClasses = new Set(["imp-small","imp-large"]);
 
   const doc = new DOMParser().parseFromString(source, "text/html");
   const walk = (node) => {
@@ -47,15 +46,7 @@ function sanitizeImpressumHTML(input = "") {
       }
 
       [...child.attributes].forEach((attr) => {
-        if (child.tagName === "SPAN" && attr.name === "class") {
-          const keep = attr.value
-            .split(/\s+/)
-            .filter((c) => allowedClasses.has(c));
-          if (keep.length) child.setAttribute("class", keep.join(" "));
-          else child.removeAttribute("class");
-        } else {
-          child.removeAttribute(attr.name);
-        }
+        child.removeAttribute(attr.name);
       });
 
       walk(child);
@@ -1573,6 +1564,17 @@ function renderProfileSection(nutzerData, drafts, online) {
     if (phoneEl) {
       const phone = nutzerData.telefon || nutzerData.phone || nutzerData.tel || nutzerData.telefonnummer || "";
       phoneEl.textContent = phone || "–";
+    }
+
+    const phone2El = section.querySelector('[data-profile-field="phone2"]');
+    if (phone2El) {
+      const phone2 =
+        nutzerData.telefon2 ||
+        nutzerData.phone2 ||
+        nutzerData.tel2 ||
+        nutzerData.telefonnummer2 ||
+        "";
+      phone2El.textContent = phone2 || "–";
     }
 
     const emailEl = section.querySelector('[data-profile-field="email"]');
