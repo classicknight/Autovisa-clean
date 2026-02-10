@@ -48,13 +48,16 @@ function normalizeYMAny(raw, fallbackMonthIfYearOnly = null) {
 }
 
 // (Behalten: wird an anderen Stellen verwendet)
-function parseYM(raw) {
+function parseYM(raw, fallbackMonthIfYearOnly = null) {
   const s = String(raw || "").trim();
   if (!s) return "";
   if (/^\d{4}-(0[1-9]|1[0-2])$/.test(s)) return s;
   const m = s.match(/^(0?[1-9]|1[0-2])[.\-/](\d{4})$/);
   if (m) return `${m[2]}-${String(m[1]).padStart(2, "0")}`;
-  if (/^\d{4}$/.test(s)) return `${s}-01`;
+  if (/^\d{4}$/.test(s)) {
+    const mm = fallbackMonthIfYearOnly ? String(fallbackMonthIfYearOnly).padStart(2, "0") : "01";
+    return `${s}-${mm}`;
+  }
   return "";
 }
 function orderYM(from, to) {
@@ -2208,7 +2211,7 @@ function getCombinedConsumption(item) {
         : "") ||
       ezBisEl?.value || "";
   
-    let [ezFrom, ezTo] = orderYM(parseYM(fromRaw), parseYM(toRaw));
+    let [ezFrom, ezTo] = orderYM(parseYM(fromRaw, 1), parseYM(toRaw, 12));
     setOrDelete(params, "ezFrom", ezFrom);
     setOrDelete(params, "ezTo",   ezTo);
   

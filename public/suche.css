@@ -1503,8 +1503,9 @@ img, video, canvas {
     border-radius: 12px;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
+    gap: 16px;
   }
   
   .sort-bar {
@@ -1547,14 +1548,11 @@ img, video, canvas {
   }
 
   .result-count {
-    width: 100%;
-    max-width: 1400px;
-    margin: 10px auto 0;
-    padding: 0 20px;
     font-family: 'Poppins', sans-serif;
     font-size: 14px;
     font-weight: 500;
     color: #5c6b76;
+    white-space: nowrap;
   }
   
   .results-container {
@@ -1678,7 +1676,9 @@ img, video, canvas {
       background-color: transparent;
       box-shadow: none;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
     }
     
     .sort-bar {
