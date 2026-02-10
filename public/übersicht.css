@@ -3527,11 +3527,19 @@ body.modal-open{
   padding: 6px 10px;
   font-size: 13px;
   cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease;
 }
 
 .impressum-tool:hover{
   border-color: #00b8a9;
   box-shadow: 0 0 0 2px rgba(0, 184, 169, 0.12);
+}
+
+.impressum-tool.is-active{
+  border-color: #00b8a9;
+  background: rgba(0, 184, 169, 0.12);
+  color: #0f2027;
+  box-shadow: 0 0 0 3px rgba(0, 184, 169, 0.18);
 }
 
 .impressum-editor{
@@ -3556,6 +3564,35 @@ body.modal-open{
   display: flex;
   gap: 10px;
   margin-top: 14px;
+}
+
+.impressum-actions .btn-primary{
+  border: none;
+  background: #00b8a9;
+  color: #ffffff;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(0, 184, 169, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.impressum-actions .btn-primary:hover{
+  background: #00a398;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(0, 184, 169, 0.28);
+}
+
+.impressum-actions .btn-primary:active{
+  transform: translateY(0);
+  box-shadow: 0 6px 14px rgba(0, 184, 169, 0.2);
+}
+
+.impressum-actions .btn-soft{
+  background: #f5f8fc;
+  border: 1px solid #e3e9ef;
+  color: #1a2733;
 }
 
 .imp-small{ font-size: 0.9em; }

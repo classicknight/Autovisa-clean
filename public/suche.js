@@ -429,8 +429,15 @@ const titleInput    = document.getElementById("title");
 
 const container     = document.getElementById("carResults");
 const pager         = document.getElementById("pager");
+const resultCountEl = document.getElementById("resultCount");
 const sortBy        = document.getElementById("sortBy");
 const applyFilters  = document.getElementById("applyFiltersBtn");
+
+  function updateResultCount() {
+    if (!resultCountEl) return;
+    const total = Number(serverTotal) || 0;
+    resultCountEl.textContent = `${total.toLocaleString("de-DE")} Treffer`;
+  }
 
   // Mobile/Tablet: Filter-Sidebar ein-/ausblenden
   if (toggleBtn && sidebar) {
@@ -1848,6 +1855,8 @@ function getCombinedConsumption(item) {
   
     // Server liefert *nur die aktuelle Seite*:
     const view = filteredItems;
+
+    updateResultCount();
   
     if (!view.length) {
       container.innerHTML = "<p>❌ Keine Fahrzeuge gefunden.</p>";

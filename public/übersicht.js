@@ -794,7 +794,10 @@ document.addEventListener("DOMContentLoaded", () => {
     impressumModal.classList.add("show");
     impressumModal.classList.remove("hidden");
     document.body.classList.add("modal-open");
-    setTimeout(() => impressumEditor.focus(), 50);
+    setTimeout(() => {
+      impressumEditor.focus();
+      updateImpressumToolbarState();
+    }, 50);
   }
 
   function closeImpressumModal() {
@@ -827,24 +830,43 @@ document.addEventListener("DOMContentLoaded", () => {
       case "italic":
         document.execCommand("italic");
         break;
-      case "h4":
-        document.execCommand("formatBlock", false, "h4");
-        break;
       case "p":
         document.execCommand("formatBlock", false, "p");
-        break;
-      case "small":
-        applySpanClass("imp-small");
-        break;
-      case "large":
-        applySpanClass("imp-large");
-        break;
-      case "ul":
-        document.execCommand("insertUnorderedList");
         break;
       default:
         break;
     }
+  }
+
+  function updateImpressumToolbarState() {
+    if (!impressumToolbar || !impressumEditor) return;
+
+    const selection = window.getSelection();
+    const anchor = selection?.anchorNode || null;
+    if (!anchor || !impressumEditor.contains(anchor)) {
+      impressumToolbar.querySelectorAll(".impressum-tool").forEach((btn) => {
+        btn.classList.remove("is-active");
+      });
+      return;
+    }
+
+    let formatBlock = "";
+    try {
+      formatBlock = String(document.queryCommandValue("formatBlock") || "").toLowerCase();
+    } catch {}
+
+    const isBold = !!document.queryCommandState("bold");
+    const isItalic = !!document.queryCommandState("italic");
+    const isNormal = !formatBlock || formatBlock === "p" || formatBlock === "div";
+
+    const setActive = (cmd, active) => {
+      const btn = impressumToolbar.querySelector(`.impressum-tool[data-cmd="${cmd}"]`);
+      if (btn) btn.classList.toggle("is-active", !!active);
+    };
+
+    setActive("bold", isBold);
+    setActive("italic", isItalic);
+    setActive("p", isNormal);
   }
 
   if (impressumToolbar) {
@@ -854,6 +876,7 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       const cmd = btn.dataset.cmd;
       if (cmd) handleImpressumCommand(cmd);
+      updateImpressumToolbarState();
     });
   }
 
@@ -862,8 +885,20 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       e.stopPropagation();
       openImpressumModal();
+      updateImpressumToolbarState();
     });
   }
+
+  if (impressumEditor) {
+    impressumEditor.addEventListener("keyup", updateImpressumToolbarState);
+    impressumEditor.addEventListener("mouseup", updateImpressumToolbarState);
+    impressumEditor.addEventListener("input", updateImpressumToolbarState);
+  }
+
+  document.addEventListener("selectionchange", () => {
+    if (!impressumModal?.classList.contains("show")) return;
+    updateImpressumToolbarState();
+  });
 
   if (impressumCancelBtn) impressumCancelBtn.addEventListener("click", closeImpressumModal);
   if (impressumBackdrop) impressumBackdrop.addEventListener("click", closeImpressumModal);
