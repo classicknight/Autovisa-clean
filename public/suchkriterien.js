@@ -1172,29 +1172,6 @@ if (kraftValues.length) {
   function buildAdvancedQuery() {
     const qs = new URLSearchParams();
     const numLocal = (typeof window.num === "function") ? window.num : _numFallback;
-    const normalizeNumericRange = (min, max, minId, maxId) => {
-      if (min != null && max != null && min > max) {
-        const minEl = document.getElementById(minId);
-        const maxEl = document.getElementById(maxId);
-        if (minEl) minEl.value = String(max);
-        if (maxEl) maxEl.value = String(min);
-        return [max, min];
-      }
-      return [min, max];
-    };
-    const setMonthYearValue = (id, ym) => {
-      const hidden = document.getElementById(id);
-      if (hidden) hidden.value = ym || "";
-      const [y, m] = (ym || "").split("-");
-      const yEl = document.getElementById(`${id}-year`);
-      const mEl = document.getElementById(`${id}-month`);
-      if (yEl) yEl.value = y || "";
-      if (mEl) mEl.value = m || "";
-    };
-    const orderYM = (from, to) => {
-      if (from && to && from > to) return [to, from];
-      return [from || "", to || ""];
-    };
   
     // Marke
     const brandEl = document.getElementById("marke") || window.brandDropdown;
@@ -1237,25 +1214,20 @@ if (kraftValues.length) {
       if (y && m) return `${y}-${String(m).padStart(2, "0")}`;
       return "";
     }
-    const ezFromRaw = readEz("ez-von", "01"); // nur Jahr gewählt -> Januar
-    const ezToRaw   = readEz("ez-bis", "12"); // nur Jahr gewählt -> Dezember
-    const [ezFrom, ezTo] = orderYM(ezFromRaw, ezToRaw);
-    setMonthYearValue("ez-von", ezFrom);
-    setMonthYearValue("ez-bis", ezTo);
+    const ezFrom = readEz("ez-von", "01"); // nur Jahr gewählt -> Januar
+    const ezTo   = readEz("ez-bis", "12"); // nur Jahr gewählt -> Dezember
     if (ezFrom) qs.set("ezFrom", ezFrom);
     if (ezTo)   qs.set("ezTo",   ezTo);
   
     // Kilometer
-    let kmMin = numLocal(document.getElementById("km-von")?.value);
-    let kmMax = numLocal(document.getElementById("km-bis")?.value);
-    [kmMin, kmMax] = normalizeNumericRange(kmMin, kmMax, "km-von", "km-bis");
+    const kmMin = numLocal(document.getElementById("km-von")?.value);
+    const kmMax = numLocal(document.getElementById("km-bis")?.value);
     if (kmMin != null && kmMin > 0) qs.set("km_min", String(kmMin));
     if (kmMax != null && kmMax > 0) qs.set("km_max", String(kmMax));
   
     // Preis
-    let pMin = numLocal(document.getElementById("preis-von")?.value);
-    let pMax = numLocal(document.getElementById("preis-bis")?.value);
-    [pMin, pMax] = normalizeNumericRange(pMin, pMax, "preis-von", "preis-bis");
+    const pMin = numLocal(document.getElementById("preis-von")?.value);
+    const pMax = numLocal(document.getElementById("preis-bis")?.value);
     if (pMin != null && pMin > 0) qs.set("price_min", String(pMin));
     if (pMax != null && pMax > 0) qs.set("price_max", String(pMax));
   
@@ -1293,15 +1265,13 @@ if (kraftValues.length) {
     }
   
     // Leistung / Hubraum
-    let psMin = _numFallback(document.getElementById("leistung-von")?.value);
-    let psMax = _numFallback(document.getElementById("leistung-bis")?.value);
-    [psMin, psMax] = normalizeNumericRange(psMin, psMax, "leistung-von", "leistung-bis");
+    const psMin = _numFallback(document.getElementById("leistung-von")?.value);
+    const psMax = _numFallback(document.getElementById("leistung-bis")?.value);
     if (psMin != null && psMin > 0) qs.set("ps_min", String(psMin));
     if (psMax != null && psMax > 0) qs.set("ps_max", String(psMax));
   
-    let ccMin = _numFallback(document.getElementById("hubraum-von")?.value);
-    let ccMax = _numFallback(document.getElementById("hubraum-bis")?.value);
-    [ccMin, ccMax] = normalizeNumericRange(ccMin, ccMax, "hubraum-von", "hubraum-bis");
+    const ccMin = _numFallback(document.getElementById("hubraum-von")?.value);
+    const ccMax = _numFallback(document.getElementById("hubraum-bis")?.value);
     if (ccMin != null && ccMin > 0) qs.set("ccm_min", String(ccMin));
     if (ccMax != null && ccMax > 0) qs.set("ccm_max", String(ccMax));
   

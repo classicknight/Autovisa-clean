@@ -4448,7 +4448,7 @@ app.get("/api/search", async (req, res) => {
               "$brutto-preis",
               { $ifNull: [
                 "$brutto_preis",
-                { $ifNull: [ "$verkauf_brutto", { $ifNull: [ "$preis", "$verkauf_preis" ] } ] }
+                { $ifNull: [ "$verkauf_brutto", { $ifNull: [ "$preis", { $ifNull: [ "$verkauf_preis", "$verkauf_netto" ] } ] } ] }
               ] }
             ]
           },
