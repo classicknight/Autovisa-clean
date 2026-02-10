@@ -993,11 +993,12 @@ function fillSellerCard(inserat) {
   const mapFrame    = document.getElementById("sellerMapFrame");
 
   // --- Name & Typ ---
-  const name =
+  const dealerName =
     seller.firma ||
     seller.name ||
     inserat.verkauf_name ||
-    (isDealer ? "Händler" : "Privatanbieter");
+    "Händler";
+  const name = isDealer ? dealerName : "Privatanbieter";
 
   if (nameEl) nameEl.textContent = name;
   if (typeEl) typeEl.textContent = sellerTypeLabel;
@@ -2085,7 +2086,9 @@ function renderSellerMore(items) {
     const rawType = String(inserat.seller?.type || inserat.verkauf_verkaeufer || "").toLowerCase();
     const isHaendler =
       rawType === "haendler" || rawType === "händler" || rawType.includes("händ") || rawType.includes("haend");
-    const sellerName = inserat.seller?.name || inserat.verkauf_name || (isHaendler ? "Händler" : "Privatanbieter");
+    const sellerName = isHaendler
+      ? (inserat.seller?.name || inserat.verkauf_name || "Händler")
+      : "Privatanbieter";
     const sellerLogo = inserat.seller?.logoUrl || inserat.raw?.seller?.logoUrl || inserat.logoUrl || "";
     const sellerLocation = inserat.standort || [inserat.plz, inserat.ort].filter(Boolean).join(" ") || "Standort nicht angegeben";
 
@@ -2315,13 +2318,13 @@ async function renderSeller(inseratArg = null) {
     "";
 
   // --- Name + Initialen + Typ ---
-  const name =
-    (
-      profile.firma ||
-      profile.name ||
-      inserat.verkauf_name ||
-      (isDealer ? "Händler" : "Privatanbieter")
-    ).trim() || (isDealer ? "Händler" : "Privatanbieter");
+  const dealerName = (
+    profile.firma ||
+    profile.name ||
+    inserat.verkauf_name ||
+    "Händler"
+  ).trim() || "Händler";
+  const name = isDealer ? dealerName : "Privatanbieter";
 
   const initials = sellerInitials(name);
 

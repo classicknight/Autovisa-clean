@@ -2377,11 +2377,14 @@ function buildSoldCardHTML(inserat) {
     rawType.includes("händ") ||
     rawType.includes("haend");
 
-  const sellerName =
-    inserat?.seller?.name ||
-    inserat?.sellerName ||
-    inserat?.verkauf_name ||
-    (isHaendler ? "Händler" : "Privat");
+  const sellerName = isHaendler
+    ? (
+        inserat?.seller?.name ||
+        inserat?.sellerName ||
+        inserat?.verkauf_name ||
+        "Händler"
+      )
+    : "Privatanbieter";
 
   const sellerLogo =
     inserat?.seller?.logoUrl ||
@@ -2412,7 +2415,8 @@ function buildSoldCardHTML(inserat) {
     <div class="car-card-wrapper" data-id="${escapeHTML(String(fahrzeugId || ""))}">
       <div class="car-card horizontal">
         <div class="car-card-media">
-          <div class="card-actions mobile-only">
+          <div class="card-actions mobile-only sold-actions">
+            <span class="sold-date"><i class="fas fa-check-circle"></i> Verkauft am ${escapeHTML(soldDate)}</span>
             <button class="relist-btn" type="button" title="Wieder online" aria-label="Wieder online">
               <i class="fas fa-undo"></i>
             </button>
@@ -2458,11 +2462,11 @@ function buildSoldCardHTML(inserat) {
               <div class="dealer-meta">
                 <div class="dealer-name">${escapeHTML(sellerName)}</div>
                 ${dealerRatingHTML}
-                <div class="sold-date"><i class="fas fa-check-circle"></i> Verkauft am ${escapeHTML(soldDate)}</div>
                 <div class="dealer-location">${escapeHTML(location)}</div>
               </div>
             </div>
-            <div class="card-actions desktop-only">
+            <div class="card-actions desktop-only sold-actions">
+              <span class="sold-date"><i class="fas fa-check-circle"></i> Verkauft am ${escapeHTML(soldDate)}</span>
               <button class="relist-btn" type="button" title="Wieder online" aria-label="Wieder online">
                 <i class="fas fa-undo"></i>
               </button>
@@ -2611,11 +2615,14 @@ function buildSavedCardHTML(inserat, userId) {
     rawType.includes("händ") ||
     rawType.includes("haend");
 
-  const sellerName =
-    inserat?.seller?.name ||
-    inserat?.sellerName ||
-    inserat?.verkauf_name ||
-    (isHaendler ? "Händler" : "Privat");
+  const sellerName = isHaendler
+    ? (
+        inserat?.seller?.name ||
+        inserat?.sellerName ||
+        inserat?.verkauf_name ||
+        "Händler"
+      )
+    : "Privatanbieter";
 
   const sellerLogo =
     inserat?.seller?.logoUrl ||

@@ -159,6 +159,7 @@ document.addEventListener("DOMContentLoaded", () => {
       let items = [];
       let active = -1;
       let abort = null;
+      let lastPreferCity = false;
     
       // -------------------------
       // Local PLZ/Ort Index (/data/plz-de.json)
@@ -213,13 +214,17 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
     
-      function localSuggest(term) {
+      const normalizeCityFromLabel = (label = "") =>
+        String(label || "").replace(/^\s*\d{4,5}\s+/, "").trim();
+
+      function localSuggest(term, preferCity) {
         if (!plzLoaded || !plzIndex.length) return [];
         const t = String(term || "").trim().toLowerCase();
         if (t.length < 2) return [];
     
         const MAX = 20;
         const out = [];
+        const seen = new Set();
         const startsWithDigit = /^\d/.test(t);
     
         for (let i = 0; i < plzIndex.length; i++) {
@@ -233,6 +238,13 @@ document.addEventListener("DOMContentLoaded", () => {
               (it.cityLower && it.cityLower.startsWith(t)) ||
               (it.comboLower && it.comboLower.startsWith(t))
             ) {
+              if (preferCity) {
+                const cityKey = (it.cityLower || normalizeCityFromLabel(it.mainLabel).toLowerCase());
+                const stateKey = String(it.state || "").toLowerCase();
+                const key = `${cityKey}|${stateKey}`;
+                if (key && seen.has(key)) continue;
+                if (key) seen.add(key);
+              }
               out.push(it);
             }
           }
@@ -299,9 +311,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (resolved) {
           ortLatEl.value = String(resolved.lat);
           ortLonEl.value = String(resolved.lon);
-    
+
           // optional: auf "sauberen" API-Wert normalisieren
-          if (resolved.value) ortInput.value = resolved.value;
+          if (resolved.value && !lastPreferCity) ortInput.value = resolved.value;
         }
     
         close();
@@ -343,21 +355,31 @@ document.addEventListener("DOMContentLoaded", () => {
       const fetchSuggest = async (val) => {
         const q = String(val || "").trim();
         if (q.length < 2) return close();
+        const preferCity = !/\d/.test(q);
+        lastPreferCity = preferCity;
     
         // Local index lazy-loaden
         await ensurePlzIndex();
     
         // 1) Local Vorschläge (PLZ/Ort komplett)
-        const local = localSuggest(q);
+        const local = localSuggest(q, preferCity);
         if (local.length) {
-          items = local.map((x) => ({
-            label: x.mainLabel,       // z.B. "44147 Dortmund"
-            value: x.query,           // z.B. "44147 Dortmund, Nordrhein-Westfalen"
-            query: x.query,           // für Coords-Auflösung
-            secondary: x.state || "", // Bundesland
-            lat: NaN,
-            lon: NaN,
-          }));
+          items = local.map((x) => {
+            const city = x.city || normalizeCityFromLabel(x.mainLabel);
+            const state = x.state || "";
+            const basePlz = x.postcode && x.city ? `${x.postcode} ${x.city}` : x.mainLabel;
+            const baseCity = city || normalizeCityFromLabel(x.mainLabel) || x.mainLabel;
+            const base = preferCity ? baseCity : basePlz;
+            const label = state ? `${base}, ${state}` : base;
+            return {
+              label,
+              value: label,
+              query: label,
+              secondary: state || "",
+              lat: NaN,
+              lon: NaN,
+            };
+          });
           active = -1;
           render();
           return;
@@ -377,17 +399,41 @@ document.addEventListener("DOMContentLoaded", () => {
           const data = await res.json();
     
           const arr = Array.isArray(data?.items) ? data.items : [];
-          items = arr
-            .map((x) => ({
-              label: x.label || x.value || "",
-              value: x.value || x.label || "",
-              query: x.value || x.label || "",
-              secondary: x.secondary || "",
-              lat: Number(x.lat),
-              lon: Number(x.lon),
-            }))
+          let mapped = arr
+            .map((x) => {
+              const city = String(x.city || "").trim() || normalizeCityFromLabel(x.label || x.value || "");
+              const state = String(x.state || "").trim();
+              const postcode = String(x.postcode || "").trim();
+              const basePlz = postcode && city ? `${postcode} ${city}` : (x.label || x.value || "");
+              const baseCity = city || normalizeCityFromLabel(x.label || x.value || "") || (x.label || x.value || "");
+              const base = preferCity ? baseCity : basePlz;
+              const label = state && base ? `${base}, ${state}` : base;
+              return {
+                label,
+                value: label,
+                query: label,
+                secondary: state || "",
+                lat: Number(x.lat),
+                lon: Number(x.lon),
+              };
+            })
             .filter((it) => it.label);
-    
+
+          if (preferCity) {
+            const seen = new Set();
+            mapped = mapped.filter((it) => {
+              const cityKey = normalizeCityFromLabel(it.label).toLowerCase();
+              const stateKey = String(it.secondary || "").toLowerCase();
+              const key = `${cityKey}|${stateKey}`;
+              if (!cityKey) return false;
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+          }
+
+          items = mapped;
+
           active = -1;
           render();
         } catch (e) {

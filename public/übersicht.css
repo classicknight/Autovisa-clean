@@ -3097,12 +3097,18 @@ img, video, canvas {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 2px;
+  margin: 0;
 }
 
 .sold-cars .sold-date i{
   color: #00b8a9;
   font-size: 12px;
+}
+
+.sold-cars .sold-actions{
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .meine-autos-seite .card-actions,

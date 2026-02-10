@@ -1924,12 +1924,15 @@ function getCombinedConsumption(item) {
         rawType.includes("händ") ||
         rawType.includes("haend");
   
-      const sellerName =
-        inserat.seller?.name ||
-        inserat.raw?.seller?.name ||
-        inserat.name ||
-        inserat.raw?.verkauf_name ||
-        (isHaendler ? "Händler" : "Privatanbieter");
+      const sellerName = isHaendler
+        ? (
+            inserat.seller?.name ||
+            inserat.raw?.seller?.name ||
+            inserat.name ||
+            inserat.raw?.verkauf_name ||
+            "Händler"
+          )
+        : "Privatanbieter";
   
       const sellerLogo =
         inserat.seller?.logoUrl ||

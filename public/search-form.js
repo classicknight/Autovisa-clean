@@ -595,6 +595,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let items = [];
     let activeIndex = -1;
     let geoAbort = null;
+    let lastPreferCity = false;
 
     let plzIndex = [];
     let plzLoaded = false;
@@ -643,17 +644,32 @@ document.addEventListener("DOMContentLoaded", () => {
       activeIndex = i;
     }
 
-    function pick(i) {
-      const it = items[i];
-      if (!it) return;
+    function normalizeCityFromLabel(label = "") {
+      return String(label || "").replace(/^\s*\d{4,5}\s+/, "").trim();
+    }
 
+    function formatDisplay(it, preferCity) {
       const postcode = it.postcode || it.plz || "";
       const city = it.city || it.ort || "";
       const state = it.state || it.bundesland || "";
 
-      const base = postcode && city ? `${postcode} ${city}` : city || postcode || it.label || "";
-      const value = state ? `${base}, ${state}` : base;
+      let base = "";
+      if (preferCity) {
+        const fallback = normalizeCityFromLabel(it.label || it.value || "");
+        base = city || fallback || it.label || it.value || "";
+      } else {
+        base = postcode && city ? `${postcode} ${city}` : city || postcode || it.label || it.value || "";
+      }
 
+      return state && base ? `${base}, ${state}` : base;
+    }
+
+    function pick(i) {
+      const it = items[i];
+      if (!it) return;
+
+      const preferCity = lastPreferCity || !/\d/.test(locInput.value);
+      const value = formatDisplay(it, preferCity);
       locInput.value = value;
       hideBox();
 
@@ -661,7 +677,7 @@ document.addEventListener("DOMContentLoaded", () => {
       locInput.dispatchEvent(new Event("change", { bubbles: true }));
     }
 
-    function render(list, q) {
+    function render(list, q, preferCity) {
       if (!list.length) {
         hideBox();
         return;
@@ -671,12 +687,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       box.innerHTML = list
         .map((s, i) => {
-          const postcode = s.postcode || s.plz || "";
-          const city = s.city || s.ort || "";
-          const state = s.state || s.bundesland || "";
-
-          const base = postcode && city ? `${postcode} ${city}` : city || postcode || s.label || "";
-          const show = state ? `${base}, ${state}` : base;
+          const show = formatDisplay(s, preferCity);
 
           const labelHtml = show.replace(rx, '<span class="loc-suggest-highlight">$1</span>');
           return `<div class="loc-suggest-item" data-idx="${i}">${labelHtml}</div>`;
@@ -696,11 +707,12 @@ document.addEventListener("DOMContentLoaded", () => {
       setActive(-1);
     }
 
-    function searchLocal(term) {
+    function searchLocal(term, preferCity) {
       if (!plzLoaded || !Array.isArray(plzIndex) || !plzIndex.length) return [];
       const t = term.toLowerCase();
       const MAX = 20;
       const out = [];
+      const seen = new Set();
 
       for (let i = 0; i < plzIndex.length; i++) {
         const it = plzIndex[i];
@@ -711,6 +723,12 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!combo) continue;
 
         if (combo.startsWith(t) || city.startsWith(t) || plz.startsWith(t)) {
+          if (preferCity) {
+            const state = String(it.state || it.bundesland || "").toLowerCase();
+            const key = `${city}|${state}`;
+            if (key && seen.has(key)) continue;
+            if (key) seen.add(key);
+          }
           out.push(it);
           if (out.length >= MAX) break;
         }
@@ -725,12 +743,15 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
+      const preferCity = !/\d/.test(term);
+      lastPreferCity = preferCity;
+
       await ensurePlzIndex();
       if (plzLoaded && plzIndex.length) {
-        const local = searchLocal(term);
+        const local = searchLocal(term, preferCity);
         if (local.length) {
           items = local;
-          render(items, term);
+          render(items, term, preferCity);
           return;
         }
       }
@@ -751,8 +772,24 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const { suggestions = [] } = await r.json();
-        items = Array.isArray(suggestions) ? suggestions : [];
-        render(items, term);
+        const raw = Array.isArray(suggestions) ? suggestions : [];
+        if (preferCity) {
+          const seen = new Set();
+          items = raw.filter((it) => {
+            const cityRaw = String(it.city || it.ort || "").trim();
+            const city = cityRaw || normalizeCityFromLabel(it.label || it.value || "");
+            const cityKey = String(city || "").toLowerCase();
+            const state = String(it.state || it.bundesland || "").toLowerCase();
+            const key = `${cityKey}|${state}`;
+            if (!cityKey) return false;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+        } else {
+          items = raw;
+        }
+        render(items, term, preferCity);
       } catch (err) {
         if (err?.name !== "AbortError") hideBox();
       }

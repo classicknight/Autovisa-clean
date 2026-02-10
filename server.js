@@ -2129,6 +2129,8 @@ app.post("/profil/update", checkLogin, async (req, res) => {
     const update = {};
     let normalizedAddress = "";
     let addressPayload = null;
+    let standortValue = "";
+    let coords = null;
 
     switch (field) {
       case "address": {
@@ -2151,6 +2153,10 @@ app.post("/profil/update", checkLogin, async (req, res) => {
           city: geo.city || "",
           country: geo.country || "Deutschland",
         };
+        standortValue = [addressPayload.postcode, addressPayload.city].filter(Boolean).join(" ");
+        coords = (Number.isFinite(geo?.lat) && Number.isFinite(geo?.lon))
+          ? { type: "Point", coordinates: [Number(geo.lon), Number(geo.lat)] }
+          : null;
 
         update.adresse = normalizedAddress;
         update.strasse = addressPayload.street;
@@ -2158,6 +2164,7 @@ app.post("/profil/update", checkLogin, async (req, res) => {
         update.plz = addressPayload.postcode;
         update.ort = addressPayload.city;
         update.land = addressPayload.country;
+        update.standort = standortValue;
         break;
       }
       case "phone":
@@ -2191,6 +2198,27 @@ app.post("/profil/update", checkLogin, async (req, res) => {
       { id: req.nutzer.id },
       { $set: update }
     );
+
+    if (field === "address") {
+      try {
+        const inserateUpdate = {
+          standort: standortValue,
+          "seller.strasse": addressPayload?.street || "",
+          "seller.hausnummer": addressPayload?.houseNumber || "",
+          "seller.plz": addressPayload?.postcode || "",
+          "seller.ort": addressPayload?.city || "",
+          "seller.land": addressPayload?.country || "Deutschland",
+        };
+        if (coords) inserateUpdate.standortCoords = coords;
+
+        await db.collection("inserate").updateMany(
+          { verkaeuferId: req.nutzer.id },
+          { $set: inserateUpdate }
+        );
+      } catch (e) {
+        console.warn("❌ Inserate-Update nach Adressänderung fehlgeschlagen:", e?.message || e);
+      }
+    }
 
     const payload = { success: true };
     if (field === "address") {
