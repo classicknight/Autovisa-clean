@@ -391,6 +391,12 @@ async function loadInseratData() {
     }
   }
 
+  // ✅ NEU: Wenn URL-ID vorhanden ist, aber localStorage eine andere ID hat → LS ignorieren
+  const lsId = fromLS ? getDocId(fromLS) : null;
+  if (id && lsId && String(lsId) !== String(id)) {
+    fromLS = null;
+  }
+
   // View-Count: jedes Öffnen zählt
   if (id && /^[0-9a-fA-F]{24}$/.test(String(id))) {
     try {
@@ -409,10 +415,10 @@ async function loadInseratData() {
       if (res.ok) {
         const details = await res.json();
 
-        // 💡 WICHTIG: Server-Daten mit dem lokalen Inserat MERGEN
-        // fromLS = komplettes Inserat (mit allen Feldern)
-        // details = Zusatzinfos (seller, isSaved, ein paar Felder)
-        const merged = fromLS ? { ...fromLS, ...details } : details;
+        // ✅ MERGE NUR, WENN IDS GLEICH
+        const merged = fromLS && getDocId(fromLS) === String(id)
+          ? { ...fromLS, ...details }
+          : details;
 
         try {
           localStorage.setItem(

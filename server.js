@@ -2221,6 +2221,15 @@ app.post("/profil/update", checkLogin, async (req, res) => {
       } catch (e) {
         console.warn("❌ Inserate-Update nach Adressänderung fehlgeschlagen:", e?.message || e);
       }
+    } else if (field === "impressum") {
+      try {
+        await db.collection("inserate").updateMany(
+          { verkaeuferId: req.nutzer.id },
+          { $set: { "seller.impressum": v, impressum: v } }
+        );
+      } catch (e) {
+        console.warn("❌ Inserate-Update nach Impressum-Änderung fehlgeschlagen:", e?.message || e);
+      }
     }
 
     const payload = { success: true };
