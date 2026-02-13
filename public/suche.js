@@ -2314,15 +2314,31 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
   
     // Ort / Umkreis
     const locVal = (document.getElementById("location")?.value || "").trim();
+    const hasLoc = !!locVal;
     setOrDelete(params, "ort", locVal);
     const distSel    = document.getElementById("distance-select");
     const distCustom = document.getElementById("distance-custom");
+    let umkreisSet = false;
     if (distSel && !distSel.disabled) {
       const dRaw = distSel.value === "custom" ? (distCustom?.value || "") : distSel.value;
       const d    = parseInt(dRaw, 10);
-      setOrDelete(params, "umkreis", (!Number.isNaN(d) && d > 0 && d !== 999) ? d : "");
+      if (!Number.isNaN(d) && d > 0 && d !== 999) {
+        setOrDelete(params, "umkreis", d);
+        umkreisSet = true;
+      } else {
+        params.delete("umkreis");
+      }
     } else {
       params.delete("umkreis");
+    }
+    // Default: wenn Ort gesetzt ist, aber kein Umkreis gewählt → 100 km
+    if (hasLoc && !umkreisSet) {
+      params.set("umkreis", "100");
+      if (distSel) {
+        distSel.disabled = false;
+        distSel.value = "100";
+        if (distCustom) distCustom.value = "";
+      }
     }
   
     // === HU bis (YYYY-MM) — nur anfassen, wenn UI-Feld existiert ===

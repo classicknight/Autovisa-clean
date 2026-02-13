@@ -1243,6 +1243,7 @@ if (kraftValues.length) {
   
     // Ort
     const ort = document.getElementById("ort")?.value?.trim();
+    const hasOrt = !!ort;
     if (ort) qs.set("ort", ort);
   
     // Koordinaten (falls vorhanden)
@@ -1261,7 +1262,15 @@ if (kraftValues.length) {
         const c = _numFallback(document.getElementById("custom-umkreis")?.value);
         radius = (c != null && c > 0) ? String(c) : "";
       }
-      if (radius) qs.set("umkreis", radius);
+      if (radius) {
+        qs.set("umkreis", radius);
+      } else if (hasOrt) {
+        // Default: wenn Ort gesetzt ist, aber kein Umkreis gewählt → 100 km
+        radius = "100";
+        umkreisSel.value = radius;
+        window.toggleCustomUmkreis?.(radius);
+        qs.set("umkreis", radius);
+      }
     }
   
     // Leistung / Hubraum

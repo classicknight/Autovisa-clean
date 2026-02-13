@@ -2323,7 +2323,39 @@ img, video, canvas {
   border-radius:12px;
   background:var(--avf-card);
 }
-.filter-sidebar .avf-switch input{ width:18px; height:18px; }
+.filter-sidebar .avf-switch input{
+  appearance:none;
+  -webkit-appearance:none;
+  width:20px; height:20px;
+  border-radius:6px;
+  border:2px solid rgba(0,0,0,.18);
+  background:#fff;
+  display:grid;
+  place-content:center;
+  cursor:pointer;
+  transition:background .2s ease, border-color .2s ease, box-shadow .2s ease, transform .02s;
+}
+.filter-sidebar .avf-switch input::after{
+  content:"";
+  width:10px; height:6px;
+  border:solid #fff;
+  border-width:0 0 3px 3px;
+  transform:rotate(-45deg) scale(0);
+  transform-origin:center;
+  transition:transform .15s ease;
+}
+.filter-sidebar .avf-switch input:checked{
+  background:linear-gradient(90deg,#00ffcc,#00bfa6);
+  border-color:#00bfa6;
+  box-shadow:0 0 0 3px rgba(0,191,166,.18);
+}
+.filter-sidebar .avf-switch input:checked::after{
+  transform:rotate(-45deg) scale(1);
+}
+.filter-sidebar .avf-switch input:focus-visible{
+  outline:none;
+  box-shadow:0 0 0 3px rgba(0,191,166,.28);
+}
 
 /* Spacing – nur leicht, kollidiert nicht mit bestehendem Layout */
 .filter-sidebar .filter-group{ margin:1rem 0 1.2rem; }

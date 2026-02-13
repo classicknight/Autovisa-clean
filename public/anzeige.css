@@ -3285,6 +3285,17 @@ img, video, canvas {
   padding: 1.5rem;
 }
 
+/* Bewertung: Absenden-Button */
+.rating-panel .rating-submit{
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-weight: 800;
+  box-shadow: 0 10px 22px rgba(0, 191, 166, 0.25);
+}
+.rating-panel .rating-submit:hover{
+  filter: brightness(1.05);
+}
+
 .rating-panel.show {
   bottom: 0;
 }

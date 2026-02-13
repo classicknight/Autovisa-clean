@@ -975,19 +975,42 @@ if (fuelCbs.length) {
 
     // Ort
     const loc = (locInput?.value || "").trim();
+    const hasLoc = !!loc;
     if (loc) qs.set("ort", loc);
 
     // Umkreis: Kriterien-Seite zuerst, sonst Startseite
+    let umkreisSet = false;
     if (umkreisSel) {
       const raw = umkreisSel.value === "custom" ? umkreisCustom?.value || "" : umkreisSel.value;
       const n = parseInt(raw, 10);
-      if (!Number.isNaN(n) && n > 0) qs.set("umkreis", String(n));
-      else qs.delete("umkreis");
+      if (!Number.isNaN(n) && n > 0) {
+        qs.set("umkreis", String(n));
+        umkreisSet = true;
+      } else {
+        qs.delete("umkreis");
+      }
     } else if (distSel && !distSel.disabled) {
       const dRaw = distSel.value === "custom" ? distCustom?.value || "" : distSel.value;
       const d = parseInt(dRaw, 10);
-      if (!Number.isNaN(d) && d > 0 && d !== 999) qs.set("umkreis", String(d));
-      else qs.delete("umkreis");
+      if (!Number.isNaN(d) && d > 0 && d !== 999) {
+        qs.set("umkreis", String(d));
+        umkreisSet = true;
+      } else {
+        qs.delete("umkreis");
+      }
+    }
+
+    // Default: wenn Ort gesetzt ist, aber kein Umkreis gewählt → 100 km
+    if (hasLoc && !umkreisSet) {
+      qs.set("umkreis", "100");
+      if (umkreisSel) {
+        umkreisSel.value = "100";
+        window.toggleCustomUmkreis?.("100");
+      } else if (distSel) {
+        distSel.disabled = false;
+        distSel.value = "100";
+        if (distCustom) distCustom.value = "";
+      }
     }
 
     if (sortSel && sortSel.value) {

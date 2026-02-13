@@ -2745,7 +2745,7 @@ function setupRatingPanel() {
           <div id="starRating" style="display:flex;gap:6px;margin:6px 0 10px;"></div>
           <textarea id="ratingText" rows="4" style="width:100%;padding:8px;border-radius:8px;border:1px solid #e3e9ef;" placeholder="Deine Bewertung…"></textarea>
           <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
-            <button id="submitRatingBtn" class="btn-primary" style="padding:8px 12px;border-radius:10px;border:none;background:linear-gradient(90deg,#00ffcc,#00bfa6);color:#002a2b;font-weight:800;cursor:pointer;">Absenden</button>
+            <button id="submitRatingBtn" class="btn-primary rating-submit" type="button">Absenden</button>
           </div>
         </div>
       </div>`;
