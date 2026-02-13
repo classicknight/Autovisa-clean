@@ -41,13 +41,39 @@ let lightboxIsDragging = false;
 // Utils
 // =========================
 const toNum = (v) => {
-  if (v === null || v === undefined) return NaN;
-  const s = String(v)
-    .trim()
-    .replace(/[\u202F\u00A0\s]/g, "")
-    .replace(/[€]/g, "")
-    .replace(/\./g, "")
-    .replace(",", ".");
+  if (v === null || v === undefined || v === "") return NaN;
+  if (typeof v === "number") return Number.isFinite(v) ? v : NaN;
+
+  let s = String(v).trim();
+  if (!s) return NaN;
+
+  s = s.replace(/[\u202F\u00A0\s]/g, "").replace(/[€]/g, "");
+
+  const hasComma = s.includes(",");
+  const hasDot = s.includes(".");
+
+  if (hasComma && hasDot) {
+    const lastComma = s.lastIndexOf(",");
+    const lastDot = s.lastIndexOf(".");
+    const decPos = Math.max(lastComma, lastDot);
+    const intPart = s.slice(0, decPos).replace(/[.,]/g, "");
+    const fracPart = s.slice(decPos + 1).replace(/[.,]/g, "");
+    s = `${intPart}.${fracPart}`;
+  } else if (hasComma || hasDot) {
+    const sep = hasComma ? "," : ".";
+    const parts = s.split(sep);
+    if (parts.length === 2) {
+      const frac = parts[1];
+      if (/^\d{1,2}$/.test(frac)) {
+        s = parts[0].replace(/[.,]/g, "") + "." + frac;
+      } else {
+        s = s.replace(/[.,]/g, "");
+      }
+    } else {
+      s = s.replace(/[.,]/g, "");
+    }
+  }
+
   const n = Number(s);
   return Number.isFinite(n) ? n : NaN;
 };
@@ -1093,7 +1119,6 @@ if (ausstattungContainer) {
   // Geo-Suggest für Kontaktformular
   setupGeoSuggest();
 });
-
 
 
 
