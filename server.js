@@ -2977,58 +2977,39 @@ app.get("/inserat-details/:id", async (req, res) => {
     const sellerCreatedAt =
       sellerProfile?.createdAt || sellerProfile?.erstelltAm || null;
 
+    const docId = doc._id?.toString?.() || String(doc._id || "");
+    const baseDoc = {
+      ...doc,
+      _id: docId,
+      id: docId,
+    };
+
+    const sellerMerged = {
+      ...(doc.seller || {}),
+      id: sellerId || doc.seller?.id || "",
+      type: sellerType,
+      name: sellerName,
+      logoUrl: sellerLogo,
+
+      strasse: sellerProfile?.strasse || doc.seller?.strasse || "",
+      hausnummer: sellerProfile?.hausnummer || doc.seller?.hausnummer || "",
+      plz: sellerProfile?.plz || doc.seller?.plz || "",
+      ort: sellerProfile?.ort || doc.seller?.ort || "",
+      land: sellerProfile?.land || doc.seller?.land || "",
+
+      telefon: sellerProfile?.telefon || sellerProfile?.telefon2 || doc.seller?.telefon || "",
+      email: sellerProfile?.email || doc.seller?.email || "",
+
+      website: sellerProfile?.website || sellerProfile?.webseite || doc.seller?.website || doc.seller?.webseite || "",
+      sprachen: sellerLangs.length ? sellerLangs : (doc.seller?.sprachen || doc.seller?.languages || []),
+      createdAt: sellerCreatedAt || doc.seller?.createdAt || doc.seller?.erstelltAm || null,
+      oeffnungszeiten: sellerProfile?.oeffnungszeiten || doc.seller?.oeffnungszeiten || "",
+      impressum: sellerProfile?.impressum || doc.seller?.impressum || "",
+    };
+
     res.json({
-      id: doc._id?.toString?.() || String(doc._id || ""),
-      titel: doc.titel || "",
-      preis:
-        doc.verkauf_brutto ??
-        doc.verkauf_preis ??
-        doc.preis ??
-        null,
-
-      images: Array.isArray(doc.images) ? doc.images : [],
-      video: doc.video || null,
-
-      verkauf_kurzbeschreibung: doc.verkauf_kurzbeschreibung || "",
-      verkauf_kilometer: doc.verkauf_kilometer ?? null,
-      verkauf_erstzulassung: doc.verkauf_erstzulassung || null,
-      verkauf_kraftstoff: doc.verkauf_kraftstoff || null,
-      verkauf_leistung: doc.verkauf_leistung ?? null,
-      verkauf_getriebe: doc.verkauf_getriebe ?? null,
-      verkauf_verbrauch_kombiniert:
-        doc.verkauf_verbrauch_kombiniert || null,
-
-      verkauf_verkaeufer: doc.verkauf_verkaeufer || "",
-      verkauf_name: doc.verkauf_name || "",
-
-      standort: doc.standort || "",
-      standortCoords: doc.standortCoords || null,
-
-      telefon: doc.telefon || "",
-      email: doc.email || "",
-
-      seller: {
-        id: sellerId || "",
-        type: sellerType,
-        name: sellerName,
-        logoUrl: sellerLogo,
-
-        strasse: sellerProfile?.strasse || "",
-        hausnummer: sellerProfile?.hausnummer || "",
-        plz: sellerProfile?.plz || "",
-        ort: sellerProfile?.ort || "",
-        land: sellerProfile?.land || "",
-
-        telefon: sellerProfile?.telefon || sellerProfile?.telefon2 || "",
-        email: sellerProfile?.email || "",
-
-        website: sellerProfile?.website || sellerProfile?.webseite || "",
-        sprachen: sellerLangs,
-        createdAt: sellerCreatedAt,
-        oeffnungszeiten: sellerProfile?.oeffnungszeiten || "",
-        impressum: sellerProfile?.impressum || "",
-      },
-
+      ...baseDoc,
+      seller: sellerMerged,
       isSaved,
     });
   } catch (e) {

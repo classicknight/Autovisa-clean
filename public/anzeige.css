@@ -2293,7 +2293,7 @@ img, video, canvas {
 /* --- FIX 1: Händler-Logo korrekt, Initialen ausblenden, zentriert --- */
 .dealer-avatar{
   position: relative;
-  width: 56px; height: 56px;
+  width: 72px; height: 72px;
   border-radius: 50%;
   overflow: hidden;
   border: 1px solid #e3e9ef;
@@ -2303,8 +2303,8 @@ img, video, canvas {
 .dealer-avatar img{
   position: absolute; inset: 0;
   width: 100%; height: 100%;
-  object-fit: contain;           /* Logos nicht abgeschnitten */
-  padding: 6px;                  /* etwas Luft um’s Logo */
+  object-fit: cover;             /* Logo reingezoomt wie in Index/Suche */
+  padding: 0;                    /* kein zusätzlicher Rand */
   display: block;
   opacity: 0;                    /* erst sichtbar, wenn geladen */
   transition: opacity .2s ease;
@@ -2312,7 +2312,7 @@ img, video, canvas {
 .dealer-avatar .dealer-initials{
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 14px;
+  font-weight: 700; font-size: 16px;
   color: #253544; background: #e9eef3;
 }
 .dealer-avatar.has-logo img{ opacity: 1; }

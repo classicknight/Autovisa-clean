@@ -72,7 +72,17 @@ const toNum = (v) => {
   const n = Number(s);
   return Number.isFinite(n) ? n : NaN;
 };
-const fmtEUR = (n) => (Number.isFinite(n) ? n.toLocaleString("de-DE") + " €" : "");
+const fmtEUR = (n, opts = {}) => {
+  if (!Number.isFinite(n)) return "";
+  const min = Number.isInteger(opts.min) ? opts.min : 0;
+  const max = Number.isInteger(opts.max) ? opts.max : min;
+  return (
+    n.toLocaleString("de-DE", {
+      minimumFractionDigits: min,
+      maximumFractionDigits: max,
+    }) + " €"
+  );
+};
 const PS2KW = (ps) => Math.round(Number(ps) * 0.7355);
 const escapeHTML = (str = "") =>
   String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -546,7 +556,8 @@ function fillTop(inserat) {
         if (diffRatio > 0.05) netValue = expected;
       }
     }
-    priceNet.textContent = isZzgl && Number.isFinite(netValue) ? fmtEUR(netValue) : "";
+    priceNet.textContent =
+      isZzgl && Number.isFinite(netValue) ? fmtEUR(netValue, { min: 2, max: 2 }) : "";
   }
   if (mwstType) mwstType.textContent = inserat.verkauf_mwst || (isKeine ? "Keine MwSt." : isZzgl ? "zzgl. MwSt." : "");
   if (priceType) priceType.textContent = isKeine ? "Endpreis" : "Brutto";
