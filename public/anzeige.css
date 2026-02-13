@@ -3337,6 +3337,10 @@ img, video, canvas {
   padding: 12px 0;
   border-top: 1px solid #e3e9ef;
   font-size: 15px;
+  max-height: 240px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px; /* Platz für Scrollbar */
 }
 
 .rating-list > div {

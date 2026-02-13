@@ -290,13 +290,20 @@ function getCombinedConsumption(item) {
 
 /* ------------------------ Auth + Navbar ------------------------ */
 function setupAuthLink() {
+  const authLink = document.getElementById("auth-link");
+  const authLoginHTML = authLink ? authLink.innerHTML : "";
+
   fetch(api("/getNutzerInfo"), { credentials: "include" })
     .then((r) => r.json())
     .then((data) => {
-      const authLink = document.getElementById("auth-link");
       if (!authLink) return;
       if (data.eingeloggt) {
-        authLink.innerHTML = `<a href="#" id="logout-link"><i class="fas fa-sign-out-alt"></i> Abmelden</a>`;
+        authLink.innerHTML = `
+          <a href="#" class="nav-link" id="logout-link">
+            <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+            <span>Abmelden</span>
+          </a>
+        `;
         document.getElementById("logout-link")?.addEventListener("click", (e) => {
           e.preventDefault();
           fetch(api("/logout"), { method: "POST", credentials: "include" })
@@ -309,7 +316,7 @@ function setupAuthLink() {
             .catch(() => alert("Abmelden fehlgeschlagen."));
         });
       } else {
-        authLink.innerHTML = `<a href="login.html"><i class="fas fa-sign-in-alt"></i> Login</a>`;
+        authLink.innerHTML = authLoginHTML;
       }
     })
     .catch(() => {});
@@ -2685,10 +2692,11 @@ async function renderSeller(inseratArg = null) {
     impressumContent.innerHTML = html;
     // CSS setzt default display:none, daher hier explizit sichtbar machen
     impressumBox.style.display = "block";
-    impressumBox.classList.add("open");
-    impressumToggle.setAttribute("aria-expanded", "true");
+    // Default: geschlossen
+    impressumBox.classList.remove("open");
+    impressumToggle.setAttribute("aria-expanded", "false");
     const labelEl = impressumToggle.querySelector(".impressum-toggle-label");
-    if (labelEl) labelEl.textContent = "Impressum verbergen";
+    if (labelEl) labelEl.textContent = "Impressum anzeigen";
 
     impressumToggle.addEventListener("click", () => {
       const open = impressumBox.classList.toggle("open");
