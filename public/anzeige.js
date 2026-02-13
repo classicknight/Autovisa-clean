@@ -519,14 +519,35 @@ function fillTop(inserat) {
   const brutto = toNum(inserat.verkauf_brutto ?? inserat["brutto-preis"]);
   const netto = toNum(inserat.verkauf_netto ?? inserat["netto-preis"]);
   const einzel = toNum(inserat.verkauf_preis ?? inserat.preis);
+  const VAT_RATE = 0.19;
+  const calcNetFromBrutto = (gross) =>
+    Number.isFinite(gross) ? gross / (1 + VAT_RATE) : NaN;
 
   let mainPriceNum = NaN;
   if (isKeine) mainPriceNum = Number.isFinite(einzel) ? einzel : NaN;
   else if (isZzgl) mainPriceNum = Number.isFinite(brutto) ? brutto : Number.isFinite(einzel) ? einzel : NaN;
   else mainPriceNum = Number.isFinite(brutto) ? brutto : Number.isFinite(einzel) ? einzel : NaN;
 
-  if (priceMain) priceMain.textContent = Number.isFinite(mainPriceNum) ? fmtEUR(mainPriceNum) : fmtEUR(toNum(inserat.preis)) || "–";
-  if (priceNet) priceNet.textContent = isZzgl && Number.isFinite(netto) ? fmtEUR(netto) : "";
+  if (priceMain) {
+    priceMain.textContent = Number.isFinite(mainPriceNum)
+      ? fmtEUR(mainPriceNum)
+      : fmtEUR(toNum(inserat.preis)) || "–";
+  }
+
+  if (priceNet) {
+    let netValue = Number.isFinite(netto) ? netto : NaN;
+    if (isZzgl) {
+      if (!Number.isFinite(netValue) && Number.isFinite(brutto)) {
+        netValue = calcNetFromBrutto(brutto);
+      }
+      if (Number.isFinite(brutto) && Number.isFinite(netValue)) {
+        const expected = calcNetFromBrutto(brutto);
+        const diffRatio = expected > 0 ? Math.abs(netValue - expected) / expected : 0;
+        if (diffRatio > 0.05) netValue = expected;
+      }
+    }
+    priceNet.textContent = isZzgl && Number.isFinite(netValue) ? fmtEUR(netValue) : "";
+  }
   if (mwstType) mwstType.textContent = inserat.verkauf_mwst || (isKeine ? "Keine MwSt." : isZzgl ? "zzgl. MwSt." : "");
   if (priceType) priceType.textContent = isKeine ? "Endpreis" : "Brutto";
 
@@ -2651,7 +2672,8 @@ async function renderSeller(inseratArg = null) {
     const html = renderImpressumHTML(impressumRaw);
 
     impressumContent.innerHTML = html;
-    impressumBox.style.display = "";
+    // CSS setzt default display:none, daher hier explizit sichtbar machen
+    impressumBox.style.display = "block";
     impressumBox.classList.add("open");
     impressumToggle.setAttribute("aria-expanded", "true");
     const labelEl = impressumToggle.querySelector(".impressum-toggle-label");
