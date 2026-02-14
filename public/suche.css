@@ -2280,7 +2280,7 @@ img, video, canvas {
 /* aktiv */
 .filter-sidebar .avf-check-tile:has(input:checked){
   border-color:var(--avf-accent);
-  box-shadow:none;
+  box-shadow:0 0 0 1px var(--avf-accent);
 }
 
 /* Farben – Grid + Chips */
