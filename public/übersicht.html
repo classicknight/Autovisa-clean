@@ -368,6 +368,26 @@
             <span class="stat-value" data-stat="total">0</span>
           </div>
         </div>
+
+        <!-- CSV-Import (nur Händler) -->
+        <div class="profile-import haendler-only" id="dealerImport">
+          <h3 class="profile-subtitle">
+            <i class="fas fa-file-csv"></i> Bestand per CSV importieren
+          </h3>
+          <p class="profile-import-hint">
+            CSV hochladen → Vorschau prüfen → Import starten. Importierte Inserate werden zunächst als Entwurf/Offline gespeichert.
+            Pflicht-Spalten: <code>stock_number</code>, <code>title</code>, <code>price_eur</code>, <code>mileage_km</code>, <code>first_registration</code>.
+            Optional: <code>image_urls</code>, <code>video_url</code>.
+          </p>
+          <div class="profile-import-row">
+            <input id="dealerCsvFile" type="file" accept=".csv,.tsv,text/csv,text/plain" />
+            <button type="button" class="btn-soft" id="dealerCsvPreview">Vorschau</button>
+            <button type="button" class="btn-primary" id="dealerCsvImport" disabled>Import starten</button>
+            <a class="btn-soft" href="haendler-import.html">Erweiterter Import</a>
+          </div>
+          <div class="profile-import-status" id="dealerCsvStatus"></div>
+          <div class="profile-import-summary" id="dealerCsvSummary"></div>
+        </div>
   
       </div>
     </section>

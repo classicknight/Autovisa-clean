@@ -4431,6 +4431,11 @@ app.get("/api/search", async (req, res) => {
             { $addFields: { _preis_null: { $cond: [{ $eq: ["$preis_num", null] }, 1, 0] } } },
             { $sort: { _preis_null: 1, preis_num: -1, _id: -1 } }
           ]
+        : (sort === "km_asc")
+        ? [
+            { $addFields: { _km_null: { $cond: [{ $eq: ["$km_num", null] }, 1, 0] } } },
+            { $sort: { _km_null: 1, km_num: 1, _id: -1 } }
+          ]
         : [{ $sort: { veroeffentlichtAm: -1, _id: -1 } }];
 
     /* ---------------- Parsing / Normalisierung ---------------- */

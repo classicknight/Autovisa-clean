@@ -786,6 +786,7 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   if (sortBy) {
     if (QP.sort === "preis_asc")       sortBy.value = "price-asc";
     else if (QP.sort === "preis_desc") sortBy.value = "price-desc";
+    else if (QP.sort === "km_asc")     sortBy.value = "mileage-asc";
     else if (QP.sort === "neueste")    sortBy.value = "date-desc";
     else if (QP.sort)                  sortBy.value = "date-desc";
   }
@@ -2461,10 +2462,13 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
     // Sortierung -> Serverparam
     const sortSelect = document.getElementById("sortBy");
     const mapSort = v =>
-      v === "price-asc"  ? "preis_asc"  :
-      v === "price-desc" ? "preis_desc" : "neueste";
+      v === "price-asc"   ? "preis_asc"  :
+      v === "price-desc"  ? "preis_desc" :
+      v === "mileage-asc" ? "km_asc"     :
+      v === "date-desc"   ? "neueste"    : "";
     const sortVal = sortSelect?.value || "";
-    if (sortVal) params.set("sort", mapSort(sortVal));
+    const sortParam = mapSort(sortVal);
+    if (sortParam) params.set("sort", sortParam);
     else params.delete("sort");
   
     // Seite 1 + neu laden

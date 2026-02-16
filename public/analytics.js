@@ -141,6 +141,7 @@
   }
 
   // Init
+  injectStyles(); // styles always, damit Footer-Link sofort korrekt aussieht
   var consent = getConsent();
   if (consent === "granted") {
     enableAnalytics();

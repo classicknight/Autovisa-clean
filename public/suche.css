@@ -2312,7 +2312,7 @@ img, video, canvas {
 
 .filter-sidebar .avf-color-tile:has(input:checked){
   border-color:var(--avf-accent);
-  box-shadow:0 0 0 3px color-mix(in srgb, var(--avf-accent) 22%, transparent);
+  box-shadow:0 0 0 1px var(--avf-accent);
 }
 
 /* Unfallfrei Row */
@@ -2335,22 +2335,14 @@ img, video, canvas {
   cursor:pointer;
   transition:background .2s ease, border-color .2s ease, box-shadow .2s ease, transform .02s;
 }
-.filter-sidebar .avf-switch input::after{
-  content:"";
-  width:10px; height:6px;
-  border:solid #fff;
-  border-width:0 0 3px 3px;
-  transform:rotate(-45deg) scale(0);
-  transform-origin:center;
-  transition:transform .15s ease;
-}
 .filter-sidebar .avf-switch input:checked{
   background:linear-gradient(90deg,#00ffcc,#00bfa6);
   border-color:#00bfa6;
   box-shadow:0 0 0 3px rgba(0,191,166,.18);
-}
-.filter-sidebar .avf-switch input:checked::after{
-  transform:rotate(-45deg) scale(1);
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><path d='M2 9l6 6L22 2'/></svg>");
+  background-repeat:no-repeat;
+  background-position:center;
+  background-size:12px 10px;
 }
 .filter-sidebar .avf-switch input:focus-visible{
   outline:none;

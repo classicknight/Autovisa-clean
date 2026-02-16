@@ -2335,6 +2335,52 @@ img, video, canvas {
     font-weight: 600;
     color: #1a2733;
   }
+
+  /* CSV-Import (nur Händler) */
+  .profile-import{
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px dashed #e3e9ef;
+  }
+  .profile-import-hint{
+    margin: 6px 0 10px;
+    font-size: 0.9rem;
+    color: #6b7a88;
+  }
+  .profile-import-hint code{
+    background: #f0f2f6;
+    padding: 2px 6px;
+    border-radius: 8px;
+    color: #1a2733;
+  }
+  .profile-import-row{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .profile-import-row input[type="file"]{
+    padding: 10px;
+    border: 1px solid #e3e9ef;
+    border-radius: 12px;
+    background: #fff;
+    min-width: 260px;
+  }
+  .profile-import-status{
+    margin-top: 8px;
+    font-size: 0.9rem;
+    color: #5b6a74;
+  }
+  .profile-import-summary{
+    margin-top: 10px;
+    border: 1px dashed #e3e9ef;
+    border-radius: 12px;
+    padding: 10px 12px;
+    color: #4b5b67;
+    display: none;
+  }
+  .profile-import-summary.is-visible{ display: block; }
+  .profile-import-summary b{ color:#1a2733; }
   
   /* Inline-Editing */
   
@@ -2558,6 +2604,27 @@ img, video, canvas {
 .btn-soft:hover {
   border-color: #00b8a9;
   box-shadow: 0 0 0 3px rgba(0, 184, 169, 0.14);
+}
+
+.btn-primary{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid #00b8a9;
+  background: linear-gradient(90deg,#00ffcc,#00bfa6);
+  color: #002a2b;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-primary:hover{
+  filter: brightness(1.02);
+}
+.btn-primary[disabled]{
+  opacity: .55;
+  cursor: not-allowed;
+  filter: none;
 }
 
 .rating-list {

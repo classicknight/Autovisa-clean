@@ -832,6 +832,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (val === "price-asc") return "preis_asc";
     if (val === "price-desc") return "preis_desc";
     if (val === "date-desc") return "neueste";
+    if (val === "mileage-asc") return "km_asc";
     return "";
   }
   function normalizeGear(val) {

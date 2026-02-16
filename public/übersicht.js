@@ -1054,6 +1054,112 @@ document.addEventListener("DOMContentLoaded", async () => {
   const carList = document.querySelector(".car-list");
   if (!carList) return;
 
+  // CSV-Import (Händler)
+  function setupDealerCsvImport() {
+    const fileEl = document.getElementById("dealerCsvFile");
+    const btnPreview = document.getElementById("dealerCsvPreview");
+    const btnImport = document.getElementById("dealerCsvImport");
+    const statusEl = document.getElementById("dealerCsvStatus");
+    const summaryEl = document.getElementById("dealerCsvSummary");
+
+    if (!fileEl || !btnPreview || !btnImport) return;
+
+    let lastFile = null;
+    let lastPreviewOk = false;
+
+    const setStatus = (msg = "") => {
+      if (statusEl) statusEl.textContent = msg;
+    };
+
+    const renderSummary = (s) => {
+      if (!summaryEl) return;
+      summaryEl.classList.add("is-visible");
+      const delim = s?.delimiter === ";" ? "Semikolon" : "Komma";
+      summaryEl.innerHTML =
+        `Neu: <b>${s?.newCount ?? 0}</b> · ` +
+        `Updates: <b>${s?.updateCount ?? 0}</b> · ` +
+        `Fehler: <b>${s?.errorCount ?? 0}</b> · ` +
+        `Zeilen: <b>${s?.total ?? 0}</b> · ` +
+        `Trennzeichen: <b>${delim}</b>`;
+    };
+
+    async function callPreview(file) {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/haendler/import/preview", {
+        method: "POST",
+        body: fd,
+        credentials: "include"
+      });
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        throw new Error(`Vorschau fehlgeschlagen (${res.status}): ${t || res.statusText}`);
+      }
+      return res.json();
+    }
+
+    async function callCommit(file) {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/haendler/import/commit", {
+        method: "POST",
+        body: fd,
+        credentials: "include"
+      });
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        throw new Error(`Import fehlgeschlagen (${res.status}): ${t || res.statusText}`);
+      }
+      return res.json();
+    }
+
+    btnPreview.addEventListener("click", async () => {
+      const file = fileEl.files && fileEl.files[0];
+      if (!file) { setStatus("Bitte zuerst eine CSV auswählen."); return; }
+
+      btnPreview.disabled = true;
+      btnImport.disabled = true;
+      lastPreviewOk = false;
+      lastFile = file;
+
+      setStatus("Vorschau wird geladen…");
+      try {
+        const data = await callPreview(file);
+        renderSummary(data.summary);
+        lastPreviewOk = true;
+        btnImport.disabled = false;
+        setStatus("Vorschau geladen. Prüfen und dann Import starten.");
+      } catch (err) {
+        setStatus(err.message || "Vorschau fehlgeschlagen.");
+      } finally {
+        btnPreview.disabled = false;
+      }
+    });
+
+    btnImport.addEventListener("click", async () => {
+      if (!lastFile || !lastPreviewOk) {
+        setStatus("Bitte zuerst eine Vorschau laden.");
+        return;
+      }
+      btnImport.disabled = true;
+      btnPreview.disabled = true;
+      setStatus("Import läuft…");
+
+      try {
+        const result = await callCommit(lastFile);
+        setStatus(`Import fertig: Neu ${result.created}, Updates ${result.updated}, Fehler ${result.failed}.`);
+        // Nach Import einmal neu laden, damit neue Inserate erscheinen
+        setTimeout(() => location.reload(), 1200);
+      } catch (err) {
+        setStatus(err.message || "Import fehlgeschlagen.");
+      } finally {
+        btnPreview.disabled = false;
+      }
+    });
+  }
+
+  setupDealerCsvImport();
+
   const actionModal = document.getElementById("listingActionModal");
   const markSoldBtn = document.getElementById("markSoldBtn");
   const deleteListingBtn = document.getElementById("deleteListingBtn");
