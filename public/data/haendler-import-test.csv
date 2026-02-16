@@ -1,0 +1,4 @@
+stock_number;title;price_eur;mileage_km;first_registration;image_urls;video_url
+AV-1001;Audi A3 Sportback 1.4 TFSI;12990;74200;2018-03;https://picsum.photos/id/1011/1200/800|https://picsum.photos/id/1012/1200/800;
+AV-1002;VW Golf VII 1.6 TDI;15450;89200;06/2017;https://picsum.photos/id/1015/1200/800;https://example.com/video.mp4
+AV-1003;BMW 320d Touring;18990;65300;2019-09;https://picsum.photos/id/1020/1200/800|https://picsum.photos/id/1021/1200/800;

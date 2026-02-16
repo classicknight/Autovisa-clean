@@ -1061,8 +1061,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     const btnImport = document.getElementById("dealerCsvImport");
     const statusEl = document.getElementById("dealerCsvStatus");
     const summaryEl = document.getElementById("dealerCsvSummary");
+    const errorsEl = document.getElementById("dealerCsvErrors");
 
     if (!fileEl || !btnPreview || !btnImport) return;
+
+    const MAX_CSV_SIZE = 8 * 1024 * 1024;
+    const ALLOWED_EXT = [".csv", ".tsv", ".txt"];
+    const ALLOWED_TYPES = ["text/csv", "application/vnd.ms-excel", "text/plain"];
 
     let lastFile = null;
     let lastPreviewOk = false;
@@ -1071,16 +1076,98 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (statusEl) statusEl.textContent = msg;
     };
 
+    const clearSummary = () => {
+      if (!summaryEl) return;
+      summaryEl.classList.remove("is-visible");
+      summaryEl.innerHTML = "";
+    };
+
+    const clearErrors = () => {
+      if (!errorsEl) return;
+      errorsEl.classList.remove("is-visible");
+      errorsEl.innerHTML = "";
+    };
+
     const renderSummary = (s) => {
       if (!summaryEl) return;
+      if (!s) {
+        clearSummary();
+        return;
+      }
       summaryEl.classList.add("is-visible");
-      const delim = s?.delimiter === ";" ? "Semikolon" : "Komma";
+      const delim = s?.delimiter === ";" ? "Semikolon" : (s?.delimiter === "\t" ? "Tab" : "Komma");
       summaryEl.innerHTML =
         `Neu: <b>${s?.newCount ?? 0}</b> · ` +
         `Updates: <b>${s?.updateCount ?? 0}</b> · ` +
         `Fehler: <b>${s?.errorCount ?? 0}</b> · ` +
         `Zeilen: <b>${s?.total ?? 0}</b> · ` +
         `Trennzeichen: <b>${delim}</b>`;
+    };
+
+    const renderErrors = (errs = []) => {
+      if (!errorsEl) return;
+      if (!Array.isArray(errs) || errs.length === 0) {
+        clearErrors();
+        return;
+      }
+      const maxShown = 6;
+      const items = errs.slice(0, maxShown).map((e) => {
+        const row = escapeHTML(String(e?.row ?? "—"));
+        const msg = escapeHTML(String(e?.message ?? "Unbekannter Fehler"));
+        return `<li><b>Zeile ${row}</b>: ${msg}</li>`;
+      }).join("");
+      const more = errs.length > maxShown
+        ? `<div class="muted">… ${errs.length - maxShown} weitere Fehler (gekürzt)</div>`
+        : "";
+      errorsEl.classList.add("is-visible");
+      errorsEl.innerHTML = `
+        <div><b>Fehler in der CSV</b></div>
+        <ul>${items}</ul>
+        ${more}
+      `;
+    };
+
+    const validateFile = (file) => {
+      if (!file) return { ok: false, message: "Bitte zuerst eine CSV auswählen." };
+      const name = String(file.name || "");
+      const dot = name.lastIndexOf(".");
+      const ext = dot >= 0 ? name.slice(dot).toLowerCase() : "";
+      const type = String(file.type || "");
+      const extOk = ALLOWED_EXT.includes(ext);
+      const typeOk = !type || ALLOWED_TYPES.includes(type);
+      if (!extOk && !typeOk) {
+        return { ok: false, message: "Bitte eine CSV/TSV-Datei hochladen." };
+      }
+      if (file.size > MAX_CSV_SIZE) {
+        return { ok: false, message: "Datei ist zu groß (max. 8 MB)." };
+      }
+      return { ok: true };
+    };
+
+    const redirectToLogin = () => {
+      try {
+        localStorage.setItem("redirectAfterLogin", `übersicht.html${location.hash || ""}`);
+      } catch {}
+      window.location.href = "login.html";
+    };
+
+    const handleResponse = async (res, label) => {
+      if (res.status === 401 || res.status === 403) {
+        redirectToLogin();
+        throw new Error("Bitte einloggen.");
+      }
+      const text = await res.text().catch(() => "");
+      if (!res.ok) {
+        let hint = text?.trim() || res.statusText || "Unbekannter Fehler";
+        if (res.status === 413) hint = "Datei ist zu groß (max. 8 MB).";
+        throw new Error(`${label} fehlgeschlagen (${res.status}): ${hint}`);
+      }
+      if (!text) return {};
+      try {
+        return JSON.parse(text);
+      } catch {
+        throw new Error("Unerwartete Serverantwort.");
+      }
     };
 
     async function callPreview(file) {
@@ -1091,11 +1178,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         body: fd,
         credentials: "include"
       });
-      if (!res.ok) {
-        const t = await res.text().catch(() => "");
-        throw new Error(`Vorschau fehlgeschlagen (${res.status}): ${t || res.statusText}`);
-      }
-      return res.json();
+      return handleResponse(res, "Vorschau");
     }
 
     async function callCommit(file) {
@@ -1106,16 +1189,34 @@ document.addEventListener("DOMContentLoaded", async () => {
         body: fd,
         credentials: "include"
       });
-      if (!res.ok) {
-        const t = await res.text().catch(() => "");
-        throw new Error(`Import fehlgeschlagen (${res.status}): ${t || res.statusText}`);
-      }
-      return res.json();
+      return handleResponse(res, "Import");
     }
+
+    fileEl.addEventListener("change", () => {
+      const file = fileEl.files && fileEl.files[0];
+      lastFile = file || null;
+      lastPreviewOk = false;
+      btnImport.disabled = true;
+      clearSummary();
+      clearErrors();
+
+      if (!file) {
+        setStatus("Keine Datei ausgewählt.");
+        return;
+      }
+      const v = validateFile(file);
+      if (!v.ok) {
+        setStatus(v.message);
+        return;
+      }
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+      setStatus(`Datei gewählt: ${file.name} (${sizeMb} MB)`);
+    });
 
     btnPreview.addEventListener("click", async () => {
       const file = fileEl.files && fileEl.files[0];
-      if (!file) { setStatus("Bitte zuerst eine CSV auswählen."); return; }
+      const v = validateFile(file);
+      if (!v.ok) { setStatus(v.message); return; }
 
       btnPreview.disabled = true;
       btnImport.disabled = true;
@@ -1125,11 +1226,33 @@ document.addEventListener("DOMContentLoaded", async () => {
       setStatus("Vorschau wird geladen…");
       try {
         const data = await callPreview(file);
-        renderSummary(data.summary);
+        const summary = data?.summary || null;
+        const errors = Array.isArray(data?.errors) ? data.errors : [];
+        renderSummary(summary);
+        renderErrors(errors);
+
+        const total = Number(summary?.total || 0);
+        const valid = Number(summary?.newCount || 0) + Number(summary?.updateCount || 0);
+
+        if (total === 0) {
+          lastPreviewOk = false;
+          btnImport.disabled = true;
+          setStatus("Keine Daten gefunden. Prüfe, ob die CSV eine Header-Zeile hat.");
+          return;
+        }
+        if (valid === 0) {
+          lastPreviewOk = false;
+          btnImport.disabled = true;
+          setStatus("Keine gültigen Zeilen gefunden. Bitte CSV prüfen.");
+          return;
+        }
+
         lastPreviewOk = true;
         btnImport.disabled = false;
-        setStatus("Vorschau geladen. Prüfen und dann Import starten.");
+        setStatus(errors.length ? `Vorschau geladen (${errors.length} Fehler).` : "Vorschau geladen. Prüfen und dann Import starten.");
       } catch (err) {
+        renderSummary(null);
+        renderErrors([]);
         setStatus(err.message || "Vorschau fehlgeschlagen.");
       } finally {
         btnPreview.disabled = false;
@@ -1137,10 +1260,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     btnImport.addEventListener("click", async () => {
+      const currentFile = fileEl.files && fileEl.files[0];
+      if (!currentFile) {
+        setStatus("Bitte zuerst eine CSV auswählen.");
+        return;
+      }
+      if (lastFile && lastFile !== currentFile) {
+        setStatus("Datei wurde geändert. Bitte Vorschau erneut laden.");
+        return;
+      }
       if (!lastFile || !lastPreviewOk) {
         setStatus("Bitte zuerst eine Vorschau laden.");
         return;
       }
+      const v = validateFile(currentFile);
+      if (!v.ok) { setStatus(v.message); return; }
+
       btnImport.disabled = true;
       btnPreview.disabled = true;
       setStatus("Import läuft…");
@@ -1542,14 +1677,9 @@ function renderProfileSection(nutzerData, drafts, online) {
     const logoEditBtn = section.querySelector(".profile-logo-edit");
     const logoUrl = nutzerData.logoUrl || "";
     if (logoImg && logoWrapper) {
-      if (logoUrl) {
-        logoImg.src = logoUrl;
-        logoImg.alt = displayName + " Logo";
-        logoWrapper.classList.add("has-logo");
-      } else {
-        logoImg.removeAttribute("src");
-        logoWrapper.classList.remove("has-logo");
-      }
+      if (logoUrl) logoImg.alt = displayName + " Logo";
+      else logoImg.removeAttribute("alt");
+      applyDealerAvatar(logoWrapper, logoImg, logoUrl);
     }
 
     if (logoWrapper) {
@@ -1612,9 +1742,8 @@ function renderProfileSection(nutzerData, drafts, online) {
           const data = await res.json();
           const newUrl = data?.logoUrl || "";
           if (newUrl && logoImg) {
-            logoImg.src = newUrl;
             logoImg.alt = displayName + " Logo";
-            logoWrapper.classList.add("has-logo");
+            applyDealerAvatar(logoWrapper, logoImg, newUrl);
           }
         } catch (err) {
           console.error(err);
@@ -1943,6 +2072,10 @@ function buildFahrzeugdatenFromInserat(ins) {
     const nutzerData = await nutzerRes.json();
     if (!nutzerData.eingeloggt || !nutzerData.nutzerId) {
       alert("❌ Du bist nicht eingeloggt. Bitte logge dich zuerst ein.");
+      try {
+        const targetHash = location.hash || "";
+        localStorage.setItem("redirectAfterLogin", `übersicht.html${targetHash}`);
+      } catch {}
       window.location.href = "login.html";
       return;
     }
@@ -2901,6 +3034,10 @@ async function loadSavedCarsSection() {
     const user = await getLoggedInUser();
     const userId = user?.nutzerId || user?.id;
     if (!userId) {
+      try {
+        const targetHash = location.hash || "#saved-cars";
+        localStorage.setItem("redirectAfterLogin", `übersicht.html${targetHash}`);
+      } catch {}
       window.location.href = "login.html";
       return;
     }

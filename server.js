@@ -407,7 +407,78 @@ function guessDelimiter(text) {
   const firstLine = (text.split(/\r?\n/)[0] || "");
   const semis = (firstLine.match(/;/g) || []).length;
   const commas = (firstLine.match(/,/g) || []).length;
+  const tabs = (firstLine.match(/\t/g) || []).length;
+  if (tabs > semis && tabs > commas) return "\t";
   return semis >= commas ? ";" : ",";
+}
+
+const HEADER_ALIASES = {
+  stocknumber: "stock_number",
+  stockno: "stock_number",
+  stocknr: "stock_number",
+  stock_num: "stock_number",
+  stocknummer: "stock_number",
+  interne_nummer: "interne_nummer",
+  interne_nr: "interne_nummer",
+  intern_nr: "interne_nummer",
+  inventory_number: "stock_number",
+  inventoryno: "stock_number",
+  inventory_nr: "stock_number",
+  fahrzeugnummer: "stock_number",
+  fahrzeug_nr: "stock_number",
+  fahrzeugnr: "stock_number",
+  fahrzeug_id: "stock_number",
+  fahrzeugid: "stock_number",
+  artikelnummer: "stock_number",
+  artikel_nr: "stock_number",
+  title: "title",
+  titel: "title",
+  bezeichnung: "title",
+  fahrzeugtitel: "title",
+  modellbezeichnung: "title",
+  priceeur: "price_eur",
+  preis_eur: "price_eur",
+  preiseuro: "price_eur",
+  price: "price_eur",
+  preis: "price_eur",
+  verkaufspreis: "price_eur",
+  bruttopreis: "price_eur",
+  brutto_preis: "price_eur",
+  mileagekm: "mileage_km",
+  mileage: "mileage_km",
+  kilometer: "mileage_km",
+  kilometerstand: "mileage_km",
+  laufleistung: "mileage_km",
+  km: "mileage_km",
+  firstregistration: "first_registration",
+  first_registration: "first_registration",
+  erstzulassung: "first_registration",
+  zulassung: "first_registration",
+  ez: "first_registration",
+  image_urls: "image_urls",
+  image_url: "image_urls",
+  imageurl: "image_urls",
+  images: "image_urls",
+  bilder: "image_urls",
+  bild: "image_urls",
+  video_url: "video_url",
+  videourl: "video_url",
+  videolink: "video_url",
+  video: "video_url"
+};
+
+function normalizeHeaderKey(header, index) {
+  const raw = String(header || "").replace(/^\uFEFF/, "").trim();
+  if (!raw) return `col_${index + 1}`;
+  const normalized = raw
+    .toLowerCase()
+    .replace(/[\s\-]+/g, "_")
+    .replace(/[^\w]/g, "");
+  return HEADER_ALIASES[normalized] || normalized;
+}
+
+function normalizeHeaders(headers = []) {
+  return headers.map((h, i) => normalizeHeaderKey(h, i));
 }
 
 function toNumber(v) {
@@ -497,7 +568,7 @@ app.post("/api/haendler/import/preview", requireDb, requireDealer, uploadCsv.sin
     const delimiter = guessDelimiter(text);
 
     const records = parse(text, {
-      columns: true,
+      columns: normalizeHeaders,
       skip_empty_lines: true,
       delimiter,
       relax_quotes: true,
@@ -558,7 +629,7 @@ app.post("/api/haendler/import/commit", requireDb, requireDealer, uploadCsv.sing
     const delimiter = guessDelimiter(text);
 
     const records = parse(text, {
-      columns: true,
+      columns: normalizeHeaders,
       skip_empty_lines: true,
       delimiter,
       relax_quotes: true,

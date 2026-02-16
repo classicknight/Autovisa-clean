@@ -41,7 +41,7 @@ function renderSummary(s){
       <div class="pill">Zeilen: <b>${s.total}</b></div>
     </div>
     <div style="margin-top:10px;color:#667680">
-      Delimiter erkannt: <b>${s.delimiter === ";" ? "Semikolon" : "Komma"}</b>
+      Delimiter erkannt: <b>${s.delimiter === ";" ? "Semikolon" : (s.delimiter === "\\t" ? "Tab" : "Komma")}</b>
     </div>
   `;
 }
