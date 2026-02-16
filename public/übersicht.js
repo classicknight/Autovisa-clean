@@ -1894,8 +1894,16 @@ function renderProfileSection(nutzerData, drafts, online) {
       el.style.display = isHaendler ? "" : "none";
     });
 
-    const activeCount = Array.isArray(online) ? online.length : 0;
-    const draftCount  = Array.isArray(drafts) ? drafts.length : 0;
+    const onlineItems = Array.isArray(online) ? online : [];
+    const onlineCount = onlineItems.filter((item) => {
+      const raw = String(item?.status || item?.verkauf_status || "").toLowerCase();
+      if (!raw) return true;
+      return raw.includes("online");
+    }).length;
+    const offlineCount = onlineItems.length - onlineCount;
+
+    const activeCount = onlineCount;
+    const draftCount  = (Array.isArray(drafts) ? drafts.length : 0) + Math.max(offlineCount, 0);
     const totalCount  = activeCount + draftCount;
 
     const activeEl = section.querySelector('[data-stat="active"]');
@@ -2092,9 +2100,20 @@ function buildFahrzeugdatenFromInserat(ins) {
     ladeHändlerBewertung(nutzerData.nutzerId);
     ladeBewertungen(nutzerData.nutzerId);
 
+    const deriveStatus = (item) => {
+      const raw = String(item?.status || item?.verkauf_status || "").toLowerCase().trim();
+      if (!raw) return "online";
+      if (raw.includes("online")) return "online";
+      if (raw.includes("offline") || raw.includes("draft") || raw.includes("entwurf")) return "offline";
+      if (raw.includes("verkauft") || raw.includes("sold")) return "sold";
+      return "offline";
+    };
+
     const items = [
       ...(Array.isArray(drafts) ? drafts.map(d => ({ ...d, __status: "draft" })) : []),
-      ...(Array.isArray(onlineAll) ? onlineAll.map(o => ({ ...o, __status: "online" })) : [])
+      ...(Array.isArray(onlineAll)
+        ? onlineAll.map(o => ({ ...o, __status: deriveStatus(o) }))
+        : [])
     ];
 
     cachedMyInserate = items;
@@ -2141,7 +2160,7 @@ function buildFahrzeugdatenFromInserat(ins) {
         `${isOnline ? "disabled aria-disabled='true'" : ""} ` +
         `title="${publishTitle}" aria-label="${publishTitle}"`;
 
-      const titleSafe = escapeHTML(inserat.titel || "Titel fehlt");
+      const titleSafe = escapeHTML(inserat.titel || inserat.verkauf_titel || "Titel fehlt");
       const subtitleSafe = escapeHTML(inserat.verkauf_kurzbeschreibung || "Besondere Ausstattung");
       const views = Number(stats.views || 0);
       const saves = Number(stats.saves || 0);
@@ -2183,8 +2202,8 @@ function buildFahrzeugdatenFromInserat(ins) {
             <p class="car-subtitle">${subtitleSafe}</p>
 
             <div class="car-info-grid">
-              <p><i class="fas fa-road"></i> ${escapeHTML(String(inserat.verkauf_kilometer ?? "—"))} km</p>
-              <p><i class="fas fa-calendar-alt"></i> EZ ${escapeHTML(String(inserat.verkauf_erstzulassung || "—"))}</p>
+              <p><i class="fas fa-road"></i> ${escapeHTML(formatKm(inserat.verkauf_kilometer ?? inserat.kilometer))}</p>
+              <p><i class="fas fa-calendar-alt"></i> EZ ${escapeHTML(formatEZ(inserat.verkauf_erstzulassung || inserat.erstzulassung))}</p>
               <p><i class="fas fa-gas-pump"></i> ${escapeHTML(String(inserat.verkauf_kraftstoff || "—"))}</p>
               <p><i class="fas fa-gauge-high"></i> ${escapeHTML(String(inserat.verkauf_leistung ?? "—"))} PS</p>
               <p><i class="fas fa-gears"></i> ${escapeHTML(String(inserat.verkauf_getriebe || "—"))}</p>
@@ -2333,7 +2352,7 @@ document.addEventListener("click", async (e) => {
   const inseratId = card?.dataset.id;
   const status    = card?.dataset.status;
 
-  if (status !== "draft") return; // bereits online
+  if (status !== "draft" && status !== "offline") return; // bereits online
 
   if (!inseratId || !/^[a-f\d]{24}$/i.test(inseratId)) {
     alert("❌ Ungültige Inserat-ID.");
@@ -2341,12 +2360,17 @@ document.addEventListener("click", async (e) => {
   }
 
   try {
-    const res  = await fetch("/inserat-veroeffentlichen", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ id: inseratId })
-    });
+    const res = status === "draft"
+      ? await fetch("/inserat-veroeffentlichen", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ id: inseratId })
+        })
+      : await fetch(`/inserat/${encodeURIComponent(inseratId)}/relist`, {
+          method: "POST",
+          credentials: "include"
+        });
     const text = await res.text();
 
     if (res.ok) {

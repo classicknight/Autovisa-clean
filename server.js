@@ -514,6 +514,14 @@ function normalizeFirstRegistration(v) {
   return null;
 }
 
+function toFirstRegistrationDisplay(v) {
+  if (!v) return "";
+  const s = String(v).trim();
+  const m = s.match(/^(\d{4})-(\d{2})$/);
+  if (m) return `${m[2]}/${m[1]}`;
+  return s;
+}
+
 function splitUrls(v) {
   if (!v) return [];
   return String(v)
@@ -595,7 +603,13 @@ app.post("/api/haendler/import/preview", requireDb, requireDealer, uploadCsv.sin
 
     // existierende Inserate -> neu/update
     const existing = await db.collection("inserate")
-      .find({ sellerId, stockNumber: { $in: ids } }, { projection: { stockNumber: 1 } })
+      .find(
+        {
+          stockNumber: { $in: ids },
+          $or: [{ verkaeuferId: sellerId }, { sellerId }]
+        },
+        { projection: { stockNumber: 1 } }
+      )
       .toArray();
 
     const existingSet = new Set(existing.map(x => x.stockNumber));
@@ -651,27 +665,39 @@ app.post("/api/haendler/import/commit", requireDb, requireDealer, uploadCsv.sing
         continue;
       }
 
+      const ezDisplay = toFirstRegistrationDisplay(r.first_registration);
+      const images = Array.isArray(r.image_urls) ? r.image_urls : [];
+
       // ✅ Für den Start: status="offline", damit nichts ungeprüft öffentlich ist.
       // Du kannst später "online" setzen oder eine Review-UI bauen.
       ops.push({
         updateOne: {
-          filter: { sellerId, stockNumber: r.stock_number },
+          filter: {
+            stockNumber: r.stock_number,
+            $or: [{ verkaeuferId: sellerId }, { sellerId }]
+          },
           update: {
             $set: {
               source: "csv",
               status: "offline",
+              verkauf_status: "offline",
 
-              sellerId,
+              verkaeuferId: sellerId,
+              sellerId: sellerId,
               stockNumber: r.stock_number,
 
-              // bewusst "neutral" gespeichert (du kannst später in dein finales Inserat-Schema mappen)
-              title: r.title,
-              price_eur: r.price_eur,
-              mileage_km: r.mileage_km,
-              first_registration: r.first_registration,
+              titel: r.title,
+              verkauf_titel: r.title,
 
-              image_urls: r.image_urls,
-              video_url: r.video_url,
+              preis: r.price_eur,
+              verkauf_preis: r.price_eur,
+
+              verkauf_kilometer: r.mileage_km,
+              verkauf_erstzulassung: ezDisplay || r.first_registration || "",
+
+              images,
+              bilder: images,
+              video: r.video_url || null,
 
               updatedAt: new Date()
             },
