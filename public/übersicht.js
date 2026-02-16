@@ -144,6 +144,24 @@ function formatDateShort(value) {
   return d.toLocaleDateString("de-DE");
 }
 
+function getListingTimestamp(ins) {
+  const candidates = [
+    ins?.updatedAt,
+    ins?.veroeffentlichtAm,
+    ins?.createdAt,
+    ins?.erstelltAm,
+    ins?.lastEditedAt,
+    ins?.publishedAt
+  ];
+  let best = 0;
+  for (const c of candidates) {
+    if (!c) continue;
+    const t = new Date(c).getTime();
+    if (!Number.isNaN(t)) best = Math.max(best, t);
+  }
+  return best;
+}
+
 function sellerInitials(name = "") {
   const parts = name.trim().split(/\s+/).slice(0, 2);
   const ini = parts.map(p => p[0]?.toUpperCase() || "").join("");
@@ -1066,8 +1084,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!fileEl || !btnPreview || !btnImport) return;
 
     const MAX_CSV_SIZE = 8 * 1024 * 1024;
-    const ALLOWED_EXT = [".csv", ".tsv", ".txt"];
-    const ALLOWED_TYPES = ["text/csv", "application/vnd.ms-excel", "text/plain"];
+    const ALLOWED_EXT = [".csv", ".tsv", ".txt", ".json", ".jsonl", ".ndjson"];
+    const ALLOWED_TYPES = [
+      "text/csv",
+      "application/vnd.ms-excel",
+      "text/plain",
+      "application/json",
+      "application/x-ndjson",
+      "application/jsonl"
+    ];
 
     let lastFile = null;
     let lastPreviewOk = false;
@@ -1096,12 +1121,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
       summaryEl.classList.add("is-visible");
       const delim = s?.delimiter === ";" ? "Semikolon" : (s?.delimiter === "\t" ? "Tab" : "Komma");
+      const format = s?.format ? String(s.format).toUpperCase() : "";
       summaryEl.innerHTML =
         `Neu: <b>${s?.newCount ?? 0}</b> · ` +
         `Updates: <b>${s?.updateCount ?? 0}</b> · ` +
         `Fehler: <b>${s?.errorCount ?? 0}</b> · ` +
-        `Zeilen: <b>${s?.total ?? 0}</b> · ` +
-        `Trennzeichen: <b>${delim}</b>`;
+        `Zeilen: <b>${s?.total ?? 0}</b>` +
+        `${format ? ` · Format: <b>${format}</b>` : ""}` +
+        `${s?.delimiter ? ` · Trennzeichen: <b>${delim}</b>` : ""}`;
     };
 
     const renderErrors = (errs = []) => {
@@ -2119,31 +2146,72 @@ function buildFahrzeugdatenFromInserat(ins) {
     cachedMyInserate = items;
     cachedUserData = nutzerData;
 
-    const visibleItems = items.filter(ins => !isSoldInserat(ins));
+    const allItems = items.filter(ins => !isSoldInserat(ins));
 
-    if (!visibleItems.length) {
-      carList.innerHTML = "<p>Keine Inserate gefunden.</p>";
-      const footnote = document.getElementById("vatFootnoteMyCars");
-      if (footnote) footnote.hidden = true;
-      return;
-    }
-
-    carList.innerHTML = "";
-
-    const idsForStats = visibleItems
+    const idsForStats = allItems
       .map((ins) => String(extractMongoId(ins) || ins?.fahrzeugId || ins?._id || "").trim())
       .filter(Boolean);
     const statsById = await fetchInseratStats(idsForStats);
     const messageCounts = await getMessageThreadCounts(nutzerData.nutzerId);
 
-    let hasMwstAny = false;
-    visibleItems.forEach((inserat) => {
+    const searchEl = document.getElementById("overviewSearch");
+    const statusEl = document.getElementById("overviewStatus");
+    const resetEl = document.getElementById("overviewFilterReset");
+
+    const filterState = {
+      q: "",
+      status: "all"
+    };
+
+    const getStatus = (ins) => {
+      const raw = String(ins?.__status || deriveStatus(ins) || "").toLowerCase();
+      if (raw.includes("online")) return "online";
+      if (raw.includes("draft") || raw.includes("offline") || raw.includes("entwurf")) return "offline";
+      if (raw.includes("verkauft") || raw.includes("sold")) return "sold";
+      return "offline";
+    };
+
+    const toSearchString = (ins) => {
+      const parts = [
+        ins?.titel,
+        ins?.verkauf_titel,
+        ins?.verkauf_marke,
+        ins?.verkauf_modell,
+        ins?.verkauf_variante,
+        ins?.marke,
+        ins?.modell,
+        ins?.variante,
+        ins?.stockNumber,
+        ins?.stock_number,
+        ins?.interne_nummer,
+        ins?.fahrzeugId,
+        extractMongoId(ins)
+      ]
+        .filter(Boolean)
+        .map((v) => String(v).toLowerCase());
+      return parts.join(" ");
+    };
+
+    const renderCarList = (list) => {
+      carList.innerHTML = "";
+      const footnote = document.getElementById("vatFootnoteMyCars");
+      let hasMwstAny = false;
+
+      if (!list.length) {
+        carList.innerHTML = "<p>Keine Inserate gefunden.</p>";
+        if (footnote) footnote.hidden = true;
+        return;
+      }
+
+      const sorted = [...list].sort((a, b) => getListingTimestamp(b) - getListingTimestamp(a));
+
+      sorted.forEach((inserat) => {
       const wrapper = document.createElement("div");
       wrapper.className = "car-card-wrapper";
 
       const realId = extractMongoId(inserat);
       wrapper.dataset.id = realId || "";
-      wrapper.dataset.status = inserat.__status || "";
+      wrapper.dataset.status = inserat.__status || getStatus(inserat);
 
       if (realId) inseratById.set(String(realId), inserat);
 
@@ -2261,10 +2329,58 @@ function buildFahrzeugdatenFromInserat(ins) {
           });
         }
       });
-    });
+      });
 
-    const footnote = document.getElementById("vatFootnoteMyCars");
-    if (footnote) footnote.hidden = !hasMwstAny;
+      if (footnote) footnote.hidden = !hasMwstAny;
+    };
+
+    const applyFilters = () => {
+      let list = [...allItems];
+
+      if (filterState.status !== "all") {
+        list = list.filter((ins) => {
+          const s = getStatus(ins);
+          if (filterState.status === "online") return s === "online";
+          if (filterState.status === "offline") return s !== "online";
+          return true;
+        });
+      }
+
+      if (filterState.q) {
+        const q = filterState.q.trim().toLowerCase();
+        if (q) {
+          list = list.filter((ins) => toSearchString(ins).includes(q));
+        }
+      }
+
+      renderCarList(list);
+    };
+
+    if (searchEl) {
+      searchEl.addEventListener("input", () => {
+        filterState.q = searchEl.value || "";
+        applyFilters();
+      });
+    }
+
+    if (statusEl) {
+      statusEl.addEventListener("change", () => {
+        filterState.status = statusEl.value || "all";
+        applyFilters();
+      });
+    }
+
+    if (resetEl) {
+      resetEl.addEventListener("click", () => {
+        filterState.q = "";
+        filterState.status = "all";
+        if (searchEl) searchEl.value = "";
+        if (statusEl) statusEl.value = "all";
+        applyFilters();
+      });
+    }
+
+    applyFilters();
 
     // =========================
     // BEARBEITEN – EINMALIG per Delegation

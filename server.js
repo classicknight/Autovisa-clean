@@ -413,11 +413,24 @@ function guessDelimiter(text) {
 }
 
 const HEADER_ALIASES = {
+  // IDs
   stocknumber: "stock_number",
   stockno: "stock_number",
   stocknr: "stock_number",
   stock_num: "stock_number",
   stocknummer: "stock_number",
+  vin: "stock_number",
+  fin: "stock_number",
+  fahrgestellnummer: "stock_number",
+  fahrgestell_nr: "stock_number",
+  vehicleid: "stock_number",
+  vehicle_id: "stock_number",
+  listingid: "stock_number",
+  listing_id: "stock_number",
+  advertid: "stock_number",
+  advert_id: "stock_number",
+  inseratid: "stock_number",
+  inserat_id: "stock_number",
   interne_nummer: "interne_nummer",
   interne_nr: "interne_nummer",
   intern_nr: "interne_nummer",
@@ -431,30 +444,242 @@ const HEADER_ALIASES = {
   fahrzeugid: "stock_number",
   artikelnummer: "stock_number",
   artikel_nr: "stock_number",
+  stock_id: "stock_number",
+  stockid: "stock_number",
+  // Title
   title: "title",
   titel: "title",
   bezeichnung: "title",
   fahrzeugtitel: "title",
   modellbezeichnung: "title",
+  verkauf_titel: "title",
+  // Make / Model / Variant
+  marke: "make",
+  hersteller: "make",
+  brand: "make",
+  make: "make",
+  manufacturer: "make",
+  verkauf_marke: "make",
+  modell: "model",
+  model: "model",
+  baureihe: "model",
+  serie: "model",
+  series: "model",
+  verkauf_modell: "model",
+  variante: "variant",
+  variant: "variant",
+  ausstattung_variante: "variant",
+  modellvariante: "variant",
+  trim: "variant",
+  version: "variant",
+  verkauf_variante: "variant",
+  verkauf_ausstattung_variante: "variant",
+  // Price
   priceeur: "price_eur",
   preis_eur: "price_eur",
   preiseuro: "price_eur",
   price: "price_eur",
   preis: "price_eur",
   verkaufspreis: "price_eur",
-  bruttopreis: "price_eur",
-  brutto_preis: "price_eur",
+  verkauf_preis: "price_eur",
+  bruttopreis: "price_gross",
+  brutto_preis: "price_gross",
+  gross_price: "price_gross",
+  grossprice: "price_gross",
+  verkauf_brutto: "price_gross",
+  nettopreis: "price_net",
+  netto_preis: "price_net",
+  net_price: "price_net",
+  netprice: "price_net",
+  verkauf_netto: "price_net",
+  // Mileage
   mileagekm: "mileage_km",
   mileage: "mileage_km",
   kilometer: "mileage_km",
   kilometerstand: "mileage_km",
   laufleistung: "mileage_km",
   km: "mileage_km",
+  verkauf_kilometer: "mileage_km",
+  // First registration
   firstregistration: "first_registration",
   first_registration: "first_registration",
   erstzulassung: "first_registration",
   zulassung: "first_registration",
   ez: "first_registration",
+  verkauf_erstzulassung: "first_registration",
+  verkauf_ez_monat: "reg_month",
+  verkauf_ez_jahr: "reg_year",
+  ez_monat: "reg_month",
+  ez_mon: "reg_month",
+  zulassungsmonat: "reg_month",
+  reg_month: "reg_month",
+  ez_jahr: "reg_year",
+  ez_year: "reg_year",
+  zulassungsjahr: "reg_year",
+  reg_year: "reg_year",
+  baujahr: "reg_year",
+  // Specs
+  kraftstoff: "fuel",
+  fuel: "fuel",
+  fuel_type: "fuel",
+  verkauf_kraftstoff: "fuel",
+  getriebe: "gearbox",
+  transmission: "gearbox",
+  gearbox: "gearbox",
+  verkauf_getriebe: "gearbox",
+  leistung: "power_ps",
+  leistung_ps: "power_ps",
+  ps: "power_ps",
+  power_ps: "power_ps",
+  verkauf_leistung: "power_ps",
+  leistung_kw: "power_kw",
+  kw: "power_kw",
+  power_kw: "power_kw",
+  verkauf_leistung_kw: "power_kw",
+  hubraum: "displacement_ccm",
+  ccm: "displacement_ccm",
+  displacement: "displacement_ccm",
+  verkauf_hubraum: "displacement_ccm",
+  tueren: "doors",
+  türen: "doors",
+  doors: "doors",
+  verkauf_tueren: "doors",
+  sitze: "seats",
+  seats: "seats",
+  verkauf_sitze: "seats",
+  // Colors
+  farbe: "color",
+  color: "color",
+  verkauf_farbe: "color",
+  aussenfarbe: "exterior_color",
+  außenfarbe: "exterior_color",
+  exterior_color: "exterior_color",
+  verkauf_aussenfarbe: "exterior_color",
+  innenfarbe: "interior_color",
+  interior_color: "interior_color",
+  verkauf_innenfarbe: "interior_color",
+  innenmaterial: "interior_material",
+  sitzmaterial: "interior_material",
+  interior_material: "interior_material",
+  verkauf_innenmaterial: "interior_material",
+  karosseriefarbe: "body_color",
+  body_color: "body_color",
+  verkauf_karosseriefarbe: "body_color",
+  // Type / Body
+  fahrzeugtyp: "vehicle_type",
+  vehicle_type: "vehicle_type",
+  karosserie: "vehicle_type",
+  karosserieform: "vehicle_type",
+  body_type: "vehicle_type",
+  verkauf_fahrzeugtyp: "vehicle_type",
+  // Description / Equipment
+  beschreibung: "description",
+  description: "description",
+  text: "description",
+  verkauf_beschreibung: "description",
+  kurzbeschreibung: "short_description",
+  short_description: "short_description",
+  teaser: "short_description",
+  verkauf_kurzbeschreibung: "short_description",
+  ausstattung: "equipment",
+  equipment: "equipment",
+  features: "equipment",
+  extras: "equipment",
+  options: "equipment",
+  verkauf_ausstattung: "equipment",
+  // Accident / VAT
+  unfallfrei: "accident_free",
+  accident_free: "accident_free",
+  verkauf_unfallfrei: "accident_free",
+  unfall: "accident_history",
+  unfallhistorie: "accident_history",
+  accident_history: "accident_history",
+  verkauf_unfall: "accident_history",
+  verkauf_unfallhistorie: "accident_history",
+  mwst: "vat",
+  ust: "vat",
+  vat: "vat",
+  tax: "vat",
+  verkauf_mwst: "vat",
+  // Emissions / consumption
+  emissionsklasse: "emission_class",
+  emission_class: "emission_class",
+  verkauf_emissionsklasse: "emission_class",
+  schadstoffklasse: "pollution_class",
+  verkauf_schadstoffklasse: "pollution_class",
+  umweltplakette: "environmental_badge",
+  environmental_badge: "environmental_badge",
+  verkauf_umweltplakette: "environmental_badge",
+  co2: "co2_emission",
+  co2_emission: "co2_emission",
+  co2emission: "co2_emission",
+  verkauf_co2_emission: "co2_emission",
+  co2_klasse: "co2_class",
+  co2klasse: "co2_class",
+  verkauf_co2_klasse: "co2_class",
+  verbrauch_kombiniert: "consumption_combined",
+  verbrauch: "consumption_combined",
+  wltp_kombiniert: "consumption_combined",
+  verkauf_verbrauch_kombiniert: "consumption_combined",
+  verbrauch_innerorts: "consumption_city",
+  verkauf_verbrauch_innerorts: "consumption_city",
+  verbrauch_ausserorts: "consumption_highway",
+  verkauf_verbrauch_ausserorts: "consumption_highway",
+  // Drive / comfort
+  antrieb: "drivetrain",
+  antriebsart: "drivetrain",
+  drivetrain: "drivetrain",
+  verkauf_antrieb: "drivetrain",
+  klimatisierung: "climate",
+  klima: "climate",
+  verkauf_klimatisierung: "climate",
+  einparkhilfe: "parking_assist",
+  einparkhilfe_selbstlenkend: "parking_assist_self",
+  verkauf_einparkhilfe: "parking_assist",
+  verkauf_einparkhilfeselbstlenkend: "parking_assist_self",
+  scheinwerfer: "headlights",
+  verkauf_scheinwerfer: "headlights",
+  tagfahrlicht: "daytime_running_lights",
+  verkauf_tagfahrlicht: "daytime_running_lights",
+  kurvenlicht: "curve_light",
+  verkauf_kurvenlicht: "curve_light",
+  partikelfilter: "particulate_filter",
+  verkauf_partikelfilter: "particulate_filter",
+  metallic: "metallic",
+  verkauf_metallic: "metallic",
+  // Owners / HU
+  halter: "previous_owners",
+  anzahlhalter: "previous_owners",
+  verkauf_halter: "previous_owners",
+  hu: "hu",
+  tuv: "hu",
+  tuev: "hu",
+  tüv: "hu",
+  verkauf_hu: "hu",
+  hu_bis: "hu_until",
+  tuv_bis: "hu_until",
+  tuev_bis: "hu_until",
+  tüv_bis: "hu_until",
+  verkauf_hu_bis: "hu_until",
+  // Location / Contact
+  standort: "location",
+  location: "location",
+  verkauf_standort: "location",
+  plz: "postal_code",
+  zip: "postal_code",
+  postal_code: "postal_code",
+  verkauf_plz: "postal_code",
+  ort: "city",
+  city: "city",
+  verkauf_ort: "city",
+  strasse: "street",
+  street: "street",
+  hausnummer: "street_no",
+  street_no: "street_no",
+  telefon: "phone",
+  phone: "phone",
+  verkauf_telefon: "phone",
+  // Media
   image_urls: "image_urls",
   image_url: "image_urls",
   imageurl: "image_urls",
@@ -472,13 +697,258 @@ function normalizeHeaderKey(header, index) {
   if (!raw) return `col_${index + 1}`;
   const normalized = raw
     .toLowerCase()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
     .replace(/[\s\-]+/g, "_")
     .replace(/[^\w]/g, "");
-  return HEADER_ALIASES[normalized] || normalized;
+  if (HEADER_ALIASES[normalized]) return HEADER_ALIASES[normalized];
+
+  // Heuristics für unbekannte Header
+  if (/(^|_)preis($|_)/.test(normalized)) {
+    if (normalized.includes("netto")) return "price_net";
+    if (normalized.includes("brutto") || normalized.includes("gross")) return "price_gross";
+    return "price_eur";
+  }
+  if (/(^|_)km($|_)/.test(normalized) || normalized.includes("kilometer") || normalized.includes("mileage")) {
+    return "mileage_km";
+  }
+  if (normalized.includes("erstzulassung") || normalized.includes("zulassung") || normalized === "ez") {
+    return "first_registration";
+  }
+  if (normalized.includes("marke") || normalized.includes("brand") || normalized.includes("make")) {
+    return "make";
+  }
+  if (normalized.includes("modell") || normalized.includes("model")) {
+    return "model";
+  }
+  if (normalized.includes("variante") || normalized.includes("trim") || normalized.includes("version")) {
+    return "variant";
+  }
+  if (normalized.includes("kraftstoff") || normalized.includes("fuel")) {
+    return "fuel";
+  }
+  if (normalized.includes("getriebe") || normalized.includes("gear")) {
+    return "gearbox";
+  }
+  if (normalized.includes("leistung") || normalized.includes("ps")) {
+    return normalized.includes("kw") ? "power_kw" : "power_ps";
+  }
+  if (normalized.includes("hubraum") || normalized.includes("ccm")) {
+    return "displacement_ccm";
+  }
+  if (normalized.includes("tueren") || normalized.includes("turen") || normalized.includes("doors")) {
+    return "doors";
+  }
+  if (normalized.includes("sitze") || normalized.includes("seats")) {
+    return "seats";
+  }
+  if (normalized.includes("aussenfarbe") || normalized.includes("außenfarbe") || normalized.includes("exterior")) {
+    return "exterior_color";
+  }
+  if (normalized.includes("innenfarbe") || normalized.includes("interior_color")) {
+    return "interior_color";
+  }
+  if (normalized.includes("innenmaterial") || normalized.includes("interior_material")) {
+    return "interior_material";
+  }
+  if (normalized.includes("karosserie") || normalized.includes("body")) {
+    return "vehicle_type";
+  }
+  if (normalized.includes("beschreibung") || normalized.includes("description")) {
+    return normalized.includes("kurz") ? "short_description" : "description";
+  }
+  if (normalized.includes("ausstattung") || normalized.includes("equipment") || normalized.includes("features")) {
+    return "equipment";
+  }
+  if (normalized.includes("unfallfrei") || normalized.includes("accidentfree")) {
+    return "accident_free";
+  }
+  if (normalized.includes("unfall")) {
+    return "accident_history";
+  }
+  if (normalized.includes("emission")) {
+    return "emission_class";
+  }
+  if (normalized.includes("schadstoff")) {
+    return "pollution_class";
+  }
+  if (normalized.includes("co2")) {
+    return normalized.includes("klasse") ? "co2_class" : "co2_emission";
+  }
+  if (normalized.includes("verbrauch")) {
+    if (normalized.includes("inner")) return "consumption_city";
+    if (normalized.includes("ausser") || normalized.includes("außer")) return "consumption_highway";
+    return "consumption_combined";
+  }
+  if (normalized.includes("antrieb") || normalized.includes("drivetrain")) {
+    return "drivetrain";
+  }
+  if (normalized.includes("klima")) {
+    return "climate";
+  }
+  if (normalized.includes("einpark")) {
+    return normalized.includes("selbst") ? "parking_assist_self" : "parking_assist";
+  }
+  if (normalized.includes("scheinwerfer")) {
+    return "headlights";
+  }
+  if (normalized.includes("tagfahr")) {
+    return "daytime_running_lights";
+  }
+  if (normalized.includes("kurvenlicht")) {
+    return "curve_light";
+  }
+  if (normalized.includes("umweltplakette")) {
+    return "environmental_badge";
+  }
+  if (normalized.includes("partikelfilter")) {
+    return "particulate_filter";
+  }
+  if (normalized.includes("metallic")) {
+    return "metallic";
+  }
+  if (normalized.includes("halter")) {
+    return "previous_owners";
+  }
+  if (normalized.includes("tuv") || normalized.includes("tuev") || normalized.includes("tüv") || normalized === "hu") {
+    return normalized.includes("bis") ? "hu_until" : "hu";
+  }
+  if (normalized.includes("standort") || normalized.includes("location")) {
+    return "location";
+  }
+  if (normalized.includes("plz") || normalized.includes("postal") || normalized.includes("zip")) {
+    return "postal_code";
+  }
+  if (normalized === "ort" || normalized === "city") {
+    return "city";
+  }
+  if (normalized.includes("strasse") || normalized.includes("street")) {
+    return "street";
+  }
+  if (normalized.includes("hausnummer") || normalized.includes("street_no")) {
+    return "street_no";
+  }
+  if (normalized.includes("telefon") || normalized.includes("phone")) {
+    return "phone";
+  }
+
+  return normalized;
 }
 
 function normalizeHeaders(headers = []) {
   return headers.map((h, i) => normalizeHeaderKey(h, i));
+}
+
+function normalizeRecordKeys(record = {}) {
+  const out = {};
+  if (!record || typeof record !== "object") return out;
+  Object.entries(record).forEach(([key, value]) => {
+    const nk = normalizeHeaderKey(key, 0);
+    if (out[nk] === undefined || out[nk] === null || out[nk] === "") {
+      out[nk] = value;
+    }
+  });
+  return out;
+}
+
+function unwrapRecord(record) {
+  if (!record || typeof record !== "object") return {};
+  let base = { ...record };
+  const candidates = ["vehicle", "listing", "inserat", "car", "data", "item", "record", "raw"];
+  candidates.forEach((key) => {
+    const val = record[key];
+    if (val && typeof val === "object" && !Array.isArray(val)) {
+      base = { ...val, ...base };
+    }
+  });
+  return base;
+}
+
+function normalizeRecord(record) {
+  return normalizeRecordKeys(unwrapRecord(record));
+}
+
+function detectImportFormat(file, text) {
+  const name = String(file?.originalname || "").toLowerCase();
+  const mime = String(file?.mimetype || "").toLowerCase();
+  const trimmed = String(text || "").trim();
+
+  if (name.endsWith(".jsonl") || name.endsWith(".ndjson")) return "jsonl";
+  if (name.endsWith(".json")) return "json";
+
+  if (mime.includes("json")) {
+    if (trimmed.startsWith("[")) return "json";
+    if (trimmed.startsWith("{")) {
+      try {
+        JSON.parse(trimmed);
+        return "json";
+      } catch {
+        return "jsonl";
+      }
+    }
+  }
+
+  if (trimmed.startsWith("[")) return "json";
+  if (trimmed.startsWith("{")) {
+    const lines = trimmed.split(/\r?\n/).filter(Boolean);
+    if (lines.length > 1) return "jsonl";
+    return "json";
+  }
+
+  return "csv";
+}
+
+function parseImportRecords(file, text) {
+  const format = detectImportFormat(file, text);
+
+  if (format === "json" || format === "jsonl") {
+    let records = [];
+    if (format === "json") {
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch (err) {
+        throw new Error("Ungültiges JSON-Format.");
+      }
+      if (Array.isArray(parsed)) records = parsed;
+      else if (parsed && typeof parsed === "object") {
+        const list =
+          parsed.items ||
+          parsed.data ||
+          parsed.records ||
+          parsed.vehicles ||
+          parsed.inserate ||
+          parsed.listings;
+        records = Array.isArray(list) ? list : [parsed];
+      }
+    } else {
+      const lines = String(text || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      records = lines.map((line, idx) => {
+        try {
+          return JSON.parse(line);
+        } catch {
+          throw new Error(`Ungültige JSONL-Zeile ${idx + 1}.`);
+        }
+      });
+    }
+
+    const normalized = records.map(normalizeRecord);
+    return { records: normalized, format };
+  }
+
+  const delimiter = guessDelimiter(text);
+  const records = parse(text, {
+    columns: normalizeHeaders,
+    skip_empty_lines: true,
+    delimiter,
+    relax_quotes: true,
+    relax_column_count: true,
+    trim: true
+  });
+
+  return { records, format: delimiter === "\t" ? "tsv" : "csv", delimiter };
 }
 
 function toNumber(v) {
@@ -495,6 +965,40 @@ function toNumber(v) {
 function toInt(v) {
   const n = toNumber(v);
   return n == null ? null : Math.round(n);
+}
+
+function pickFirst(...vals) {
+  for (const v of vals) {
+    if (v === 0) return 0;
+    if (v == null) continue;
+    const s = String(v).trim();
+    if (s !== "") return v;
+  }
+  return "";
+}
+
+function pickStr(...vals) {
+  const v = pickFirst(...vals);
+  return v === 0 ? "0" : String(v || "").trim();
+}
+
+function parseBool(v) {
+  if (v == null) return null;
+  if (typeof v === "boolean") return v;
+  const s = String(v).trim().toLowerCase();
+  if (!s) return null;
+  if (["1","true","ja","yes","y","x"].includes(s)) return true;
+  if (["0","false","nein","no","n"].includes(s)) return false;
+  return null;
+}
+
+function splitList(v) {
+  if (!v) return [];
+  if (Array.isArray(v)) return v.map(x => String(x).trim()).filter(Boolean);
+  return String(v)
+    .split(/[|,;\n]/g)
+    .map(x => x.trim())
+    .filter(Boolean);
 }
 
 // erwartet YYYY-MM oder MM/YYYY oder MM.YYYY
@@ -525,7 +1029,7 @@ function toFirstRegistrationDisplay(v) {
 function splitUrls(v) {
   if (!v) return [];
   return String(v)
-    .split(/[|,]/g)
+    .split(/[|,;\n]/g)
     .map(x => x.trim())
     .filter(Boolean);
 }
@@ -536,22 +1040,101 @@ function splitUrls(v) {
  * Optional: image_urls (URL1|URL2|...), video_url
  */
 function mapRow(raw) {
-  const stock_number = (raw.stock_number || raw.interne_nummer || "").toString().trim();
-  const title = (raw.title || raw.titel || "").toString().trim();
+  const stock_number = pickStr(
+    raw.stock_number,
+    raw.interne_nummer,
+    raw.stock_id,
+    raw.vin,
+    raw.fin,
+    raw.fahrgestellnummer
+  );
 
-  const price_eur = toNumber(raw.price_eur ?? raw.price ?? raw.preis);
-  const mileage_km = toInt(raw.mileage_km ?? raw.kilometer ?? raw.km);
-  const first_registration = normalizeFirstRegistration(raw.first_registration ?? raw.ez ?? raw.erstzulassung);
+  const make = pickStr(raw.make, raw.marke, raw.brand, raw.hersteller, raw.manufacturer);
+  const model = pickStr(raw.model, raw.modell, raw.baureihe, raw.serie);
+  const variant = pickStr(raw.variant, raw.variante, raw.ausstattung_variante, raw.trim, raw.version);
+
+  let title = pickStr(raw.title, raw.titel, raw.bezeichnung, raw.fahrzeugtitel);
+  if (!title) title = [make, model, variant].filter(Boolean).join(" ").trim();
+
+  const price_gross = toNumber(raw.price_gross ?? raw.brutto_preis ?? raw.bruttopreis);
+  const price_net = toNumber(raw.price_net ?? raw.netto_preis ?? raw.nettopreis);
+  let price_eur = toNumber(raw.price_eur ?? raw.price ?? raw.preis);
+  if (price_eur == null) price_eur = price_gross ?? price_net;
+
+  const mileage_km = toInt(raw.mileage_km ?? raw.kilometer ?? raw.km ?? raw.mileage);
+
+  let first_registration = normalizeFirstRegistration(
+    raw.first_registration ?? raw.ez ?? raw.erstzulassung
+  );
+  if (!first_registration) {
+    const regMonth = pickFirst(raw.reg_month, raw.ez_monat);
+    const regYear = pickFirst(raw.reg_year, raw.ez_jahr, raw.baujahr);
+    if (regMonth && regYear) {
+      first_registration = normalizeFirstRegistration(`${regMonth}/${regYear}`);
+    } else if (regYear) {
+      first_registration = normalizeFirstRegistration(`01/${regYear}`);
+    }
+  }
 
   const image_urls = splitUrls(raw.image_urls ?? raw.images ?? raw.bilder);
-  const video_url = (raw.video_url ?? raw.video ?? "").toString().trim() || null;
+  const video_url = pickStr(raw.video_url, raw.video) || null;
 
   return {
     stock_number,
     title,
     price_eur,
+    price_net,
+    price_gross,
     mileage_km,
     first_registration,
+    make,
+    model,
+    variant,
+    fuel: pickStr(raw.fuel, raw.kraftstoff),
+    gearbox: pickStr(raw.gearbox, raw.getriebe),
+    power_ps: toNumber(raw.power_ps ?? raw.ps ?? raw.leistung_ps ?? raw.leistung),
+    power_kw: toNumber(raw.power_kw ?? raw.kw ?? raw.leistung_kw),
+    displacement_ccm: toNumber(raw.displacement_ccm ?? raw.ccm ?? raw.hubraum),
+    doors: toInt(raw.doors ?? raw.tueren ?? raw["türen"]),
+    seats: toInt(raw.seats ?? raw.sitze),
+    color: pickStr(raw.color, raw.farbe),
+    exterior_color: pickStr(raw.exterior_color, raw.aussenfarbe, raw["außenfarbe"]),
+    interior_color: pickStr(raw.interior_color, raw.innenfarbe),
+    interior_material: pickStr(raw.interior_material, raw.innenmaterial, raw.sitzmaterial),
+    body_color: pickStr(raw.body_color, raw.karosseriefarbe),
+    vehicle_type: pickStr(raw.vehicle_type, raw.fahrzeugtyp, raw.body_type, raw.karosserie),
+    description: pickStr(raw.description, raw.beschreibung, raw.text),
+    short_description: pickStr(raw.short_description, raw.kurzbeschreibung, raw.teaser),
+    equipment: splitList(raw.equipment ?? raw.ausstattung ?? raw.features ?? raw.extras),
+    accident_free: parseBool(raw.accident_free ?? raw.unfallfrei),
+    accident_history: pickStr(raw.accident_history ?? raw.unfall ?? raw.unfallhistorie),
+    vat: raw.vat ?? raw.mwst ?? raw.ust,
+    emission_class: pickStr(raw.emission_class, raw.emissionsklasse),
+    pollution_class: pickStr(raw.pollution_class, raw.schadstoffklasse),
+    environmental_badge: pickStr(raw.environmental_badge, raw.umweltplakette),
+    co2_emission: pickStr(raw.co2_emission, raw.co2),
+    co2_class: pickStr(raw.co2_class, raw.co2klasse),
+    consumption_combined: pickStr(raw.consumption_combined, raw.verbrauch_kombiniert, raw.verbrauch),
+    consumption_city: pickStr(raw.consumption_city, raw.verbrauch_innerorts),
+    consumption_highway: pickStr(raw.consumption_highway, raw.verbrauch_ausserorts),
+    drivetrain: pickStr(raw.drivetrain, raw.antrieb, raw.antriebsart),
+    climate: pickStr(raw.climate, raw.klimatisierung),
+    parking_assist: pickStr(raw.parking_assist, raw.einparkhilfe),
+    parking_assist_self: pickStr(raw.parking_assist_self, raw.einparkhilfe_selbstlenkend),
+    headlights: pickStr(raw.headlights, raw.scheinwerfer),
+    daytime_running_lights: pickStr(raw.daytime_running_lights, raw.tagfahrlicht),
+    curve_light: pickStr(raw.curve_light, raw.kurvenlicht),
+    particulate_filter: pickStr(raw.particulate_filter, raw.partikelfilter),
+    metallic: parseBool(raw.metallic),
+    previous_owners: pickStr(raw.previous_owners, raw.halter, raw.anzahlhalter),
+    hu: pickStr(raw.hu, raw.tuv, raw["tüv"]),
+    hu_until: pickStr(raw.hu_until, raw.tuv_bis, raw["tüv_bis"]),
+    location: pickStr(raw.location, raw.standort),
+    postal_code: pickStr(raw.postal_code, raw.plz),
+    city: pickStr(raw.city, raw.ort),
+    street: pickStr(raw.street, raw.strasse),
+    street_no: pickStr(raw.street_no, raw.hausnummer),
+    phone: pickStr(raw.phone, raw.telefon),
     image_urls,
     video_url
   };
@@ -573,16 +1156,7 @@ app.post("/api/haendler/import/preview", requireDb, requireDealer, uploadCsv.sin
     if (!req.file) return res.status(400).send("Keine Datei erhalten");
 
     const text = req.file.buffer.toString("utf8");
-    const delimiter = guessDelimiter(text);
-
-    const records = parse(text, {
-      columns: normalizeHeaders,
-      skip_empty_lines: true,
-      delimiter,
-      relax_quotes: true,
-      relax_column_count: true,
-      trim: true
-    });
+    const { records, delimiter, format } = parseImportRecords(req.file, text);
 
     const mapped = records.map(mapRow);
 
@@ -622,6 +1196,7 @@ app.post("/api/haendler/import/preview", requireDb, requireDealer, uploadCsv.sin
 
     const summary = {
       delimiter,
+      format,
       total: records.length,
       newCount: rows.filter(r => r.status === "new").length,
       updateCount: rows.filter(r => r.status === "update").length,
@@ -640,20 +1215,63 @@ app.post("/api/haendler/import/commit", requireDb, requireDealer, uploadCsv.sing
     if (!req.file) return res.status(400).send("Keine Datei erhalten");
 
     const text = req.file.buffer.toString("utf8");
-    const delimiter = guessDelimiter(text);
-
-    const records = parse(text, {
-      columns: normalizeHeaders,
-      skip_empty_lines: true,
-      delimiter,
-      relax_quotes: true,
-      relax_column_count: true,
-      trim: true
-    });
+    const { records } = parseImportRecords(req.file, text);
 
     const mapped = records.map(mapRow);
 
     const sellerId = String(req.user.id);
+    const nutzer = await db.collection("nutzer").findOne(
+      { id: sellerId },
+      {
+        projection: {
+          id: 1,
+          role: 1,
+          firma: 1,
+          name: 1,
+          logoUrl: 1,
+          strasse: 1,
+          hausnummer: 1,
+          plz: 1,
+          ort: 1,
+          land: 1,
+          adresse: 1,
+          standort: 1,
+          telefon: 1,
+          telefon2: 1,
+          impressum: 1,
+          oeffnungszeiten: 1,
+          "öffnungszeiten": 1,
+          sprachen: 1
+        }
+      }
+    );
+
+    const sellerRoleRaw = nutzer?.role || "haendler";
+    const isHaendler = isHaendlerRole(sellerRoleRaw);
+
+    const sellerName = nutzer?.firma || nutzer?.name || (isHaendler ? "Händler" : "Privatverkäufer");
+    const street = [nutzer?.strasse, nutzer?.hausnummer].filter(Boolean).join(" ");
+    const zipCity = [nutzer?.plz, nutzer?.ort].filter(Boolean).join(" ");
+    const address = [street, zipCity].filter(Boolean).join(", ");
+
+    const sellerStandort = nutzer?.standort || nutzer?.adresse || address || "";
+    const sellerTelefon = nutzer?.telefon || nutzer?.telefon2 || "";
+
+    const sellerSnapshot = {
+      type: isHaendler ? "haendler" : "privat",
+      id: sellerId,
+      name: sellerName,
+      logoUrl: nutzer?.logoUrl || "",
+      strasse: nutzer?.strasse || "",
+      hausnummer: nutzer?.hausnummer || "",
+      plz: nutzer?.plz || "",
+      ort: nutzer?.ort || "",
+      land: nutzer?.land || "",
+      impressum: nutzer?.impressum || "",
+      oeffnungszeiten: nutzer?.oeffnungszeiten || nutzer?.["öffnungszeiten"] || "",
+      sprachen: Array.isArray(nutzer?.sprachen) ? nutzer.sprachen : []
+    };
+
     const ops = [];
     let failed = 0;
 
@@ -667,6 +1285,28 @@ app.post("/api/haendler/import/commit", requireDb, requireDealer, uploadCsv.sing
 
       const ezDisplay = toFirstRegistrationDisplay(r.first_registration);
       const images = Array.isArray(r.image_urls) ? r.image_urls : [];
+      const equipment = Array.isArray(r.equipment) ? r.equipment : [];
+
+      const rowStreet = [r.street, r.street_no].filter(Boolean).join(" ");
+      const rowZipCity = [r.postal_code, r.city].filter(Boolean).join(" ");
+      const rowStandort = r.location || [rowStreet, rowZipCity].filter(Boolean).join(", ");
+      const finalStandort = rowStandort || sellerStandort;
+      const finalTelefon = r.phone || sellerTelefon;
+
+      const unfallfrei = r.accident_free;
+      let unfallText = "";
+      if (r.accident_history) unfallText = r.accident_history;
+      else if (unfallfrei === true) unfallText = "keine";
+      else if (unfallfrei === false) unfallText = "ja";
+
+      const mwstBool = parseBool(r.vat);
+      let mwstText = "";
+      if (mwstBool === true) mwstText = "inkl. MwSt.";
+      else if (mwstBool === false) mwstText = "keine";
+      else if (r.vat != null && String(r.vat).trim()) mwstText = String(r.vat).trim();
+
+      const kurz = r.short_description || r.description || "";
+      const besch = r.description || "";
 
       // ✅ Für den Start: status="offline", damit nichts ungeprüft öffentlich ist.
       // Du kannst später "online" setzen oder eine Review-UI bauen.
@@ -689,15 +1329,79 @@ app.post("/api/haendler/import/commit", requireDb, requireDealer, uploadCsv.sing
               titel: r.title,
               verkauf_titel: r.title,
 
+              verkauf_verkaeufer: isHaendler ? "Händler" : "Privatverkäufer",
+              verkauf_name: sellerName,
+
               preis: r.price_eur,
               verkauf_preis: r.price_eur,
+              verkauf_brutto: r.price_gross ?? null,
+              verkauf_netto: r.price_net ?? null,
+              verkauf_mwst: mwstText,
 
               verkauf_kilometer: r.mileage_km,
               verkauf_erstzulassung: ezDisplay || r.first_registration || "",
 
+              verkauf_marke: r.make || "",
+              verkauf_modell: r.model || "",
+              verkauf_variante: r.variant || "",
+              verkauf_ausstattung_variante: r.variant || "",
+
+              verkauf_fahrzeugtyp: r.vehicle_type || "",
+              verkauf_kraftstoff: r.fuel || "",
+              verkauf_getriebe: r.gearbox || "",
+              verkauf_leistung: r.power_ps ?? "",
+              verkauf_leistung_kw: r.power_kw ?? "",
+              verkauf_hubraum: r.displacement_ccm ?? "",
+              verkauf_tueren: r.doors ?? "",
+              verkauf_sitze: r.seats ?? "",
+
+              verkauf_farbe: r.color || "",
+              verkauf_aussenfarbe: r.exterior_color || r.color || "",
+              verkauf_karosseriefarbe: r.body_color || r.exterior_color || r.color || "",
+              verkauf_innenfarbe: r.interior_color || "",
+              verkauf_innenmaterial: r.interior_material || "",
+
+              verkauf_beschreibung: besch,
+              verkauf_kurzbeschreibung: kurz,
+              verkauf_ausstattung: equipment,
+
+              verkauf_unfallfrei: unfallfrei,
+              verkauf_unfall: unfallText,
+              verkauf_unfallhistorie: unfallText,
+
+              verkauf_emissionsklasse: r.emission_class || "",
+              verkauf_schadstoffklasse: r.pollution_class || "",
+              verkauf_umweltplakette: r.environmental_badge || "",
+              verkauf_co2_emission: r.co2_emission || "",
+              verkauf_co2_klasse: r.co2_class || "",
+              verkauf_verbrauch_kombiniert: r.consumption_combined || "",
+              verkauf_verbrauch_innerorts: r.consumption_city || "",
+              verkauf_verbrauch_ausserorts: r.consumption_highway || "",
+              verkauf_antrieb: r.drivetrain || "",
+              verkauf_klimatisierung: r.climate || "",
+              verkauf_einparkhilfe: r.parking_assist || "",
+              verkauf_einparkhilfeselbstlenkend: r.parking_assist_self || "",
+              verkauf_scheinwerfer: r.headlights || "",
+              verkauf_tagfahrlicht: r.daytime_running_lights || "",
+              verkauf_kurvenlicht: r.curve_light || "",
+              verkauf_partikelfilter: r.particulate_filter || "",
+              verkauf_metallic: r.metallic === true ? "ja" : (r.metallic === false ? "nein" : ""),
+
+              verkauf_halter: r.previous_owners || "",
+              verkauf_hu: r.hu || "",
+              verkauf_hu_bis: r.hu_until || "",
+
+              verkauf_standort: finalStandort,
+              verkauf_plz: r.postal_code || nutzer?.plz || "",
+              verkauf_ort: r.city || nutzer?.ort || "",
+
               images,
               bilder: images,
               video: r.video_url || null,
+
+              standort: finalStandort,
+              telefon: finalTelefon,
+              seller: sellerSnapshot,
 
               updatedAt: new Date()
             },

@@ -375,16 +375,14 @@
             <i class="fas fa-file-csv"></i> Bestand per CSV importieren
           </h3>
           <p class="profile-import-hint">
-            CSV hochladen → Vorschau prüfen → Import starten. Importierte Inserate werden zunächst als Entwurf/Offline gespeichert.
+            CSV/TSV/JSON/JSONL hochladen → Vorschau prüfen → Import starten. Importierte Inserate werden zunächst als Entwurf/Offline gespeichert.
             Pflicht-Spalten: <code>stock_number</code>, <code>title</code>, <code>price_eur</code>, <code>mileage_km</code>, <code>first_registration</code>.
-            Optional: <code>image_urls</code>, <code>video_url</code>.
+            Optional: <code>image_urls</code>, <code>video_url</code>. Viele Varianten werden automatisch erkannt (z. B. Marke, Modell, Kraftstoff, Getriebe, Farbe, Beschreibung).
           </p>
           <div class="profile-import-row">
-            <input id="dealerCsvFile" type="file" accept=".csv,.tsv,text/csv,text/plain" />
+            <input id="dealerCsvFile" type="file" accept=".csv,.tsv,.txt,.json,.jsonl,.ndjson,text/csv,text/plain,application/json" />
             <button type="button" class="btn-soft" id="dealerCsvPreview">Vorschau</button>
             <button type="button" class="btn-primary" id="dealerCsvImport" disabled>Import starten</button>
-            <a class="btn-soft" href="data/haendler-import-test.csv" download>Beispiel-CSV</a>
-            <a class="btn-soft" href="haendler-import.html">Erweiterter Import</a>
           </div>
           <div class="profile-import-status" id="dealerCsvStatus"></div>
           <div class="profile-import-summary" id="dealerCsvSummary"></div>
@@ -401,6 +399,21 @@
 
     <!-- Meine Autos -->
     <section class="car-list" id="car-list">
+      <div class="overview-filters" id="overviewFilters">
+        <div class="overview-filter">
+          <label for="overviewSearch">Suchen</label>
+          <input id="overviewSearch" type="text" placeholder="Titel, Marke, Modell, ID…" autocomplete="off">
+        </div>
+        <div class="overview-filter">
+          <label for="overviewStatus">Status</label>
+          <select id="overviewStatus">
+            <option value="all">Alle</option>
+            <option value="online">Online</option>
+            <option value="offline">Offline / Entwurf</option>
+          </select>
+        </div>
+        <button type="button" class="btn-soft" id="overviewFilterReset">Zurücksetzen</button>
+      </div>
       <!-- … dein bestehender Code / JS-Output … -->
 
       <div class="car-card-wrapper" data-id="inseratID">
