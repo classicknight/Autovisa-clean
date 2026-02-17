@@ -486,11 +486,17 @@ const HEADER_ALIASES = {
   brutto_preis: "price_gross",
   gross_price: "price_gross",
   grossprice: "price_gross",
+  price_gross: "price_gross",
+  price_gross_eur: "price_gross",
+  price_gross_text: "price_gross",
   verkauf_brutto: "price_gross",
   nettopreis: "price_net",
   netto_preis: "price_net",
   net_price: "price_net",
   netprice: "price_net",
+  price_net: "price_net",
+  price_net_eur: "price_net",
+  price_net_text: "price_net",
   verkauf_netto: "price_net",
   // Mileage
   mileagekm: "mileage_km",
@@ -706,7 +712,7 @@ function normalizeHeaderKey(header, index) {
   if (HEADER_ALIASES[normalized]) return HEADER_ALIASES[normalized];
 
   // Heuristics für unbekannte Header
-  if (/(^|_)preis($|_)/.test(normalized)) {
+  if (/(^|_)preis($|_)/.test(normalized) || normalized.includes("price")) {
     if (normalized.includes("netto")) return "price_net";
     if (normalized.includes("brutto") || normalized.includes("gross")) return "price_gross";
     return "price_eur";
@@ -956,8 +962,32 @@ function toNumber(v) {
   const s = String(v).trim();
   if (!s) return null;
 
-  // "12.990" -> 12990, "12990" -> 12990, "12,5" -> 12.5
-  const norm = s.replace(/\s/g, "").replace(/\./g, "").replace(",", ".");
+  // Entferne Währungszeichen/Einheiten, behalte nur Ziffern/Separatoren/Minus
+  const cleaned = s.replace(/[^\d,.\-]/g, "");
+  if (!cleaned) return null;
+
+  const hasComma = cleaned.includes(",");
+  const hasDot = cleaned.includes(".");
+  let norm = cleaned;
+
+  if (hasComma && hasDot) {
+    // Entscheide nach dem letzten Separator
+    if (cleaned.lastIndexOf(",") > cleaned.lastIndexOf(".")) {
+      norm = cleaned.replace(/\./g, "").replace(",", ".");
+    } else {
+      norm = cleaned.replace(/,/g, "");
+    }
+  } else if (hasComma && !hasDot) {
+    norm = cleaned.replace(",", ".");
+  } else if (hasDot && !hasComma) {
+    const parts = cleaned.split(".");
+    if (parts.length === 2 && parts[1].length <= 2) {
+      norm = cleaned; // Dezimalpunkt
+    } else {
+      norm = cleaned.replace(/\./g, "");
+    }
+  }
+
   const n = Number(norm);
   return Number.isFinite(n) ? n : null;
 }
@@ -1144,9 +1174,7 @@ function validateRow(r) {
   const errors = [];
   if (!r.stock_number) errors.push("stock_number fehlt");
   if (!r.title) errors.push("title fehlt");
-  if (r.price_eur == null) errors.push("price_eur fehlt/ungültig");
-  if (r.mileage_km == null) errors.push("mileage_km fehlt/ungültig");
-  if (!r.first_registration) errors.push("first_registration fehlt/ungültig (YYYY-MM oder MM/YYYY)");
+  // Preis/Kilometer/EZ sind hilfreich, aber nicht zwingend für den Import.
   return errors;
 }
 
