@@ -6284,23 +6284,32 @@ app.get("/api/search", async (req, res) => {
     let equipmentStages = [];
     if (ausstattung) {
       const equipRegexFor = (token) => {
-        const t = String(token || "").trim().toLowerCase();
-        if (!t) return null;
+        const raw = String(token || "").trim().toLowerCase();
+        if (!raw) return null;
+        const tNorm = raw
+          .replace(/ä/g, "ae")
+          .replace(/ö/g, "oe")
+          .replace(/ü/g, "ue")
+          .replace(/ß/g, "ss");
+        const t = tNorm || raw;
         const map = {
           navigation:     /navi|navigation/i,
           sitzheizung:    /sitzheizung/i,
-          rueckfahrkamera:/r[üu]ckfahrkamera|kamera\s*(hinten|rear)|rear\s*camera/i,
+          rueckfahrkamera:/r[üu]ckfahrkamera|rueckfahrkamera|r[üu]ckfahr|rueckfahr|kamera\s*(hinten|rear)|rear\s*view|rear\s*camera|backup\s*camera|back[-\s]?up\s*cam|parking\s*camera|revers(e|ing)\s*camera/i,
           tempomat:       /tempomat|abstandsregel|acc/i,
           bluetooth:      /bluetooth|freispre/i,
           klima:          /klima|klimaanlage|klimatisierung|\ba\/c\b|air\s*condition/i,
           parkhilfe:      /parkhilfe|einpark|pdc|parkpilot/i,
-          led:            /\bled\b|matrix/i,
+          scheinwerfer:   /scheinwerfer|xenon|bi[-\s]?xenon|matrix|led|laser/i,
+          led:            /scheinwerfer|xenon|bi[-\s]?xenon|matrix|led|laser/i,
+          xenon:          /scheinwerfer|xenon|bi[-\s]?xenon|matrix|led|laser/i,
           panorama:       /panorama|schiebedach|glass\s*roof/i,
           applecarplay:   /carplay/i,
           androidauto:    /android\s*auto/i,
           isofix:         /isofix/i
         };
         if (map[t]) return map[t];
+        if (map[raw]) return map[raw];
         let pattern = escRe(t);
         pattern = pattern
           .replace(/ae/g, "(ä|ae)")
@@ -6322,6 +6331,12 @@ app.get("/api/search", async (req, res) => {
             { verkauf_ausstattung:{ $regex: rx } },
             { equipment_keys:     { $elemMatch: { $regex: rx } } },
             { equipment_text:     { $elemMatch: { $regex: rx } } },
+            { scheinwerfer:       { $regex: rx } },
+            { verkauf_scheinwerfer:{ $regex: rx } },
+            { headlights:         { $regex: rx } },
+            { verkauf_headlights: { $regex: rx } },
+            { rueckfahrkamera:    { $regex: rx } },
+            { verkauf_rueckfahrkamera:{ $regex: rx } },
             { beschreibung:       { $regex: rx } },
             { titel:              { $regex: rx } }
           ]

@@ -1973,18 +1973,36 @@ function showPhoneNumber() {
 }
 
 /* ------------------------ Nachricht an Verkäufer ------------------------ */
-function setupMessageForm() {
+function setupMessageForm(inseratData = null) {
   const form = document.getElementById("messageForm");
   if (!form) return;
+  if (form.dataset.bound === "1") return;
+  form.dataset.bound = "1";
 
-  let fahrzeug = {};
-  try {
-    fahrzeug = JSON.parse(localStorage.getItem("ausgewaehltesInserat") || "{}");
-  } catch {}
-  const fahrzeugId = fahrzeug.id || fahrzeug._id;
+  let fahrzeug = inseratData;
+  if (!fahrzeug || !getDocId(fahrzeug)) {
+    try {
+      fahrzeug = JSON.parse(localStorage.getItem("ausgewaehltesInserat") || "{}");
+    } catch {}
+  }
+
+  let fahrzeugId = getDocId(fahrzeug);
   if (!fahrzeugId) {
-    alert("❌ Kein Fahrzeug ausgewählt.");
-    window.location.href = "übersicht.html";
+    try {
+      const params = new URLSearchParams(window.location.search || "");
+      fahrzeugId =
+        params.get("id") ||
+        params.get("inserat") ||
+        params.get("listing") ||
+        null;
+    } catch {}
+  }
+
+  if (!fahrzeugId) {
+    const btn = form.querySelector('button[type="submit"]');
+    const ta = form.querySelector("textarea");
+    if (btn) btn.disabled = true;
+    if (ta) ta.placeholder = "Inserat konnte nicht geladen werden.";
     return;
   }
 
@@ -2002,7 +2020,12 @@ function setupMessageForm() {
 
     const payload = {
       senderId,
-      empfaengerId: fahrzeug.verkaeuferId || fahrzeug.nutzerId || "",
+      empfaengerId:
+        fahrzeug?.verkaeuferId ||
+        fahrzeug?.seller?.id ||
+        fahrzeug?.nutzerId ||
+        fahrzeug?.sellerId ||
+        "",
       fahrzeugId,
       absenderName,
       nachricht,
@@ -2882,7 +2905,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupAuthLink();
   setupNavbarShortcuts();
   setupBackButton();
-  setupMessageForm();
   setupRatingPanel();
 
   // 🔽 "Nachricht schreiben" scrollt zum Formular
@@ -2918,6 +2940,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.error("Kein Inserat gefunden.");
     return;
   }
+
+  setupMessageForm(inserat);
 
   // Obere Bereiche füllen
   fillTop(inserat);

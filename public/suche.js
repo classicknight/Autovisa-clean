@@ -2315,6 +2315,11 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
     const psMax = parseInt(document.getElementById("powerTo")?.value   || "", 10);
     if (!Number.isNaN(psMin) && psMin > 0) params.set("ps_min", String(psMin)); else params.delete("ps_min");
     if (!Number.isNaN(psMax) && psMax > 0) params.set("ps_max", String(psMax)); else params.delete("ps_max");
+    if ((!Number.isNaN(psMin) && psMin > 0) || (!Number.isNaN(psMax) && psMax > 0)) {
+      params.set("power_unit", "ps");
+    } else {
+      params.delete("power_unit");
+    }
   
     // Kraftstoff (Select oder Checkboxen -> CSV)
     const fuelEl  = document.getElementById("fuelType") || document.getElementById("fuel");
@@ -2582,6 +2587,8 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
       return "";
     }
     const fmtYM = (s) => /^\d{4}-\d{2}$/.test(s) ? `${s.slice(5,7)}/${s.slice(0,4)}` : s;
+    const KW_TO_PS = 1.35962;
+    const PS_TO_KW = 1 / KW_TO_PS;
   
     // DOM Refs
     const priceFromEl   = document.getElementById("priceFrom");
@@ -2662,6 +2669,9 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
       
       ps_min: sp.get("ps_min") || "",
       ps_max: sp.get("ps_max") || "",
+      kw_min: sp.get("kw_min") || "",
+      kw_max: sp.get("kw_max") || "",
+      power_unit: sp.get("power_unit") || "",
       
   
       getriebe: (sp.get("getriebe") || "").toLowerCase(),
@@ -2684,6 +2694,12 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
   
       // Max. Halter
       halter_max: sp.get("halter_max") || sp.get("max_halter") || sp.get("owners_max") || "",
+
+      // Sitze / Anbieter / MwSt / Ausstattung
+      sitze_min: sp.get("sitze_min") || sp.get("sitze") || "",
+      anbieter: sp.get("anbieter") || "",
+      mwst: sp.get("mwst") || "",
+      ausstattung: (sp.get("ausstattung") || "").split(",").map(s => s.trim()).filter(Boolean),
   
       // Umwelt/Schadstoff
       umweltplakette:   badgeCanon(sp.get("umweltplakette") || sp.get("plakette")),
@@ -2725,6 +2741,16 @@ const psMaxEff = (() => {
   const n = toInt(powerToEl?.value ?? "");
   return Number.isFinite(n) && n > 0 ? n : toInt(qp.ps_max);
 })();
+
+const powerUnitEff = (() => {
+  const u = (qp.power_unit || "").toLowerCase();
+  return u === "kw" ? "kw" : "ps";
+})();
+
+const displayPower = (psVal) => {
+  if (!Number.isFinite(psVal)) return NaN;
+  return powerUnitEff === "kw" ? Math.round(psVal * PS_TO_KW) : Math.round(psVal);
+};
 
     // Max. Halter – effektiv
     const halterMaxEff = (() => {
@@ -2810,8 +2836,8 @@ const psMaxEff = (() => {
     if (!isNaN(priceMax) && priceMax > 0) chips.push({key:"price_max", label:`Preis bis ${eur(priceMax)}`});
     if (!isNaN(kmMin)    && kmMin  > 0)   chips.push({key:"km_min",    label:`KM ab ${int(kmMin)}`});
     if (!isNaN(kmMax)    && kmMax  > 0)   chips.push({key:"km_max",    label:`KM bis ${int(kmMax)}`});
-    if (!isNaN(psMinEff) && psMinEff > 0) chips.push({key:"ps_min",    label:`PS ab ${int(psMinEff)}`});
-    if (!isNaN(psMaxEff) && psMaxEff > 0) chips.push({key:"ps_max",    label:`PS bis ${int(psMaxEff)}`});
+    if (!isNaN(psMinEff) && psMinEff > 0) chips.push({key:"ps_min",    label:`${powerUnitEff === "kw" ? "kW" : "PS"} ab ${int(displayPower(psMinEff))}`});
+    if (!isNaN(psMaxEff) && psMaxEff > 0) chips.push({key:"ps_max",    label:`${powerUnitEff === "kw" ? "kW" : "PS"} bis ${int(displayPower(psMaxEff))}`});
   
     fuelList.forEach(tok => chips.push({ key: "fuel", value: tok, label: `Kraftstoff: ${fuelNiceLabel(tok)}` }));
     if (effGear) chips.push({ key: "gear", label: `Getriebe: ${effGear}` });
@@ -2895,6 +2921,50 @@ const psMaxEff = (() => {
   
     if (qp.fahrtauglich)
       chips.push({ key: "fahrtauglich", label: "Fahrtauglich" });
+
+    // Sitze (mind.)
+    if (qp.sitze_min)
+      chips.push({ key: "sitze_min", label: `Sitze ab ${qp.sitze_min}` });
+
+    // Anbieter (Händler/Privat)
+    if (qp.anbieter) {
+      const label = qp.anbieter.toLowerCase().includes("haend") || qp.anbieter.toLowerCase().includes("händ")
+        ? "Händler"
+        : "Privat";
+      chips.push({ key: "anbieter", label: `Anbieter: ${label}` });
+    }
+
+    // MwSt. ausweisbar
+    if (isTruthyRaw(qp.mwst))
+      chips.push({ key: "mwst", label: "MwSt. ausweisbar" });
+
+    // Ausstattung
+    const equipLabel = (t) => {
+      const k = String(t || "").trim().toLowerCase();
+      const map = {
+        navigation: "Navigation",
+        sitzheizung: "Sitzheizung",
+        rueckfahrkamera: "Rückfahrkamera",
+        scheinwerfer: "Scheinwerfer",
+        bluetooth: "Bluetooth",
+        panorama: "Panorama",
+        applecarplay: "Apple CarPlay",
+        androidauto: "Android Auto",
+        isofix: "ISOFIX",
+        led: "Scheinwerfer",
+        xenon: "Scheinwerfer",
+        matrix: "Scheinwerfer"
+      };
+      if (map[k]) return map[k];
+      if (/(rueckfahr|rückfahr|rear|backup).*(kamera|camera)/.test(k)) return "Rückfahrkamera";
+      if (/(scheinwerfer|xenon|bi-?xenon|matrix|led|laser)/.test(k)) return "Scheinwerfer";
+      return t;
+    };
+    if (qp.ausstattung?.length) {
+      qp.ausstattung.forEach(e =>
+        chips.push({ key: "ausstattung", value: e, label: `Ausstattung: ${equipLabel(e)}` })
+      );
+    }
   
  
   
@@ -3205,12 +3275,44 @@ function removeFilterChip(key, val = "") {
       params.delete("fahrtauglich");
       break;
 
+    case "sitze_min":
+    case "sitze": {
+      params.delete("sitze_min");
+      params.delete("sitze");
+      const seatsEl = document.getElementById("sitze");
+      if (seatsEl) seatsEl.value = "";
+      break;
+    }
+
+    case "anbieter": {
+      params.delete("anbieter");
+      const anbieterEl = document.getElementById("anbieter");
+      if (anbieterEl) anbieterEl.value = "";
+      break;
+    }
+
+    case "mwst":
+      params.delete("mwst");
+      break;
+
+    case "ausstattung": {
+      const list = splitCsv(params.get("ausstattung") || "");
+      const next = list.filter(x => x.toLowerCase() !== String(val || "").toLowerCase());
+      if (next.length) params.set("ausstattung", next.join(","));
+      else params.delete("ausstattung");
+      document.querySelectorAll('.equipment-grid input[type="checkbox"]').forEach(cb => {
+        if ((cb.value || "").toLowerCase() === String(val || "").toLowerCase()) cb.checked = false;
+      });
+      break;
+    }
+
 
     default: break;
   }
 
   // Paging zurücksetzen & URL aktualisieren
   params.delete("page");
+  if (!params.get("ps_min") && !params.get("ps_max")) params.delete("power_unit");
   const qs = params.toString();
   history.replaceState(null, "", `${location.pathname}${qs ? `?${qs}` : ""}`);
 
@@ -3239,7 +3341,9 @@ function clearAllFilters() {
     // HU-Parameter (alle Varianten)
     "hu","hu_bis","inspectionUntil","hu_min_monate","hu_min_months",
     // Max. Halter
-    "halter_max","max_halter","owners_max"
+    "halter_max","max_halter","owners_max",
+    // Neu: Sitze / Anbieter / MwSt / Ausstattung / Leistungseinheit
+    "sitze_min","sitze","anbieter","mwst","ausstattung","power_unit","kw_min","kw_max"
   ].forEach(k => params.delete(k));
 
   params.delete("page");
@@ -3337,6 +3441,20 @@ function clearAllFilters() {
     if (sh) sh.checked = false;
 
     document.querySelectorAll('input[name="merkmale"], input[name="merkmale[]"]').forEach(cb => cb.checked = false);
+  }
+
+  // Sitze / Anbieter / MwSt / Ausstattung
+  {
+    const seatsEl = document.getElementById("sitze");
+    if (seatsEl) seatsEl.value = "";
+
+    const anbieterEl = document.getElementById("anbieter");
+    if (anbieterEl) anbieterEl.value = "";
+
+    const mwstEl = document.getElementById("mwst-ausweisbar");
+    if (mwstEl) mwstEl.checked = false;
+
+    document.querySelectorAll('.equipment-grid input[type="checkbox"]').forEach(cb => (cb.checked = false));
   }
 
   // Verbrauch

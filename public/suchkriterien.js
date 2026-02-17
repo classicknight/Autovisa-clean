@@ -1138,11 +1138,27 @@ if (kraftValues.length) {
 // Ausstattung (Mehrfach)
 const equipValues = splitCsv(qs.get("ausstattung")).map(v => v.toLowerCase());
 if (equipValues.length) {
+  const mapEquipToken = (t) => {
+    const s = String(t || "").toLowerCase();
+    if (!s) return "";
+    if (/(rueckfahr|rückfahr|rear|backup).*(kamera|camera)/.test(s)) return "rueckfahrkamera";
+    if (/(scheinwerfer|xenon|bi-?xenon|matrix|led|laser)/.test(s)) return "scheinwerfer";
+    if (/navigation|navi/.test(s)) return "navigation";
+    if (/sitzheizung/.test(s)) return "sitzheizung";
+    if (/bluetooth|freispre/.test(s)) return "bluetooth";
+    if (/panorama|schiebedach/.test(s)) return "panorama";
+    if (/carplay/.test(s)) return "applecarplay";
+    if (/android/.test(s)) return "androidauto";
+    if (/isofix/.test(s)) return "isofix";
+    return s;
+  };
+
+  const normalized = equipValues.map(mapEquipToken).filter(Boolean);
   document
     .querySelectorAll('.equipment-grid input[type="checkbox"]')
     .forEach(inp => {
       const val = (inp.value || "").toLowerCase();
-      inp.checked = equipValues.includes(val);
+      inp.checked = normalized.includes(val);
     });
 }
 

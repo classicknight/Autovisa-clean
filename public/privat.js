@@ -12,11 +12,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const hamburger     = document.getElementById("hamburger");
   const dropdownLinks = document.querySelectorAll(".dropdown > a");
   const dropdownLis   = document.querySelectorAll(".dropdown");
-  const authDisplayEl = document.getElementById("auth-display");
-
-  // Navbar-Shortcuts
   const savedCarsLink = document.getElementById("saved-cars-link");
   const myCarsLink    = document.getElementById("my-cars-link");
+  const authLi        = document.getElementById("auth-link");
+  const authLoginHTML = authLi ? authLi.innerHTML : "";
 
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
@@ -116,6 +115,58 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("resize", repositionOpen);
   window.addEventListener("scroll", repositionOpen);
 
+  const closeMenu = () => {
+    navLinks?.classList.remove("active");
+    hamburger?.setAttribute("aria-expanded", "false");
+    closeAllDropdowns();
+  };
+
+  /* =========================
+     Auth UI (Login/Logout Button)
+     ========================= */
+  const clearAuthStorage = () => {
+    ["isLoggedIn", "userRole", "userId"].forEach((k) => localStorage.removeItem(k));
+    localStorage.removeItem("redirectAfterLogin");
+  };
+
+  const clearAuthFlags = () => {
+    ["isLoggedIn", "userRole", "userId"].forEach((k) => localStorage.removeItem(k));
+  };
+
+  function renderLogin() {
+    if (!authLi) return;
+    authLi.innerHTML = authLoginHTML;
+  }
+
+  function renderLogout() {
+    if (!authLi) return;
+    authLi.innerHTML = `
+      <a href="#" class="nav-link" id="logout-link">
+        <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+        <span>Abmelden</span>
+      </a>
+    `;
+    const logoutLink = document.getElementById("logout-link");
+    if (logoutLink) {
+      logoutLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        closeMenu();
+        fetch("/logout", { method: "POST", credentials: "include" })
+          .finally(() => {
+            clearAuthStorage();
+            window.location.href = "index.html";
+          });
+      });
+    }
+  }
+
+  if (authLi) {
+    const isLoggedInLS = localStorage.getItem("isLoggedIn") === "true";
+    if (isLoggedInLS) {
+      renderLogout();
+    }
+  }
+
 
   /* =========================
      Edit-Mode Bootstrap (Privat)
@@ -165,6 +216,8 @@ document.addEventListener("DOMContentLoaded", () => {
     .then(res => res.json())
     .then(user => {
       if (!user?.eingeloggt) {
+        clearAuthFlags();
+        renderLogin();
         try {
           const url = location.search ? `privat.html${location.search}` : "privat.html";
           localStorage.setItem("redirectAfterLogin", url);
@@ -172,6 +225,16 @@ document.addEventListener("DOMContentLoaded", () => {
         window.location.href = "login.html";
         return;
       }
+
+      try {
+        localStorage.setItem("isLoggedIn", "true");
+        const roleValue = user?.role || user?.rolle;
+        if (roleValue) localStorage.setItem("userRole", String(roleValue));
+        const userIdValue = user?.id || user?._id || user?.userId;
+        if (userIdValue) localStorage.setItem("userId", String(userIdValue));
+      } catch {}
+
+      renderLogout();
 
       const roleRaw = String(user?.role || user?.rolle || "").toLowerCase();
       const isPrivat = roleRaw === "privat" || roleRaw.includes("privat");
@@ -182,8 +245,6 @@ document.addEventListener("DOMContentLoaded", () => {
         window.location.href = "verkaufen.html";
         return;
       }
-
-      initAuthDisplay(user);
 
       // Navbar-Shortcuts → neue Übersicht-Hashes
       savedCarsLink?.addEventListener("click", (e) => {
@@ -199,19 +260,7 @@ document.addEventListener("DOMContentLoaded", () => {
       initStepsAndTarifUI();
       initWizard();
     })
-    .catch(() => {
-      if (authDisplayEl) authDisplayEl.innerHTML = `<i class="fas fa-user-slash"></i> Fehler beim Laden`;
-    });
-
-
-  function initAuthDisplay(user) {
-    if (!authDisplayEl) return;
-
-    const name = user?.name || user?.email || "";
-    const label = name ? `Eingeloggt – Privat: ${name}` : `Eingeloggt – Privat`;
-
-    authDisplayEl.innerHTML = `<i class="fas fa-user-check"></i> ${label}`;
-  }
+    .catch(err => console.error("❌ Fehler beim Login-Check:", err));
 
 
   /* =========================
