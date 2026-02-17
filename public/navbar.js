@@ -122,11 +122,6 @@ document.addEventListener("DOMContentLoaded", () => {
     ["isLoggedIn", "userRole", "userId"].forEach((k) => localStorage.removeItem(k));
   };
 
-  // Optional: schnelle UI via localStorage
-  const isLoggedInLS = localStorage.getItem("isLoggedIn") === "true";
-  if (isLoggedInLS) {
-    renderLogout();
-  }
   fetch("/getNutzerInfo", { credentials: "include" })
     .then((res) => res.json())
     .then((data) => {
@@ -137,5 +132,8 @@ document.addEventListener("DOMContentLoaded", () => {
         renderLogin();
       }
     })
-    .catch(() => {});
+    .catch(() => {
+      clearAuthFlags();
+      renderLogin();
+    });
 });

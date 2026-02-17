@@ -549,6 +549,9 @@ const HEADER_ALIASES = {
   kraftstoff: "fuel",
   fuel: "fuel",
   fuel_type: "fuel",
+  fuel_category: "fuel",
+  fuel_category_text: "fuel",
+  fuel_type_text: "fuel",
   verkauf_kraftstoff: "fuel",
   getriebe: "gearbox",
   transmission: "gearbox",
@@ -656,6 +659,9 @@ const HEADER_ALIASES = {
   verbrauch_kombiniert: "consumption_combined",
   verbrauch: "consumption_combined",
   wltp_kombiniert: "consumption_combined",
+  fuel_cons_text: "consumption_combined",
+  fuel_cons: "consumption_combined",
+  fuel_consumption: "consumption_combined",
   verkauf_verbrauch_kombiniert: "consumption_combined",
   verbrauch_innerorts: "consumption_city",
   verkauf_verbrauch_innerorts: "consumption_city",
@@ -689,6 +695,9 @@ const HEADER_ALIASES = {
   halter: "previous_owners",
   anzahlhalter: "previous_owners",
   verkauf_halter: "previous_owners",
+  owners_text: "previous_owners",
+  owners: "previous_owners",
+  owner_count: "previous_owners",
   hu: "hu",
   mot: "hu",
   tuv: "hu",
@@ -862,7 +871,7 @@ function normalizeHeaderKey(header, index) {
   if (normalized.includes("metallic")) {
     return "metallic";
   }
-  if (normalized.includes("halter")) {
+  if (normalized.includes("halter") || normalized.includes("owner")) {
     return "previous_owners";
   }
   if (normalized.includes("tuv") || normalized.includes("tuev") || normalized.includes("tüv") || normalized === "hu") {

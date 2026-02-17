@@ -30,9 +30,9 @@
   <link href="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/slim-select@2.6.0/dist/slimselect.min.js"></script>
   <script src="analytics.js" defer></script>
-  <link rel="icon" href="/favicon.ico?v=2">
-  <link rel="shortcut icon" href="/favicon.ico?v=2">
-  <link rel="apple-touch-icon" href="/favicon.ico?v=2">
+  <link rel="icon" href="/favicon.ico?v=3">
+  <link rel="shortcut icon" href="/favicon.ico?v=3">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
 </head>
 <body>
 <!-- Navbar -->
@@ -403,6 +403,28 @@
         <div class="overview-filter">
           <label for="overviewSearch">Suchen</label>
           <input id="overviewSearch" type="text" placeholder="Titel, Marke, Modell, ID…" autocomplete="off">
+        </div>
+        <div class="overview-filter">
+          <label for="overviewBrand">Marke</label>
+          <input id="overviewBrand" type="text" placeholder="z. B. BMW" autocomplete="off">
+        </div>
+        <div class="overview-filter">
+          <label for="overviewModel">Modell</label>
+          <input id="overviewModel" type="text" placeholder="z. B. 3er" autocomplete="off">
+        </div>
+        <div class="overview-filter">
+          <label for="overviewFuel">Kraftstoff</label>
+          <select id="overviewFuel">
+            <option value="all">Alle</option>
+          </select>
+        </div>
+        <div class="overview-filter">
+          <label for="overviewPriceMax">Preis bis</label>
+          <input id="overviewPriceMax" type="text" inputmode="numeric" placeholder="z. B. 20.000">
+        </div>
+        <div class="overview-filter">
+          <label for="overviewKmMax">KM bis</label>
+          <input id="overviewKmMax" type="text" inputmode="numeric" placeholder="z. B. 120.000">
         </div>
         <div class="overview-filter">
           <label for="overviewStatus">Status</label>

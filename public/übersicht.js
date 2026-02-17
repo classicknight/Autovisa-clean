@@ -2155,11 +2155,21 @@ function buildFahrzeugdatenFromInserat(ins) {
     const messageCounts = await getMessageThreadCounts(nutzerData.nutzerId);
 
     const searchEl = document.getElementById("overviewSearch");
+    const brandEl = document.getElementById("overviewBrand");
+    const modelEl = document.getElementById("overviewModel");
+    const fuelEl = document.getElementById("overviewFuel");
+    const priceMaxEl = document.getElementById("overviewPriceMax");
+    const kmMaxEl = document.getElementById("overviewKmMax");
     const statusEl = document.getElementById("overviewStatus");
     const resetEl = document.getElementById("overviewFilterReset");
 
     const filterState = {
       q: "",
+      brand: "",
+      model: "",
+      fuel: "all",
+      priceMax: "",
+      kmMax: "",
       status: "all"
     };
 
@@ -2191,6 +2201,99 @@ function buildFahrzeugdatenFromInserat(ins) {
         .map((v) => String(v).toLowerCase());
       return parts.join(" ");
     };
+
+    const normalizeText = (value) => String(value || "").toLowerCase().trim();
+
+    const parseLooseNumber = (value) => {
+      if (value == null || value === "") return null;
+      if (typeof value === "number" && !Number.isNaN(value)) return value;
+      let s = String(value).trim();
+      if (!s) return null;
+      s = s.replace(/[^\d.,-]/g, "");
+      if (!s) return null;
+
+      const lastComma = s.lastIndexOf(",");
+      const lastDot = s.lastIndexOf(".");
+      if (lastComma !== -1 && lastDot !== -1) {
+        if (lastComma > lastDot) {
+          s = s.replace(/\./g, "").replace(",", ".");
+        } else {
+          s = s.replace(/,/g, "");
+        }
+      } else if (lastComma !== -1) {
+        const parts = s.split(",");
+        const tail = parts[parts.length - 1];
+        if (tail.length === 3) {
+          s = s.replace(/,/g, "");
+        } else {
+          s = s.replace(",", ".");
+        }
+      } else if (lastDot !== -1) {
+        const parts = s.split(".");
+        const tail = parts[parts.length - 1];
+        if (tail.length === 3) {
+          s = s.replace(/\./g, "");
+        }
+      }
+
+      const num = Number(s);
+      return Number.isNaN(num) ? null : num;
+    };
+
+    const getBrand = (ins) =>
+      ins?.verkauf_marke ||
+      ins?.marke ||
+      ins?.brand ||
+      ins?.manufacturer ||
+      "";
+
+    const getModel = (ins) =>
+      ins?.verkauf_modell ||
+      ins?.modell ||
+      ins?.model ||
+      ins?.vehicle_model ||
+      "";
+
+    const getFuel = (ins) =>
+      ins?.verkauf_kraftstoff ||
+      ins?.kraftstoff ||
+      ins?.fuel ||
+      ins?.fuel_type ||
+      ins?.fuelType ||
+      "";
+
+    const collectUnique = (items, getter) => {
+      const set = new Set();
+      items.forEach((item) => {
+        const raw = getter(item);
+        const list = Array.isArray(raw) ? raw : [raw];
+        list.forEach((entry) => {
+          const value = String(entry || "").trim();
+          if (!value || value === "—") return;
+          set.add(value);
+        });
+      });
+      return [...set].sort((a, b) => a.localeCompare(b, "de", { sensitivity: "base" }));
+    };
+
+    const fillSelect = (selectEl, values) => {
+      if (!selectEl) return;
+      const current = selectEl.value || "all";
+      selectEl.innerHTML = "";
+      const base = document.createElement("option");
+      base.value = "all";
+      base.textContent = "Alle";
+      selectEl.appendChild(base);
+      values.forEach((value) => {
+        const opt = document.createElement("option");
+        opt.value = value;
+        opt.textContent = value;
+        selectEl.appendChild(opt);
+      });
+      selectEl.value = values.includes(current) ? current : "all";
+    };
+
+    fillSelect(fuelEl, collectUnique(allItems, getFuel));
 
     const renderCarList = (list) => {
       carList.innerHTML = "";
@@ -2346,6 +2449,47 @@ function buildFahrzeugdatenFromInserat(ins) {
         });
       }
 
+      if (filterState.brand) {
+        const q = normalizeText(filterState.brand);
+        list = list.filter((ins) => normalizeText(getBrand(ins)).includes(q));
+      }
+
+      if (filterState.model) {
+        const q = normalizeText(filterState.model);
+        list = list.filter((ins) => normalizeText(getModel(ins)).includes(q));
+      }
+
+      if (filterState.fuel && filterState.fuel !== "all") {
+        const target = normalizeText(filterState.fuel);
+        list = list.filter((ins) => {
+          const raw = getFuel(ins);
+          if (Array.isArray(raw)) {
+            return raw.some((entry) => normalizeText(entry) === target);
+          }
+          return normalizeText(raw) === target;
+        });
+      }
+
+      if (filterState.priceMax) {
+        const maxPrice = parseLooseNumber(filterState.priceMax);
+        if (maxPrice != null) {
+          list = list.filter((ins) => {
+            const price = parseLooseNumber(extractPriceValue(ins));
+            return price != null && price <= maxPrice;
+          });
+        }
+      }
+
+      if (filterState.kmMax) {
+        const maxKm = parseLooseNumber(filterState.kmMax);
+        if (maxKm != null) {
+          list = list.filter((ins) => {
+            const km = parseLooseNumber(ins?.verkauf_kilometer ?? ins?.kilometer);
+            return km != null && km <= maxKm;
+          });
+        }
+      }
+
       if (filterState.q) {
         const q = filterState.q.trim().toLowerCase();
         if (q) {
@@ -2363,6 +2507,41 @@ function buildFahrzeugdatenFromInserat(ins) {
       });
     }
 
+    if (brandEl) {
+      brandEl.addEventListener("input", () => {
+        filterState.brand = brandEl.value || "";
+        applyFilters();
+      });
+    }
+
+    if (modelEl) {
+      modelEl.addEventListener("input", () => {
+        filterState.model = modelEl.value || "";
+        applyFilters();
+      });
+    }
+
+    if (fuelEl) {
+      fuelEl.addEventListener("change", () => {
+        filterState.fuel = fuelEl.value || "all";
+        applyFilters();
+      });
+    }
+
+    if (priceMaxEl) {
+      priceMaxEl.addEventListener("input", () => {
+        filterState.priceMax = priceMaxEl.value || "";
+        applyFilters();
+      });
+    }
+
+    if (kmMaxEl) {
+      kmMaxEl.addEventListener("input", () => {
+        filterState.kmMax = kmMaxEl.value || "";
+        applyFilters();
+      });
+    }
+
     if (statusEl) {
       statusEl.addEventListener("change", () => {
         filterState.status = statusEl.value || "all";
@@ -2373,8 +2552,18 @@ function buildFahrzeugdatenFromInserat(ins) {
     if (resetEl) {
       resetEl.addEventListener("click", () => {
         filterState.q = "";
+        filterState.brand = "";
+        filterState.model = "";
+        filterState.fuel = "all";
+        filterState.priceMax = "";
+        filterState.kmMax = "";
         filterState.status = "all";
         if (searchEl) searchEl.value = "";
+        if (brandEl) brandEl.value = "";
+        if (modelEl) modelEl.value = "";
+        if (fuelEl) fuelEl.value = "all";
+        if (priceMaxEl) priceMaxEl.value = "";
+        if (kmMaxEl) kmMaxEl.value = "";
         if (statusEl) statusEl.value = "all";
         applyFilters();
       });

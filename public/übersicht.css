@@ -926,7 +926,8 @@ img, video, canvas {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    min-width: 180px;
+    flex: 1 1 160px;
+    min-width: 140px;
   }
   .overview-filter label{
     font-size: 0.85rem;

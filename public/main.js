@@ -237,11 +237,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (authLink) {
-    // schnelle UI-Variante: wenn localStorage bereits sagt "eingeloggt", direkt anzeigen
-    const isLoggedInLS = localStorage.getItem("isLoggedIn") === "true";
-    if (isLoggedInLS) {
-      renderLogout();
-    }
     fetch("/getNutzerInfo", { credentials: "include" })
       .then((res) => res.json())
       .then((data) => {
@@ -252,7 +247,11 @@ document.addEventListener("DOMContentLoaded", () => {
           renderLogin();
         }
       })
-      .catch((err) => console.error("Fehler beim Abrufen des Login-Zustands:", err));
+      .catch((err) => {
+        console.error("Fehler beim Abrufen des Login-Zustands:", err);
+        ["isLoggedIn", "userRole", "userId"].forEach((k) => localStorage.removeItem(k));
+        renderLogin();
+      });
   }
 
   // =========================

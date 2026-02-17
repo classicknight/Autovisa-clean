@@ -9,23 +9,25 @@
     var style = document.createElement("style");
     style.id = "cookie-banner-styles";
     style.textContent =
-      ".cookie-backdrop{position:fixed;inset:0;z-index:9998;background:rgba(10,22,32,.25);backdrop-filter:saturate(120%) blur(1px);pointer-events:none;}" +
-      ".cookie-banner{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(820px,calc(100% - 32px));z-index:9999;background:#fff;color:#1a1a1a;padding:28px 30px;border:1px solid #e3e9ef;border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.22);}" +
-      ".cookie-banner:before{content:'';position:absolute;left:0;top:0;bottom:0;width:6px;border-radius:18px 0 0 18px;background:linear-gradient(180deg,#00d3b0,#00b8a9);}"+
-      ".cookie-banner .cookie-inner{max-width:1200px;margin:0 auto;display:flex;gap:22px;align-items:center;justify-content:space-between;flex-wrap:wrap;}" +
-      ".cookie-banner .cookie-copy{max-width:760px;}" +
-      ".cookie-banner .cookie-title{margin:0 0 6px;font-size:18px;font-weight:800;color:#0f1f26;}" +
-      ".cookie-banner .cookie-text{margin:0;font-size:15px;line-height:1.6;color:#3b4a57;}" +
-      ".cookie-banner a{color:#00bfa6;text-decoration:underline;}" +
-      ".cookie-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}" +
-      ".cookie-btn{border:none;border-radius:12px;padding:12px 18px;font-weight:700;cursor:pointer;font-size:14px;}" +
+      ".cookie-backdrop{position:fixed;inset:0;z-index:9998;background:rgba(12,18,28,.45);backdrop-filter:saturate(110%) blur(2px);pointer-events:none;}" +
+      ".cookie-banner{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(760px,calc(100% - 32px));z-index:9999;background:#fff;color:#111827;padding:28px 30px;border:1px solid #e6edf3;border-radius:18px;box-shadow:0 30px 90px rgba(15,23,42,.35);}" +
+      ".cookie-banner:before{content:'';position:absolute;left:16px;right:16px;top:0;height:3px;border-radius:18px;background:linear-gradient(90deg,#00c2b0,#67d2c9);}"+
+      ".cookie-banner .cookie-inner{max-width:1200px;margin:0 auto;display:flex;gap:20px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;}" +
+      ".cookie-banner .cookie-copy{max-width:520px;}" +
+      ".cookie-header{display:flex;flex-direction:column;gap:6px;margin-bottom:8px;}" +
+      ".cookie-brand{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#7b8a95;font-weight:700;}" +
+      ".cookie-banner .cookie-title{margin:0;font-size:20px;font-weight:800;color:#0f1f26;}" +
+      ".cookie-banner .cookie-text{margin:0;font-size:15px;line-height:1.65;color:#4b5b67;}" +
+      ".cookie-banner a{color:#00bfa6;text-decoration:underline;text-underline-offset:3px;}" +
+      ".cookie-actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:flex-end;min-width:240px;}" +
+      ".cookie-btn{border:none;border-radius:12px;padding:12px 18px;font-weight:700;cursor:pointer;font-size:14px;min-width:160px;}" +
       ".cookie-accept{background:#00bfa6;color:#fff;border:1px solid #00bfa6;box-shadow:0 10px 22px rgba(0,191,166,.28);}" +
-      ".cookie-decline{background:#fff;color:#0f1f26;border:1px solid #cfd8df;}" +
+      ".cookie-decline{background:#fff;color:#111827;border:1px solid #d6dee7;}" +
       ".cookie-btn:hover{filter:brightness(.98);}" +
       ".cookie-settings-link{background:none;border:none;color:#b7c3ce;font-weight:600;cursor:pointer;padding:0;margin-left:12px;text-decoration:underline;text-underline-offset:3px;font-size:.95rem;}" +
       ".cookie-settings-link:hover{color:#00b8a9;}" +
       ".cookie-settings-wrap{display:flex;align-items:center;gap:6px;}" +
-      "@media (max-width:700px){.cookie-banner{width:calc(100% - 24px);padding:20px}.cookie-banner .cookie-inner{gap:12px}.cookie-actions{width:100%;justify-content:flex-start}.cookie-banner .cookie-title{font-size:17px}}";
+      "@media (max-width:700px){.cookie-banner{width:calc(100% - 24px);padding:20px}.cookie-banner .cookie-inner{gap:12px}.cookie-actions{width:100%;justify-content:flex-start}.cookie-btn{min-width:140px}.cookie-banner .cookie-title{font-size:18px}}";
     document.head.appendChild(style);
   }
 
@@ -101,8 +103,11 @@
     banner.innerHTML =
       '<div class="cookie-inner">' +
       '<div class="cookie-copy">' +
-      '<div class="cookie-title">Wir respektieren deine Privatsphäre</div>' +
-      '<p class="cookie-text">Wir verwenden Cookies, um die Nutzung unserer Website zu analysieren und Autovisa zu verbessern (Google Analytics). Deine Auswahl kannst du jederzeit in den Cookie-Einstellungen ändern. Mehr Infos findest du in der <a href="datenschutz.html">Datenschutzerklärung</a>.</p>' +
+      '<div class="cookie-header">' +
+      '<span class="cookie-brand">Autovisa</span>' +
+      '<div class="cookie-title">Datenschutz & Cookies</div>' +
+      '</div>' +
+      '<p class="cookie-text">Wir nutzen Cookies, um die Nutzung unserer Website zu analysieren und Autovisa zu verbessern (Google Analytics). Deine Auswahl kannst du jederzeit in den Cookie-Einstellungen ändern. Mehr Infos findest du in der <a href="datenschutz.html">Datenschutzerklärung</a>.</p>' +
       "</div>" +
       '<div class="cookie-actions">' +
       '<button type="button" class="cookie-btn cookie-decline" id="cookie-decline">Nur notwendige</button>' +
