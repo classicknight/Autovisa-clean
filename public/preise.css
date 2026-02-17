@@ -302,6 +302,19 @@
   backdrop-filter:saturate(120%) blur(2px);
 }
 .social a:hover{ transform:translateY(-2px); color:var(--accent); border-color:var(--accent); }
+  .social a.is-disabled{
+    opacity: .45;
+    cursor: default;
+    pointer-events: none;
+    transform: none;
+    color: var(--muted, #9aa5b1);
+    border-color: var(--stroke, #d6dee7);
+  }
+  .social a.is-disabled:hover{
+    transform: none;
+    color: var(--muted, #9aa5b1);
+    border-color: var(--stroke, #d6dee7);
+  }
 
 /* Spalten */
 .footer-col h3{ font-size:1rem; margin-bottom:.6rem; color:#fff; font-weight:700; }

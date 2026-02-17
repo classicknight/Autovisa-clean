@@ -2412,8 +2412,29 @@ transporter.verify((error) => {
 /* =========================
    🔧 Email-Template Helper
 ========================= */
+const EMAIL_LOGO_PATH = path.join(__dirname, "public", "autovisa-logo.png");
+
+function getEmailLogoAsset() {
+  try {
+    if (fs.existsSync(EMAIL_LOGO_PATH)) {
+      return {
+        logoSrc: "cid:autovisa-logo",
+        attachments: [
+          {
+            filename: "autovisa-logo.png",
+            path: EMAIL_LOGO_PATH,
+            cid: "autovisa-logo"
+          }
+        ]
+      };
+    }
+  } catch {}
+  return { logoSrc: "", attachments: [] };
+}
+
 function buildAutovisaEmail({
   subject = "Autovisa Nachricht",
+  logoSrc,
   logoUrl,
   greeting = "",
   title = "",
@@ -2423,6 +2444,7 @@ function buildAutovisaEmail({
   footerNote = "Wenn du diese E-Mail nicht erwartet hast, kannst du sie ignorieren."
 }) {
   const preheader = (greeting || title).slice(0, 120);
+  const logo = logoSrc || logoUrl || "";
 
   return `
 <!DOCTYPE html>
@@ -2440,35 +2462,50 @@ function buildAutovisaEmail({
 
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f8fc; padding:24px 0;">
     <tr>
-      <td align="center">
-        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px; background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 6px 30px rgba(0,0,0,0.06);">
+      <td align="center" style="padding:0 12px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px; background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 8px 28px rgba(15,23,42,0.08);">
           <tr>
-            <td align="center" style="padding:24px; background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);">
-              ${logoUrl
-                ? `<img src="${logoUrl}" alt="Autovisa" width="140" style="display:block; border:0; outline:none; text-decoration:none; max-width:140px;">`
-                : `<div style="font-weight:700; font-size:22px; color:#fff;">AUTOVISA</div>`}
+            <td style="padding:20px 24px; background:#0f2027;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="left" style="vertical-align:middle;">
+                    ${logo
+                      ? `<img src="${logo}" alt="Autovisa" width="120" style="display:block; border:0; outline:none; text-decoration:none; max-width:120px; height:auto;">`
+                      : `<div style="font-weight:800; font-size:20px; color:#ffffff; letter-spacing:.08em;">AUTOVISA</div>`}
+                  </td>
+                  <td align="right" style="vertical-align:middle; text-align:right; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:#b8d0d4;">
+                    Fahrzeuge kaufen &amp; verkaufen
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
           <tr>
-            <td style="padding:28px 28px 8px;">
-              ${greeting ? `<div style="font-size:16px; margin-bottom:8px;">${greeting}</div>` : ""}
-              ${title ? `<h1 style="margin:0 0 12px; font-size:22px; line-height:1.3; color:#1a2a33;">${title}</h1>` : ""}
-              ${htmlText ? `<div style="font-size:15px; line-height:1.6; color:#37444f;">${htmlText}</div>` : ""}
+            <td style="padding:26px 28px 10px;">
+              ${greeting ? `<div style="font-size:16px; margin-bottom:8px; color:#1a2a33;">${greeting}</div>` : ""}
+              ${title ? `<h1 style="margin:0 0 12px; font-size:22px; line-height:1.35; color:#1a2a33;">${title}</h1>` : ""}
+              ${htmlText ? `<div style="font-size:15px; line-height:1.65; color:#38444f;">${htmlText}</div>` : ""}
             </td>
           </tr>
 
           ${buttonText && buttonUrl ? `
           <tr>
-            <td align="center" style="padding:16px 28px 6px;">
-              <a href="${buttonUrl}"
-                 style="display:inline-block; text-decoration:none; font-weight:600; padding:12px 20px; border-radius:8px; background:#00b8a9; color:#ffffff;">
-                ${buttonText}
-              </a>
+            <td align="center" style="padding:8px 28px 6px;">
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" bgcolor="#00b8a9" style="border-radius:10px;">
+                    <a href="${buttonUrl}"
+                       style="display:inline-block; padding:12px 22px; font-size:14px; font-weight:700; color:#ffffff; text-decoration:none; border-radius:10px;">
+                      ${buttonText}
+                    </a>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           <tr>
-            <td style="padding:0 28px 8px;">
+            <td style="padding:0 28px 10px;">
               <div style="font-size:12px; line-height:1.5; color:#6b7a86; word-break:break-all;">
                 Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:<br>
                 <a href="${buttonUrl}" style="color:#0f7a70;">${buttonUrl}</a>
@@ -2537,12 +2574,12 @@ app.post("/register", async (req, res) => {
 
     const urls = getUrls();
     const verifyLink = `${urls.api}/verify?token=${token}`;
-    const logoUrl    = `${urls.appUrl}/${encodeURIComponent("AUTOVISA LOGO.PNG")}`;
+    const { logoSrc, attachments } = getEmailLogoAsset();
 
     const subject = "Bitte bestätige deine Registrierung";
     const html = buildAutovisaEmail({
       subject,
-      logoUrl,
+      logoSrc,
       greeting: `Willkommen bei Autovisa, ${name}!`,
       title: "E-Mail-Adresse bestätigen",
       htmlText: "Klicke auf den Button, um deine Registrierung abzuschließen.",
@@ -2565,6 +2602,7 @@ Wenn du dich nicht registriert hast, ignoriere diese E-Mail.`;
       subject,
       html,
       text,
+      attachments,
     });
 
     console.log("✅ Bestätigungsmail gesendet:", info.messageId || info.response);
@@ -2680,13 +2718,13 @@ app.post("/forgot-password", async (req, res) => {
       const { appUrl } = getUrls();
 
       const resetLink = `${appUrl}/reset-passwort.html?token=${resetToken}`;
-      const logoUrl   = `${appUrl}/${encodeURIComponent("AUTOVISA LOGO.PNG")}`;
+      const { logoSrc, attachments } = getEmailLogoAsset();
       const subject   = "Passwort für Autovisa zurücksetzen";
       const name      = user.name || user.firma || "";
 
       const html = buildAutovisaEmail({
         subject,
-        logoUrl,
+        logoSrc,
         greeting: name ? `Hallo ${name},` : "",
         title: "Passwort zurücksetzen",
         htmlText: "Du hast angefordert, dein Passwort für Autovisa zurückzusetzen. Klicke auf den Button, um ein neues Passwort zu vergeben.",
@@ -2707,6 +2745,7 @@ app.post("/forgot-password", async (req, res) => {
         subject,
         html,
         text,
+        attachments,
       });
     }
 
@@ -3659,12 +3698,12 @@ app.post("/haendler-registrieren", uploadLogo.single("logo"), async (req, res) =
       .replace(/\/+$/, "");
 
     const verifyUrl   = `${baseUrl}/verify?token=${token}`;
-    const logoMailUrl = `${baseUrl}/${encodeURIComponent("AUTOVISA LOGO.PNG")}`;
     const subject     = "Bitte bestätigen Sie Ihre Händlerregistrierung";
+    const { logoSrc, attachments } = getEmailLogoAsset();
 
     const html = buildAutovisaEmail({
       subject,
-      logoUrl: logoMailUrl,
+      logoSrc,
       greeting: `Hallo ${escapeHtml(_firma || "Autohaus")},`,
       title: "Bitte E-Mail-Adresse bestätigen",
       htmlText: `
@@ -3693,6 +3732,7 @@ Falls Sie sich nicht registriert haben, können Sie diese E-Mail ignorieren.`;
       subject,
       html,
       text,
+      attachments,
     });
 
     return res.json({
@@ -3840,13 +3880,12 @@ function escapeHtml(input = "") {
 
 async function sendNewMessageEmail({ to, recipientName, senderName, messagePreview, chatUrl }) {
   if (!to) return;
-  const { appUrl } = getAppUrls();
-  const logoUrl = `${appUrl}/${encodeURIComponent("AUTOVISA LOGO.PNG")}`;
+  const { logoSrc, attachments } = getEmailLogoAsset();
 
   const subject = `Neue Nachricht von ${senderName} auf Autovisa`;
   const html = buildAutovisaEmail({
     subject,
-    logoUrl,
+    logoSrc,
     greeting: `Hallo ${escapeHtml(recipientName || "")},`,
     title: "Du hast eine neue Nachricht",
     htmlText: `
@@ -3879,7 +3918,8 @@ ${chatUrl}
     to,
     subject,
     html,
-    text
+    text,
+    attachments
   });
 }
 

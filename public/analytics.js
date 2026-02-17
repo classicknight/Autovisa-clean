@@ -11,7 +11,6 @@
     style.textContent =
       ".cookie-backdrop{position:fixed;inset:0;z-index:9998;background:rgba(12,18,28,.45);backdrop-filter:saturate(110%) blur(2px);pointer-events:none;}" +
       ".cookie-banner{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(760px,calc(100% - 32px));z-index:9999;background:#fff;color:#111827;padding:28px 30px;border:1px solid #e6edf3;border-radius:18px;box-shadow:0 30px 90px rgba(15,23,42,.35);}" +
-      ".cookie-banner:before{content:'';position:absolute;left:0;right:0;top:0;height:4px;border-radius:18px 18px 0 0;background:#00bfa6;}"+
       ".cookie-banner .cookie-inner{max-width:1200px;margin:0 auto;display:flex;gap:20px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;}" +
       ".cookie-banner .cookie-copy{max-width:520px;}" +
       ".cookie-header{display:flex;flex-direction:column;gap:6px;margin-bottom:8px;}" +

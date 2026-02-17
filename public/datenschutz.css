@@ -95,6 +95,19 @@
     transition: transform var(--t-fast) var(--e-out), border-color var(--t-fast) var(--e-out), color var(--t-fast) var(--e-out);
   }
   .social a:hover{ transform: translateY(-2px); color: var(--accent); border-color: var(--accent); }
+  .social a.is-disabled{
+    opacity: .45;
+    cursor: default;
+    pointer-events: none;
+    transform: none;
+    color: var(--muted, #9aa5b1);
+    border-color: var(--stroke, #d6dee7);
+  }
+  .social a.is-disabled:hover{
+    transform: none;
+    color: var(--muted, #9aa5b1);
+    border-color: var(--stroke, #d6dee7);
+  }
   
   /* Columns */
   .footer-col h3{
