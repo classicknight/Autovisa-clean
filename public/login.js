@@ -22,6 +22,27 @@ document.addEventListener("DOMContentLoaded", () => {
   loginTab?.addEventListener("click", () => showTab("login"));
   registerTab?.addEventListener("click", () => showTab("register"));
 
+  // === Google Login ===
+  const oauthStatus = new URLSearchParams(window.location.search).get("oauth");
+  if (oauthStatus === "error") {
+    alert("Google-Login fehlgeschlagen. Bitte erneut versuchen.");
+  } else if (oauthStatus === "invalid") {
+    alert("Google-Login abgebrochen oder ungültig.");
+  } else if (oauthStatus === "forbidden") {
+    alert("Google-Login ist nur für Privatkonten verfügbar.");
+  } else if (oauthStatus === "missing") {
+    alert("Google-Login ist aktuell nicht konfiguriert.");
+  }
+
+  const googleBtn = document.getElementById("googleLoginBtn");
+  googleBtn?.addEventListener("click", () => {
+    const redirect = localStorage.getItem("redirectAfterLogin") || "";
+    const url = redirect
+      ? `/auth/google?redirect=${encodeURIComponent(redirect)}`
+      : "/auth/google";
+    window.location.href = url;
+  });
+
   // === LOGIN senden ===
   const loginForm = document.getElementById("loginForm");
   if (loginForm) {

@@ -2396,6 +2396,8 @@ async function checkLogin(req, res, next) {
 ========================= */
 const MAIL_FROM = process.env.MAIL_FROM || "Autovisa <no-reply@autovisa.de>";
 const MAIL_REPLY_TO = process.env.MAIL_REPLY_TO || "support@autovisa.de";
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -2430,6 +2432,25 @@ function getEmailLogoAsset() {
     }
   } catch {}
   return { logoSrc: "", attachments: [] };
+}
+
+function getBaseUrlFromReq(req) {
+  const proto = (req.headers["x-forwarded-proto"] || req.protocol || "https")
+    .split(",")[0]
+    .trim();
+  const host = req.get("host");
+  const { appUrl } = getUrls();
+  const base = (host ? `${proto}://${host}` : appUrl || "").replace(/\/+$/, "");
+  return base || "";
+}
+
+function sanitizeRedirectPath(input) {
+  if (!input || typeof input !== "string") return "/index.html";
+  if (input.startsWith("http://") || input.startsWith("https://") || input.startsWith("//")) {
+    return "/index.html";
+  }
+  if (!input.startsWith("/")) return "/index.html";
+  return input;
 }
 
 function buildAutovisaEmail({
@@ -2761,6 +2782,182 @@ app.post("/login", async (req, res) => {
   } catch (err) {
     console.error("❌ Fehler beim Login:", err);
     return res.status(500).json({ error: "❌ Interner Serverfehler." });
+  }
+});
+
+/* =========================
+   🔐 Google OAuth (Privat)
+========================= */
+app.get("/auth/google", (req, res) => {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    const baseUrl = getBaseUrlFromReq(req);
+    return res.redirect(`${baseUrl}/login.html?oauth=missing`);
+  }
+
+  const baseUrl = getBaseUrlFromReq(req);
+  const redirectUri = `${baseUrl}/auth/google/callback`;
+  const state = crypto.randomBytes(16).toString("hex");
+  const redirectPath = sanitizeRedirectPath(req.query.redirect);
+
+  const isSecureCookie = baseUrl.startsWith("https") || process.env.NODE_ENV === "production";
+  res.cookie("g_oauth_state", state, {
+    httpOnly: true,
+    sameSite: "Lax",
+    secure: isSecureCookie,
+    maxAge: 1000 * 60 * 10,
+    path: "/"
+  });
+  res.cookie("g_oauth_redirect", redirectPath, {
+    httpOnly: true,
+    sameSite: "Lax",
+    secure: isSecureCookie,
+    maxAge: 1000 * 60 * 10,
+    path: "/"
+  });
+
+  const params = new URLSearchParams({
+    client_id: GOOGLE_CLIENT_ID,
+    redirect_uri: redirectUri,
+    response_type: "code",
+    scope: "openid email profile",
+    access_type: "online",
+    prompt: "select_account",
+    state
+  });
+
+  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+  return res.redirect(authUrl);
+});
+
+app.get("/auth/google/callback", async (req, res) => {
+  try {
+    const baseUrl = getBaseUrlFromReq(req);
+    const redirectUri = `${baseUrl}/auth/google/callback`;
+    const stateCookie = req.cookies?.g_oauth_state || "";
+    const redirectCookie = req.cookies?.g_oauth_redirect || "";
+
+    const code = String(req.query.code || "");
+    const state = String(req.query.state || "");
+    if (!code || !state || !stateCookie || state !== stateCookie) {
+      return res.redirect(`${baseUrl}/login.html?oauth=invalid`);
+    }
+
+    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code,
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code"
+      })
+    });
+
+    const tokenData = await tokenRes.json().catch(() => ({}));
+    if (!tokenRes.ok) {
+      console.error("❌ Google token error:", tokenData);
+      return res.redirect(`${baseUrl}/login.html?oauth=error`);
+    }
+
+    const accessToken = tokenData.access_token;
+    if (!accessToken) {
+      return res.redirect(`${baseUrl}/login.html?oauth=error`);
+    }
+
+    const profileRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    const profile = await profileRes.json().catch(() => ({}));
+    if (!profileRes.ok) {
+      console.error("❌ Google userinfo error:", profile);
+      return res.redirect(`${baseUrl}/login.html?oauth=error`);
+    }
+
+    const email = String(profile.email || "").trim().toLowerCase();
+    if (!email) {
+      return res.redirect(`${baseUrl}/login.html?oauth=error`);
+    }
+
+    const emailVerified = profile.verified_email ?? profile.email_verified;
+    if (emailVerified === false) {
+      return res.redirect(`${baseUrl}/login.html?oauth=error`);
+    }
+
+    const displayName =
+      String(profile.name || "").trim() ||
+      [profile.given_name, profile.family_name].filter(Boolean).join(" ").trim() ||
+      "Autovisa Nutzer";
+
+    const nutzerColl = db.collection("nutzer");
+    let user = await nutzerColl.findOne({ email });
+
+    if (user) {
+      const roleRaw = String(user.role || "").toLowerCase();
+      if (roleRaw.includes("haend")) {
+        return res.redirect(`${baseUrl}/login.html?oauth=forbidden`);
+      }
+
+      await nutzerColl.updateOne(
+        { _id: user._id },
+        {
+          $set: {
+            verified: true,
+            googleId: profile.id || profile.sub || user.googleId,
+            authProvider: "google",
+            name: user.name || displayName
+          }
+        }
+      );
+      user = await nutzerColl.findOne({ _id: user._id });
+    } else {
+      const dummyPassword = await bcrypt.hash(
+        crypto.randomBytes(24).toString("hex"),
+        12
+      );
+      const newUser = {
+        id: Date.now().toString(),
+        name: displayName,
+        email,
+        password: dummyPassword,
+        verified: true,
+        role: "privat",
+        createdAt: new Date(),
+        googleId: profile.id || profile.sub || "",
+        authProvider: "google"
+      };
+      await nutzerColl.insertOne(newUser);
+      user = newUser;
+    }
+
+    const isSecureCookie = baseUrl.startsWith("https") || process.env.NODE_ENV === "production";
+    const payload = makeSessionPayload(user);
+    const sessionToken = encodeSession(payload);
+
+    res.cookie("session", sessionToken, {
+      httpOnly: true,
+      sameSite: "Lax",
+      secure: isSecureCookie,
+      maxAge: 1000 * 60 * 60 * 24,
+      path: "/"
+    });
+    res.cookie("isLoggedIn", "true", {
+      httpOnly: false,
+      sameSite: "Lax",
+      secure: isSecureCookie,
+      maxAge: 1000 * 60 * 60 * 24,
+      path: "/"
+    });
+
+    res.clearCookie("g_oauth_state", { path: "/" });
+    res.clearCookie("g_oauth_redirect", { path: "/" });
+
+    const redirectPath = sanitizeRedirectPath(redirectCookie);
+    return res.redirect(`${baseUrl}${redirectPath}`);
+  } catch (err) {
+    console.error("❌ Google OAuth error:", err);
+    const baseUrl = getBaseUrlFromReq(req);
+    return res.redirect(`${baseUrl}/login.html?oauth=error`);
   }
 });
 

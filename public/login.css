@@ -182,6 +182,48 @@ input:focus {
   background-color: #009d94;
   transform: translateY(-2px);
 }
+
+.oauth-divider{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  color:#9aa8b5;
+  font-size:11px;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+}
+.oauth-divider::before,
+.oauth-divider::after{
+  content:"";
+  height:1px;
+  flex:1;
+  background:#e3e9ef;
+}
+
+.google-btn{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  padding:12px;
+  border-radius:12px;
+  border:1.6px solid #e3e9ef;
+  background:#ffffff;
+  color:#1a2a33;
+  font-weight:600;
+  font-size:15px;
+  cursor:pointer;
+  transition:transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.google-btn i{
+  color:#db4437;
+  font-size:16px;
+}
+.google-btn:hover{
+  border-color:#cdd8e4;
+  box-shadow:0 8px 20px rgba(0,0,0,0.06);
+  transform:translateY(-1px);
+}
 /* "Passwort vergessen?" – Button im Login */
 .forgot-link {
   display: block;              /* bekommt eigene Zeile */

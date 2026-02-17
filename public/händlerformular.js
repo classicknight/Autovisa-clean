@@ -146,13 +146,19 @@ document.addEventListener("DOMContentLoaded", () => {
       
       // Tarif
       const selectedTarif = form.querySelector("input[name='tarif']:checked");
-      fd.append("tarif", selectedTarif ? selectedTarif.value : "");
+      const planEl = form.querySelector("input[name='plan']");
+      const tariffVal = selectedTarif?.value || planEl?.value || "";
+      fd.append("tarif", tariffVal);
 
-      // Zahlungsdaten / SEPA
-      fd.append("zahlungsmethode", form.zahlungsmethode.value);
-      fd.append("kontoinhaber",    form.kontoinhaber.value.trim());
-      fd.append("iban",            form.iban.value.trim());
-      fd.append("bic",             form.bic.value.trim());
+      // Zahlungsdaten / SEPA (optional)
+      const zahlungsmethodeEl = form.querySelector("[name='zahlungsmethode']");
+      const kontoinhaberEl = form.querySelector("[name='kontoinhaber']");
+      const ibanEl = form.querySelector("[name='iban']");
+      const bicEl = form.querySelector("[name='bic']");
+      fd.append("zahlungsmethode", zahlungsmethodeEl ? zahlungsmethodeEl.value : "");
+      fd.append("kontoinhaber",    kontoinhaberEl ? kontoinhaberEl.value.trim() : "");
+      fd.append("iban",            ibanEl ? ibanEl.value.trim() : "");
+      fd.append("bic",             bicEl ? bicEl.value.trim() : "");
 // Impressum & Rechtliches
 fd.append("impressum",   form.impressum.value.trim());
 fd.append("agb",         form.agb.checked ? "true" : "false");
