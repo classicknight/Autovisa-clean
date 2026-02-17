@@ -852,6 +852,53 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
     return isNaN(n) ? "Preis n. a." : n.toLocaleString("de-DE") + " €";
   };
   const sanitizePhone = (p) => String(p || "").replace(/[^\d+]/g, "");
+  const pickText = (...vals) => {
+    for (const v of vals) {
+      if (v === null || v === undefined) continue;
+      const s = String(v).trim();
+      if (s) return s;
+    }
+    return "";
+  };
+  const getDisplayTexts = (inserat) => {
+    const brand = pickText(
+      inserat?.verkauf_marke,
+      inserat?.marke,
+      inserat?.raw?.verkauf_marke,
+      inserat?.raw?.marke,
+      inserat?.brand,
+      inserat?.make,
+      inserat?.manufacturer
+    );
+    const model = pickText(
+      inserat?.verkauf_modell,
+      inserat?.modell,
+      inserat?.raw?.verkauf_modell,
+      inserat?.raw?.modell,
+      inserat?.model,
+      inserat?.vehicle_model
+    );
+    const variant = pickText(
+      inserat?.verkauf_variante,
+      inserat?.variante,
+      inserat?.verkauf_ausstattung_variante,
+      inserat?.raw?.verkauf_variante,
+      inserat?.raw?.variante,
+      inserat?.variant,
+      inserat?.trim
+    );
+    const title =
+      [brand, model].filter(Boolean).join(" ").trim() ||
+      pickText(inserat?.verkauf_titel, inserat?.titel) ||
+      "Unbekanntes Fahrzeug";
+    const subtitle = pickText(
+      variant,
+      inserat?.verkauf_kurzbeschreibung,
+      inserat?.kurzbeschreibung,
+      inserat?.raw?.verkauf_kurzbeschreibung
+    );
+    return { title, subtitle };
+  };
 
 
   function closeAllDropdowns(except = null) {
@@ -2095,9 +2142,10 @@ function getCombinedConsumption(item) {
         </div>
       `;
   
-      // sichere Texte setzen
-      card.querySelector(".car-title").textContent = inserat.titel || "Unbekanntes Fahrzeug";
-      card.querySelector(".car-subtitle").textContent = inserat.raw?.verkauf_kurzbeschreibung || "";
+      // sichere Texte setzen (Marke + Modell oben, Variante darunter)
+      const display = getDisplayTexts(inserat);
+      card.querySelector(".car-title").textContent = display.title;
+      card.querySelector(".car-subtitle").textContent = display.subtitle || "";
       card.querySelector(".dealer-name").textContent = sellerName;
       card.querySelector(".dealer-location").textContent = sellerLocation;
   

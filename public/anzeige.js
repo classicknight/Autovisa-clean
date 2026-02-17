@@ -23,6 +23,45 @@ const firstNonEmpty = (...vals) => {
   }
   return "";
 };
+const getDisplayTexts = (inserat) => {
+  const brand = firstNonEmpty(
+    inserat?.verkauf_marke,
+    inserat?.marke,
+    inserat?.raw?.verkauf_marke,
+    inserat?.raw?.marke,
+    inserat?.brand,
+    inserat?.make,
+    inserat?.manufacturer
+  );
+  const model = firstNonEmpty(
+    inserat?.verkauf_modell,
+    inserat?.modell,
+    inserat?.raw?.verkauf_modell,
+    inserat?.raw?.modell,
+    inserat?.model,
+    inserat?.vehicle_model
+  );
+  const variant = firstNonEmpty(
+    inserat?.verkauf_variante,
+    inserat?.variante,
+    inserat?.verkauf_ausstattung_variante,
+    inserat?.raw?.verkauf_variante,
+    inserat?.raw?.variante,
+    inserat?.variant,
+    inserat?.trim
+  );
+  const title =
+    [brand, model].filter(Boolean).join(" ").trim() ||
+    firstNonEmpty(inserat?.verkauf_titel, inserat?.titel) ||
+    "Unbekanntes Fahrzeug";
+  const subtitle = firstNonEmpty(
+    variant,
+    inserat?.verkauf_kurzbeschreibung,
+    inserat?.kurzbeschreibung,
+    inserat?.raw?.verkauf_kurzbeschreibung
+  );
+  return { title, subtitle, brand, model, variant };
+};
 
 const API_BASE =
   (typeof window !== "undefined" && window.API_BASE) ||
@@ -522,7 +561,13 @@ function mapRoleToLabel(roleOrLabel) {
 /* ------------------------ Kopfbereich ------------------------ */
 function fillTop(inserat) {
   const titleEl = document.getElementById("car-title");
-  if (titleEl) titleEl.textContent = inserat.titel || inserat.verkauf_modell || "–";
+  const subtitleEl = document.getElementById("car-subtitle");
+  const display = getDisplayTexts(inserat);
+  if (titleEl) titleEl.textContent = display.title || "–";
+  if (subtitleEl) {
+    subtitleEl.textContent = display.subtitle || "";
+    subtitleEl.style.display = display.subtitle ? "" : "none";
+  }
 
   const priceMain = document.getElementById("price-main");
   const priceNet = document.getElementById("price-net");
@@ -654,13 +699,9 @@ function initStickySummary(inserat) {
   const imgEl   = bar.querySelector("[data-field='image']");
 
   // --- Inhalte füllen ---
-  const titel =
-    inserat.titel ||
-    [inserat.marke, inserat.modell].filter(Boolean).join(" ") ||
-    "Fahrzeug";
-
+  const display = getDisplayTexts(inserat);
   if (titleEl) {
-    titleEl.textContent = titel;
+    titleEl.textContent = display.title || "Fahrzeug";
   }
 
   // 🔥 PREIS: gleiche Logik wie in fillTop()
@@ -2125,7 +2166,8 @@ function renderSellerMore(items) {
   items.forEach((inserat) => {
     const imgs = Array.isArray(inserat.images) ? inserat.images : [];
     const tel = sanitizePhone(inserat.telefon);
-    const titel = inserat.titel || "Unbekanntes Fahrzeug";
+    const display = getDisplayTexts(inserat);
+    const titel = display.title;
 
     const preisNum = pickPrice(
       inserat["brutto-preis"],
@@ -2137,7 +2179,7 @@ function renderSellerMore(items) {
     );
     const preis = fmtEUR(preisNum);
 
-    const kurz = inserat.verkauf_kurzbeschreibung || "";
+    const kurz = display.subtitle || "";
     const _id = getDocId(inserat) || "";
 
     const kmV = inserat.verkauf_kilometer ?? inserat.kilometer ?? inserat.km;

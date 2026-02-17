@@ -5428,6 +5428,8 @@ app.get("/api/search", async (req, res) => {
       tueren,
       ps_min,
       ps_max,
+      kw_min,
+      kw_max,
       ccm_min,
       ccm_max,
       verbrauch_max,
@@ -5446,6 +5448,11 @@ app.get("/api/search", async (req, res) => {
       plakette,
       merkmale,
       unfallfrei,
+      sitze_min,
+      sitze,
+      anbieter,
+      mwst,
+      ausstattung,
       // Anbieter-Filter (vom Inserat aus)
       sellerId,
       haendlerId,
@@ -5519,8 +5526,19 @@ app.get("/api/search", async (req, res) => {
     const priceMinNum  = parseInt(price_min, 10);
     const kmMaxNum     = parseInt(km_max, 10);
     const kmMinNum     = parseInt(km_min, 10);
-    const psMinNum     = parseInt(ps_min, 10);
-    const psMaxNum     = parseInt(ps_max, 10);
+    let psMinNum     = parseInt(ps_min, 10);
+    let psMaxNum     = parseInt(ps_max, 10);
+    const kwMinNum   = parseFloat(kw_min);
+    const kwMaxNum   = parseFloat(kw_max);
+    const KW_TO_PS   = 1.35962;
+    if (Number.isFinite(kwMinNum)) {
+      const fromKw = Math.ceil(kwMinNum * KW_TO_PS);
+      psMinNum = Number.isFinite(psMinNum) ? Math.max(psMinNum, fromKw) : fromKw;
+    }
+    if (Number.isFinite(kwMaxNum)) {
+      const fromKw = Math.floor(kwMaxNum * KW_TO_PS);
+      psMaxNum = Number.isFinite(psMaxNum) ? Math.min(psMaxNum, fromKw) : fromKw;
+    }
     const ccmMinNum    = parseInt(ccm_min, 10);
     const ccmMaxNum    = parseInt(ccm_max, 10);
 
@@ -5534,6 +5552,7 @@ app.get("/api/search", async (req, res) => {
       : NaN;
 
     const halterMaxNum = parseInt(halter_max, 10);
+    const seatsMinNum  = parseInt(sitze_min || sitze, 10);
 
     // ---- HU-Parameter (mind. Monate ODER gültig bis)
     const huMinMon = (() => {
@@ -5587,6 +5606,7 @@ app.get("/api/search", async (req, res) => {
           },
           _km_raw:     { $ifNull: ["$verkauf_kilometer", { $ifNull: ["$kilometer", "$km"] }] },
           _ps_raw:     { $ifNull: [ "$verkauf_leistung", { $ifNull: [ "$leistung", "$ps" ] } ] },
+          _seats_raw:  { $ifNull: [ "$verkauf_sitze", { $ifNull: [ "$sitze", { $ifNull: [ "$seats", "$sitzplaetze" ] } ] } ] },
           _ccm_raw:    { $ifNull: [ "$verkauf_hubraum",  { $ifNull: [ "$hubraum",  "$ccm" ] } ] },
           _verb_raw:   { $ifNull: [ "$verkauf_verbrauch_kombiniert", { $ifNull: [ "$verbrauch_kombiniert", "$verbrauch" ] } ] },
           _halter_raw: { $ifNull: [ "$halter", { $ifNull: [ "$halteranzahl", "$fahrzeughalter" ] } ] }
@@ -5621,6 +5641,7 @@ app.get("/api/search", async (req, res) => {
       },
       { $addFields: {
           _ps_match:   { $regexFind:  { input: { $toString: "$_ps_raw"  }, regex: /(\d{2,4})/ } },
+          _seats_match:{ $regexFind:  { input: { $toString: "$_seats_raw" }, regex: /(\d{1,2})/ } },
           _ccm_match:  { $regexFind:  { input: { $toString: "$_ccm_raw" }, regex: /(\d{3,5})/ } },
           _verb_norm:  { $replaceAll: { input: { $toString: "$_verb_raw" }, find: ",", replacement: "." } },
           _verb_liters:{ $regexFindAll:{ input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)(?=\s*(?:l|L)\s*\/\s*100\s*km)/i } },
@@ -5633,6 +5654,7 @@ app.get("/api/search", async (req, res) => {
           preis_num: { $convert: { input: "$_preis_clean", to: "int", onError: null, onNull: null } },
           km_num:    { $convert: { input: "$_km_clean",    to: "int", onError: null, onNull: null } },
           ps_num:    { $convert: { input: { $ifNull: ["$_ps_match.match",  null] }, to: "int", onError: null, onNull: null } },
+          seats_num: { $convert: { input: { $ifNull: ["$_seats_match.match", null] }, to: "int", onError: null, onNull: null } },
           ccm_num:   { $convert: { input: { $ifNull: ["$_ccm_match.match", null] }, to: "int", onError: null, onNull: null } },
           verb_num: {
             $let: {
@@ -6136,6 +6158,10 @@ app.get("/api/search", async (req, res) => {
     const halterStages =
       Number.isFinite(halterMaxNum) ? [{ $match: { halter_num: { $ne: null, $lte: halterMaxNum } } }] : [];
 
+    // ---- Sitze (mindestens)
+    const seatsStages =
+      Number.isFinite(seatsMinNum) ? [{ $match: { seats_num: { $ne: null, $gte: seatsMinNum } } }] : [];
+
     // ---- Farben
     function colorRegexFor(token) {
       const t = token.toLowerCase();
@@ -6208,6 +6234,102 @@ app.get("/api/search", async (req, res) => {
       }
     }
 
+    // ---- Anbieter (Händler/Privat)
+    let sellerTypeStages = [];
+    const anbieterRaw = String(anbieter || "").trim().toLowerCase();
+    if (anbieterRaw) {
+      const isHaendler = /(haend|händ|dealer)/i.test(anbieterRaw);
+      const rx = isHaendler ? /haendler|händler|dealer/i : /privat/i;
+      sellerTypeStages = [{
+        $match: {
+          $or: [
+            { "seller.type":       { $regex: rx } },
+            { verkauf_verkaeufer:  { $regex: rx } },
+            { verkaeufer:          { $regex: rx } },
+            { sellerType:          { $regex: rx } }
+          ]
+        }
+      }];
+    }
+
+    // ---- MwSt. ausweisbar
+    let mwstStages = [];
+    const wantsMwst =
+      typeof mwst !== "undefined" &&
+      ["1", "true", "ja", "yes", "on"].includes(String(mwst).trim().toLowerCase());
+    if (wantsMwst) {
+      const yesRx = /(inkl|zzgl|mwst|ust|vat)/i;
+      const noRx  = /(keine|nicht|ohne)/i;
+      mwstStages = [{
+        $match: {
+          $and: [
+            { $or: [
+              { verkauf_mwst: { $regex: yesRx } },
+              { mwst:         { $in: [true, "true", "ja", 1, "1"] } },
+              { vat:          { $in: [true, "true", "ja", 1, "1"] } },
+              { mwst_type:    { $regex: yesRx } },
+              { vat_rate:     { $exists: true, $ne: null, $ne: "" } }
+            ] },
+            { $nor: [
+              { verkauf_mwst: { $regex: noRx } },
+              { mwst:         { $in: [false, "false", "nein", 0, "0"] } },
+              { vat:          { $in: [false, "false", "nein", 0, "0"] } }
+            ] }
+          ]
+        }
+      }];
+    }
+
+    // ---- Ausstattung (Mehrfach)
+    let equipmentStages = [];
+    if (ausstattung) {
+      const equipRegexFor = (token) => {
+        const t = String(token || "").trim().toLowerCase();
+        if (!t) return null;
+        const map = {
+          navigation:     /navi|navigation/i,
+          sitzheizung:    /sitzheizung/i,
+          rueckfahrkamera:/r[üu]ckfahrkamera|kamera\s*(hinten|rear)|rear\s*camera/i,
+          tempomat:       /tempomat|abstandsregel|acc/i,
+          bluetooth:      /bluetooth|freispre/i,
+          klima:          /klima|klimaanlage|klimatisierung|\ba\/c\b|air\s*condition/i,
+          parkhilfe:      /parkhilfe|einpark|pdc|parkpilot/i,
+          led:            /\bled\b|matrix/i,
+          panorama:       /panorama|schiebedach|glass\s*roof/i,
+          applecarplay:   /carplay/i,
+          androidauto:    /android\s*auto/i,
+          isofix:         /isofix/i
+        };
+        if (map[t]) return map[t];
+        let pattern = escRe(t);
+        pattern = pattern
+          .replace(/ae/g, "(ä|ae)")
+          .replace(/oe/g, "(ö|oe)")
+          .replace(/ue/g, "(ü|ue)")
+          .replace(/ss/g, "(ss|ß)");
+        return new RegExp(pattern, "i");
+      };
+
+      const tokens = splitCsv(ausstattung);
+      const conds = tokens
+        .map((tok) => equipRegexFor(tok))
+        .filter(Boolean)
+        .map((rx) => ({
+          $or: [
+            { ausstattung:        { $elemMatch: { $regex: rx } } },
+            { ausstattung:        { $regex: rx } },
+            { verkauf_ausstattung:{ $elemMatch: { $regex: rx } } },
+            { verkauf_ausstattung:{ $regex: rx } },
+            { equipment_keys:     { $elemMatch: { $regex: rx } } },
+            { equipment_text:     { $elemMatch: { $regex: rx } } },
+            { beschreibung:       { $regex: rx } },
+            { titel:              { $regex: rx } }
+          ]
+        }));
+
+      if (conds.length) equipmentStages = [{ $match: { $and: conds } }];
+    }
+
     // ---- HU-Filter (nach Parsing); nutzt nowKey
     const huFilterStages =
       (Number.isFinite(huMinMon) && huMinMon > 0)
@@ -6231,8 +6353,8 @@ app.get("/api/search", async (req, res) => {
             { $project: {
                 token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0,
                 _preis_raw: 0, _km_raw: 0, _preis_clean: 0, _km_clean: 0,
-                _ps_raw: 0, _ccm_raw: 0, _verb_raw: 0, _halter_raw: 0,
-                _ps_match: 0, _ccm_match: 0, _verb_norm: 0, _verb_all_any: 0,
+                _ps_raw: 0, _seats_raw: 0, _ccm_raw: 0, _verb_raw: 0, _halter_raw: 0,
+                _ps_match: 0, _seats_match: 0, _ccm_match: 0, _verb_norm: 0, _verb_all_any: 0,
                 _halter_match: 0, _preis_null: 0, _ez: 0,
                 _hu_raw: 0, _hu_str: 0, _hu_rx_y_m: 0, _hu_rx_m_y: 0, _hu_rx_y: 0,
                 _hu_name: 0, _hu_name_y: 0, _hu_name_m: 0,
@@ -6280,9 +6402,13 @@ app.get("/api/search", async (req, res) => {
       ...plaketteStages,
       ...particulateStages,
       ...halterStages,
+      ...seatsStages,
       ...colorStages,
       ...featureStages,
       ...driveabilityStages,
+      ...equipmentStages,
+      ...sellerTypeStages,
+      ...mwstStages,
       ...variantStages,
       ...vehTypeStages,
       ...tuerenStages,

@@ -1339,10 +1339,62 @@ async function loadHomeListings() {
 
     let hasMwstAny = false;
 
+    const pickText = (...vals) => {
+      for (const v of vals) {
+        if (v === null || v === undefined) continue;
+        const s = String(v).trim();
+        if (s) return s;
+      }
+      return "";
+    };
+
+    const getDisplayTexts = (inserat) => {
+      const brand = pickText(
+        inserat?.verkauf_marke,
+        inserat?.marke,
+        inserat?.raw?.verkauf_marke,
+        inserat?.raw?.marke,
+        inserat?.brand,
+        inserat?.make,
+        inserat?.manufacturer
+      );
+      const model = pickText(
+        inserat?.verkauf_modell,
+        inserat?.modell,
+        inserat?.raw?.verkauf_modell,
+        inserat?.raw?.modell,
+        inserat?.model,
+        inserat?.vehicle_model
+      );
+      const variant = pickText(
+        inserat?.verkauf_variante,
+        inserat?.variante,
+        inserat?.verkauf_ausstattung_variante,
+        inserat?.raw?.verkauf_variante,
+        inserat?.raw?.variante,
+        inserat?.variant,
+        inserat?.trim
+      );
+
+      const title =
+        [brand, model].filter(Boolean).join(" ").trim() ||
+        pickText(inserat?.verkauf_titel, inserat?.titel) ||
+        "Unbekanntes Fahrzeug";
+      const subtitle = pickText(
+        variant,
+        inserat?.verkauf_kurzbeschreibung,
+        inserat?.kurzbeschreibung,
+        inserat?.raw?.verkauf_kurzbeschreibung
+      );
+
+      return { title, subtitle };
+    };
+
     list.forEach((inserat) => {
       const imgs = Array.isArray(inserat.images) ? inserat.images : [];
       const tel = sanitizePhone(inserat.telefon);
-      const titel = inserat.titel || "Unbekanntes Fahrzeug";
+      const display = getDisplayTexts(inserat);
+      const titel = display.title;
 
       const preisNum = pickPrice(
         inserat["brutto-preis"],
@@ -1357,7 +1409,7 @@ async function loadHomeListings() {
       const mwstSup = hasMwst ? `<sup class="price-sup">1</sup>` : "";
       if (hasMwst) hasMwstAny = true;
 
-      const kurz = inserat.verkauf_kurzbeschreibung || "";
+      const kurz = display.subtitle || "";
       const _id = getDocId(inserat) || "";
 
       const rawType = String(inserat.seller?.type || inserat.verkauf_verkaeufer || "").toLowerCase();

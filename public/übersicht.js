@@ -22,6 +22,57 @@ function escapeHTML(str = "") {
     .replace(/'/g, "&#039;");
 }
 
+function pickText(...vals) {
+  for (const v of vals) {
+    if (v === null || v === undefined) continue;
+    const s = String(v).trim();
+    if (s) return s;
+  }
+  return "";
+}
+
+function getDisplayTexts(inserat) {
+  const brand = pickText(
+    inserat?.verkauf_marke,
+    inserat?.marke,
+    inserat?.raw?.verkauf_marke,
+    inserat?.raw?.marke,
+    inserat?.brand,
+    inserat?.make,
+    inserat?.manufacturer
+  );
+  const model = pickText(
+    inserat?.verkauf_modell,
+    inserat?.modell,
+    inserat?.raw?.verkauf_modell,
+    inserat?.raw?.modell,
+    inserat?.model,
+    inserat?.vehicle_model
+  );
+  const variant = pickText(
+    inserat?.verkauf_variante,
+    inserat?.variante,
+    inserat?.verkauf_ausstattung_variante,
+    inserat?.raw?.verkauf_variante,
+    inserat?.raw?.variante,
+    inserat?.variant,
+    inserat?.trim
+  );
+
+  const title =
+    [brand, model].filter(Boolean).join(" ").trim() ||
+    pickText(inserat?.verkauf_titel, inserat?.titel) ||
+    "Unbekanntes Fahrzeug";
+  const subtitle = pickText(
+    variant,
+    inserat?.verkauf_kurzbeschreibung,
+    inserat?.kurzbeschreibung,
+    inserat?.raw?.verkauf_kurzbeschreibung
+  );
+
+  return { title, subtitle, brand, model, variant };
+}
+
 function sanitizeImpressumHTML(input = "") {
   const raw = String(input || "");
   if (!raw.trim()) return "";
@@ -1340,13 +1391,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     listingActionState.status = status || "";
     if (listingActionName) {
       const inserat = inseratById.get(String(id || ""));
-      const title =
-        inserat?.titel ||
-        [inserat?.verkauf_marke, inserat?.verkauf_modell, inserat?.verkauf_variante]
-          .filter(Boolean)
-          .join(" ")
-          .trim() ||
-        "";
+      const title = inserat ? getDisplayTexts(inserat).title : "";
       listingActionName.textContent = title || "–";
     }
     actionModal.classList.add("show");
@@ -2331,8 +2376,9 @@ function buildFahrzeugdatenFromInserat(ins) {
         `${isOnline ? "disabled aria-disabled='true'" : ""} ` +
         `title="${publishTitle}" aria-label="${publishTitle}"`;
 
-      const titleSafe = escapeHTML(inserat.titel || inserat.verkauf_titel || "Titel fehlt");
-      const subtitleSafe = escapeHTML(inserat.verkauf_kurzbeschreibung || "Besondere Ausstattung");
+      const display = getDisplayTexts(inserat);
+      const titleSafe = escapeHTML(display.title || "Titel fehlt");
+      const subtitleSafe = escapeHTML(display.subtitle || "");
       const views = Number(stats.views || 0);
       const saves = Number(stats.saves || 0);
       const hasMwst = hasMwstHint(inserat);
@@ -2929,13 +2975,8 @@ function isSoldInserat(inserat) {
 }
 
 function buildSoldCardHTML(inserat) {
-  const title =
-    inserat?.titel ||
-    [inserat?.verkauf_marke, inserat?.verkauf_modell, inserat?.verkauf_variante]
-      .filter(Boolean)
-      .join(" ")
-      .trim() ||
-    "Inserat";
+  const display = getDisplayTexts(inserat);
+  const title = display.title || "Inserat";
 
   const rawPrice = extractPriceValue(inserat);
   const price = formatEUR(rawPrice) || "—";
@@ -2953,9 +2994,7 @@ function buildSoldCardHTML(inserat) {
     ? (String(verbrauchRaw).includes("l/100") ? String(verbrauchRaw) : `${verbrauchRaw} l/100 km`)
     : "— l/100 km";
 
-  const subtitle =
-    (inserat?.verkauf_kurzbeschreibung || inserat?.kurzbeschreibung || "").trim() ||
-    "Besondere Ausstattung";
+  const subtitle = display.subtitle || "";
 
   const soldDate = formatDateShort(
     inserat?.verkauftAm ||
@@ -3174,13 +3213,8 @@ function buildSavedCardHTML(inserat, userId) {
     inserat?.fahrzeugId || inserat?._id || ""
   ).trim();
 
-  const title =
-    inserat?.titel ||
-    [inserat?.verkauf_marke, inserat?.verkauf_modell, inserat?.verkauf_variante]
-      .filter(Boolean)
-      .join(" ")
-      .trim() ||
-    "Inserat";
+  const display = getDisplayTexts(inserat);
+  const title = display.title || "Inserat";
 
   // WICHTIG: Kein ||-Chain mit formatEUR("—") mehr – wir nehmen die erste echte Zahl
   const rawPrice = extractPriceValue(inserat);
@@ -3199,9 +3233,7 @@ function buildSavedCardHTML(inserat, userId) {
     ? (String(verbrauchRaw).includes("l/100") ? String(verbrauchRaw) : `${verbrauchRaw} l/100 km`)
     : "— l/100 km";
 
-  const subtitle =
-    (inserat?.verkauf_kurzbeschreibung || inserat?.kurzbeschreibung || "").trim() ||
-    "Besondere Ausstattung";
+  const subtitle = display.subtitle || "";
 
   const standort = (inserat?.verkauf_standort || inserat?.standort || "").trim();
   const ort = (inserat?.verkauf_ort || inserat?.ort || "").trim();

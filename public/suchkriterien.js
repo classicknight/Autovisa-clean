@@ -13,6 +13,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const navbar        = document.querySelector(".navbar");
 
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+  const KW_TO_PS = 1.35962;
+  const PS_TO_KW = 1 / KW_TO_PS;
 
   function closeAllDropdowns(except = null) {
     dropdownLis.forEach(li => {
@@ -1021,6 +1023,41 @@ if (qModels.length) {
       const preisBis = document.getElementById("preis-bis");
       if (priceMax && preisBis) preisBis.value = priceMax;
 
+      // Leistung + Einheit aus URL
+      const powerUnitQS = (qs.get("power_unit") || "ps").toLowerCase();
+      const powerUnitEl = document.getElementById("leistung-einheit");
+      if (powerUnitEl) powerUnitEl.value = powerUnitQS === "kw" ? "kw" : "ps";
+
+      const psMinQS = qs.get("ps_min");
+      const psMaxQS = qs.get("ps_max");
+      const powerFromEl = document.getElementById("leistung-von");
+      const powerToEl = document.getElementById("leistung-bis");
+      const psToKw = (v) => {
+        const n = parseFloat(String(v || "").replace(",", "."));
+        return Number.isFinite(n) ? Math.round(n * PS_TO_KW) : null;
+      };
+      if (psMinQS && powerFromEl) {
+        powerFromEl.value = (powerUnitQS === "kw") ? (psToKw(psMinQS) ?? "") : psMinQS;
+      }
+      if (psMaxQS && powerToEl) {
+        powerToEl.value = (powerUnitQS === "kw") ? (psToKw(psMaxQS) ?? "") : psMaxQS;
+      }
+
+      // Sitze (mindestens)
+      const seatsMinQS = qs.get("sitze_min") || qs.get("sitze");
+      const seatsEl = document.getElementById("sitze");
+      if (seatsMinQS && seatsEl) seatsEl.value = seatsMinQS;
+
+      // Anbieter
+      const anbieterQS = qs.get("anbieter");
+      const anbieterEl = document.getElementById("anbieter");
+      if (anbieterQS && anbieterEl) anbieterEl.value = anbieterQS;
+
+      // MwSt. ausweisbar
+      const mwstQS = qs.get("mwst");
+      const mwstEl = document.getElementById("mwst-ausweisbar");
+      if (mwstQS && mwstEl) mwstEl.checked = ["1", "true", "ja", "yes", "on"].includes(String(mwstQS).toLowerCase());
+
       // ⬇️⬇️ NEU: Verbrauch aus URL robust vorbelegen (Wrapper wird via syncVerbrauchUI getoggelt)
       (() => {
         const vMax = qs.get('verbrauch_max');
@@ -1098,6 +1135,17 @@ if (kraftValues.length) {
     });
 }
 
+// Ausstattung (Mehrfach)
+const equipValues = splitCsv(qs.get("ausstattung")).map(v => v.toLowerCase());
+if (equipValues.length) {
+  document
+    .querySelectorAll('.equipment-grid input[type="checkbox"]')
+    .forEach(inp => {
+      const val = (inp.value || "").toLowerCase();
+      inp.checked = equipValues.includes(val);
+    });
+}
+
     })();
   } // ⬅️⬅️ ENDE: GUARD
 
@@ -1117,6 +1165,8 @@ if (kraftValues.length) {
   initSlim('#plakette',        { placeholder: 'Plakette wählen', allowDeselect: true, showSearch: false });
   initSlim('#schadstoffklasse',{ placeholder: 'Schadstoffklasse',allowDeselect: true, showSearch: false });
   initSlim('#tueren',          { placeholder: 'Türen wählen',    allowDeselect: true, showSearch: false });
+  initSlim('#sitze',           { placeholder: 'Sitze',           allowDeselect: true, showSearch: false });
+  initSlim('#anbieter',        { placeholder: 'Anbieter',        allowDeselect: true, showSearch: false });
 
   /* =========================
      Globale Handler für HTML-onchange
@@ -1157,6 +1207,24 @@ if (kraftValues.length) {
 
   vbSel?.addEventListener('change', syncVerbrauchUI);
   syncVerbrauchUI();
+
+  // Leistungseinheit (PS / kW)
+  const powerUnitEl = document.getElementById('leistung-einheit');
+  const powerFromEl = document.getElementById('leistung-von');
+  const powerToEl   = document.getElementById('leistung-bis');
+  const powerLabelEl = document.getElementById('leistung-unit-label');
+
+  function syncPowerUnitUI() {
+    if (!powerUnitEl) return;
+    const unit = (powerUnitEl.value || 'ps').toLowerCase();
+    const unitText = unit === 'kw' ? 'kW' : 'PS';
+    if (powerLabelEl) powerLabelEl.textContent = `(${unitText})`;
+    if (powerFromEl) powerFromEl.placeholder = `von ${unitText}`;
+    if (powerToEl) powerToEl.placeholder = `bis ${unitText}`;
+  }
+
+  powerUnitEl?.addEventListener('change', syncPowerUnitUI);
+  syncPowerUnitUI();
 
   initSlim('#verbrauch-select', {
     allowDeselect: true,
@@ -1203,6 +1271,10 @@ if (kraftValues.length) {
     // Türen
     const tueren = document.getElementById("tueren")?.value?.trim();
     if (tueren) qs.set("tueren", tueren);
+
+    // Sitze (mindestens)
+    const sitze = document.getElementById("sitze")?.value?.trim();
+    if (sitze) qs.set("sitze_min", sitze);
   
     // Erstzulassung (robust: Hidden ODER Year/Month-Selects; fehlenden Monat auffüllen)
     function readEz(id, fallbackMonth) {
@@ -1274,8 +1346,16 @@ if (kraftValues.length) {
     }
   
     // Leistung / Hubraum
-    const psMin = _numFallback(document.getElementById("leistung-von")?.value);
-    const psMax = _numFallback(document.getElementById("leistung-bis")?.value);
+    const rawPowerMin = _numFallback(document.getElementById("leistung-von")?.value);
+    const rawPowerMax = _numFallback(document.getElementById("leistung-bis")?.value);
+    const powerUnit = (document.getElementById("leistung-einheit")?.value || "ps").toLowerCase();
+    let psMin = rawPowerMin;
+    let psMax = rawPowerMax;
+    if (powerUnit === "kw") {
+      if (rawPowerMin != null && rawPowerMin > 0) psMin = Math.ceil(rawPowerMin * KW_TO_PS);
+      if (rawPowerMax != null && rawPowerMax > 0) psMax = Math.floor(rawPowerMax * KW_TO_PS);
+      qs.set("power_unit", "kw");
+    }
     if (psMin != null && psMin > 0) qs.set("ps_min", String(psMin));
     if (psMax != null && psMax > 0) qs.set("ps_max", String(psMax));
   
@@ -1308,6 +1388,10 @@ if (kraftValues.length) {
       const selected = Array.from(boxes).filter(i => i.checked).map(i => (i.value || "").toLowerCase());
       if (selected.length === 1) qs.set("getriebe", selected[0]);
     })();
+
+    // Anbieter (Händler/Privat)
+    const anbieter = document.getElementById("anbieter")?.value?.trim();
+    if (anbieter) qs.set("anbieter", anbieter);
   
     // Antrieb (mehrere)
     (function () {
@@ -1404,6 +1488,20 @@ if (schadSel === "custom") {
     qs.set('unfallfrei', '1');
   }
 })();
+
+    // MwSt. ausweisbar
+    const mwstEl = document.getElementById("mwst-ausweisbar");
+    if (mwstEl && mwstEl.checked) qs.set("mwst", "1");
+
+    // Ausstattung (Mehrfach)
+    (function () {
+      const equipBox = document.querySelector(".equipment-grid");
+      if (!equipBox) return;
+      const picks = Array.from(equipBox.querySelectorAll('input[type="checkbox"]:checked'))
+        .map(i => (i.value || "").trim())
+        .filter(Boolean);
+      if (picks.length) qs.set("ausstattung", picks.join(","));
+    })();
 
   
     const huSel    = document.getElementById("hu-gueltig")?.value;
@@ -1604,6 +1702,11 @@ if (schadSel === "custom") {
         case 'ps':
           (document.getElementById('leistung-von') || {}).value = '';
           (document.getElementById('leistung-bis') || {}).value = '';
+          {
+            const unitEl = document.getElementById('leistung-einheit');
+            if (unitEl) unitEl.value = 'ps';
+            if (typeof syncPowerUnitUI === 'function') syncPowerUnitUI();
+          }
           break;
   
         case 'ccm':
@@ -1656,6 +1759,10 @@ if (schadSel === "custom") {
         case 'tueren':
           setSelectToDefault(document.getElementById('tueren'));
           break;
+
+        case 'sitze':
+          setSelectToDefault(document.getElementById('sitze'));
+          break;
   
         case 'ort':
           (document.getElementById('ort') || {}).value = '';
@@ -1683,6 +1790,10 @@ if (schadSel === "custom") {
   
         case 'getriebe':
           uncheckAll('input[type="checkbox"][value="Automatik"], input[type="checkbox"][value="Schaltgetriebe"]');
+          break;
+
+        case 'anbieter':
+          setSelectToDefault(document.getElementById('anbieter'));
           break;
   
         case 'antrieb':
@@ -1714,6 +1825,16 @@ if (schadSel === "custom") {
           if (sh) sh.checked = false;
           break;
         }
+
+        case 'mwst': {
+          const mw = document.getElementById('mwst-ausweisbar');
+          if (mw) mw.checked = false;
+          break;
+        }
+
+        case 'ausstattung':
+          uncheckAll('.equipment-grid input[type="checkbox"]');
+          break;
   
         case 'unfallfrei': {
           const uf = document.getElementById('unfallfrei');
@@ -1768,14 +1889,16 @@ if (schadSel === "custom") {
       });
   
       uncheckAll('.search-section input[type="checkbox"]');
-  
+
       window.toggleCustomUmkreis?.('');
       window.toggleCustomSchadstoff?.('');
       hideAndClear('custom-hu-wrapper', 'custom-hu');
-  
+
       const vbWrap = document.getElementById('verbrauch-custom-wrap');
       if (vbWrap) vbWrap.style.display = 'none';
-  
+
+      if (typeof syncPowerUnitUI === 'function') syncPowerUnitUI();
+
       const ortEl = document.getElementById('ort');
       ortEl?.dispatchEvent(new Event('input', { bubbles: true }));
   
@@ -1799,6 +1922,13 @@ if (schadSel === "custom") {
       qs.delete('ort_lon');
   
       const get = (k) => qs.get(k);
+      const powerUnit = (get('power_unit') || 'ps').toLowerCase();
+      const powerUnitText = powerUnit === 'kw' ? 'kW' : 'PS';
+      const toPowerDisplay = (psVal) => {
+        const n = Number(psVal);
+        if (!Number.isFinite(n)) return null;
+        return powerUnit === 'kw' ? Math.round(n * PS_TO_KW) : Math.round(n);
+      };
   
       chipsEl.innerHTML = '';
       let count = 0;
@@ -1820,7 +1950,9 @@ if (schadSel === "custom") {
       const psMin = get('ps_min');
       const psMax = get('ps_max');
       if (psMin || psMax) {
-        addChip(`Leistung: ${(psMin ? `${fmtInt(psMin)} PS` : '…')} – ${(psMax ? `${fmtInt(psMax)} PS` : '…')}`, 'ps');
+        const dMin = psMin ? toPowerDisplay(psMin) : null;
+        const dMax = psMax ? toPowerDisplay(psMax) : null;
+        addChip(`Leistung: ${(dMin != null ? `${fmtInt(dMin)} ${powerUnitText}` : '…')} – ${(dMax != null ? `${fmtInt(dMax)} ${powerUnitText}` : '…')}`, 'ps');
         count++;
       }
   
@@ -1853,6 +1985,9 @@ if (schadSel === "custom") {
   
       const tueren = get('tueren');
       if (tueren) { addChip(`Türen: ${tueren}`, 'tueren'); count++; }
+
+      const sitze = get('sitze_min') || get('sitze');
+      if (sitze) { addChip(`Sitze: ab ${sitze}`, 'sitze'); count++; }
   
       const ort = get('ort');
       if (ort) { addChip(`Ort: ${ort}`, 'ort'); count++; }
@@ -1865,6 +2000,15 @@ if (schadSel === "custom") {
   
       const getr = get('getriebe');
       if (getr) { addChip(`Getriebe: ${getriebeLabel(getr)}`, 'getriebe'); count++; }
+
+      const anbieter = get('anbieter');
+      if (anbieter) {
+        const label = anbieter.toLowerCase().includes("haend") || anbieter.toLowerCase().includes("händ")
+          ? "Händler"
+          : "Privat";
+        addChip(`Anbieter: ${label}`, 'anbieter');
+        count++;
+      }
   
       const antrieb = get('antrieb');
       if (antrieb) {
@@ -1896,6 +2040,17 @@ if (schadSel === "custom") {
         addChip(`Merkmale: ${parts.join(', ')}`, 'merkmale');
         count++;
       }
+
+      const ausstattung = get('ausstattung');
+      if (ausstattung) {
+        const parts = ausstattung.split(',').map(s => s.trim()).filter(Boolean);
+        const nice = parts.length > 4 ? `${parts.slice(0, 4).join(', ')} +${parts.length - 4}` : parts.join(', ');
+        addChip(`Ausstattung: ${nice}`, 'ausstattung');
+        count++;
+      }
+
+      const mwst = get('mwst');
+      if (mwst) { addChip(`MwSt. ausweisbar`, 'mwst'); count++; }
   
       const uf = get('unfallfrei');
       if (uf) { addChip(`Unfallfrei`, 'unfallfrei'); count++; }

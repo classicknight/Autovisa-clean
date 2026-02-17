@@ -889,6 +889,28 @@ img, video, canvas {
     gap: 12px;
     flex-wrap: wrap;
   }
+
+  .range-inputs.is-with-unit {
+    align-items: center;
+  }
+
+  .range-inputs.is-with-unit input {
+    flex: 1 1 160px;
+    min-width: 140px;
+  }
+
+  .range-inputs.is-with-unit .unit-select {
+    flex: 0 0 110px;
+    max-width: 120px;
+    width: 110px;
+  }
+
+  .unit-label {
+    color: #7ce7d7;
+    font-weight: 600;
+    margin-left: 6px;
+    font-size: 0.95em;
+  }
   
  
   

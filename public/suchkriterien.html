@@ -336,6 +336,22 @@
   </select>
 </div>
 
+<div class="search-group">
+  <label for="sitze">Anzahl der Sitze (mind.)</label>
+  <select id="sitze">
+    <option value="">Beliebig</option>
+    <option value="2">2 oder mehr</option>
+    <option value="3">3 oder mehr</option>
+    <option value="4">4 oder mehr</option>
+    <option value="5">5 oder mehr</option>
+    <option value="6">6 oder mehr</option>
+    <option value="7">7 oder mehr</option>
+    <option value="8">8 oder mehr</option>
+    <option value="9">9 oder mehr</option>
+    <option value="10">10 oder mehr</option>
+  </select>
+</div>
+
 <!-- Erstzulassung -->
 <div class="search-group">
   <label>Erstzulassung</label>
@@ -415,10 +431,14 @@
 
 
   <div class="search-group" >
-    <label for="leistung-von">Leistung</label>
-    <div class="range-inputs">
+    <label for="leistung-von">Leistung <span id="leistung-unit-label" class="unit-label">(PS)</span></label>
+    <div class="range-inputs is-with-unit">
       <input type="number" id="leistung-von" placeholder="von PS" />
       <input type="number" id="leistung-bis" placeholder="bis PS" />
+      <select id="leistung-einheit" class="unit-select" aria-label="Leistungseinheit">
+        <option value="ps">PS</option>
+        <option value="kw">kW</option>
+      </select>
     </div>
   </div>
   
@@ -461,6 +481,15 @@
       <label><input type="checkbox" value="Automatik" /> Automatik</label>
       <label><input type="checkbox" value="Schaltgetriebe" /> Schaltgetriebe</label>
     </div>
+  </div>
+
+  <div class="search-group">
+    <label for="anbieter">Anbieter</label>
+    <select id="anbieter">
+      <option value="">Beliebig</option>
+      <option value="haendler">Händler</option>
+      <option value="privat">Privat</option>
+    </select>
   </div>
   
   <!-- Antriebsart -->
@@ -597,6 +626,34 @@
       Unfallfrei
     </label>
     
+  </div>
+</div>
+
+<div class="search-group">
+  <label>MwSt.</label>
+  <div class="checkbox-grid">
+    <label>
+      <input type="checkbox" id="mwst-ausweisbar" value="1">
+      MwSt. ausweisbar
+    </label>
+  </div>
+</div>
+
+<div class="search-group">
+  <label>Ausstattung</label>
+  <div class="checkbox-grid equipment-grid">
+    <label><input type="checkbox" value="navigation"> Navigation</label>
+    <label><input type="checkbox" value="sitzheizung"> Sitzheizung</label>
+    <label><input type="checkbox" value="rueckfahrkamera"> Rückfahrkamera</label>
+    <label><input type="checkbox" value="tempomat"> Tempomat / ACC</label>
+    <label><input type="checkbox" value="bluetooth"> Bluetooth / Freisprechen</label>
+    <label><input type="checkbox" value="klima"> Klima / Klimaautomatik</label>
+    <label><input type="checkbox" value="parkhilfe"> Parkhilfe / PDC</label>
+    <label><input type="checkbox" value="led"> LED / Matrix</label>
+    <label><input type="checkbox" value="panorama"> Panorama- / Schiebedach</label>
+    <label><input type="checkbox" value="applecarplay"> Apple CarPlay</label>
+    <label><input type="checkbox" value="androidauto"> Android Auto</label>
+    <label><input type="checkbox" value="isofix"> ISOFIX</label>
   </div>
 </div>
 
