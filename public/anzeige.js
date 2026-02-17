@@ -963,7 +963,7 @@ const AUSSTATTUNG_KEYS = [
   "soundsystem","touchscreen","sprachsteuerung","multifunktionslenkrad","freisprecheinrichtung","usb","bluetooth","wlan",
   "streaming","induktionsladen","bordcomputer","headup","volldigital","alufelgen","sommerreifen","winterreifen","allwetterreifen",
   "reifendruckkontrolle","winterpaket","raucherpaket","sportpaket","sportfahrwerk","luftfederung","gepaeckabtrennung",
-  "skisack","schiebedach","panoramadach","dachreling","behindertengerecht","taxi"
+  "skisack","schiebedach","panoramadach","dachreling","anhaengerkupplung","behindertengerecht","taxi"
 ];
 const AUSSTATTUNG_LABELS = {
   abstandsregeltempomat:"Abstandsregeltempomat", applecarplay:"Apple CarPlay", androidauto:"Android Auto",
@@ -995,7 +995,8 @@ const AUSSTATTUNG_LABELS = {
   winterreifen:"Winterreifen", allwetterreifen:"Allwetterreifen", reifendruckkontrolle:"Reifendruckkontrollsystem",
   winterpaket:"Winterpaket", raucherpaket:"Raucherpaket", sportpaket:"Sportpaket", sportfahrwerk:"Sportfahrwerk",
   luftfederung:"Luftfederung", gepaeckabtrennung:"Gepäckraumabtrennung", skisack:"Skisack", schiebedach:"Schiebedach",
-  panoramadach:"Panorama-Dach", dachreling:"Dachreling", behindertengerecht:"Behindertengerecht", taxi:"Taxi",
+  panoramadach:"Panorama-Dach", dachreling:"Dachreling", anhaengerkupplung:"Anhängerkupplung",
+  behindertengerecht:"Behindertengerecht", taxi:"Taxi",
 };
 
 function fillAusstattung(inserat) {

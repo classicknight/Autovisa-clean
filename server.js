@@ -431,6 +431,13 @@ const HEADER_ALIASES = {
   advert_id: "stock_number",
   inseratid: "stock_number",
   inserat_id: "stock_number",
+  kundennummer: "customer_number",
+  customer_number: "customer_number",
+  customer_no: "customer_number",
+  customerid: "customer_number",
+  customer_id: "customer_number",
+  internal_number: "stock_number",
+  internalnumber: "stock_number",
   interne_nummer: "interne_nummer",
   interne_nr: "interne_nummer",
   intern_nr: "interne_nummer",
@@ -453,6 +460,9 @@ const HEADER_ALIASES = {
   fahrzeugtitel: "title",
   modellbezeichnung: "title",
   verkauf_titel: "title",
+  remark: "description",
+  bemerkung: "description",
+  descriptiontext: "description",
   // Make / Model / Variant
   marke: "make",
   hersteller: "make",
@@ -466,6 +476,10 @@ const HEADER_ALIASES = {
   serie: "model",
   series: "model",
   verkauf_modell: "model",
+  kategorie: "category",
+  category: "category",
+  fahrzeugart: "vehicle_type",
+  vehiclecategory: "category",
   variante: "variant",
   variant: "variant",
   ausstattung_variante: "variant",
@@ -505,10 +519,17 @@ const HEADER_ALIASES = {
   kilometerstand: "mileage_km",
   laufleistung: "mileage_km",
   km: "mileage_km",
+  kilometre: "mileage_km",
+  kilometres: "mileage_km",
+  mileage_km: "mileage_km",
   verkauf_kilometer: "mileage_km",
   // First registration
   firstregistration: "first_registration",
   first_registration: "first_registration",
+  reg_date: "first_registration",
+  regdate: "first_registration",
+  registration_date: "first_registration",
+  registrationdate: "first_registration",
   erstzulassung: "first_registration",
   zulassung: "first_registration",
   ez: "first_registration",
@@ -538,6 +559,7 @@ const HEADER_ALIASES = {
   ps: "power_ps",
   power_ps: "power_ps",
   verkauf_leistung: "power_ps",
+  performance: "power_kw",
   leistung_kw: "power_kw",
   kw: "power_kw",
   power_kw: "power_kw",
@@ -556,6 +578,7 @@ const HEADER_ALIASES = {
   // Colors
   farbe: "color",
   color: "color",
+  colour: "color",
   verkauf_farbe: "color",
   aussenfarbe: "exterior_color",
   außenfarbe: "exterior_color",
@@ -602,11 +625,18 @@ const HEADER_ALIASES = {
   accident_history: "accident_history",
   verkauf_unfall: "accident_history",
   verkauf_unfallhistorie: "accident_history",
+  damaged_vehicle: "beschaedigt",
+  beschaedigt: "beschaedigt",
+  beschaedigt_fahrzeug: "beschaedigt",
+  oldtimer: "classic_vehicle",
+  classic_vehicle: "classic_vehicle",
   mwst: "vat",
   ust: "vat",
   vat: "vat",
   tax: "vat",
   verkauf_mwst: "vat",
+  mwstsatz: "vat_rate",
+  vat_rate: "vat_rate",
   // Emissions / consumption
   emissionsklasse: "emission_class",
   emission_class: "emission_class",
@@ -638,6 +668,8 @@ const HEADER_ALIASES = {
   verkauf_antrieb: "drivetrain",
   klimatisierung: "climate",
   klima: "climate",
+  ac: "climate",
+  aircondition: "climate",
   verkauf_klimatisierung: "climate",
   einparkhilfe: "parking_assist",
   einparkhilfe_selbstlenkend: "parking_assist_self",
@@ -658,6 +690,7 @@ const HEADER_ALIASES = {
   anzahlhalter: "previous_owners",
   verkauf_halter: "previous_owners",
   hu: "hu",
+  mot: "hu",
   tuv: "hu",
   tuev: "hu",
   tüv: "hu",
@@ -671,6 +704,20 @@ const HEADER_ALIASES = {
   standort: "location",
   location: "location",
   verkauf_standort: "location",
+  waehrung: "currency",
+  currency: "currency",
+  bild_id: "image_id",
+  image_id: "image_id",
+  dealer_price: "dealer_price",
+  haendlerpreis: "dealer_price",
+  our_recommendation: "recommendation",
+  empfehlung: "recommendation",
+  one_year_old_car: "one_year_old_car",
+  jahreswagen: "one_year_old_car",
+  new_car: "new_car",
+  neufahrzeug: "new_car",
+  vorfuehrwagen: "demo_car",
+  demo_car: "demo_car",
   plz: "postal_code",
   zip: "postal_code",
   postal_code: "postal_code",
@@ -876,6 +923,120 @@ function normalizeRecord(record) {
   return normalizeRecordKeys(unwrapRecord(record));
 }
 
+const EQUIPMENT_KEYS = new Set([
+  "abstandsregeltempomat","applecarplay","androidauto","frontscheibenheizung","heckklappe","led","multifunktion",
+  "navigation","sitzheizung","rueckfahrkamera","nichtraucher","scheckheft","garantie","mettalic","abs","esp","asr",
+  "berganfahrassistent","muedigkeitswarner","spurhalteassistent","totwinkelassistent","notbremsassistent","notrufsystem",
+  "verkehrszeichenerkennung","isofixhinten","isofixbeifahrer","scheinwerferreinigung","blendfreiesfernlicht",
+  "fernlichtassistent","innenspiegelabblendend","nachtsichtassistent","nebelscheinwerfer","lichtsensor","regensensor",
+  "alarmanlage","wegfahrsperre","keylesszv","zentralverriegelung","standheizung","frontscheibebeheizbar","lenkradbeheizbar",
+  "einparkhilfeselbstlenkend","kamerahinten","kamera360","sitzheizungvorne","sitzheizunghinten","sitzeelektrisch",
+  "sportsitze","armlehne","lordosenstuetze","massagesitze","sitzbelueftung","beifahrersitzumklappbar","elektrfensterheber",
+  "elektrspiegel","elektheckklappe","servolenkung","ambientebeleuchtung","lederlenkrad","radio","dab","cd","tv","navi",
+  "soundsystem","touchscreen","sprachsteuerung","multifunktionslenkrad","freisprecheinrichtung","usb","bluetooth","wlan",
+  "streaming","induktionsladen","bordcomputer","headup","volldigital","alufelgen","sommerreifen","winterreifen","allwetterreifen",
+  "reifendruckkontrolle","winterpaket","raucherpaket","sportpaket","sportfahrwerk","luftfederung","gepaeckabtrennung",
+  "skisack","schiebedach","panoramadach","dachreling","behindertengerecht","taxi","anhaengerkupplung"
+]);
+
+const EQUIPMENT_ALIASES = {
+  navigationssystem: ["navigation","navi"],
+  navigation_system: ["navigation","navi"],
+  navi: ["navi"],
+  navigation: ["navigation"],
+  leichtmetallfelgen: ["alufelgen"],
+  alu_felgen: ["alufelgen"],
+  alu_felge: ["alufelgen"],
+  elektrische_fensterheber: ["elektrfensterheber"],
+  elektr_fensterheber: ["elektrfensterheber"],
+  fensterheber: ["elektrfensterheber"],
+  elektrische_spiegel: ["elektrspiegel"],
+  elektrisch_verstellbare_spiegel: ["elektrspiegel"],
+  schiebedach: ["schiebedach"],
+  panoramadach: ["panoramadach"],
+  dachreling: ["dachreling"],
+  zentralverriegelung: ["zentralverriegelung"],
+  wegfahrsperre: ["wegfahrsperre"],
+  standheizung: ["standheizung"],
+  garantie: ["garantie"],
+  scheckheftgepflegt: ["scheckheft"],
+  nichtraucherfahrzeug: ["nichtraucher"],
+  rueckfahrkamera: ["rueckfahrkamera"],
+  anhangerkupplung: ["anhaengerkupplung"],
+  anhaengerkupplung: ["anhaengerkupplung"]
+};
+
+function normalizeEquipmentKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/[\s\-]+/g, "_")
+    .replace(/[^\w]/g, "");
+}
+
+function isTruthyValue(v) {
+  if (v == null) return false;
+  if (typeof v === "boolean") return v;
+  const s = String(v).trim().toLowerCase();
+  if (!s) return false;
+  if (["1","true","ja","yes","y","x"].includes(s)) return true;
+  if (["0","false","nein","no","n"].includes(s)) return false;
+  const num = Number(s.replace(",", "."));
+  if (Number.isFinite(num)) return num > 0;
+  return false;
+}
+
+function buildEquipment(raw = {}) {
+  const keys = new Set();
+  const text = new Set();
+
+  EQUIPMENT_KEYS.forEach((k) => {
+    if (isTruthyValue(raw[k])) keys.add(k);
+  });
+
+  Object.entries(EQUIPMENT_ALIASES).forEach(([from, targets]) => {
+    if (!isTruthyValue(raw[from])) return;
+    (Array.isArray(targets) ? targets : [targets]).forEach((t) => {
+      if (t) keys.add(t);
+    });
+  });
+
+  const list = splitList(raw.equipment ?? raw.ausstattung ?? raw.features ?? raw.extras ?? raw.options);
+  list.forEach((item) => {
+    const norm = normalizeEquipmentKey(item);
+    if (EQUIPMENT_KEYS.has(norm)) keys.add(norm);
+    else if (item) text.add(String(item).trim());
+  });
+
+  return { keys: [...keys], text: [...text] };
+}
+
+function isMobileRecord(raw = {}) {
+  if (raw.__format === "mobile_csv") return true;
+  const markers = [
+    "customer_number","category","image_id","mwstsatz","dealer_price",
+    "our_recommendation","one_year_old_car","new_car","bemerkung","remark"
+  ];
+  return markers.some((k) => raw[k] != null && String(raw[k]).trim() !== "");
+}
+
+function parseClimateValue(value) {
+  if (value == null) return "";
+  const s = String(value).trim();
+  if (!s) return "";
+  const n = Number(s.replace(",", "."));
+  if (Number.isFinite(n)) {
+    if (n >= 2) return "Klimaautomatik";
+    if (n >= 1) return "Klimaanlage";
+    return "";
+  }
+  return s;
+}
+
 function detectImportFormat(file, text) {
   const name = String(file?.originalname || "").toLowerCase();
   const mime = String(file?.mimetype || "").toLowerCase();
@@ -904,6 +1065,57 @@ function detectImportFormat(file, text) {
   }
 
   return "csv";
+}
+
+const MOBILE_DE_FIELD_ORDER = [
+  "customer_number",      // 0
+  "stock_number",         // 1 interne_nummer
+  "category",             // 2 kategorie
+  "make",                 // 3 marke
+  "model",                // 4 modell
+  "power_kw",             // 5 leistung (kW)
+  "hu",                   // 6 hu / mot
+  null,                   // 7 reserved
+  "first_registration",   // 8 ez / reg-date
+  "mileage_km",           // 9 kilometer / kilometre
+  "price_eur",            // 10 preis / price
+  "vat",                  // 11 mwst / VAT
+  null,                   // 12 reserved
+  "classic_vehicle",      // 13 oldtimer / classic vehicle
+  "vin",                  // 14 vin
+  "beschaedigt",          // 15 beschaedigtes_fahrzeug / damaged_vehicle
+  "color",                // 16 farbe / colour
+  "climate",              // 17 klima / a/c
+  "taxi",                 // 18 taxi
+  "behindertengerecht",   // 19 adapted for disabled
+  "one_year_old_car",     // 20 jahreswagen / one-year-old car
+  "new_car",              // 21 neufahrzeug / new car
+  "recommendation",       // 22 unsere empfehlung / our recommendation
+  "dealer_price",         // 23 haendlerpreis / dealer price
+  null                    // 24 reserved
+];
+
+function looksLikeHeaderLine(line = "") {
+  const l = String(line).toLowerCase();
+  const tokens = [
+    "kundennummer","interne_nummer","kategorie","marke","modell","leistung","hu","ez",
+    "kilometer","preis","mwst","oldtimer","vin","beschaedigtes_fahrzeug","farbe",
+    "customer-number","internal number","category","make","model","performance","mot",
+    "reg-date","kilometre","price","vat","classic vehicle","damaged_vehicle","colour","a/c"
+  ];
+  return tokens.some((t) => l.includes(t));
+}
+
+function mapMobileCsvRow(row = []) {
+  const obj = {};
+  row.forEach((val, idx) => {
+    const key = MOBILE_DE_FIELD_ORDER[idx];
+    if (key) obj[key] = val;
+    else obj[`col_${idx}`] = val;
+  });
+  obj.__raw_cols = row;
+  obj.__format = "mobile_csv";
+  return obj;
 }
 
 function parseImportRecords(file, text) {
@@ -945,6 +1157,22 @@ function parseImportRecords(file, text) {
   }
 
   const delimiter = guessDelimiter(text);
+  const firstLine = (String(text || "").split(/\r?\n/)[0] || "");
+  const hasHeader = looksLikeHeaderLine(firstLine);
+
+  if (!hasHeader) {
+    const rows = parse(text, {
+      columns: false,
+      skip_empty_lines: true,
+      delimiter,
+      relax_quotes: true,
+      relax_column_count: true,
+      trim: true
+    });
+    const records = rows.map(mapMobileCsvRow);
+    return { records, format: "mobile_csv", delimiter };
+  }
+
   const records = parse(text, {
     columns: normalizeHeaders,
     skip_empty_lines: true,
@@ -1070,6 +1298,9 @@ function splitUrls(v) {
  * Optional: image_urls (URL1|URL2|...), video_url
  */
 function mapRow(raw) {
+  const mobileLike = isMobileRecord(raw);
+  const equipment = buildEquipment(raw);
+
   const stock_number = pickStr(
     raw.stock_number,
     raw.interne_nummer,
@@ -1085,6 +1316,7 @@ function mapRow(raw) {
 
   let title = pickStr(raw.title, raw.titel, raw.bezeichnung, raw.fahrzeugtitel);
   if (!title) title = [make, model, variant].filter(Boolean).join(" ").trim();
+  if (!title) title = stock_number ? `Inserat ${stock_number}` : "Inserat";
 
   const price_gross = toNumber(raw.price_gross ?? raw.brutto_preis ?? raw.bruttopreis);
   const price_net = toNumber(raw.price_net ?? raw.netto_preis ?? raw.nettopreis);
@@ -1109,6 +1341,31 @@ function mapRow(raw) {
   const image_urls = splitUrls(raw.image_urls ?? raw.images ?? raw.bilder);
   const video_url = pickStr(raw.video_url, raw.video) || null;
 
+  let powerKw = toNumber(pickFirst(raw.power_kw, raw.performance, raw.leistung_kw));
+  let powerPs = toNumber(pickFirst(raw.power_ps, raw.ps, raw.leistung_ps));
+  if (mobileLike && powerKw == null && raw.power_ps != null) {
+    powerKw = toNumber(raw.power_ps);
+    powerPs = null;
+  }
+  if (powerPs == null && powerKw != null) {
+    powerPs = Math.round(powerKw * 1.35962);
+  }
+
+  const climate = parseClimateValue(pickFirst(raw.climate, raw.klima, raw.klimaautomatik, raw.klimaanlage));
+
+  let condition = pickStr(raw.zustand, raw.condition);
+  if (!condition) {
+    if (isTruthyValue(raw.new_car)) condition = "Neuwagen";
+    else if (isTruthyValue(raw.one_year_old_car)) condition = "Jahreswagen";
+    else if (isTruthyValue(raw.demo_car)) condition = "Vorführwagen";
+  }
+
+  const damaged = parseBool(raw.beschaedigt ?? raw.damaged_vehicle);
+
+  const vehicle_type = pickStr(raw.vehicle_type, raw.category, raw.kategorie, raw.fahrzeugart, raw.karosserie);
+  const description = pickStr(raw.description, raw.beschreibung, raw.bemerkung, raw.remark, raw.text);
+  const short_description = pickStr(raw.short_description, raw.kurzbeschreibung, raw.teaser);
+
   return {
     stock_number,
     title,
@@ -1122,8 +1379,8 @@ function mapRow(raw) {
     variant,
     fuel: pickStr(raw.fuel, raw.kraftstoff),
     gearbox: pickStr(raw.gearbox, raw.getriebe),
-    power_ps: toNumber(raw.power_ps ?? raw.ps ?? raw.leistung_ps ?? raw.leistung),
-    power_kw: toNumber(raw.power_kw ?? raw.kw ?? raw.leistung_kw),
+    power_ps: powerPs,
+    power_kw: powerKw,
     displacement_ccm: toNumber(raw.displacement_ccm ?? raw.ccm ?? raw.hubraum),
     doors: toInt(raw.doors ?? raw.tueren ?? raw["türen"]),
     seats: toInt(raw.seats ?? raw.sitze),
@@ -1132,13 +1389,19 @@ function mapRow(raw) {
     interior_color: pickStr(raw.interior_color, raw.innenfarbe),
     interior_material: pickStr(raw.interior_material, raw.innenmaterial, raw.sitzmaterial),
     body_color: pickStr(raw.body_color, raw.karosseriefarbe),
-    vehicle_type: pickStr(raw.vehicle_type, raw.fahrzeugtyp, raw.body_type, raw.karosserie),
-    description: pickStr(raw.description, raw.beschreibung, raw.text),
-    short_description: pickStr(raw.short_description, raw.kurzbeschreibung, raw.teaser),
+    vehicle_type: vehicle_type,
+    description,
+    short_description,
     equipment: splitList(raw.equipment ?? raw.ausstattung ?? raw.features ?? raw.extras),
+    equipment_keys: equipment.keys,
+    equipment_text: equipment.text,
     accident_free: parseBool(raw.accident_free ?? raw.unfallfrei),
     accident_history: pickStr(raw.accident_history ?? raw.unfall ?? raw.unfallhistorie),
     vat: raw.vat ?? raw.mwst ?? raw.ust,
+    vat_rate: pickStr(raw.vat_rate, raw.mwstsatz),
+    currency: pickStr(raw.currency, raw.waehrung),
+    damaged,
+    condition,
     emission_class: pickStr(raw.emission_class, raw.emissionsklasse),
     pollution_class: pickStr(raw.pollution_class, raw.schadstoffklasse),
     environmental_badge: pickStr(raw.environmental_badge, raw.umweltplakette),
@@ -1148,7 +1411,7 @@ function mapRow(raw) {
     consumption_city: pickStr(raw.consumption_city, raw.verbrauch_innerorts),
     consumption_highway: pickStr(raw.consumption_highway, raw.verbrauch_ausserorts),
     drivetrain: pickStr(raw.drivetrain, raw.antrieb, raw.antriebsart),
-    climate: pickStr(raw.climate, raw.klimatisierung),
+    climate,
     parking_assist: pickStr(raw.parking_assist, raw.einparkhilfe),
     parking_assist_self: pickStr(raw.parking_assist_self, raw.einparkhilfe_selbstlenkend),
     headlights: pickStr(raw.headlights, raw.scheinwerfer),
@@ -1166,7 +1429,13 @@ function mapRow(raw) {
     street_no: pickStr(raw.street_no, raw.hausnummer),
     phone: pickStr(raw.phone, raw.telefon),
     image_urls,
-    video_url
+    video_url,
+    raw_import: raw,
+    mobile_like: mobileLike,
+    image_id: pickStr(raw.image_id, raw.bild_id),
+    dealer_price: pickStr(raw.dealer_price, raw.haendlerpreis),
+    recommendation: pickStr(raw.recommendation, raw.empfehlung),
+    customer_number: pickStr(raw.customer_number, raw.kundennummer)
   };
 }
 
@@ -1314,6 +1583,13 @@ app.post("/api/haendler/import/commit", requireDb, requireDealer, uploadCsv.sing
       const ezDisplay = toFirstRegistrationDisplay(r.first_registration);
       const images = Array.isArray(r.image_urls) ? r.image_urls : [];
       const equipment = Array.isArray(r.equipment) ? r.equipment : [];
+      const equipKeys = Array.isArray(r.equipment_keys) ? r.equipment_keys : [];
+      const equipText = Array.isArray(r.equipment_text) ? r.equipment_text : [];
+      const equipList = [...new Set([...equipKeys, ...equipText, ...equipment])].filter(Boolean);
+      const equipFlags = {};
+      equipKeys.forEach((k) => {
+        if (k) equipFlags[`verkauf_${k}`] = true;
+      });
 
       const rowStreet = [r.street, r.street_no].filter(Boolean).join(" ");
       const rowZipCity = [r.postal_code, r.city].filter(Boolean).join(" ");
@@ -1329,9 +1605,16 @@ app.post("/api/haendler/import/commit", requireDb, requireDealer, uploadCsv.sing
 
       const mwstBool = parseBool(r.vat);
       let mwstText = "";
-      if (mwstBool === true) mwstText = "inkl. MwSt.";
-      else if (mwstBool === false) mwstText = "keine";
-      else if (r.vat != null && String(r.vat).trim()) mwstText = String(r.vat).trim();
+      if (r.mobile_like && r.vat != null) {
+        const sv = String(r.vat).trim();
+        if (sv === "0") mwstText = "inkl. MwSt.";
+        else if (sv === "1") mwstText = "nicht ausweisbar";
+      }
+      if (!mwstText) {
+        if (mwstBool === true) mwstText = "inkl. MwSt.";
+        else if (mwstBool === false) mwstText = "keine";
+        else if (r.vat != null && String(r.vat).trim()) mwstText = String(r.vat).trim();
+      }
 
       const kurz = r.short_description || r.description || "";
       const besch = r.description || "";
@@ -1389,9 +1672,13 @@ app.post("/api/haendler/import/commit", requireDb, requireDealer, uploadCsv.sing
               verkauf_innenfarbe: r.interior_color || "",
               verkauf_innenmaterial: r.interior_material || "",
 
+              zustand: r.condition || "",
+              verkauf_beschaedigt: r.damaged ?? "",
+              beschaedigt: r.damaged ?? "",
+
               verkauf_beschreibung: besch,
               verkauf_kurzbeschreibung: kurz,
-              verkauf_ausstattung: equipment,
+              verkauf_ausstattung: equipList,
 
               verkauf_unfallfrei: unfallfrei,
               verkauf_unfall: unfallText,
@@ -1430,6 +1717,16 @@ app.post("/api/haendler/import/commit", requireDb, requireDealer, uploadCsv.sing
               standort: finalStandort,
               telefon: finalTelefon,
               seller: sellerSnapshot,
+
+              import_raw: r.raw_import || null,
+              import_customer_number: r.customer_number || "",
+              import_dealer_price: r.dealer_price || "",
+              import_recommendation: r.recommendation || "",
+              import_currency: r.currency || "",
+              import_vat_rate: r.vat_rate || "",
+              import_image_id: r.image_id || "",
+
+              ...equipFlags,
 
               updatedAt: new Date()
             },
