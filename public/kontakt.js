@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("contactForm");
     const feedback = document.getElementById("formFeedback");
     
-    form.addEventListener("submit", (e) => {
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
       
       // Validierung
@@ -25,9 +25,33 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       
-      // Erfolg (Backend-Anbindung später möglich)
-      feedback.textContent = "✅ Vielen Dank! Deine Nachricht wurde gesendet.";
-      feedback.className = "form-feedback success";
-      form.reset();
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+      feedback.textContent = "Sende Nachricht...";
+      feedback.className = "form-feedback";
+
+      try {
+        const res = await fetch("/kontakt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, subject, message })
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          feedback.textContent = data?.error || "Nachricht konnte nicht gesendet werden.";
+          feedback.className = "form-feedback error";
+          return;
+        }
+
+        feedback.textContent = "✅ Vielen Dank! Deine Nachricht wurde gesendet.";
+        feedback.className = "form-feedback success";
+        form.reset();
+      } catch {
+        feedback.textContent = "Netzwerkfehler – bitte später erneut versuchen.";
+        feedback.className = "form-feedback error";
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
     });
   });

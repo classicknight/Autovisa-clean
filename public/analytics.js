@@ -137,6 +137,7 @@
   function injectSettingsLink() {
     var footer = document.querySelector(".site-footer .footer-bottom .bottom-inner");
     if (!footer || document.getElementById("cookie-settings-link")) return;
+    var toTop = footer.querySelector(".to-top");
 
     var wrap = document.createElement("span");
     wrap.className = "cookie-settings-wrap";
@@ -151,7 +152,11 @@
     });
 
     wrap.appendChild(btn);
-    footer.appendChild(wrap);
+    if (toTop) {
+      footer.insertBefore(wrap, toTop);
+    } else {
+      footer.appendChild(wrap);
+    }
   }
 
   // Init

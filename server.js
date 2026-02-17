@@ -2533,6 +2533,79 @@ function buildAutovisaEmail({
 }
 
 /* =========================
+   📬 Kontaktformular
+========================= */
+const CONTACT_EMAIL = process.env.CONTACT_EMAIL || "kontakt@autovisa.de";
+const CONTACT_MAX_LEN = 5000;
+
+app.post("/kontakt", async (req, res) => {
+  try {
+    let { name, email, subject, message } = req.body || {};
+    name = String(name || "").trim();
+    email = String(email || "").trim().toLowerCase();
+    subject = String(subject || "").trim();
+    message = String(message || "").trim();
+
+    if (!name || !email || !subject || !message) {
+      return res.status(400).json({ error: "Bitte alle Felder ausfüllen." });
+    }
+    if (message.length > CONTACT_MAX_LEN) {
+      return res.status(400).json({ error: "Nachricht ist zu lang." });
+    }
+    const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: "Bitte eine gültige E-Mail-Adresse eingeben." });
+    }
+
+    const safeName = escapeHtml(name);
+    const safeEmail = escapeHtml(email);
+    const safeSubject = escapeHtml(subject) || "Ohne Betreff";
+    const safeMessage = escapeHtml(message).replace(/\n/g, "<br>");
+
+    const { logoSrc, attachments } = getEmailLogoAsset();
+
+    const mailSubject = `Kontaktanfrage: ${subject || "Ohne Betreff"}`;
+    const html = buildAutovisaEmail({
+      subject: mailSubject,
+      logoSrc,
+      greeting: "Neue Kontaktanfrage",
+      title: safeSubject,
+      htmlText: `
+        <p><b>Name:</b> ${safeName}</p>
+        <p><b>E-Mail:</b> ${safeEmail}</p>
+        <p><b>Betreff:</b> ${safeSubject}</p>
+        <p><b>Nachricht:</b><br>${safeMessage}</p>
+      `,
+      footerNote: "Diese Nachricht wurde über das Kontaktformular auf autovisa.de gesendet."
+    });
+
+    const text =
+`Neue Kontaktanfrage
+Name: ${name}
+E-Mail: ${email}
+Betreff: ${subject || "Ohne Betreff"}
+
+Nachricht:
+${message}`;
+
+    await transporter.sendMail({
+      from: MAIL_FROM,
+      replyTo: `${name} <${email}>`,
+      to: CONTACT_EMAIL,
+      subject: mailSubject,
+      html,
+      text,
+      attachments
+    });
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("❌ Fehler bei /kontakt:", err);
+    return res.status(500).json({ error: "Nachricht konnte nicht gesendet werden." });
+  }
+});
+
+/* =========================
    📝 Registrierung
 ========================= */
 app.post("/register", async (req, res) => {
