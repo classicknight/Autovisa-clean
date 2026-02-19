@@ -251,10 +251,11 @@ if (!mongoUri) {
 
 const client = new MongoClient(mongoUri);
 let db;
+const DB_NAME = process.env.MONGODB_DB || "autovisa";
 
 client.connect()
   .then(async () => {
-    db = client.db("autovisa");
+    db = client.db(DB_NAME);
     console.log("✅ MongoDB verbunden");
 
     await db.collection("inserate").createIndex({ standortCoords: "2dsphere" });
