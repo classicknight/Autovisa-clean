@@ -11,6 +11,21 @@ body {
   padding-top: 0;
 }
 
+/* ==== Staging Marker ==== */
+.staging-dot {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ff2d2d;
+  box-shadow:
+    0 0 0 4px rgba(255, 45, 45, 0.2),
+    0 0 12px rgba(255, 45, 45, 0.6);
+  z-index: 2000;
+}
+
 /* ==== NAVBAR DESKTOP ==== */
 .navbar {
   /* NICHT fixed – normal oben, scrollt mit */
