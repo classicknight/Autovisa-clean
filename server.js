@@ -6630,27 +6630,49 @@ app.get("/api/search", async (req, res) => {
       };
 
       const tokens = splitCsv(ausstattung);
+      const truthyVals = [true, "true", "ja", "yes", "1", 1, "x"];
       const conds = tokens
-        .map((tok) => equipRegexFor(tok))
-        .filter(Boolean)
-        .map((rx) => ({
-          $or: [
-            { ausstattung:        { $elemMatch: { $regex: rx } } },
-            { ausstattung:        { $regex: rx } },
-            { verkauf_ausstattung:{ $elemMatch: { $regex: rx } } },
-            { verkauf_ausstattung:{ $regex: rx } },
-            { equipment_keys:     { $elemMatch: { $regex: rx } } },
-            { equipment_text:     { $elemMatch: { $regex: rx } } },
-            { scheinwerfer:       { $regex: rx } },
+        .map((tok) => {
+          const rx = equipRegexFor(tok);
+          if (!rx) return null;
+
+          const rawTok = String(tok || "").toLowerCase();
+          const isRearCam = /rueckfahr|rückfahr|rear|backup|revers/.test(rawTok);
+
+          const or = [
+            { ausstattung:         { $elemMatch: { $regex: rx } } },
+            { ausstattung:         { $regex: rx } },
+            { verkauf_ausstattung: { $elemMatch: { $regex: rx } } },
+            { verkauf_ausstattung: { $regex: rx } },
+            { equipment_keys:      { $elemMatch: { $regex: rx } } },
+            { equipment_text:      { $elemMatch: { $regex: rx } } },
+            { scheinwerfer:        { $regex: rx } },
             { verkauf_scheinwerfer:{ $regex: rx } },
-            { headlights:         { $regex: rx } },
-            { verkauf_headlights: { $regex: rx } },
-            { rueckfahrkamera:    { $regex: rx } },
+            { headlights:          { $regex: rx } },
+            { verkauf_headlights:  { $regex: rx } },
+            { rueckfahrkamera:     { $regex: rx } },
             { verkauf_rueckfahrkamera:{ $regex: rx } },
-            { beschreibung:       { $regex: rx } },
-            { titel:              { $regex: rx } }
-          ]
-        }));
+            { beschreibung:        { $regex: rx } },
+            { titel:               { $regex: rx } }
+          ];
+
+          if (isRearCam) {
+            or.push(
+              { rueckfahrkamera:         { $in: truthyVals } },
+              { verkauf_rueckfahrkamera: { $in: truthyVals } },
+              { kamerahinten:            { $in: truthyVals } },
+              { verkauf_kamerahinten:    { $in: truthyVals } },
+              { kamera360:               { $in: truthyVals } },
+              { verkauf_kamera360:       { $in: truthyVals } },
+              { rear_camera:             { $in: truthyVals } },
+              { camera_rear:             { $in: truthyVals } },
+              { backup_camera:           { $in: truthyVals } }
+            );
+          }
+
+          return { $or: or };
+        })
+        .filter(Boolean);
 
       if (conds.length) equipmentStages = [{ $match: { $and: conds } }];
     }
