@@ -1209,6 +1209,16 @@ if (equipValues.length) {
     }
   };
 
+  // HU Custom (optional)
+  window.toggleCustomHU = function(value) {
+    const wrap = document.getElementById('custom-hu-wrapper');
+    const input = document.getElementById('custom-hu');
+    if (!wrap) return;
+    const isCustom = String(value || '').toLowerCase() === 'custom';
+    wrap.style.display = isCustom ? 'block' : 'none';
+    if (!isCustom && input) input.value = '';
+  };
+
   // ⬇️⬇️ NEU: Verbrauch-UI richtig (Wrapper toggeln)
   const vbSel   = document.getElementById('verbrauch-select');
   const vbWrap  = document.getElementById('verbrauch-custom-wrap');

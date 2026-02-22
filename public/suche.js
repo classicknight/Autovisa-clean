@@ -444,20 +444,16 @@ const replaceUrlParams = (params) => {
 const splitCsv = (v) => (v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : []);
 const uniq     = (arr) => [...new Set(arr)];
 
-// --- HU-Parameter aus der Suche entfernen (HU wird in Suche nicht angeboten) ---
+// --- HU-Parameter beibehalten (Filter kommt aus Suchkriterien) ---
 function normalizeHuParams(params) {
-  ["hu", "hu_bis", "inspectionUntil", "hu_min_monate", "hu_min_months"].forEach((k) => {
-    params.delete(k);
-  });
-
   return params;
 }
 
 
 // ---------- App ----------
 document.addEventListener("DOMContentLoaded", () => {
-  // HU-Parameter aus URL entfernen, da HU in der Suche nicht angeboten wird
-  (function stripHuFromUrl() {
+  // HU-Parameter beibehalten (kommen aus Suchkriterien)
+  (function keepHuInUrl() {
     const params = new URLSearchParams(window.location.search);
     const before = params.toString();
     normalizeHuParams(params);
