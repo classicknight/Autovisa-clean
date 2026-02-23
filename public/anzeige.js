@@ -50,42 +50,11 @@ const getDisplayTexts = (inserat) => {
     inserat?.variant,
     inserat?.trim
   );
-  const norm = (s) =>
-    String(s || "")
-      .toLowerCase()
-      .replace(/\s+/g, " ")
-      .trim();
-
-  let title = "";
-  if (brand || model) {
-    const b = norm(brand);
-    const m = norm(model);
-
-    if (brand && model) {
-      const startsWithBrand =
-        b && (m.startsWith(`${b} `) || m.startsWith(`${b}-`) || m.startsWith(`${b}/`));
-      const endsWithBrand =
-        b && (m.endsWith(` ${b}`) || m.endsWith(`-${b}`) || m.endsWith(`/${b}`));
-
-      if (m === b) title = brand;
-      else if (startsWithBrand || endsWithBrand) title = model;
-      else title = [brand, model].filter(Boolean).join(" ").trim();
-    } else {
-      title = brand || model || "";
-    }
-  }
-
-  if (!title) {
-    title =
-      firstNonEmpty(inserat?.verkauf_titel, inserat?.titel) ||
-      "Unbekanntes Fahrzeug";
-  }
-  const subtitle = firstNonEmpty(
-    variant,
-    inserat?.verkauf_kurzbeschreibung,
-    inserat?.kurzbeschreibung,
-    inserat?.raw?.verkauf_kurzbeschreibung
-  );
+  const title =
+    [brand, model].filter(Boolean).join(" ").trim() ||
+    firstNonEmpty(inserat?.verkauf_titel, inserat?.titel) ||
+    "Unbekanntes Fahrzeug";
+  const subtitle = firstNonEmpty(variant);
   return { title, subtitle, brand, model, variant };
 };
 

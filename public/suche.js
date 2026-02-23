@@ -883,10 +883,37 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
       inserat?.variant,
       inserat?.trim
     );
-    const title =
-      [brand, model].filter(Boolean).join(" ").trim() ||
-      pickText(inserat?.verkauf_titel, inserat?.titel) ||
-      "Unbekanntes Fahrzeug";
+    const norm = (s) =>
+      String(s || "")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+
+    let title = "";
+    if (brand || model) {
+      const b = norm(brand);
+      const m = norm(model);
+
+      if (brand && model) {
+        const startsWithBrand =
+          b && (m.startsWith(`${b} `) || m.startsWith(`${b}-`) || m.startsWith(`${b}/`));
+        const endsWithBrand =
+          b && (m.endsWith(` ${b}`) || m.endsWith(`-${b}`) || m.endsWith(`/${b}`));
+
+        if (m === b) title = brand;
+        else if (startsWithBrand || endsWithBrand) title = model;
+        else title = [brand, model].filter(Boolean).join(" ").trim();
+      } else {
+        title = brand || model || "";
+      }
+    }
+
+    if (!title) {
+      title =
+        pickText(inserat?.verkauf_titel, inserat?.titel) ||
+        "Unbekanntes Fahrzeug";
+    }
+
     const subtitle = pickText(
       variant,
       inserat?.verkauf_kurzbeschreibung,
@@ -2330,7 +2357,8 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
     // Getriebe (ein Wert)
     const gearEl  = document.getElementById("transmission") || document.getElementById("gear");
     const gearRaw = (gearEl?.value || "").toLowerCase();
-    const gearVal = (gearRaw === "schaltgetriebe") ? "schalt" : gearRaw;
+    const gearVal =
+      (/schalt|getriebe|manuell|manual/.test(gearRaw)) ? "schalt" : gearRaw;
     if (gearVal && !/^(beliebig|any|alle|all|-)$/i.test(gearVal)) params.set("getriebe", gearVal);
     else params.delete("getriebe");
   
