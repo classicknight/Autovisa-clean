@@ -136,6 +136,19 @@ const FUEL_REGEX = {
   ethanol: /ethanol|e85|flex\s*fuel/i
 };
 
+const KNOWN_FUEL_CANON = new Set([
+  "benzin",
+  "diesel",
+  "elektrisch",
+  "hybrid",
+  "hybrid-benzin",
+  "hybrid-diesel",
+  "autogas",
+  "cng",
+  "wasserstoff",
+  "ethanol"
+]);
+
 /* ------------------------------------------------------------------ */
 /* --- HU: Datumshelfer (YYYY-MM, MM/YYYY, Monatsname YYYY, YYYY) --- */
 /* ------------------------------------------------------------------ */
@@ -1106,6 +1119,9 @@ function parseConsumptionValue(raw, fuelRaw) {
   const unitFromText = detectConsumptionUnitFromText(s);
   const fuelUnit = detectConsumptionUnitFromFuel(fuelRaw);
   const fcanon = fuelCanon(fuelRaw);
+  if (!unitFromText && !KNOWN_FUEL_CANON.has(fcanon || "")) {
+    return { value: null, unit: "", valid: false, reason: "unknown_fuel" };
+  }
   const strictUnit =
     fcanon === "elektrisch" ? "kWh/100 km" :
     (fcanon === "wasserstoff" || fcanon === "cng") ? "kg/100 km" :
@@ -1305,6 +1321,180 @@ function toInt(v) {
   return n == null ? null : Math.round(n);
 }
 
+function escapeRegExp(s) {
+  return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function hasInvalidLetters(raw, allowedUnits = []) {
+  const s = String(raw ?? "").toLowerCase();
+  if (!s.trim()) return false;
+
+  let cleaned = s;
+  if (allowedUnits.length) {
+    const unitRe = new RegExp(allowedUnits.map((u) => escapeRegExp(u.toLowerCase())).join("|"), "g");
+    cleaned = cleaned.replace(unitRe, "");
+  }
+
+  cleaned = cleaned
+    .replace(/[0-9\s,.\-\/]/g, "")
+    .replace(/€/g, "");
+
+  return /[a-zäöüß]/i.test(cleaned);
+}
+
+function parseNumberField(raw, { units = [], integer = false } = {}, warnings, label) {
+  const s = String(raw ?? "").trim();
+  if (!s) return { value: null, valid: true };
+
+  if (hasInvalidLetters(s, units)) {
+    if (warnings && label) warnings.push(`${label} enthält ungültige Zeichen`);
+    return { value: null, valid: false };
+  }
+
+  const n = toNumber(s);
+  if (n == null) {
+    if (warnings && label) warnings.push(`${label} ist keine Zahl`);
+    return { value: null, valid: false };
+  }
+
+  return { value: integer ? Math.round(n) : n, valid: true };
+}
+
+function parsePowerField(raw, { expect = "ps", warnings, label } = {}) {
+  const s = String(raw ?? "").trim();
+  if (!s) return { value: null, valid: true };
+  const lower = s.toLowerCase();
+
+  if (expect === "ps" && /(kw|kilowatt)/.test(lower)) {
+    if (warnings && label) warnings.push(`${label} enthält kW`);
+    return { value: null, valid: false };
+  }
+  if (expect === "kw" && /(ps|hp|bhp)/.test(lower)) {
+    if (warnings && label) warnings.push(`${label} enthält PS`);
+    return { value: null, valid: false };
+  }
+
+  const units = expect === "ps" ? ["ps", "hp", "bhp"] : ["kw", "kilowatt"];
+  if (hasInvalidLetters(s, units)) {
+    if (warnings && label) warnings.push(`${label} enthält ungültige Zeichen`);
+    return { value: null, valid: false };
+  }
+
+  const n = toNumber(s);
+  if (n == null) {
+    if (warnings && label) warnings.push(`${label} ist keine Zahl`);
+    return { value: null, valid: false };
+  }
+
+  return { value: n, valid: true };
+}
+
+function normalizeDoorsValue(raw, warnings) {
+  const s = String(raw ?? "").trim();
+  if (!s) return "";
+  const compact = s.replace(/\s+/g, "").replace(/t[uü]ren?/gi, "");
+
+  if (/^2[\/\-]3$/.test(compact) || compact === "23") return "2/3";
+  if (/^4[\/\-]5$/.test(compact) || compact === "45") return "4/5";
+
+  const digits = compact.match(/\d+/g);
+  if (digits && digits.length === 1) {
+    const n = Number(digits[0]);
+    if (Number.isFinite(n)) {
+      if (n <= 3) return "2/3";
+      if (n >= 4 && n <= 5) return "4/5";
+    }
+  }
+
+  if (warnings) warnings.push("Türen ungültig");
+  return "";
+}
+
+function normalizeSeatsValue(raw, warnings) {
+  const n = toInt(raw);
+  if (n == null) return "";
+  if (n < 2 || n > 9) {
+    if (warnings) warnings.push("Sitze ungültig");
+    return "";
+  }
+  return n;
+}
+
+function normalizeGearboxValue(raw) {
+  const s = String(raw ?? "").trim();
+  if (!s) return { value: "", valid: true };
+  const flat = norm(s).replace(/[^a-z0-9]+/g, " ").trim();
+  if (!flat) return { value: "", valid: false };
+
+  const isManual = /(schalt|getriebe|manuell|manual)/.test(flat);
+  const isAuto = /(automatik|automatic|tiptronic|steptronic|dsg|doppelkupplung|cvt|stufenlos|halbautomatik|gtronic|tronic)/.test(flat);
+
+  if (isManual && !isAuto) return { value: "Schaltgetriebe", valid: true };
+  if (isAuto) return { value: "Automatik", valid: true };
+
+  if (/^\d+(\s*(gang|g))?$/.test(flat)) return { value: "", valid: false, reason: "numeric_only" };
+
+  return { value: "", valid: false, reason: "unknown" };
+}
+
+function normalizeFuelLabel(raw) {
+  const canon = fuelCanon(raw);
+  if (canon === "benzin") return "Benzin";
+  if (canon === "diesel") return "Diesel";
+  if (canon === "elektrisch") return "Elektro";
+  if (canon === "hybrid-benzin") return "Hybrid (Benzin)";
+  if (canon === "hybrid-diesel") return "Hybrid (Diesel)";
+  if (canon === "autogas") return "Autogas (LPG)";
+  if (canon === "wasserstoff") return "Wasserstoff";
+  if (canon === "ethanol") return "Ethanol";
+  if (canon === "cng") return "Erdgas (CNG)";
+  return String(raw ?? "").trim();
+}
+
+function normalizeModelValue(make, model) {
+  const s = String(model || "").trim();
+  if (!s) return "";
+  if (!make) return s;
+  return stripMakeModelFromTitle(s, make, "");
+}
+
+function normalizeVariantValue(make, model, variant) {
+  const s = String(variant || "").trim();
+  if (!s) return "";
+  return stripMakeModelFromTitle(s, make, model);
+}
+
+function stripMakeModelFromTitle(title, make, model) {
+  if (!title) return "";
+  let out = String(title);
+  if (make) out = out.replace(new RegExp(`\\b${escapeRegExp(make)}\\b`, "ig"), " ");
+  if (model) out = out.replace(new RegExp(`\\b${escapeRegExp(model)}\\b`, "ig"), " ");
+  return out.replace(/\s+/g, " ").trim();
+}
+
+function buildTitle(make, model, variant, rawTitle) {
+  const m = String(make || "").trim();
+  const mo = String(model || "").trim();
+  const v = String(variant || "").trim();
+  const base = [m, mo, v].filter(Boolean).join(" ").trim();
+
+  if (!m || !mo) {
+    return { title: String(rawTitle || "").trim(), valid: false };
+  }
+
+  if (!rawTitle) return { title: base, valid: true };
+
+  const normTitle = norm(rawTitle).replace(/[^a-z0-9]+/g, " ").trim();
+  const hasMake = normTitle.includes(norm(m).replace(/[^a-z0-9]+/g, " ").trim());
+  const hasModel = normTitle.includes(norm(mo).replace(/[^a-z0-9]+/g, " ").trim());
+
+  if (hasMake && hasModel) {
+    return { title: base || rawTitle, valid: true };
+  }
+
+  return { title: base || rawTitle, valid: true, adjusted: true };
+}
+
 function pickFirst(...vals) {
   for (const v of vals) {
     if (v === 0) return 0;
@@ -1372,45 +1562,15 @@ function splitUrls(v) {
     .filter(Boolean);
 }
 
-const KNOWN_IMPORT_KEYS = new Set([
-  ...new Set(Object.values(HEADER_ALIASES)),
-  "reg_month","reg_year","price_eur","price_gross","price_net","mileage_km","first_registration",
-  "make","model","variant","fuel","gearbox","power_ps","power_kw","displacement_ccm","doors","seats",
-  "color","exterior_color","interior_color","interior_material","body_color","vehicle_type","description",
-  "short_description","equipment","accident_free","accident_history","vat","vat_rate","currency","damaged",
-  "condition","emission_class","pollution_class","environmental_badge","co2_emission","co2_class",
-  "consumption_combined","consumption_city","consumption_highway","drivetrain","climate","parking_assist",
-  "consumption_combined_unit","consumption_city_unit","consumption_highway_unit",
-  "parking_assist_self","headlights","daytime_running_lights","curve_light","particulate_filter","metallic",
-  "previous_owners","hu","hu_until","location","postal_code","city","street","street_no","phone","image_urls",
-  "video_url","image_id","dealer_price","recommendation","customer_number","stock_number","interne_nummer",
-  "category","vin","hsn","tsn","kba","one_year_old_car","new_car","demo_car","classic_vehicle","taxi","behindertengerecht"
-]);
-
-function extractImportExtra(raw = {}) {
-  const extra = {};
-  if (!raw || typeof raw !== "object") return extra;
-  Object.entries(raw).forEach(([key, value]) => {
-    if (!key) return;
-    if (key.startsWith("__")) return;
-    if (key.startsWith("col_")) return;
-    if (KNOWN_IMPORT_KEYS.has(key)) return;
-    if (value == null) return;
-    const s = String(value).trim();
-    if (!s) return;
-    extra[key] = s;
-  });
-  return extra;
-}
-
 /**
  * Unterstützte Spalten:
- * Pflicht: stock_number, title, price_eur, mileage_km, first_registration
+ * Pflicht: stock_number (oder VIN), make, model, title
  * Optional: image_urls (URL1|URL2|...), video_url
  */
 function mapRow(raw) {
   const mobileLike = isMobileRecord(raw);
   const equipment = buildEquipment(raw);
+  const warnings = [];
 
   const stock_number = pickStr(
     raw.stock_number,
@@ -1419,8 +1579,17 @@ function mapRow(raw) {
   );
 
   const make = pickStr(raw.make, raw.marke, raw.brand, raw.hersteller, raw.manufacturer);
-  const model = pickStr(raw.model, raw.modell, raw.baureihe, raw.serie);
-  const variant = pickStr(raw.variant, raw.variante, raw.ausstattung_variante, raw.trim, raw.version);
+  let model = pickStr(raw.model, raw.modell, raw.baureihe, raw.serie);
+  let variant = pickStr(raw.variant, raw.variante, raw.ausstattung_variante, raw.trim, raw.version);
+
+  if (make && model) {
+    const cleanedModel = normalizeModelValue(make, model);
+    if (cleanedModel !== model) model = cleanedModel;
+  }
+  if (variant) {
+    const cleanedVariant = normalizeVariantValue(make, model, variant);
+    if (cleanedVariant !== variant) variant = cleanedVariant;
+  }
 
   const vin = pickStr(raw.vin, raw.fin, raw.fahrgestellnummer, raw.fahrgestell_nr, raw.fahrgestellnr);
   const hsn = pickStr(raw.hsn);
@@ -1429,16 +1598,36 @@ function mapRow(raw) {
   if (!kba && hsn && tsn) kba = `${hsn}/${tsn}`;
   const stockNumberFinal = stock_number || vin || "";
 
-  let title = pickStr(raw.title, raw.titel, raw.bezeichnung, raw.fahrzeugtitel);
-  if (!title) title = [make, model, variant].filter(Boolean).join(" ").trim();
+  const titleRaw = pickStr(raw.title, raw.titel, raw.bezeichnung, raw.fahrzeugtitel);
+  if (!variant && titleRaw && make && model) {
+    const extra = stripMakeModelFromTitle(titleRaw, make, model);
+    if (extra) variant = extra;
+  }
+  const titleInfo = buildTitle(make, model, variant, titleRaw);
+  let title = titleInfo.title;
   if (!title) title = stock_number ? `Inserat ${stock_number}` : "Inserat";
 
-  const price_gross = toNumber(raw.price_gross ?? raw.brutto_preis ?? raw.bruttopreis);
-  const price_net = toNumber(raw.price_net ?? raw.netto_preis ?? raw.nettopreis);
-  let price_eur = toNumber(raw.price_eur ?? raw.price ?? raw.preis);
-  if (price_eur == null) price_eur = price_gross ?? price_net;
+  const priceGrossRaw = pickFirst(raw.price_gross, raw.brutto_preis, raw.bruttopreis);
+  const priceNetRaw = pickFirst(raw.price_net, raw.netto_preis, raw.nettopreis);
+  const priceRaw = pickFirst(raw.price_eur, raw.price, raw.preis);
 
-  const mileage_km = toInt(raw.mileage_km ?? raw.kilometer ?? raw.km ?? raw.mileage);
+  const priceGrossInfo = parseNumberField(priceGrossRaw, { units: ["€", "eur", "euro"] }, warnings, "Bruttopreis");
+  const priceNetInfo = parseNumberField(priceNetRaw, { units: ["€", "eur", "euro"] }, warnings, "Nettopreis");
+  const priceInfo = parseNumberField(priceRaw, { units: ["€", "eur", "euro"] }, warnings, "Preis");
+
+  const price_gross = priceGrossInfo.value;
+  const price_net = priceNetInfo.value;
+  let price_eur = priceInfo.value;
+  if (price_eur == null) price_eur = price_gross ?? price_net ?? null;
+
+  const mileageRaw = pickFirst(raw.mileage_km, raw.kilometer, raw.km, raw.mileage);
+  const mileageInfo = parseNumberField(
+    mileageRaw,
+    { units: ["km", "kilometer", "kilometre"], integer: true },
+    warnings,
+    "Laufleistung"
+  );
+  const mileage_km = mileageInfo.value;
 
   let first_registration = normalizeFirstRegistration(
     raw.first_registration ?? raw.ez ?? raw.erstzulassung
@@ -1452,17 +1641,27 @@ function mapRow(raw) {
       first_registration = normalizeFirstRegistration(`01/${regYear}`);
     }
   }
+  if (!first_registration && (raw.first_registration ?? raw.ez ?? raw.erstzulassung)) {
+    warnings.push("Erstzulassung ungültig");
+  }
 
   const image_urls = splitUrls(raw.image_urls ?? raw.images ?? raw.bilder);
   const video_url = pickStr(raw.video_url, raw.video) || null;
-  const import_extra = extractImportExtra(raw);
 
-  let powerKw = toNumber(pickFirst(raw.power_kw, raw.performance, raw.leistung_kw));
-  let powerPs = toNumber(pickFirst(raw.power_ps, raw.ps, raw.leistung_ps));
+  const powerPsRaw = pickFirst(raw.power_ps, raw.ps, raw.leistung_ps);
+  const powerKwRaw = pickFirst(raw.power_kw, raw.performance, raw.leistung_kw);
+
+  let powerPs = parsePowerField(powerPsRaw, { expect: "ps", warnings, label: "Leistung (PS)" }).value;
+  let powerKw = parsePowerField(powerKwRaw, { expect: "kw", warnings, label: "Leistung (kW)" }).value;
+
   if (mobileLike && powerKw == null && raw.power_ps != null) {
-    powerKw = toNumber(raw.power_ps);
-    powerPs = null;
+    const mobileKw = parsePowerField(raw.power_ps, { expect: "kw", warnings, label: "Leistung (kW)" });
+    if (mobileKw.value != null) {
+      powerKw = mobileKw.value;
+      powerPs = null;
+    }
   }
+
   if (powerPs == null && powerKw != null) {
     powerPs = Math.round(powerKw * 1.35962);
   }
@@ -1482,7 +1681,8 @@ function mapRow(raw) {
   const description = pickStr(raw.description, raw.beschreibung, raw.bemerkung, raw.remark, raw.text);
   const short_description = pickStr(raw.short_description, raw.kurzbeschreibung, raw.teaser);
 
-  const fuel = pickStr(raw.fuel, raw.kraftstoff);
+  const fuelRaw = pickStr(raw.fuel, raw.kraftstoff);
+  const fuel = normalizeFuelLabel(fuelRaw);
   const cCombRaw = pickStr(raw.consumption_combined, raw.verbrauch_kombiniert, raw.verbrauch);
   const cCityRaw = pickStr(raw.consumption_city, raw.verbrauch_innerorts);
   const cHighRaw = pickStr(raw.consumption_highway, raw.verbrauch_ausserorts);
@@ -1491,9 +1691,26 @@ function mapRow(raw) {
   const cCity = parseConsumptionValue(cCityRaw, fuel);
   const cHigh = parseConsumptionValue(cHighRaw, fuel);
 
-  if (!cComb.valid && cCombRaw) import_extra.consumption_combined_raw = String(cCombRaw).trim();
-  if (!cCity.valid && cCityRaw) import_extra.consumption_city_raw = String(cCityRaw).trim();
-  if (!cHigh.valid && cHighRaw) import_extra.consumption_highway_raw = String(cHighRaw).trim();
+  if (!cComb.valid && cCombRaw) warnings.push("Verbrauch (kombiniert) ungültig");
+  if (!cCity.valid && cCityRaw) warnings.push("Verbrauch (innerorts) ungültig");
+  if (!cHigh.valid && cHighRaw) warnings.push("Verbrauch (außerorts) ungültig");
+
+  const gearboxRaw = pickStr(raw.gearbox, raw.getriebe);
+  const gearboxInfo = normalizeGearboxValue(gearboxRaw);
+  if (!gearboxInfo.valid && gearboxRaw) warnings.push("Getriebe ungültig (nur Schaltgetriebe oder Automatik)");
+
+  const doorsRaw = pickFirst(raw.doors, raw.tueren, raw["türen"]);
+  const seatsRaw = pickFirst(raw.seats, raw.sitze);
+  const displacementRaw = pickFirst(raw.displacement_ccm, raw.ccm, raw.hubraum);
+  const displacementInfo = parseNumberField(
+    displacementRaw,
+    { units: ["ccm", "cm3", "cm³"], integer: true },
+    warnings,
+    "Hubraum"
+  );
+  const doors = normalizeDoorsValue(doorsRaw, warnings);
+  const seats = normalizeSeatsValue(seatsRaw, warnings);
+  const displacement_ccm = displacementInfo.value ?? "";
 
   return {
     stock_number: stockNumberFinal,
@@ -1511,12 +1728,12 @@ function mapRow(raw) {
     model,
     variant,
     fuel,
-    gearbox: pickStr(raw.gearbox, raw.getriebe),
+    gearbox: gearboxInfo.value,
     power_ps: powerPs,
     power_kw: powerKw,
-    displacement_ccm: toNumber(raw.displacement_ccm ?? raw.ccm ?? raw.hubraum),
-    doors: toInt(raw.doors ?? raw.tueren ?? raw["türen"]),
-    seats: toInt(raw.seats ?? raw.sitze),
+    displacement_ccm,
+    doors,
+    seats,
     color: pickStr(raw.color, raw.farbe),
     exterior_color: pickStr(raw.exterior_color, raw.aussenfarbe, raw["außenfarbe"]),
     interior_color: pickStr(raw.interior_color, raw.innenfarbe),
@@ -1566,22 +1783,20 @@ function mapRow(raw) {
     phone: pickStr(raw.phone, raw.telefon),
     image_urls,
     video_url,
-    import_extra,
-    raw_import: raw,
     mobile_like: mobileLike,
-    image_id: pickStr(raw.image_id, raw.bild_id),
-    dealer_price: pickStr(raw.dealer_price, raw.haendlerpreis),
-    recommendation: pickStr(raw.recommendation, raw.empfehlung),
-    customer_number: pickStr(raw.customer_number, raw.kundennummer)
+    _warnings: warnings
   };
 }
 
 function validateRow(r) {
   const errors = [];
-  if (!r.stock_number) errors.push("stock_number fehlt");
-  if (!r.title) errors.push("title fehlt");
-  // Preis/Kilometer/EZ sind hilfreich, aber nicht zwingend für den Import.
-  return errors;
+  const warnings = Array.isArray(r._warnings) ? r._warnings : [];
+
+  if (!r.stock_number) errors.push("Stock-Nummer/VIN fehlt");
+  if (!r.make || !r.model) errors.push("Marke oder Modell fehlt");
+  if (!r.title) errors.push("Titel fehlt");
+
+  return { errors, warnings };
 }
 
 /* ---------- PREVIEW ---------- */
@@ -1597,12 +1812,16 @@ app.post("/api/haendler/import/preview", requireDb, requireDealer, uploadCsv.sin
     // Fehler sammeln / valid rows
     const errors = [];
     const valid = [];
+    const warnings = [];
     mapped.forEach((r, idx) => {
-      const rowErrors = validateRow(r);
+      const { errors: rowErrors, warnings: rowWarnings } = validateRow(r);
       if (rowErrors.length) {
         errors.push({ row: idx + 2, message: rowErrors.join(", ") }); // +2 wegen Header + 1-index
       } else {
         valid.push(r);
+      }
+      if (rowWarnings && rowWarnings.length) {
+        warnings.push({ row: idx + 2, message: rowWarnings.join(", ") });
       }
     });
 
@@ -1637,7 +1856,7 @@ app.post("/api/haendler/import/preview", requireDb, requireDealer, uploadCsv.sin
       errorCount: errors.length
     };
 
-    res.json({ summary, errors, rows });
+    res.json({ summary, errors, warnings, rows });
   } catch (e) {
     res.status(500).send(e.message || "Preview error");
   }
@@ -1711,7 +1930,7 @@ app.post("/api/haendler/import/commit", requireDb, requireDealer, uploadCsv.sing
 
     for (let i = 0; i < mapped.length; i++) {
       const r = mapped[i];
-      const errs = validateRow(r);
+      const { errors: errs } = validateRow(r);
       if (errs.length) {
         failed++;
         continue;
@@ -1862,15 +2081,6 @@ app.post("/api/haendler/import/commit", requireDb, requireDealer, uploadCsv.sing
               standort: finalStandort,
               telefon: finalTelefon,
               seller: sellerSnapshot,
-
-              import_raw: r.raw_import || null,
-              import_extra: r.import_extra || {},
-              import_customer_number: r.customer_number || "",
-              import_dealer_price: r.dealer_price || "",
-              import_recommendation: r.recommendation || "",
-              import_currency: r.currency || "",
-              import_vat_rate: r.vat_rate || "",
-              import_image_id: r.image_id || "",
 
               ...equipFlags,
 

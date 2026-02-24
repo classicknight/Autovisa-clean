@@ -23,6 +23,28 @@ const firstNonEmpty = (...vals) => {
   }
   return "";
 };
+const escapeRegExp = (s = "") => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const stripToken = (text, token) => {
+  const t = String(text || "").trim();
+  const tok = String(token || "").trim();
+  if (!t || !tok) return t;
+  const re = new RegExp(`\\b${escapeRegExp(tok)}\\b`, "ig");
+  return t.replace(re, " ").replace(/\s+/g, " ").trim();
+};
+const normalizeModelText = (brand, model) => {
+  const m = String(model || "").trim();
+  if (!brand || !m) return m;
+  const cleaned = stripToken(m, brand);
+  return cleaned !== m ? cleaned : m;
+};
+const normalizeVariantText = (brand, model, variant) => {
+  const v = String(variant || "").trim();
+  if (!v) return "";
+  let cleaned = v;
+  if (brand) cleaned = stripToken(cleaned, brand);
+  if (model) cleaned = stripToken(cleaned, model);
+  return cleaned !== v ? cleaned : v;
+};
 const getDisplayTexts = (inserat) => {
   const brand = firstNonEmpty(
     inserat?.verkauf_marke,
@@ -50,12 +72,14 @@ const getDisplayTexts = (inserat) => {
     inserat?.variant,
     inserat?.trim
   );
+  const modelClean = normalizeModelText(brand, model);
+  const variantClean = normalizeVariantText(brand, modelClean, variant);
   const title =
-    [brand, model].filter(Boolean).join(" ").trim() ||
+    [brand, modelClean].filter(Boolean).join(" ").trim() ||
     firstNonEmpty(inserat?.verkauf_titel, inserat?.titel) ||
     "Unbekanntes Fahrzeug";
-  const subtitle = firstNonEmpty(variant);
-  return { title, subtitle, brand, model, variant };
+  const subtitle = firstNonEmpty(variantClean);
+  return { title, subtitle, brand, model: modelClean, variant: variantClean };
 };
 
 const API_BASE =
@@ -1075,71 +1099,6 @@ function fillTechnical(inserat) {
     if (!el) return;
     el.textContent = asYN(inserat[key]);
   });
-}
-
-function prettyImportKey(key = "") {
-  const k = String(key || "").toLowerCase();
-  if (!k) return "";
-  if (k === "hsn") return "HSN";
-  if (k === "tsn") return "TSN";
-  if (k === "vin" || k === "fin") return "FIN / VIN";
-  if (k === "kba" || k.includes("schluessel")) return "KBA-Schlüssel";
-  if (k === "co2") return "CO₂";
-  if (k === "co2_class") return "CO₂-Klasse";
-  if (k === "co2_emission") return "CO₂-Ausstoß";
-  return String(key)
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function valueToText(v) {
-  if (v == null) return "";
-  if (Array.isArray(v)) return v.map((x) => String(x).trim()).filter(Boolean).join(", ");
-  if (typeof v === "object") {
-    try {
-      return JSON.stringify(v);
-    } catch {
-      return String(v);
-    }
-  }
-  return String(v).trim();
-}
-
-function fillImportExtra(inserat) {
-  const block = document.getElementById("import-extra-block");
-  const grid = document.getElementById("import-extra-grid");
-  if (!block || !grid) return;
-
-  const extra = inserat?.import_extra || inserat?.importExtra || null;
-  if (!extra || typeof extra !== "object") {
-    block.style.display = "none";
-    grid.innerHTML = "";
-    return;
-  }
-
-  const entries = Object.entries(extra)
-    .map(([k, v]) => [k, valueToText(v)])
-    .filter(([, v]) => v);
-
-  if (!entries.length) {
-    block.style.display = "none";
-    grid.innerHTML = "";
-    return;
-  }
-
-  grid.innerHTML = entries
-    .map(([k, v]) => {
-      const label = prettyImportKey(k);
-      return `
-        <div class="data-item">
-          <span class="data-label">${escapeHTML(label)}</span>
-          <span class="data-value">${escapeHTML(v)}</span>
-        </div>
-      `;
-    })
-    .join("");
-
-  block.style.display = "block";
 }
 
 
@@ -3100,7 +3059,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   fillTop(inserat);
   fillMedia(inserat);
   fillTechnical(inserat);
-  fillImportExtra(inserat);
   fillAusstattung(inserat);
   fillSellerCard(inserat);
   fillDescription(inserat);

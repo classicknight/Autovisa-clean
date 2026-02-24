@@ -22,6 +22,34 @@ function escapeHTML(str = "") {
     .replace(/'/g, "&#039;");
 }
 
+function escapeRegExp(s = "") {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function stripToken(text, token) {
+  const t = String(text || "").trim();
+  const tok = String(token || "").trim();
+  if (!t || !tok) return t;
+  const re = new RegExp(`\\b${escapeRegExp(tok)}\\b`, "ig");
+  return t.replace(re, " ").replace(/\s+/g, " ").trim();
+}
+
+function normalizeModelText(brand, model) {
+  const m = String(model || "").trim();
+  if (!brand || !m) return m;
+  const cleaned = stripToken(m, brand);
+  return cleaned !== m ? cleaned : m;
+}
+
+function normalizeVariantText(brand, model, variant) {
+  const v = String(variant || "").trim();
+  if (!v) return "";
+  let cleaned = v;
+  if (brand) cleaned = stripToken(cleaned, brand);
+  if (model) cleaned = stripToken(cleaned, model);
+  return cleaned !== v ? cleaned : v;
+}
+
 function pickText(...vals) {
   for (const v of vals) {
     if (v === null || v === undefined) continue;
@@ -59,18 +87,21 @@ function getDisplayTexts(inserat) {
     inserat?.trim
   );
 
+  const modelClean = normalizeModelText(brand, model);
+  const variantClean = normalizeVariantText(brand, modelClean, variant);
+
   const title =
-    [brand, model].filter(Boolean).join(" ").trim() ||
+    [brand, modelClean].filter(Boolean).join(" ").trim() ||
     pickText(inserat?.verkauf_titel, inserat?.titel) ||
     "Unbekanntes Fahrzeug";
   const subtitle = pickText(
-    variant,
+    variantClean,
     inserat?.verkauf_kurzbeschreibung,
     inserat?.kurzbeschreibung,
     inserat?.raw?.verkauf_kurzbeschreibung
   );
 
-  return { title, subtitle, brand, model, variant };
+  return { title, subtitle, brand, model: modelClean, variant: variantClean };
 }
 
 function sanitizeImpressumHTML(input = "") {
@@ -1131,6 +1162,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const statusEl = document.getElementById("dealerCsvStatus");
     const summaryEl = document.getElementById("dealerCsvSummary");
     const errorsEl = document.getElementById("dealerCsvErrors");
+    const warningsEl = document.getElementById("dealerCsvWarnings");
 
     if (!fileEl || !btnPreview || !btnImport) return;
 
@@ -1162,6 +1194,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (!errorsEl) return;
       errorsEl.classList.remove("is-visible");
       errorsEl.innerHTML = "";
+    };
+
+    const clearWarnings = () => {
+      if (!warningsEl) return;
+      warningsEl.classList.remove("is-visible");
+      warningsEl.innerHTML = "";
     };
 
     const renderSummary = (s) => {
@@ -1200,6 +1238,29 @@ document.addEventListener("DOMContentLoaded", async () => {
       errorsEl.classList.add("is-visible");
       errorsEl.innerHTML = `
         <div><b>Fehler in der CSV</b></div>
+        <ul>${items}</ul>
+        ${more}
+      `;
+    };
+
+    const renderWarnings = (warns = []) => {
+      if (!warningsEl) return;
+      if (!Array.isArray(warns) || warns.length === 0) {
+        clearWarnings();
+        return;
+      }
+      const maxShown = 6;
+      const items = warns.slice(0, maxShown).map((e) => {
+        const row = escapeHTML(String(e?.row ?? "—"));
+        const msg = escapeHTML(String(e?.message ?? "Unbekannte Warnung"));
+        return `<li><b>Zeile ${row}</b>: ${msg}</li>`;
+      }).join("");
+      const more = warns.length > maxShown
+        ? `<div class="muted">… ${warns.length - maxShown} weitere Warnungen (gekürzt)</div>`
+        : "";
+      warningsEl.classList.add("is-visible");
+      warningsEl.innerHTML = `
+        <div><b>Warnungen (Felder wurden übersprungen)</b></div>
         <ul>${items}</ul>
         ${more}
       `;
@@ -1277,6 +1338,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       btnImport.disabled = true;
       clearSummary();
       clearErrors();
+      clearWarnings();
 
       if (!file) {
         setStatus("Keine Datei ausgewählt.");
@@ -1306,8 +1368,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         const data = await callPreview(file);
         const summary = data?.summary || null;
         const errors = Array.isArray(data?.errors) ? data.errors : [];
+        const warnings = Array.isArray(data?.warnings) ? data.warnings : [];
         renderSummary(summary);
         renderErrors(errors);
+        renderWarnings(warnings);
 
         const total = Number(summary?.total || 0);
         const valid = Number(summary?.newCount || 0) + Number(summary?.updateCount || 0);
@@ -1331,6 +1395,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       } catch (err) {
         renderSummary(null);
         renderErrors([]);
+        renderWarnings([]);
         setStatus(err.message || "Vorschau fehlgeschlagen.");
       } finally {
         btnPreview.disabled = false;

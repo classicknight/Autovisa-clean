@@ -2464,6 +2464,24 @@ img, video, canvas {
   }
   .profile-import-errors li{ margin: 4px 0; }
   .profile-import-errors .muted{ color: #9b6a6a; }
+
+  .profile-import-warnings{
+    margin-top: 8px;
+    border: 1px dashed #f1d38a;
+    border-radius: 12px;
+    padding: 10px 12px;
+    background: #fff8e6;
+    color: #8a6b1f;
+    display: none;
+    font-size: 0.9rem;
+  }
+  .profile-import-warnings.is-visible{ display: block; }
+  .profile-import-warnings ul{
+    margin: 6px 0 0;
+    padding-left: 18px;
+  }
+  .profile-import-warnings li{ margin: 4px 0; }
+  .profile-import-warnings .muted{ color: #9b8355; }
   
   /* Inline-Editing */
   
