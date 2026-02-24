@@ -322,6 +322,37 @@ function getCombinedConsumption(item) {
   return NaN;
 }
 
+function detectConsumptionUnitFromFuel(fuelRaw) {
+  const f = String(fuelRaw || "").toLowerCase();
+  if (/(elektro|electric|bev|ev|strom)/.test(f)) return "kWh/100 km";
+  if (/(wasserstoff|hydrogen|h2|cng|erdgas)/.test(f)) return "kg/100 km";
+  return "l/100 km";
+}
+
+function detectConsumptionUnitFromText(textRaw) {
+  const s = String(textRaw || "").toLowerCase();
+  if (/\bkwh\b/.test(s) || /kw\s*\/\s*h/.test(s)) return "kWh/100 km";
+  if (/\bkg\b/.test(s)) return "kg/100 km";
+  if (/\b(l|liter)\b/.test(s)) return "l/100 km";
+  return "";
+}
+
+function formatConsumptionDisplay(value, unitRaw, fuelRaw) {
+  if (value == null) return "–";
+  const s = String(value).trim();
+  if (!s) return "–";
+
+  // Wenn bereits eine Einheit enthalten ist, unverändert nutzen
+  const unitInText = detectConsumptionUnitFromText(s);
+  if (unitInText) return s;
+
+  // Wenn Text Buchstaben enthält (z.B. "Diesel"), nicht anzeigen
+  if (/[a-zA-Z]/.test(s)) return "–";
+
+  const unit = unitRaw || detectConsumptionUnitFromFuel(fuelRaw);
+  return `${s} ${unit}`;
+}
+
 /* ------------------------ Auth + Navbar ------------------------ */
 function setupAuthLink() {
   const authLink = document.getElementById("auth-link");
@@ -864,28 +895,90 @@ function fillTechnical(inserat) {
     el.textContent = val || "–";
   });
 
-  // 🚗 Kombinierter Verbrauch *berechnet* setzen (überschreibt evtl. vorigen Wert)
+  // FIN / VIN
+  const vinEl = document.getElementById("v-vin");
+  if (vinEl) {
+    const vin = firstNonEmpty(
+      inserat.verkauf_vin,
+      inserat.vin,
+      inserat.fin,
+      inserat.fahrgestellnummer
+    );
+    vinEl.textContent = vin || "–";
+  }
+
+  // HSN / TSN
+  const hsnTsnEl = document.getElementById("v-hsn-tsn");
+  if (hsnTsnEl) {
+    const hsn = firstNonEmpty(inserat.verkauf_hsn, inserat.hsn);
+    const tsn = firstNonEmpty(inserat.verkauf_tsn, inserat.tsn);
+    const combo = [hsn, tsn].filter(Boolean).join(" / ");
+    hsnTsnEl.textContent = combo || "–";
+  }
+
+  // KBA-Schlüssel
+  const kbaEl = document.getElementById("v-kba");
+  if (kbaEl) {
+    const kba = firstNonEmpty(inserat.verkauf_kba, inserat.kba, inserat.schluesselnummer);
+    kbaEl.textContent = kba || "–";
+  }
+
+  // 🚗 Verbrauch (kombiniert) mit Einheit
   (function () {
     const vCombEl = document.getElementById("v-verbrauch-kombiniert");
     if (!vCombEl) return;
 
-    let txt = "–";
+    const raw =
+      inserat.verkauf_verbrauch_kombiniert ??
+      inserat.verbrauch_kombiniert ??
+      inserat.verbrauch ??
+      inserat.raw?.verkauf_verbrauch_kombiniert ??
+      inserat.raw?.verbrauch_kombiniert ??
+      inserat.raw?.verbrauch;
 
-    if (typeof getCombinedConsumption === "function") {
-      const n = getCombinedConsumption(inserat);
-      if (Number.isFinite(n)) {
-        txt = String(n.toFixed(1)).replace(".", ",") + " l/100 km";
-      }
-    } else {
-      // Fallback, falls die Helfer noch nicht eingebunden sind:
-      const raw =
-        (inserat.verkauf_verbrauch_kombiniert ??
-         inserat.verbrauch_kombiniert ??
-         inserat.verbrauch ?? "");
-      txt = String(raw || "–");
-    }
+    const unit =
+      inserat.verkauf_verbrauch_kombiniert_unit ||
+      inserat.verbrauch_kombiniert_unit ||
+      inserat.raw?.verkauf_verbrauch_kombiniert_unit ||
+      inserat.raw?.verbrauch_kombiniert_unit ||
+      "";
 
+    const txt = formatConsumptionDisplay(raw, unit, inserat.verkauf_kraftstoff || inserat.kraftstoff);
     vCombEl.textContent = txt;
+  })();
+
+  // Verbrauch innerorts
+  (function () {
+    const el = document.getElementById("v-verbrauch-innerorts");
+    if (!el) return;
+    const raw =
+      inserat.verkauf_verbrauch_innerorts ??
+      inserat.verbrauch_innerorts ??
+      inserat.raw?.verkauf_verbrauch_innerorts ??
+      inserat.raw?.verbrauch_innerorts ??
+      "";
+    const unit =
+      inserat.verkauf_verbrauch_innerorts_unit ||
+      inserat.verbrauch_innerorts_unit ||
+      "";
+    el.textContent = formatConsumptionDisplay(raw, unit, inserat.verkauf_kraftstoff || inserat.kraftstoff);
+  })();
+
+  // Verbrauch außerorts
+  (function () {
+    const el = document.getElementById("v-verbrauch-ausserorts");
+    if (!el) return;
+    const raw =
+      inserat.verkauf_verbrauch_ausserorts ??
+      inserat.verbrauch_ausserorts ??
+      inserat.raw?.verkauf_verbrauch_ausserorts ??
+      inserat.raw?.verbrauch_ausserorts ??
+      "";
+    const unit =
+      inserat.verkauf_verbrauch_ausserorts_unit ||
+      inserat.verbrauch_ausserorts_unit ||
+      "";
+    el.textContent = formatConsumptionDisplay(raw, unit, inserat.verkauf_kraftstoff || inserat.kraftstoff);
   })();
 
   // Halter (Anzahl)
@@ -984,6 +1077,71 @@ function fillTechnical(inserat) {
   });
 }
 
+function prettyImportKey(key = "") {
+  const k = String(key || "").toLowerCase();
+  if (!k) return "";
+  if (k === "hsn") return "HSN";
+  if (k === "tsn") return "TSN";
+  if (k === "vin" || k === "fin") return "FIN / VIN";
+  if (k === "kba" || k.includes("schluessel")) return "KBA-Schlüssel";
+  if (k === "co2") return "CO₂";
+  if (k === "co2_class") return "CO₂-Klasse";
+  if (k === "co2_emission") return "CO₂-Ausstoß";
+  return String(key)
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function valueToText(v) {
+  if (v == null) return "";
+  if (Array.isArray(v)) return v.map((x) => String(x).trim()).filter(Boolean).join(", ");
+  if (typeof v === "object") {
+    try {
+      return JSON.stringify(v);
+    } catch {
+      return String(v);
+    }
+  }
+  return String(v).trim();
+}
+
+function fillImportExtra(inserat) {
+  const block = document.getElementById("import-extra-block");
+  const grid = document.getElementById("import-extra-grid");
+  if (!block || !grid) return;
+
+  const extra = inserat?.import_extra || inserat?.importExtra || null;
+  if (!extra || typeof extra !== "object") {
+    block.style.display = "none";
+    grid.innerHTML = "";
+    return;
+  }
+
+  const entries = Object.entries(extra)
+    .map(([k, v]) => [k, valueToText(v)])
+    .filter(([, v]) => v);
+
+  if (!entries.length) {
+    block.style.display = "none";
+    grid.innerHTML = "";
+    return;
+  }
+
+  grid.innerHTML = entries
+    .map(([k, v]) => {
+      const label = prettyImportKey(k);
+      return `
+        <div class="data-item">
+          <span class="data-label">${escapeHTML(label)}</span>
+          <span class="data-value">${escapeHTML(v)}</span>
+        </div>
+      `;
+    })
+    .join("");
+
+  block.style.display = "block";
+}
+
 
 /* ------------------------ Ausstattung ------------------------ */
 const AUSSTATTUNG_KEYS = [
@@ -999,7 +1157,7 @@ const AUSSTATTUNG_KEYS = [
   "soundsystem","touchscreen","sprachsteuerung","multifunktionslenkrad","freisprecheinrichtung","usb","bluetooth","wlan",
   "streaming","induktionsladen","bordcomputer","headup","volldigital","alufelgen","sommerreifen","winterreifen","allwetterreifen",
   "reifendruckkontrolle","winterpaket","raucherpaket","sportpaket","sportfahrwerk","luftfederung","gepaeckabtrennung",
-  "skisack","schiebedach","panoramadach","dachreling","anhaengerkupplung","behindertengerecht","taxi"
+  "skisack","schiebedach","panoramadach","dachreling","anhaengerkupplung","behindertengerecht","taxi","getoente_scheiben"
 ];
 const AUSSTATTUNG_LABELS = {
   abstandsregeltempomat:"Abstandsregeltempomat", applecarplay:"Apple CarPlay", androidauto:"Android Auto",
@@ -1032,7 +1190,7 @@ const AUSSTATTUNG_LABELS = {
   winterpaket:"Winterpaket", raucherpaket:"Raucherpaket", sportpaket:"Sportpaket", sportfahrwerk:"Sportfahrwerk",
   luftfederung:"Luftfederung", gepaeckabtrennung:"Gepäckraumabtrennung", skisack:"Skisack", schiebedach:"Schiebedach",
   panoramadach:"Panorama-Dach", dachreling:"Dachreling", anhaengerkupplung:"Anhängerkupplung",
-  behindertengerecht:"Behindertengerecht", taxi:"Taxi",
+  behindertengerecht:"Behindertengerecht", taxi:"Taxi", getoente_scheiben:"Getönte Scheiben",
 };
 
 function fillAusstattung(inserat) {
@@ -2942,6 +3100,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   fillTop(inserat);
   fillMedia(inserat);
   fillTechnical(inserat);
+  fillImportExtra(inserat);
   fillAusstattung(inserat);
   fillSellerCard(inserat);
   fillDescription(inserat);

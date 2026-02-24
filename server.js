@@ -419,10 +419,24 @@ const HEADER_ALIASES = {
   stocknr: "stock_number",
   stock_num: "stock_number",
   stocknummer: "stock_number",
-  vin: "stock_number",
-  fin: "stock_number",
-  fahrgestellnummer: "stock_number",
-  fahrgestell_nr: "stock_number",
+  vin: "vin",
+  fin: "vin",
+  fahrgestellnummer: "vin",
+  fahrgestell_nr: "vin",
+  fahrgestellnr: "vin",
+  fahrgestell_id: "vin",
+  fahrgestellid: "vin",
+  // KBA / Schlüsselnummer
+  hsn: "hsn",
+  tsn: "tsn",
+  kba: "kba",
+  kba_schluessel: "kba",
+  kba_schluesselnummer: "kba",
+  schluesselnummer: "kba",
+  schluessel_nr: "kba",
+  schluesselnr: "kba",
+  schluesselnummer_hsn_tsn: "kba",
+  hsn_tsn: "kba",
   vehicleid: "stock_number",
   vehicle_id: "stock_number",
   listingid: "stock_number",
@@ -839,6 +853,12 @@ function normalizeHeaderKey(header, index) {
   if (normalized.includes("co2")) {
     return normalized.includes("klasse") ? "co2_class" : "co2_emission";
   }
+  if (normalized.includes("hsn")) return "hsn";
+  if (normalized.includes("tsn")) return "tsn";
+  if (normalized.includes("kba") || normalized.includes("schluessel")) return "kba";
+  if (normalized.includes("fahrgestell") || normalized.includes("vin") || normalized === "fin") {
+    return "vin";
+  }
   if (normalized.includes("verbrauch")) {
     if (normalized.includes("inner")) return "consumption_city";
     if (normalized.includes("ausser") || normalized.includes("außer")) return "consumption_highway";
@@ -945,7 +965,7 @@ const EQUIPMENT_KEYS = new Set([
   "soundsystem","touchscreen","sprachsteuerung","multifunktionslenkrad","freisprecheinrichtung","usb","bluetooth","wlan",
   "streaming","induktionsladen","bordcomputer","headup","volldigital","alufelgen","sommerreifen","winterreifen","allwetterreifen",
   "reifendruckkontrolle","winterpaket","raucherpaket","sportpaket","sportfahrwerk","luftfederung","gepaeckabtrennung",
-  "skisack","schiebedach","panoramadach","dachreling","behindertengerecht","taxi","anhaengerkupplung"
+  "skisack","schiebedach","panoramadach","dachreling","behindertengerecht","taxi","anhaengerkupplung","getoente_scheiben"
 ]);
 
 const EQUIPMENT_ALIASES = {
@@ -972,7 +992,11 @@ const EQUIPMENT_ALIASES = {
   nichtraucherfahrzeug: ["nichtraucher"],
   rueckfahrkamera: ["rueckfahrkamera"],
   anhangerkupplung: ["anhaengerkupplung"],
-  anhaengerkupplung: ["anhaengerkupplung"]
+  anhaengerkupplung: ["anhaengerkupplung"],
+  getoente_scheiben: ["getoente_scheiben"],
+  scheiben_getoent: ["getoente_scheiben"],
+  tinted_windows: ["getoente_scheiben"],
+  privacy_glass: ["getoente_scheiben"]
 };
 
 function normalizeEquipmentKey(value) {
@@ -1044,6 +1068,53 @@ function parseClimateValue(value) {
     return "";
   }
   return s;
+}
+
+function detectConsumptionUnitFromFuel(fuelRaw) {
+  const f = fuelCanon(fuelRaw);
+  if (!f) return "l/100 km";
+  if (/(elektrisch|electric|bev|ev|strom)/.test(f)) return "kWh/100 km";
+  if (/(wasserstoff|hydrogen|h2|cng|erdgas)/.test(f)) return "kg/100 km";
+  return "l/100 km";
+}
+
+function detectConsumptionUnitFromText(textRaw) {
+  const s = String(textRaw || "").toLowerCase();
+  if (/\bkwh\b/.test(s) || /kw\s*\/\s*h/.test(s)) return "kWh/100 km";
+  if (/\bkg\b/.test(s)) return "kg/100 km";
+  if (/\b(l|liter)\b/.test(s)) return "l/100 km";
+  return "";
+}
+
+function consumptionHasInvalidLetters(textRaw) {
+  const s = String(textRaw || "").toLowerCase();
+  const cleaned = s
+    .replace(/[0-9.,\s\/\\\-]/g, "")
+    .replace(/kwh|kw|wh|liter|l|kg|km|pro|per|100/g, "");
+  return cleaned.trim().length > 0;
+}
+
+function parseConsumptionValue(raw, fuelRaw) {
+  if (raw == null) return { value: null, unit: "", valid: false };
+  const s = String(raw).trim();
+  if (!s) return { value: null, unit: "", valid: false };
+  if (consumptionHasInvalidLetters(s)) {
+    return { value: null, unit: "", valid: false, reason: "invalid_text" };
+  }
+  const n = toNumber(s);
+  if (n == null) return { value: null, unit: "", valid: false, reason: "no_number" };
+  const unitFromText = detectConsumptionUnitFromText(s);
+  const fuelUnit = detectConsumptionUnitFromFuel(fuelRaw);
+  const fcanon = fuelCanon(fuelRaw);
+  const strictUnit =
+    fcanon === "elektrisch" ? "kWh/100 km" :
+    (fcanon === "wasserstoff" || fcanon === "cng") ? "kg/100 km" :
+    "";
+  if (unitFromText && strictUnit && unitFromText !== strictUnit) {
+    return { value: null, unit: "", valid: false, reason: "unit_mismatch" };
+  }
+  const unit = unitFromText || fuelUnit;
+  return { value: n, unit, valid: true };
 }
 
 function detectImportFormat(file, text) {
@@ -1301,6 +1372,37 @@ function splitUrls(v) {
     .filter(Boolean);
 }
 
+const KNOWN_IMPORT_KEYS = new Set([
+  ...new Set(Object.values(HEADER_ALIASES)),
+  "reg_month","reg_year","price_eur","price_gross","price_net","mileage_km","first_registration",
+  "make","model","variant","fuel","gearbox","power_ps","power_kw","displacement_ccm","doors","seats",
+  "color","exterior_color","interior_color","interior_material","body_color","vehicle_type","description",
+  "short_description","equipment","accident_free","accident_history","vat","vat_rate","currency","damaged",
+  "condition","emission_class","pollution_class","environmental_badge","co2_emission","co2_class",
+  "consumption_combined","consumption_city","consumption_highway","drivetrain","climate","parking_assist",
+  "consumption_combined_unit","consumption_city_unit","consumption_highway_unit",
+  "parking_assist_self","headlights","daytime_running_lights","curve_light","particulate_filter","metallic",
+  "previous_owners","hu","hu_until","location","postal_code","city","street","street_no","phone","image_urls",
+  "video_url","image_id","dealer_price","recommendation","customer_number","stock_number","interne_nummer",
+  "category","vin","hsn","tsn","kba","one_year_old_car","new_car","demo_car","classic_vehicle","taxi","behindertengerecht"
+]);
+
+function extractImportExtra(raw = {}) {
+  const extra = {};
+  if (!raw || typeof raw !== "object") return extra;
+  Object.entries(raw).forEach(([key, value]) => {
+    if (!key) return;
+    if (key.startsWith("__")) return;
+    if (key.startsWith("col_")) return;
+    if (KNOWN_IMPORT_KEYS.has(key)) return;
+    if (value == null) return;
+    const s = String(value).trim();
+    if (!s) return;
+    extra[key] = s;
+  });
+  return extra;
+}
+
 /**
  * Unterstützte Spalten:
  * Pflicht: stock_number, title, price_eur, mileage_km, first_registration
@@ -1313,15 +1415,19 @@ function mapRow(raw) {
   const stock_number = pickStr(
     raw.stock_number,
     raw.interne_nummer,
-    raw.stock_id,
-    raw.vin,
-    raw.fin,
-    raw.fahrgestellnummer
+    raw.stock_id
   );
 
   const make = pickStr(raw.make, raw.marke, raw.brand, raw.hersteller, raw.manufacturer);
   const model = pickStr(raw.model, raw.modell, raw.baureihe, raw.serie);
   const variant = pickStr(raw.variant, raw.variante, raw.ausstattung_variante, raw.trim, raw.version);
+
+  const vin = pickStr(raw.vin, raw.fin, raw.fahrgestellnummer, raw.fahrgestell_nr, raw.fahrgestellnr);
+  const hsn = pickStr(raw.hsn);
+  const tsn = pickStr(raw.tsn);
+  let kba = pickStr(raw.kba);
+  if (!kba && hsn && tsn) kba = `${hsn}/${tsn}`;
+  const stockNumberFinal = stock_number || vin || "";
 
   let title = pickStr(raw.title, raw.titel, raw.bezeichnung, raw.fahrzeugtitel);
   if (!title) title = [make, model, variant].filter(Boolean).join(" ").trim();
@@ -1349,6 +1455,7 @@ function mapRow(raw) {
 
   const image_urls = splitUrls(raw.image_urls ?? raw.images ?? raw.bilder);
   const video_url = pickStr(raw.video_url, raw.video) || null;
+  const import_extra = extractImportExtra(raw);
 
   let powerKw = toNumber(pickFirst(raw.power_kw, raw.performance, raw.leistung_kw));
   let powerPs = toNumber(pickFirst(raw.power_ps, raw.ps, raw.leistung_ps));
@@ -1375,8 +1482,25 @@ function mapRow(raw) {
   const description = pickStr(raw.description, raw.beschreibung, raw.bemerkung, raw.remark, raw.text);
   const short_description = pickStr(raw.short_description, raw.kurzbeschreibung, raw.teaser);
 
+  const fuel = pickStr(raw.fuel, raw.kraftstoff);
+  const cCombRaw = pickStr(raw.consumption_combined, raw.verbrauch_kombiniert, raw.verbrauch);
+  const cCityRaw = pickStr(raw.consumption_city, raw.verbrauch_innerorts);
+  const cHighRaw = pickStr(raw.consumption_highway, raw.verbrauch_ausserorts);
+
+  const cComb = parseConsumptionValue(cCombRaw, fuel);
+  const cCity = parseConsumptionValue(cCityRaw, fuel);
+  const cHigh = parseConsumptionValue(cHighRaw, fuel);
+
+  if (!cComb.valid && cCombRaw) import_extra.consumption_combined_raw = String(cCombRaw).trim();
+  if (!cCity.valid && cCityRaw) import_extra.consumption_city_raw = String(cCityRaw).trim();
+  if (!cHigh.valid && cHighRaw) import_extra.consumption_highway_raw = String(cHighRaw).trim();
+
   return {
-    stock_number,
+    stock_number: stockNumberFinal,
+    vin,
+    hsn,
+    tsn,
+    kba,
     title,
     price_eur,
     price_net,
@@ -1386,7 +1510,7 @@ function mapRow(raw) {
     make,
     model,
     variant,
-    fuel: pickStr(raw.fuel, raw.kraftstoff),
+    fuel,
     gearbox: pickStr(raw.gearbox, raw.getriebe),
     power_ps: powerPs,
     power_kw: powerKw,
@@ -1416,9 +1540,12 @@ function mapRow(raw) {
     environmental_badge: pickStr(raw.environmental_badge, raw.umweltplakette),
     co2_emission: pickStr(raw.co2_emission, raw.co2),
     co2_class: pickStr(raw.co2_class, raw.co2klasse),
-    consumption_combined: pickStr(raw.consumption_combined, raw.verbrauch_kombiniert, raw.verbrauch),
-    consumption_city: pickStr(raw.consumption_city, raw.verbrauch_innerorts),
-    consumption_highway: pickStr(raw.consumption_highway, raw.verbrauch_ausserorts),
+    consumption_combined: cComb.valid ? cComb.value : "",
+    consumption_combined_unit: cComb.valid ? cComb.unit : "",
+    consumption_city: cCity.valid ? cCity.value : "",
+    consumption_city_unit: cCity.valid ? cCity.unit : "",
+    consumption_highway: cHigh.valid ? cHigh.value : "",
+    consumption_highway_unit: cHigh.valid ? cHigh.unit : "",
     drivetrain: pickStr(raw.drivetrain, raw.antrieb, raw.antriebsart),
     climate,
     parking_assist: pickStr(raw.parking_assist, raw.einparkhilfe),
@@ -1439,6 +1566,7 @@ function mapRow(raw) {
     phone: pickStr(raw.phone, raw.telefon),
     image_urls,
     video_url,
+    import_extra,
     raw_import: raw,
     mobile_like: mobileLike,
     image_id: pickStr(raw.image_id, raw.bild_id),
@@ -1646,6 +1774,11 @@ app.post("/api/haendler/import/commit", requireDb, requireDealer, uploadCsv.sing
               sellerId: sellerId,
               stockNumber: r.stock_number,
 
+              verkauf_vin: r.vin || "",
+              verkauf_hsn: r.hsn || "",
+              verkauf_tsn: r.tsn || "",
+              verkauf_kba: r.kba || "",
+
               titel: r.title,
               verkauf_titel: r.title,
 
@@ -1698,9 +1831,12 @@ app.post("/api/haendler/import/commit", requireDb, requireDealer, uploadCsv.sing
               verkauf_umweltplakette: r.environmental_badge || "",
               verkauf_co2_emission: r.co2_emission || "",
               verkauf_co2_klasse: r.co2_class || "",
-              verkauf_verbrauch_kombiniert: r.consumption_combined || "",
-              verkauf_verbrauch_innerorts: r.consumption_city || "",
-              verkauf_verbrauch_ausserorts: r.consumption_highway || "",
+              verkauf_verbrauch_kombiniert: r.consumption_combined ?? "",
+              verkauf_verbrauch_kombiniert_unit: r.consumption_combined_unit || "",
+              verkauf_verbrauch_innerorts: r.consumption_city ?? "",
+              verkauf_verbrauch_innerorts_unit: r.consumption_city_unit || "",
+              verkauf_verbrauch_ausserorts: r.consumption_highway ?? "",
+              verkauf_verbrauch_ausserorts_unit: r.consumption_highway_unit || "",
               verkauf_antrieb: r.drivetrain || "",
               verkauf_klimatisierung: r.climate || "",
               verkauf_einparkhilfe: r.parking_assist || "",
@@ -1728,6 +1864,7 @@ app.post("/api/haendler/import/commit", requireDb, requireDealer, uploadCsv.sing
               seller: sellerSnapshot,
 
               import_raw: r.raw_import || null,
+              import_extra: r.import_extra || {},
               import_customer_number: r.customer_number || "",
               import_dealer_price: r.dealer_price || "",
               import_recommendation: r.recommendation || "",
@@ -2396,8 +2533,8 @@ async function checkLogin(req, res, next) {
 ========================= */
 const MAIL_FROM = process.env.MAIL_FROM || "Autovisa <no-reply@autovisa.de>";
 const MAIL_REPLY_TO = process.env.MAIL_REPLY_TO || "support@autovisa.de";
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
+const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || "").trim();
+const GOOGLE_CLIENT_SECRET = (process.env.GOOGLE_CLIENT_SECRET || "").trim();
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,

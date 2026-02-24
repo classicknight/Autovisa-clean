@@ -2886,7 +2886,7 @@ function renderThreadCard({ car, thread, meId }){
   const openUrl = `nachricht.html?user1=${encodeURIComponent(meId)}&user2=${encodeURIComponent(thread.otherId)}&fahrzeugId=${encodeURIComponent(thread.fahrzeugId)}`;
 
   return `
-    <div class="chat-card" data-thread="${thread.otherId}::${thread.fahrzeugId}" data-open-url="${escapeHTML(openUrl)}">
+    <div class="chat-card" data-thread="${thread.otherId}::${thread.fahrzeugId}" data-open-url="${escapeHTML(openUrl)}" data-other-id="${escapeHTML(thread.otherId)}" data-fahrzeug-id="${escapeHTML(thread.fahrzeugId)}">
       <div class="chat-media">
         ${img ? `<img src="${escapeHTML(img)}" alt="Auto">` : `<div class="chat-placeholder"></div>`}
       </div>
@@ -2897,7 +2897,7 @@ function renderThreadCard({ car, thread, meId }){
       </div>
     </div>
     <div class="chat-buttons">
-      <a href="${escapeHTML(openUrl)}" class="open-chat-btn"><i class="fas fa-comments"></i> Chat öffnen</a>
+      <a href="${escapeHTML(openUrl)}" class="open-chat-btn" data-open-url="${escapeHTML(openUrl)}" data-other-id="${escapeHTML(thread.otherId)}" data-fahrzeug-id="${escapeHTML(thread.fahrzeugId)}"><i class="fas fa-comments"></i> Chat öffnen</a>
     </div>
   `;
 }
@@ -2916,6 +2916,7 @@ async function loadMessagesSection() {
     emptyEl?.classList.add("hidden");
 
     const user = await getLoggedInUser();
+    messagesSection.dataset.meId = String(user.nutzerId || "");
     const allMessages = await loadAllMessagesFor(user.nutzerId);
 
     if (!Array.isArray(allMessages) || allMessages.length === 0) {
@@ -2945,9 +2946,28 @@ async function loadMessagesSection() {
     if (!document.documentElement.dataset.uebersichtChatDelegation) {
       document.documentElement.dataset.uebersichtChatDelegation = "1";
       document.addEventListener("click", (e) => {
+        const openBtn = e.target.closest(".open-chat-btn");
+        if (openBtn) {
+          const meId = messagesSection?.dataset?.meId || "";
+          const otherId = openBtn.getAttribute("data-other-id") || "";
+          const fahrzeugId = openBtn.getAttribute("data-fahrzeug-id") || "";
+          if (meId && otherId && fahrzeugId) {
+            markThreadReadFromOverview(meId, otherId, fahrzeugId);
+          }
+          const cardEl = openBtn.closest(".chat-buttons")?.previousElementSibling;
+          clearUnreadBadge(cardEl);
+          return; // normaler Link-Click (Navigation) kann laufen
+        }
         const card = e.target.closest(".chat-card");
         if (!card) return;
         if (e.target.closest("a, button")) return;
+        const meId = messagesSection?.dataset?.meId || "";
+        const otherId = card.getAttribute("data-other-id") || "";
+        const fahrzeugId = card.getAttribute("data-fahrzeug-id") || "";
+        if (meId && otherId && fahrzeugId) {
+          markThreadReadFromOverview(meId, otherId, fahrzeugId);
+        }
+        clearUnreadBadge(card);
         const url = card.getAttribute("data-open-url");
         if (url) window.location.href = url;
       });
@@ -2957,6 +2977,24 @@ async function loadMessagesSection() {
     console.error(e);
     messagesSection.innerHTML = `<p>Fehler beim Laden der Nachrichten.</p>`;
   }
+}
+
+function clearUnreadBadge(cardEl) {
+  if (!cardEl) return;
+  const badge = cardEl.querySelector(".unread-badge");
+  if (badge) badge.remove();
+}
+
+async function markThreadReadFromOverview(meId, otherId, fahrzeugId) {
+  try {
+    await fetch("/chat/mark-read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      keepalive: true,
+      body: JSON.stringify({ user1: meId, user2: otherId, fahrzeugId })
+    });
+  } catch {}
 }
 
 function isSoldInserat(inserat) {

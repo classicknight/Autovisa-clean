@@ -1419,7 +1419,38 @@ function getCombinedConsumption(item) {
   if (Number.isFinite(inner) && Number.isFinite(outer)) return (inner + outer) / 2;
 
   return NaN;
-}function applyClientFilters(items) {
+}
+
+function detectConsumptionUnitFromFuel(fuelRaw) {
+  const f = String(fuelRaw || "").toLowerCase();
+  if (/(elektro|electric|bev|ev|strom)/.test(f)) return "kWh/100 km";
+  if (/(wasserstoff|hydrogen|h2|cng|erdgas)/.test(f)) return "kg/100 km";
+  return "l/100 km";
+}
+
+function detectConsumptionUnitFromText(textRaw) {
+  const s = String(textRaw || "").toLowerCase();
+  if (/\bkwh\b/.test(s) || /kw\s*\/\s*h/.test(s)) return "kWh/100 km";
+  if (/\bkg\b/.test(s)) return "kg/100 km";
+  if (/\b(l|liter)\b/.test(s)) return "l/100 km";
+  return "";
+}
+
+function formatConsumptionDisplay(value, unitRaw, fuelRaw) {
+  if (value == null) return "–";
+  const s = String(value).trim();
+  if (!s) return "–";
+
+  const unitInText = detectConsumptionUnitFromText(s);
+  if (unitInText) return s;
+
+  if (/[a-zA-Z]/.test(s)) return "–";
+
+  const unit = unitRaw || detectConsumptionUnitFromFuel(fuelRaw);
+  return `${s} ${unit}`;
+}
+
+function applyClientFilters(items) {
   // UI-Refs
   const priceFromEl       = document.getElementById("priceFrom");
   const priceToEl         = document.getElementById("priceTo");
@@ -2077,11 +2108,20 @@ function getCombinedConsumption(item) {
         count: ratingCount
       });
 
-      // 🔹 Verbrauch fürs UI robust ermitteln (gleicher Parser wie Filter)
-      const vShow = getCombinedConsumption(inserat);
-      const vShowText = Number.isFinite(vShow)
-        ? String(vShow.toFixed(1)).replace('.', ',')   // z. B. "5,3"
-        : '?';
+      // 🔹 Verbrauch fürs UI robust ermitteln (inkl. Einheit)
+      const vShowText = formatConsumptionDisplay(
+        inserat.verkauf_verbrauch_kombiniert ??
+          inserat.verbrauch_kombiniert ??
+          inserat.raw?.verkauf_verbrauch_kombiniert ??
+          inserat.raw?.verbrauch_kombiniert ??
+          inserat.raw?.verbrauch,
+        inserat.verkauf_verbrauch_kombiniert_unit ??
+          inserat.verbrauch_kombiniert_unit ??
+          inserat.raw?.verkauf_verbrauch_kombiniert_unit ??
+          inserat.raw?.verbrauch_kombiniert_unit ??
+          "",
+        inserat.verkauf_kraftstoff ?? inserat.kraftstoff
+      );
 
       const realId = getMongoId(inserat) || "";
   
@@ -2131,7 +2171,7 @@ function getCombinedConsumption(item) {
             <p><i class="fas fa-gas-pump"></i> ${inserat.kraftstoff || "?"}</p>
             <p><i class="fas fa-gauge-high"></i> ${inserat.leistung || "?"} PS</p>
             <p><i class="fas fa-gears"></i> ${inserat.getriebe || "?"}</p>
-            <p><i class="fas fa-tint"></i> ${vShowText} l/100 km</p>
+            <p><i class="fas fa-tint"></i> ${vShowText}</p>
           </div>
   
           <div class="dealer-info-row">
