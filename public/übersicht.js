@@ -148,6 +148,138 @@ function isHaendlerRoleValue(roleRaw = "") {
   );
 }
 
+const OPENING_DAYS = [
+  { key: "mo", label: "Montag" },
+  { key: "di", label: "Dienstag" },
+  { key: "mi", label: "Mittwoch" },
+  { key: "do", label: "Donnerstag" },
+  { key: "fr", label: "Freitag" },
+  { key: "sa", label: "Samstag" },
+  { key: "so", label: "Sonntag" }
+];
+
+const OPENING_DAY_ALIASES = {
+  mo: "mo",
+  "mo.": "mo",
+  montag: "mo",
+  di: "di",
+  "di.": "di",
+  dienstag: "di",
+  mi: "mi",
+  "mi.": "mi",
+  mittwoch: "mi",
+  do: "do",
+  "do.": "do",
+  donnerstag: "do",
+  fr: "fr",
+  "fr.": "fr",
+  freitag: "fr",
+  sa: "sa",
+  "sa.": "sa",
+  samstag: "sa",
+  so: "so",
+  "so.": "so",
+  sonntag: "so"
+};
+
+function buildEmptyOpeningDetails() {
+  const out = {};
+  OPENING_DAYS.forEach(({ key }) => {
+    out[key] = { von: "", bis: "", closed: false };
+  });
+  return out;
+}
+
+function normalizeOpeningDetails(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const source = raw.days && typeof raw.days === "object" ? raw.days : raw;
+  const out = buildEmptyOpeningDetails();
+
+  OPENING_DAYS.forEach(({ key }) => {
+    const src =
+      source[key] ||
+      source[key.toUpperCase()] ||
+      source[key.toLowerCase()] ||
+      null;
+
+    if (!src) return;
+
+    if (typeof src === "string") {
+      const line = src.toLowerCase();
+      if (line.includes("geschlossen") || line.includes("zu")) {
+        out[key] = { von: "", bis: "", closed: true };
+        return;
+      }
+      const m = src.match(/(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})/);
+      if (m) {
+        out[key] = { von: m[1], bis: m[2], closed: false };
+      }
+      return;
+    }
+
+    if (typeof src === "object") {
+      const von = String(src.von || src.from || "").trim();
+      const bis = String(src.bis || src.to || "").trim();
+      const closed = !!src.closed;
+      out[key] = { von, bis, closed };
+    }
+  });
+
+  return out;
+}
+
+function parseOpeningTextToDetails(text) {
+  if (!text) return null;
+  const out = buildEmptyOpeningDetails();
+  const found = new Set();
+
+  String(text)
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .forEach((line) => {
+      const parts = line.split(":");
+      if (parts.length < 2) return;
+      const dayRaw = parts[0].trim().toLowerCase();
+      const dayKey = OPENING_DAY_ALIASES[dayRaw];
+      if (!dayKey) return;
+      found.add(dayKey);
+      const rest = parts.slice(1).join(":").trim();
+      if (!rest || /geschlossen|zu/i.test(rest)) {
+        out[dayKey] = { von: "", bis: "", closed: true };
+        return;
+      }
+      const m = rest.match(/(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})/);
+      if (m) {
+        out[dayKey] = { von: m[1], bis: m[2], closed: false };
+      }
+    });
+
+  OPENING_DAYS.forEach(({ key }) => {
+    if (!found.has(key) && !out[key].von && !out[key].bis) {
+      out[key].closed = true;
+    }
+  });
+
+  return out;
+}
+
+function openingDetailsToLines(details) {
+  if (!details) return [];
+  return OPENING_DAYS.map(({ key, label }) => {
+    const item = details[key] || {};
+    const von = String(item.von || "").trim();
+    const bis = String(item.bis || "").trim();
+    const closed = !!item.closed || (!von && !bis);
+    if (closed) return `${label}: geschlossen`;
+    return `${label}: ${von || "—"}–${bis || "—"}`;
+  });
+}
+
+function openingDetailsToText(details) {
+  return openingDetailsToLines(details).join("\n");
+}
+
 function formatDateTimeShort(input) {
   if (!input) return "–";
   const d = new Date(input);
@@ -1035,6 +1167,176 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* =========================
+     Öffnungszeiten Modal
+     ========================= */
+  const openingModal = document.getElementById("openingHoursModal");
+  const openingBackdrop = openingModal?.querySelector("[data-close]");
+  const openingSaveBtn = document.getElementById("openingHoursSave");
+  const openingCancelBtn = document.getElementById("openingHoursCancel");
+  const openingApplyWeekBtn = document.getElementById("openingHoursApplyWeek");
+  const openingApplyAllBtn = document.getElementById("openingHoursApplyAll");
+  const openingMessage = document.getElementById("openingHoursMessage");
+  const openingRows = openingModal?.querySelectorAll(".opening-hours-row") || [];
+  let openingTargetEl = null;
+
+  const showOpeningMessage = (text) => {
+    if (!openingMessage) return;
+    openingMessage.textContent = text;
+    openingMessage.hidden = false;
+  };
+
+  const clearOpeningMessage = () => {
+    if (!openingMessage) return;
+    openingMessage.hidden = true;
+    openingMessage.textContent = "";
+  };
+
+  function setRowState(row, data) {
+    if (!row) return;
+    const vonInput = row.querySelector('input[data-field="von"]');
+    const bisInput = row.querySelector('input[data-field="bis"]');
+    const closedInput = row.querySelector('input[data-field="closed"]');
+    const closed = !!data?.closed;
+    if (vonInput) vonInput.value = data?.von || "";
+    if (bisInput) bisInput.value = data?.bis || "";
+    if (closedInput) closedInput.checked = closed;
+    if (vonInput) vonInput.disabled = closed;
+    if (bisInput) bisInput.disabled = closed;
+    row.classList.toggle("is-closed", closed);
+  }
+
+  function readRowState(row) {
+    const vonInput = row.querySelector('input[data-field="von"]');
+    const bisInput = row.querySelector('input[data-field="bis"]');
+    const closedInput = row.querySelector('input[data-field="closed"]');
+    const von = String(vonInput?.value || "").trim();
+    const bis = String(bisInput?.value || "").trim();
+    const closed = !!closedInput?.checked;
+    return { von, bis, closed };
+  }
+
+  function getOpeningDetailsFromUser() {
+    const details =
+      normalizeOpeningDetails(cachedUserData?.oeffnungszeitenDetails) ||
+      parseOpeningTextToDetails(cachedUserData?.oeffnungszeiten || "") ||
+      buildEmptyOpeningDetails();
+    return details;
+  }
+
+  function openOpeningHoursModal() {
+    if (!openingModal) return;
+    clearOpeningMessage();
+    const details = getOpeningDetailsFromUser();
+    openingRows.forEach((row) => {
+      const dayKey = row.dataset.day;
+      setRowState(row, details?.[dayKey] || {});
+    });
+    openingModal.classList.add("show");
+    openingModal.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+  }
+
+  function closeOpeningHoursModal() {
+    if (!openingModal) return;
+    openingModal.classList.remove("show");
+    openingModal.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+  }
+
+  openingRows.forEach((row) => {
+    const closedInput = row.querySelector('input[data-field="closed"]');
+    if (closedInput) {
+      closedInput.addEventListener("change", () => {
+        const data = readRowState(row);
+        setRowState(row, data);
+      });
+    }
+  });
+
+  openingApplyWeekBtn?.addEventListener("click", () => {
+    const monday = openingModal?.querySelector('.opening-hours-row[data-day="mo"]');
+    if (!monday) return;
+    const mondayState = readRowState(monday);
+    ["di", "mi", "do", "fr"].forEach((day) => {
+      const row = openingModal?.querySelector(`.opening-hours-row[data-day="${day}"]`);
+      setRowState(row, mondayState);
+    });
+  });
+
+  openingApplyAllBtn?.addEventListener("click", () => {
+    const monday = openingModal?.querySelector('.opening-hours-row[data-day="mo"]');
+    if (!monday) return;
+    const mondayState = readRowState(monday);
+    OPENING_DAYS.forEach(({ key }) => {
+      const row = openingModal?.querySelector(`.opening-hours-row[data-day="${key}"]`);
+      setRowState(row, mondayState);
+    });
+  });
+
+  openingCancelBtn?.addEventListener("click", closeOpeningHoursModal);
+  openingBackdrop?.addEventListener("click", closeOpeningHoursModal);
+
+  openingSaveBtn?.addEventListener("click", async () => {
+    if (!openingModal) return;
+    clearOpeningMessage();
+
+    const details = buildEmptyOpeningDetails();
+    let hasError = false;
+
+    openingRows.forEach((row) => {
+      const dayKey = row.dataset.day;
+      const data = readRowState(row);
+      let { von, bis, closed } = data;
+
+      if (closed || (!von && !bis)) {
+        details[dayKey] = { von: "", bis: "", closed: true };
+        return;
+      }
+
+      if (!von || !bis) {
+        hasError = true;
+        return;
+      }
+
+      const toMinutes = (t) => {
+        const parts = String(t || "").split(":");
+        if (parts.length !== 2) return NaN;
+        return Number(parts[0]) * 60 + Number(parts[1]);
+      };
+      const fromMin = toMinutes(von);
+      const toMin = toMinutes(bis);
+      if (!Number.isFinite(fromMin) || !Number.isFinite(toMin) || fromMin >= toMin) {
+        hasError = true;
+        return;
+      }
+
+      details[dayKey] = { von, bis, closed: false };
+    });
+
+    if (hasError) {
+      showOpeningMessage("Bitte gültige Zeiten eintragen (von < bis) oder „geschlossen“ wählen.");
+      return;
+    }
+
+    const text = openingDetailsToText(details);
+    const result = await saveProfileField("openingHours", text, { details });
+    if (!result?.ok) return;
+
+    cachedUserData = {
+      ...(cachedUserData || {}),
+      oeffnungszeiten: text,
+      oeffnungszeitenDetails: details
+    };
+
+    if (openingTargetEl) {
+      openingTargetEl.textContent = text;
+      openingTargetEl.dataset.openingDetails = JSON.stringify(details);
+    }
+
+    closeOpeningHoursModal();
+  });
+
+  /* =========================
      Profil: Inline bearbeiten
      ========================= */
   function enableProfileInlineEditing() {
@@ -1057,6 +1359,15 @@ document.addEventListener("DOMContentLoaded", () => {
           e.preventDefault();
           e.stopPropagation();
           openImpressumModal();
+        });
+        return;
+      }
+      if (fieldKey === "openingHours") {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openingTargetEl = valueEl;
+          openOpeningHoursModal();
         });
         return;
       }
@@ -1127,13 +1438,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  async function saveProfileField(field, value) {
+  async function saveProfileField(field, value, extra = {}) {
     try {
       const res = await fetch("/profil/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ field, value }),
+        body: JSON.stringify({ field, value, ...extra }),
       });
 
       let data = null;
@@ -1757,8 +2068,17 @@ function renderProfileSection(nutzerData, drafts, online) {
 
     const openingEl = section.querySelector('[data-profile-field="openingHours"]');
     if (openingEl) {
-      const text = nutzerData.oeffnungszeiten || nutzerData["öffnungszeiten"] || "";
-      openingEl.textContent = text || "";
+      const rawText = nutzerData.oeffnungszeiten || nutzerData["öffnungszeiten"] || "";
+      const details =
+        normalizeOpeningDetails(nutzerData.oeffnungszeitenDetails) ||
+        parseOpeningTextToDetails(rawText);
+      if (details) {
+        openingEl.textContent = openingDetailsToText(details);
+        openingEl.dataset.openingDetails = JSON.stringify(details);
+      } else {
+        openingEl.textContent = rawText || "";
+        openingEl.dataset.openingDetails = "";
+      }
     }
 
     section.querySelectorAll(".haendler-only").forEach(el => {

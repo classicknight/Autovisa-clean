@@ -831,8 +831,12 @@ document.addEventListener("DOMContentLoaded", () => {
   function mapSortToServer(val) {
     if (val === "price-asc") return "preis_asc";
     if (val === "price-desc") return "preis_desc";
-    if (val === "date-desc") return "neueste";
     if (val === "mileage-asc") return "km_asc";
+    if (val === "mileage-desc") return "km_desc";
+    if (val === "ez-desc") return "ez_desc";
+    if (val === "ez-asc") return "ez_asc";
+    if (val === "power-desc") return "ps_desc";
+    if (val === "default" || val === "date-desc") return "neueste";
     return "";
   }
   function normalizeGear(val) {

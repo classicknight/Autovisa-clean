@@ -345,11 +345,14 @@
         <div class="sort-bar">
           <label for="sortBy"><i class="fas fa-sort-amount-down-alt"></i> Sortieren nach:</label>
           <select id="sortBy">
-            <option value="relevance">Relevanz</option>
+            <option value="default">Standard (Neueste)</option>
             <option value="price-asc">Preis aufsteigend</option>
             <option value="price-desc">Preis absteigend</option>
-            <option value="date-desc">Neueste zuerst</option>
             <option value="mileage-asc">Kilometer aufsteigend</option>
+            <option value="mileage-desc">Kilometer absteigend</option>
+            <option value="ez-desc">Erstzulassung neu → alt</option>
+            <option value="ez-asc">Erstzulassung alt → neu</option>
+            <option value="power-desc">Leistung (PS) absteigend</option>
           </select>
         </div>
         <div class="result-count" id="resultCount" aria-live="polite"></div>

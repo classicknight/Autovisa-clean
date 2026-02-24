@@ -3841,3 +3841,152 @@ body.modal-open{
 
 .imp-small{ font-size: 0.9em; }
 .imp-large{ font-size: 1.1em; font-weight: 600; }
+
+/* ===== Öffnungszeiten Editor ===== */
+.opening-hours-modal{
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.opening-hours-modal.show{
+  display: flex;
+}
+
+.opening-hours-backdrop{
+  position: absolute;
+  inset: 0;
+  background: rgba(12, 18, 22, 0.55);
+}
+
+.opening-hours-card{
+  position: relative;
+  z-index: 1;
+  width: min(760px, 94vw);
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 22px 24px;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.18);
+}
+
+.opening-hours-card h3{
+  margin: 0 0 6px 0;
+  font-size: 18px;
+  color: #1a2a33;
+}
+
+.opening-hours-hint{
+  margin: 0 0 14px 0;
+  color: #5b6773;
+  font-size: 13.5px;
+}
+
+.opening-hours-grid{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.opening-hours-row{
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) repeat(2, minmax(120px, 1fr)) minmax(120px, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #e3e9ef;
+  background: #f9fbfd;
+}
+
+.opening-hours-row.is-closed{
+  opacity: 0.6;
+  background: #f5f7fa;
+}
+
+.opening-hours-day{
+  font-weight: 600;
+  color: #1a2a33;
+}
+
+.opening-hours-time{
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: #6c7a89;
+}
+
+.opening-hours-time input{
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #dbe3ea;
+  font-size: 0.9rem;
+}
+
+.opening-hours-closed{
+  font-size: 0.8rem;
+  color: #6c7a89;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.opening-hours-tools{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.opening-hours-message{
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+  background: #fff3f1;
+  color: #a23b2a;
+  border: 1px solid #f3c2b8;
+}
+
+.opening-hours-actions{
+  display: flex;
+  gap: 10px;
+}
+
+.opening-hours-actions .btn-primary{
+  border: none;
+  background: #00b8a9;
+  color: #ffffff;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(0, 184, 169, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.opening-hours-actions .btn-primary:hover{
+  background: #00a398;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(0, 184, 169, 0.28);
+}
+
+@media (max-width: 800px) {
+  .opening-hours-row{
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "day day"
+      "from to"
+      "closed closed";
+  }
+
+  .opening-hours-day{ grid-area: day; }
+  .opening-hours-time:nth-of-type(1){ grid-area: from; }
+  .opening-hours-time:nth-of-type(2){ grid-area: to; }
+  .opening-hours-closed{ grid-area: closed; }
+}

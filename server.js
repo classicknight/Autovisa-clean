@@ -99,6 +99,74 @@ function maskCredential(value) {
   return `${s.slice(0, 2)}***${s.slice(-2)}`;
 }
 
+/* =========================
+   Öffnungszeiten Helpers
+========================= */
+const OPENING_DAY_LABELS = {
+  mo: "Montag",
+  di: "Dienstag",
+  mi: "Mittwoch",
+  do: "Donnerstag",
+  fr: "Freitag",
+  sa: "Samstag",
+  so: "Sonntag",
+};
+
+function toBoolLoose(v) {
+  return v === true || v === "true" || v === "on" || v === 1 || v === "1";
+}
+
+function normalizeOpeningDetailsServer(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const src = raw.days && typeof raw.days === "object" ? raw.days : raw;
+  const out = {};
+  Object.keys(OPENING_DAY_LABELS).forEach((key) => {
+    const item = src[key] || src[key.toUpperCase()] || src[key.toLowerCase()];
+    if (!item) {
+      out[key] = { von: "", bis: "", closed: false };
+      return;
+    }
+    if (typeof item === "string") {
+      const line = item.toLowerCase();
+      if (line.includes("geschlossen") || line.includes("zu")) {
+        out[key] = { von: "", bis: "", closed: true };
+        return;
+      }
+      const m = item.match(/(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})/);
+      if (m) {
+        out[key] = { von: m[1], bis: m[2], closed: false };
+      } else {
+        out[key] = { von: "", bis: "", closed: false };
+      }
+      return;
+    }
+    if (typeof item === "object") {
+      const von = String(item.von || item.from || "").trim();
+      const bis = String(item.bis || item.to || "").trim();
+      const closed = toBoolLoose(item.closed);
+      out[key] = { von, bis, closed };
+    }
+  });
+  return out;
+}
+
+function openingDetailsToLines(details) {
+  if (!details) return [];
+  const lines = [];
+  Object.entries(OPENING_DAY_LABELS).forEach(([key, label]) => {
+    const item = details[key] || {};
+    const von = String(item.von || "").trim();
+    const bis = String(item.bis || "").trim();
+    const closed = !!item.closed || (!von && !bis);
+    if (closed) {
+      lines.push(`${label}: geschlossen`);
+    } else {
+      lines.push(`${label}: ${von || "—"}–${bis || "—"}`);
+    }
+  });
+  return lines;
+}
+
 /* ------------------------------------------------------------------ */
 /* 🔎 Search/Filter Utils (für /api/search) – einmalig hier einbinden */
 /* ------------------------------------------------------------------ */
@@ -2292,7 +2360,24 @@ app.post("/profil/update", checkLogin, async (req, res) => {
         update.website = v;
         break;
       case "openingHours":
-        update.oeffnungszeiten = v; // bearbeiteter Text inkl. Template
+        {
+          const detailsRaw = req.body?.details || req.body?.oeffnungszeitenDetails || null;
+          const details = normalizeOpeningDetailsServer(detailsRaw);
+          let textValue = typeof value === "string" ? v : "";
+
+          if (!textValue && details) {
+            textValue = openingDetailsToLines(details).join("\n");
+          }
+
+          if (!textValue && !details) {
+            return res.status(400).json({
+              error: "Bitte gültige Öffnungszeiten angeben."
+            });
+          }
+
+          update.oeffnungszeiten = textValue;
+          if (details) update.oeffnungszeitenDetails = details;
+        }
         break;
       case "impressum":
         update.impressum = v;
@@ -2344,6 +2429,22 @@ app.post("/profil/update", checkLogin, async (req, res) => {
         );
       } catch (e) {
         console.warn("❌ Inserate-Update nach Impressum-Änderung fehlgeschlagen:", e?.message || e);
+      }
+    } else if (field === "openingHours") {
+      try {
+        const details = update.oeffnungszeitenDetails || null;
+        await db.collection("inserate").updateMany(
+          { verkaeuferId: req.nutzer.id },
+          {
+            $set: {
+              "seller.oeffnungszeiten": update.oeffnungszeiten || "",
+              "seller.oeffnungszeitenDetails": details,
+              oeffnungszeiten: update.oeffnungszeiten || ""
+            }
+          }
+        );
+      } catch (e) {
+        console.warn("❌ Inserate-Update nach Öffnungszeiten-Änderung fehlgeschlagen:", e?.message || e);
       }
     }
 
@@ -4727,6 +4828,22 @@ app.get("/api/search", async (req, res) => {
             { $addFields: { _km_null: { $cond: [{ $eq: ["$km_num", null] }, 1, 0] } } },
             { $sort: { _km_null: 1, km_num: 1, _id: -1 } }
           ]
+        : (sort === "km_desc")
+        ? [
+            { $addFields: { _km_null: { $cond: [{ $eq: ["$km_num", null] }, 1, 0] } } },
+            { $sort: { _km_null: 1, km_num: -1, _id: -1 } }
+          ]
+        : (sort === "ez_desc" || sort === "ez_asc")
+        ? [
+            { $addFields: { _ez_sort: { $ifNull: ["$erstzulassung", "$verkauf_erstzulassung"] } } },
+            { $addFields: { _ez_null: { $cond: [{ $eq: ["$_ez_sort", null] }, 1, 0] } } },
+            { $sort: { _ez_null: 1, _ez_sort: (sort === "ez_asc" ? 1 : -1), _id: -1 } }
+          ]
+        : (sort === "ps_desc")
+        ? [
+            { $addFields: { _ps_null: { $cond: [{ $eq: ["$ps_num", null] }, 1, 0] } } },
+            { $sort: { _ps_null: 1, ps_num: -1, _id: -1 } }
+          ]
         : [{ $sort: { veroeffentlichtAm: -1, _id: -1 } }];
 
     /* ---------------- Parsing / Normalisierung ---------------- */
@@ -5529,7 +5646,8 @@ app.get("/api/search", async (req, res) => {
                 _preis_raw: 0, _km_raw: 0, _preis_clean: 0, _km_clean: 0,
                 _ps_raw: 0, _seats_raw: 0, _ccm_raw: 0, _verb_raw: 0, _halter_raw: 0,
                 _ps_match: 0, _seats_match: 0, _ccm_match: 0, _verb_norm: 0, _verb_all_any: 0,
-                _halter_match: 0, _preis_null: 0, _ez: 0,
+                _halter_match: 0, _preis_null: 0, _km_null: 0, _ps_null: 0,
+                _ez: 0, _ez_sort: 0, _ez_null: 0,
                 _hu_raw: 0, _hu_str: 0, _hu_rx_y_m: 0, _hu_rx_m_y: 0, _hu_rx_y: 0,
                 _hu_name: 0, _hu_name_y: 0, _hu_name_m: 0,
                 _hu_y: 0, _hu_m: 0, _hu_final_y: 0, _hu_final_m: 0

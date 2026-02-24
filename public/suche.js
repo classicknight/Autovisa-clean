@@ -783,8 +783,11 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
     if (QP.sort === "preis_asc")       sortBy.value = "price-asc";
     else if (QP.sort === "preis_desc") sortBy.value = "price-desc";
     else if (QP.sort === "km_asc")     sortBy.value = "mileage-asc";
-    else if (QP.sort === "neueste")    sortBy.value = "date-desc";
-    else if (QP.sort)                  sortBy.value = "date-desc";
+    else if (QP.sort === "km_desc")    sortBy.value = "mileage-desc";
+    else if (QP.sort === "ez_desc")    sortBy.value = "ez-desc";
+    else if (QP.sort === "ez_asc")     sortBy.value = "ez-asc";
+    else if (QP.sort === "ps_desc")    sortBy.value = "power-desc";
+    else                               sortBy.value = "default";
   }
 
   // --- Flags ---
@@ -1257,7 +1260,6 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
 
     normalizeHuParams(params);
     // Client-only: nicht ans Backend senden
-    params.delete("verbrauch_max");
     params.delete("sellerName");
     params.set("page", String(p));
     params.set("limit", String(limit));
@@ -1824,8 +1826,11 @@ function applyClientFilters(items) {
 
   // ===== Sortierung (optional, clientseitig) =====
   function sortItems(items) {
-    const v = sortBy?.value || "relevance";
+    const v = sortBy?.value || "default";
     const copy = items.slice();
+    const getDate = (x) => (x?.raw?.veroeffentlichtAm ? new Date(x.raw.veroeffentlichtAm)
+                         : x?._id?.$date ? new Date(x._id.$date)
+                         : new Date(0));
 
     switch (v) {
       case "price-asc":
@@ -1834,17 +1839,27 @@ function applyClientFilters(items) {
       case "price-desc":
         copy.sort((a,b) => (toNum(b.preis) || -Infinity) - (toNum(a.preis) || -Infinity));
         break;
+      case "mileage-desc":
+        copy.sort((a,b) => (toNum(b.kilometer) || -Infinity) - (toNum(a.kilometer) || -Infinity));
+        break;
+      case "ez-desc":
+      case "ez-asc": {
+        const dir = v === "ez-asc" ? 1 : -1;
+        const getEz = (x) => String(x?.erstzulassung || x?.raw?.verkauf_erstzulassung || "");
+        copy.sort((a,b) => dir * getEz(a).localeCompare(getEz(b)) || (getDate(b) - getDate(a)));
+        break;
+      }
+      case "power-desc":
+        copy.sort((a,b) => (toNum(b.leistung) || -Infinity) - (toNum(a.leistung) || -Infinity));
+        break;
       case "date-desc": {
-        const getDate = (x) => (x?.raw?.veroeffentlichtAm ? new Date(x.raw.veroeffentlichtAm)
-                             : x?._id?.$date ? new Date(x._id.$date)
-                             : new Date(0));
         copy.sort((a,b) => getDate(b) - getDate(a));
         break;
       }
       case "mileage-asc":
         copy.sort((a,b) => (toNum(a.kilometer) || Infinity) - (toNum(b.kilometer) || Infinity));
         break;
-      default: // relevance
+      default: // standard
         break;
     }
     return copy;
@@ -2281,9 +2296,7 @@ function applyClientFilters(items) {
       filteredItems = Array.isArray(results) ? results.map(normalizeItem) : [];
       page          = Number(serverPage) || 1;
 
-      // Client-Filter (inkl. Verbrauch & modellausfuehrung)
-      filteredItems = applyClientFilters(filteredItems);
-      // optional: filteredItems = sortItems(filteredItems);
+      // Server liefert bereits gefiltert & sortiert – clientseitig nichts mehr ändern
 
       renderItems();
 
@@ -2308,9 +2321,14 @@ function applyClientFilters(items) {
     }
   }
   function mapSortSelectToParam(v) {
-    if (v === "price-asc")  return "preis_asc";
-    if (v === "price-desc") return "preis_desc";
-    return "neueste"; // "date-desc" und alles andere
+    if (v === "price-asc")    return "preis_asc";
+    if (v === "price-desc")   return "preis_desc";
+    if (v === "mileage-asc")  return "km_asc";
+    if (v === "mileage-desc") return "km_desc";
+    if (v === "ez-desc")      return "ez_desc";
+    if (v === "ez-asc")       return "ez_asc";
+    if (v === "power-desc")   return "ps_desc";
+    return "neueste"; // default
   }function setOrDelete(params, key, val) {
     if (val == null) return params.delete(key);
     const s = String(val).trim();
@@ -2413,7 +2431,7 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
     setOrDelete(params, "antriebsart", driveList.length ? driveList.join(",") : "");
     params.delete("antrieb"); // legacy key
   
-    // Verbrauch (clientseitig)
+    // Verbrauch (Filter)
     (function () {
       const sel = document.getElementById("verbrauch-select");
       const inp = document.getElementById("verbrauch");
@@ -2579,10 +2597,14 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
     // Sortierung -> Serverparam
     const sortSelect = document.getElementById("sortBy");
     const mapSort = v =>
-      v === "price-asc"   ? "preis_asc"  :
-      v === "price-desc"  ? "preis_desc" :
-      v === "mileage-asc" ? "km_asc"     :
-      v === "date-desc"   ? "neueste"    : "";
+      v === "price-asc"    ? "preis_asc"  :
+      v === "price-desc"   ? "preis_desc" :
+      v === "mileage-asc"  ? "km_asc"     :
+      v === "mileage-desc" ? "km_desc"    :
+      v === "ez-desc"      ? "ez_desc"    :
+      v === "ez-asc"       ? "ez_asc"     :
+      v === "power-desc"   ? "ps_desc"    :
+      "neueste";
     const sortVal = sortSelect?.value || "";
     const sortParam = mapSort(sortVal);
     if (sortParam) params.set("sort", sortParam);

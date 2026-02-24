@@ -619,6 +619,128 @@
     </div>
   </div>
 
+  <!-- Öffnungszeiten-Editor -->
+  <div class="opening-hours-modal hidden" id="openingHoursModal" role="dialog" aria-modal="true" aria-labelledby="openingHoursTitle">
+    <div class="opening-hours-backdrop" data-close></div>
+    <div class="opening-hours-card">
+      <h3 id="openingHoursTitle">Öffnungszeiten bearbeiten</h3>
+      <p class="opening-hours-hint">Wähle pro Tag die Uhrzeiten oder markiere „geschlossen“.</p>
+
+      <div class="opening-hours-grid" id="openingHoursGrid">
+        <div class="opening-hours-row" data-day="mo">
+          <span class="opening-hours-day">Montag</span>
+          <label class="opening-hours-time">
+            <span>von</span>
+            <input type="time" data-field="von" step="300">
+          </label>
+          <label class="opening-hours-time">
+            <span>bis</span>
+            <input type="time" data-field="bis" step="300">
+          </label>
+          <label class="opening-hours-closed">
+            <input type="checkbox" data-field="closed"> geschlossen
+          </label>
+        </div>
+        <div class="opening-hours-row" data-day="di">
+          <span class="opening-hours-day">Dienstag</span>
+          <label class="opening-hours-time">
+            <span>von</span>
+            <input type="time" data-field="von" step="300">
+          </label>
+          <label class="opening-hours-time">
+            <span>bis</span>
+            <input type="time" data-field="bis" step="300">
+          </label>
+          <label class="opening-hours-closed">
+            <input type="checkbox" data-field="closed"> geschlossen
+          </label>
+        </div>
+        <div class="opening-hours-row" data-day="mi">
+          <span class="opening-hours-day">Mittwoch</span>
+          <label class="opening-hours-time">
+            <span>von</span>
+            <input type="time" data-field="von" step="300">
+          </label>
+          <label class="opening-hours-time">
+            <span>bis</span>
+            <input type="time" data-field="bis" step="300">
+          </label>
+          <label class="opening-hours-closed">
+            <input type="checkbox" data-field="closed"> geschlossen
+          </label>
+        </div>
+        <div class="opening-hours-row" data-day="do">
+          <span class="opening-hours-day">Donnerstag</span>
+          <label class="opening-hours-time">
+            <span>von</span>
+            <input type="time" data-field="von" step="300">
+          </label>
+          <label class="opening-hours-time">
+            <span>bis</span>
+            <input type="time" data-field="bis" step="300">
+          </label>
+          <label class="opening-hours-closed">
+            <input type="checkbox" data-field="closed"> geschlossen
+          </label>
+        </div>
+        <div class="opening-hours-row" data-day="fr">
+          <span class="opening-hours-day">Freitag</span>
+          <label class="opening-hours-time">
+            <span>von</span>
+            <input type="time" data-field="von" step="300">
+          </label>
+          <label class="opening-hours-time">
+            <span>bis</span>
+            <input type="time" data-field="bis" step="300">
+          </label>
+          <label class="opening-hours-closed">
+            <input type="checkbox" data-field="closed"> geschlossen
+          </label>
+        </div>
+        <div class="opening-hours-row" data-day="sa">
+          <span class="opening-hours-day">Samstag</span>
+          <label class="opening-hours-time">
+            <span>von</span>
+            <input type="time" data-field="von" step="300">
+          </label>
+          <label class="opening-hours-time">
+            <span>bis</span>
+            <input type="time" data-field="bis" step="300">
+          </label>
+          <label class="opening-hours-closed">
+            <input type="checkbox" data-field="closed"> geschlossen
+          </label>
+        </div>
+        <div class="opening-hours-row" data-day="so">
+          <span class="opening-hours-day">Sonntag</span>
+          <label class="opening-hours-time">
+            <span>von</span>
+            <input type="time" data-field="von" step="300">
+          </label>
+          <label class="opening-hours-time">
+            <span>bis</span>
+            <input type="time" data-field="bis" step="300">
+          </label>
+          <label class="opening-hours-closed">
+            <input type="checkbox" data-field="closed"> geschlossen
+          </label>
+        </div>
+      </div>
+
+      <div class="opening-hours-tools">
+        <button type="button" class="btn-soft" id="openingHoursApplyWeek">Mo → Werktage</button>
+        <button type="button" class="btn-soft" id="openingHoursApplyAll">Mo → alle Tage</button>
+      </div>
+
+      <div class="opening-hours-message" id="openingHoursMessage" hidden></div>
+
+      <div class="opening-hours-actions">
+        <button type="button" class="btn-primary" id="openingHoursSave">Speichern</button>
+        <button type="button" class="btn-soft" id="openingHoursCancel">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
   <script src="übersicht.js"></script>
   <script src="ui-feedback.js" defer></script>
 </body>

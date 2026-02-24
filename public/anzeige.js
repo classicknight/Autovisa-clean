@@ -1535,6 +1535,11 @@ function fillOpeningHours(seller, inserat, isDealer) {
 
   list.innerHTML = "";
 
+  const details =
+    seller?.oeffnungszeitenDetails ||
+    inserat?.oeffnungszeitenDetails ||
+    null;
+
   const src =
     seller.oeffnungszeiten ||
     inserat.oeffnungszeiten ||
@@ -1544,7 +1549,28 @@ function fillOpeningHours(seller, inserat, isDealer) {
 
   const rows = [];
 
-  if (Array.isArray(src)) {
+  if (details && typeof details === "object") {
+    const order = [
+      ["mo", "Mo."],
+      ["di", "Di."],
+      ["mi", "Mi."],
+      ["do", "Do."],
+      ["fr", "Fr."],
+      ["sa", "Sa."],
+      ["so", "So."],
+    ];
+    order.forEach(([key, label]) => {
+      const item = details[key];
+      if (!item) return;
+      const von = String(item.von || "").trim();
+      const bis = String(item.bis || "").trim();
+      const closed = !!item.closed || (!von && !bis);
+      rows.push({
+        day: label,
+        time: closed ? "geschlossen" : `${von || "—"} – ${bis || "—"}`
+      });
+    });
+  } else if (Array.isArray(src)) {
     src.forEach((row) => {
       if (!row) return;
       if (typeof row === "string") {
@@ -2506,19 +2532,43 @@ function renderHours(hours) {
   const todayIdx = (new Date().getDay() + 6) % 7;
 
   list.innerHTML = "";
-  order.forEach((key, i) => {
-    const val = hours[key];
-    const li = document.createElement("li");
-    li.style.display = "flex";
-    li.style.justifyContent = "space-between";
-    li.style.gap = "10px";
-    if (i === todayIdx) {
-      li.style.fontWeight = "700";
-      li.style.color = "#0b5e56";
-    }
-    li.innerHTML = `<span>${mapDe[key] || key}</span><span>${val || "—"}</span>`;
-    list.appendChild(li);
-  });
+  const hasDetails =
+    ["mo", "di", "mi", "do", "fr", "sa", "so"].some((k) => typeof hours[k] === "object");
+
+  if (hasDetails) {
+    const orderShort = ["mo", "di", "mi", "do", "fr", "sa", "so"];
+    orderShort.forEach((key, i) => {
+      const item = hours[key] || {};
+      const von = String(item.von || "").trim();
+      const bis = String(item.bis || "").trim();
+      const closed = !!item.closed || (!von && !bis);
+      const val = closed ? "geschlossen" : `${von || "—"} – ${bis || "—"}`;
+      const li = document.createElement("li");
+      li.style.display = "flex";
+      li.style.justifyContent = "space-between";
+      li.style.gap = "10px";
+      if (i === todayIdx) {
+        li.style.fontWeight = "700";
+        li.style.color = "#0b5e56";
+      }
+      li.innerHTML = `<span>${mapDe[order[i]] || key}</span><span>${val}</span>`;
+      list.appendChild(li);
+    });
+  } else {
+    order.forEach((key, i) => {
+      const val = hours[key];
+      const li = document.createElement("li");
+      li.style.display = "flex";
+      li.style.justifyContent = "space-between";
+      li.style.gap = "10px";
+      if (i === todayIdx) {
+        li.style.fontWeight = "700";
+        li.style.color = "#0b5e56";
+      }
+      li.innerHTML = `<span>${mapDe[key] || key}</span><span>${val || "—"}</span>`;
+      list.appendChild(li);
+    });
+  }
   wrap.style.display = "";
 }
 
@@ -2793,6 +2843,8 @@ async function renderSeller(inseratArg = null) {
 
   // --- Öffnungszeiten ---
   const hours =
+    profile.oeffnungszeitenDetails ||
+    inserat.oeffnungszeitenDetails ||
     profile.oeffnungszeiten ||
     profile.hours ||
     inserat.oeffnungszeiten ||
