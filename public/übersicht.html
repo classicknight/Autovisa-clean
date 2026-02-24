@@ -375,12 +375,15 @@
             <i class="fas fa-file-csv"></i> Bestand per CSV importieren
           </h3>
           <p class="profile-import-hint">
-            CSV/TSV/JSON/JSONL hochladen → Vorschau prüfen → Import starten. Importierte Inserate werden zunächst als Entwurf/Offline gespeichert.
-            Pflicht-Spalten: <code>stock_number</code>, <code>title</code>, <code>price_eur</code>, <code>mileage_km</code>, <code>first_registration</code>.
-            Optional: <code>image_urls</code>, <code>video_url</code>. Viele Varianten werden automatisch erkannt (z. B. Marke, Modell, Kraftstoff, Getriebe, Farbe, Beschreibung).
+            Nur <b>mobile.de CSV</b> (Semikolon, ISO-8859-15). Keine Felder weglassen. Importierte Inserate werden zunächst als Entwurf/Offline gespeichert.
+            <br>
+            Hinweis: Eine Header-Zeile wird automatisch ignoriert.
+            <br>
+            <a href="templates/mobile-de-template.csv" download>mobile.de Vorlage (Feldliste)</a> ·
+            <a href="templates/mobile-de-beispiel.csv" download>Beispieldatei</a>
           </p>
           <div class="profile-import-row">
-            <input id="dealerCsvFile" type="file" accept=".csv,.tsv,.txt,.json,.jsonl,.ndjson,text/csv,text/plain,application/json" />
+            <input id="dealerCsvFile" type="file" accept=".csv,text/csv,application/vnd.ms-excel" />
             <button type="button" class="btn-soft" id="dealerCsvPreview">Vorschau</button>
             <button type="button" class="btn-primary" id="dealerCsvImport" disabled>Import starten</button>
           </div>

@@ -1167,14 +1167,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!fileEl || !btnPreview || !btnImport) return;
 
     const MAX_CSV_SIZE = 8 * 1024 * 1024;
-    const ALLOWED_EXT = [".csv", ".tsv", ".txt", ".json", ".jsonl", ".ndjson"];
+    const ALLOWED_EXT = [".csv"];
     const ALLOWED_TYPES = [
       "text/csv",
-      "application/vnd.ms-excel",
-      "text/plain",
-      "application/json",
-      "application/x-ndjson",
-      "application/jsonl"
+      "application/vnd.ms-excel"
     ];
 
     let lastFile = null;
@@ -1275,7 +1271,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       const extOk = ALLOWED_EXT.includes(ext);
       const typeOk = !type || ALLOWED_TYPES.includes(type);
       if (!extOk && !typeOk) {
-        return { ok: false, message: "Bitte eine CSV/TSV-Datei hochladen." };
+        return { ok: false, message: "Bitte eine mobile.de CSV-Datei hochladen." };
       }
       if (file.size > MAX_CSV_SIZE) {
         return { ok: false, message: "Datei ist zu groß (max. 8 MB)." };

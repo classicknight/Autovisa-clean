@@ -1163,51 +1163,271 @@ function detectImportFormat(file, text) {
   return "csv";
 }
 
-const MOBILE_DE_FIELD_ORDER = [
-  "customer_number",      // 0
-  "stock_number",         // 1 interne_nummer
-  "category",             // 2 kategorie
-  "make",                 // 3 marke
-  "model",                // 4 modell
-  "power_kw",             // 5 leistung (kW)
-  "hu",                   // 6 hu / mot
-  null,                   // 7 reserved
-  "first_registration",   // 8 ez / reg-date
-  "mileage_km",           // 9 kilometer / kilometre
-  "price_eur",            // 10 preis / price
-  "vat",                  // 11 mwst / VAT
-  null,                   // 12 reserved
-  "classic_vehicle",      // 13 oldtimer / classic vehicle
-  "vin",                  // 14 vin
-  "beschaedigt",          // 15 beschaedigtes_fahrzeug / damaged_vehicle
-  "color",                // 16 farbe / colour
-  "climate",              // 17 klima / a/c
-  "taxi",                 // 18 taxi
-  "behindertengerecht",   // 19 adapted for disabled
-  "one_year_old_car",     // 20 jahreswagen / one-year-old car
-  "new_car",              // 21 neufahrzeug / new car
-  "recommendation",       // 22 unsere empfehlung / our recommendation
-  "dealer_price",         // 23 haendlerpreis / dealer price
-  null                    // 24 reserved
+function decodeCsvBuffer(buffer) {
+  if (!buffer) return "";
+  const utf8 = buffer.toString("utf8");
+  if (!utf8.includes("\uFFFD")) return utf8;
+  // Fallback: mobile.de CSV ist ISO-8859-15 (latin1 ist näher als utf8)
+  return buffer.toString("latin1");
+}
+
+const MOBILE_DE_HEADERS = [
+  "kundennummer",                 // 0
+  "interne_nummer",               // 1
+  "kategorie",                    // 2
+  "marke",                        // 3
+  "modell",                       // 4
+  "leistung",                     // 5 (kW)
+  "hu",                           // 6
+  "reserved",                     // 7
+  "ez",                           // 8
+  "kilometer",                    // 9
+  "preis",                        // 10
+  "mwst",                         // 11
+  "reserved",                     // 12
+  "oldtimer",                     // 13
+  "vin",                          // 14
+  "beschaedigtes_fahrzeug",       // 15
+  "farbe",                        // 16
+  "klima",                        // 17
+  "taxi",                         // 18
+  "behindertengerecht",           // 19
+  "jahreswagen",                  // 20
+  "neufahrzeug",                  // 21
+  "unsere_empfehlung",            // 22
+  "haendlerpreis",                // 23
+  "reserved",                     // 24
+  "bemerkung",                    // 25
+  "bild_id",                      // 26
+  "metallic",                     // 27
+  "waehrung",                     // 28
+  "mwstsatz",                     // 29
+  "garantie",                     // 30
+  "leichtmetallfelgen",           // 31
+  "esp",                          // 32
+  "abs",                          // 33
+  "anhaengerkupplung",            // 34
+  "reserved",                     // 35
+  "wegfahrsperre",                // 36
+  "navigationssystem",            // 37
+  "schiebedach",                  // 38
+  "zentralverriegelung",          // 39
+  "fensterheber",                 // 40
+  "allradantrieb",                // 41
+  "tueren",                       // 42
+  "umweltplakette",               // 43
+  "servolenkung",                 // 44
+  "biodiesel",                    // 45
+  "scheckheftgepflegt",           // 46
+  "katalysator",                  // 47
+  "kickstarter",                  // 48
+  "estarter",                     // 49
+  "vorfuehrfahrzeug",             // 50
+  "antrieb",                      // 51
+  "ccm",                          // 52
+  "tragkraft",                    // 53
+  "nutzlast",                     // 54
+  "gesamtgewicht",                // 55
+  "hubhoehe",                     // 56
+  "bauhoehe",                     // 57
+  "baujahr",                      // 58
+  "betriebsstunden",              // 59
+  "sitze",                        // 60
+  "schadstoff",                   // 61
+  "kabinenart",                   // 62
+  "achsen",                       // 63
+  "tempomat",                     // 64
+  "standheizung",                 // 65
+  "kabine",                       // 66
+  "schutzdach",                   // 67
+  "vollverkleidung",              // 68
+  "komunal",                      // 69
+  "kran",                         // 70
+  "retarder_intarder",            // 71
+  "schlafplatz",                  // 72
+  "tv",                           // 73
+  "wc",                           // 74
+  "ladebordwand",                 // 75
+  "hydraulikanlage",              // 76
+  "schiebetuer",                  // 77
+  "radformel",                    // 78
+  "trennwand",                    // 79
+  "ebs",                          // 80
+  "vermietbar",                   // 81
+  "kompressor",                   // 82
+  "luftfederung",                 // 83
+  "scheibenbremse",               // 84
+  "fronthydraulik",               // 85
+  "bss",                          // 86
+  "schnellwechsel",               // 87
+  "zsa",                          // 88
+  "kueche",                       // 89
+  "kuehlbox",                     // 90
+  "schlafsitze",                  // 91
+  "frontheber",                   // 92
+  "sichtbar_nur_fuer_Haendler",   // 93
+  "reserviert",                   // 94
+  "envkv",                        // 95
+  "verbrauch_innerorts",          // 96
+  "verbrauch_ausserorts",         // 97
+  "verbrauch_kombiniert",         // 98
+  "emission",                     // 99
+  "xenonscheinwerfer",            // 100
+  "sitzheizung",                  // 101
+  "partikelfilter",               // 102
+  "einparkhilfe",                 // 103
+  "schwackecode",                 // 104
+  "lieferdatum",                  // 105
+  "lieferfrist",                  // 106
+  "ueberfuehrungskosten",         // 107
+  "hu/au_neu",                    // 108
+  "kraftstoffart",                // 109
+  "getriebeart",                  // 110
+  "exportfahrzeug",               // 111
+  "tageszulassung",               // 112
+  "blickfaenger",                 // 113
+  "hsn",                          // 114
+  "tsn",                          // 115
+  "seite_1_inserat",              // 116
+  "reserviert",                   // 117
+  "reserviert",                   // 118
+  "e10",                          // 119
+  "reserviert",                   // 120
+  "pflanzenoel",                  // 121
+  "scr",                          // 122
+  "koffer",                       // 123
+  "sturzbuegel",                  // 124
+  "scheibe",                      // 125
+  "standklima",                   // 126
+  "s-s-bereifung",                // 127
+  "strassenzulassung",            // 128
+  "etagenbett",                   // 129
+  "festbett",                     // 130
+  "heckgarage",                   // 131
+  "markise",                      // 132
+  "sep-dusche",                   // 133
+  "solaranlage",                  // 134
+  "mittelsitzgruppe",             // 135
+  "rundsitzgruppe",               // 136
+  "seitensitzgruppe",             // 137
+  "hagelschaden",                 // 138
+  "schlafplaetze",                // 139
+  "fahrzeuglaenge",               // 140
+  "fahrzeugbreite",               // 141
+  "fahrzeughoehe",                // 142
+  "laderaum-europalette",         // 143
+  "laderaum-volumen",             // 144
+  "laderaum-laenge",              // 145
+  "laderaum-breite",              // 146
+  "laderaum-hoehe",               // 147
+  "inserat_als_neu_markieren",    // 148
+  "effektiver_jahreszins",        // 149
+  "monatliche_rate",              // 150
+  "laufzeit",                     // 151
+  "anzahlung",                    // 152
+  "schlussrate",                  // 153
+  "finanzierungsfeature",         // 154
+  "interieurfarbe",               // 155
+  "interieurtyp",                 // 156
+  "airbag",                       // 157
+  "vorbesitzer",                  // 158
+  "top_inserat",                  // 159
+  "bruttokreditbetrag",           // 160
+  "abschlussgebuehren",           // 161
+  "ratenabsicherung",             // 162
+  "nettokreditbetrag",            // 163
+  "anbieterbank",                 // 164
+  "soll-zinssatz",                // 165
+  "art_des_soll-zinssatzes",      // 166
+  "landesversion",                // 167
+  "video-url",                    // 168
+  "energieeffizienzklasse",       // 169
+  "envkv_benzin_sorte",           // 170
+  "elektrische_seitenspiegel",    // 171
+  "sportfahrwerk",                // 172
+  "sportpaket",                   // 173
+  "bluetooth",                    // 174
+  "bordcomputer",                 // 175
+  "cd_spieler",                   // 176
+  "elektrische_sitzeinstellung",  // 177
+  "head-up_display",              // 178
+  "freisprecheinrichtung",        // 179
+  "mp3_schnittstelle",            // 180
+  "multifunktionslenkrad",        // 181
+  "skisack",                      // 182
+  "tuner_oder_radio",             // 183
+  "sportsitze",                   // 184
+  "panorama_dach",                // 185
+  "kindersitzbefestigung",        // 186
+  "kurvenlicht",                  // 187
+  "lichtsensor",                  // 188
+  "nebelscheinwerfer",            // 189
+  "tagfahrlicht",                 // 190
+  "traktionskontrolle",           // 191
+  "start_stop_automatik",         // 192
+  "regensensor",                  // 193
+  "nichtraucher_fahrzeug",        // 194
+  "dachreling",                   // 195
+  "unfallfahrzeug",               // 196
+  "fahrtauglich",                 // 197
+  "produktionsdatum",             // 198
+  "einparkhilfe_sensoren_vorne",  // 199
+  "einparkhilfe_sensoren_hinten", // 200
+  "einparkhilfe_kamera",          // 201
+  "einparkhilfe_selbstlenkendes_system", // 202
+  "reserviert",                   // 203
+  "rotstiftpreis",                // 204
+  "kleinanzeigen_export",         // 205
+  "plugin_hybrid",                // 206
+  "kombinierter_stromverbrauch",  // 207
+  "highlight_1",                  // 208
+  "highlight_2",                  // 209
+  "highlight_3",                  // 210
+  "bedingungen_finanzierungsvorschlag" // 211
 ];
 
-function looksLikeHeaderLine(line = "") {
-  const l = String(line).toLowerCase();
-  const tokens = [
-    "kundennummer","interne_nummer","kategorie","marke","modell","leistung","hu","ez",
-    "kilometer","preis","mwst","oldtimer","vin","beschaedigtes_fahrzeug","farbe",
-    "customer-number","internal number","category","make","model","performance","mot",
-    "reg-date","kilometre","price","vat","classic vehicle","damaged_vehicle","colour","a/c"
-  ];
-  return tokens.some((t) => l.includes(t));
+const MOBILE_DE_FIELD_OVERRIDES = {
+  kundennummer: "customer_number",
+  leistung: "leistung_kw",
+  kraftstoffart: "kraftstoff",
+  getriebeart: "getriebe",
+  emission: "co2",
+  schadstoff: "schadstoffklasse",
+  "video-url": "video_url",
+  kombinierter_stromverbrauch: "consumption_combined"
+};
+
+const MOBILE_DE_COLUMN_COUNT = MOBILE_DE_HEADERS.length;
+
+function normalizeMobileHeaderToken(token = "") {
+  return String(token)
+    .trim()
+    .toLowerCase()
+    .replace(/^\"|\"$/g, "")
+    .replace(/\s+/g, "_");
+}
+
+function looksLikeMobileHeaderLine(lineOrRow = "") {
+  const parts = Array.isArray(lineOrRow)
+    ? lineOrRow.map(normalizeMobileHeaderToken)
+    : String(lineOrRow || "").split(";").map(normalizeMobileHeaderToken);
+  if (parts.length < 5) return false;
+  const expected = MOBILE_DE_HEADERS.slice(0, 5).map(normalizeMobileHeaderToken);
+  return expected.every((exp, idx) => parts[idx] === exp);
+}
+
+function isReservedMobileField(field = "") {
+  const f = String(field || "").toLowerCase().trim();
+  return f === "reserved" || f === "reserviert";
 }
 
 function mapMobileCsvRow(row = []) {
   const obj = {};
   row.forEach((val, idx) => {
-    const key = MOBILE_DE_FIELD_ORDER[idx];
-    if (key) obj[key] = val;
-    else obj[`col_${idx}`] = val;
+    const key = MOBILE_DE_HEADERS[idx];
+    if (!key || isReservedMobileField(key)) return;
+    const mappedKey = MOBILE_DE_FIELD_OVERRIDES[key] || key;
+    obj[mappedKey] = val;
   });
   obj.__raw_cols = row;
   obj.__format = "mobile_csv";
@@ -1216,69 +1436,39 @@ function mapMobileCsvRow(row = []) {
 
 function parseImportRecords(file, text) {
   const format = detectImportFormat(file, text);
-
-  if (format === "json" || format === "jsonl") {
-    let records = [];
-    if (format === "json") {
-      let parsed;
-      try {
-        parsed = JSON.parse(text);
-      } catch (err) {
-        throw new Error("Ungültiges JSON-Format.");
-      }
-      if (Array.isArray(parsed)) records = parsed;
-      else if (parsed && typeof parsed === "object") {
-        const list =
-          parsed.items ||
-          parsed.data ||
-          parsed.records ||
-          parsed.vehicles ||
-          parsed.inserate ||
-          parsed.listings;
-        records = Array.isArray(list) ? list : [parsed];
-      }
-    } else {
-      const lines = String(text || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-      records = lines.map((line, idx) => {
-        try {
-          return JSON.parse(line);
-        } catch {
-          throw new Error(`Ungültige JSONL-Zeile ${idx + 1}.`);
-        }
-      });
-    }
-
-    const normalized = records.map(normalizeRecord);
-    return { records: normalized, format };
+  if (format !== "csv") {
+    throw new Error("Nur mobile.de CSV-Dateien werden unterstützt.");
   }
 
   const delimiter = guessDelimiter(text);
-  const firstLine = (String(text || "").split(/\r?\n/)[0] || "");
-  const hasHeader = looksLikeHeaderLine(firstLine);
-
-  if (!hasHeader) {
-    const rows = parse(text, {
-      columns: false,
-      skip_empty_lines: true,
-      delimiter,
-      relax_quotes: true,
-      relax_column_count: true,
-      trim: true
-    });
-    const records = rows.map(mapMobileCsvRow);
-    return { records, format: "mobile_csv", delimiter };
+  if (delimiter !== ";") {
+    throw new Error("mobile.de CSV muss mit Semikolon getrennt sein.");
   }
 
-  const records = parse(text, {
-    columns: normalizeHeaders,
+  const rows = parse(text, {
+    columns: false,
     skip_empty_lines: true,
-    delimiter,
+    delimiter: ";",
     relax_quotes: true,
     relax_column_count: true,
     trim: true
   });
 
-  return { records, format: delimiter === "\t" ? "tsv" : "csv", delimiter };
+  if (!rows.length) {
+    return { records: [], format: "mobile_csv", delimiter: ";" };
+  }
+
+  if (looksLikeMobileHeaderLine(rows[0])) {
+    rows.shift();
+  }
+
+  const tooShortIdx = rows.findIndex((r) => Array.isArray(r) && r.length < MOBILE_DE_COLUMN_COUNT);
+  if (tooShortIdx >= 0) {
+    throw new Error(`CSV-Zeile ${tooShortIdx + 1} hat zu wenige Spalten (erwartet ${MOBILE_DE_COLUMN_COUNT}).`);
+  }
+
+  const records = rows.map(mapMobileCsvRow);
+  return { records, format: "mobile_csv", delimiter: ";" };
 }
 
 function toNumber(v) {
@@ -1804,7 +1994,7 @@ app.post("/api/haendler/import/preview", requireDb, requireDealer, uploadCsv.sin
   try {
     if (!req.file) return res.status(400).send("Keine Datei erhalten");
 
-    const text = req.file.buffer.toString("utf8");
+    const text = decodeCsvBuffer(req.file.buffer);
     const { records, delimiter, format } = parseImportRecords(req.file, text);
 
     const mapped = records.map(mapRow);
@@ -1867,7 +2057,7 @@ app.post("/api/haendler/import/commit", requireDb, requireDealer, uploadCsv.sing
   try {
     if (!req.file) return res.status(400).send("Keine Datei erhalten");
 
-    const text = req.file.buffer.toString("utf8");
+    const text = decodeCsvBuffer(req.file.buffer);
     const { records } = parseImportRecords(req.file, text);
 
     const mapped = records.map(mapRow);
