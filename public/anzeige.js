@@ -902,6 +902,7 @@ function fillTechnical(inserat) {
     ["verkauf_co2_emission", "v-co2"],
     ["verkauf_schadstoffklasse", "v-schadstoffklasse"],
     ["verkauf_umweltplakette", "v-umweltplakette"],
+    ["verkauf_klimatisierung", "v-klimatisierung"],
     ["klimatisierung", "v-klimatisierung"],
     ["airbags", "v-airbags"],
    // CO₂-Klasse (A–G)
@@ -1026,7 +1027,7 @@ function fillTechnical(inserat) {
   // HU
   const huEl = document.getElementById("v-hu");
   if (huEl) {
-    const huRaw = firstNonEmpty(inserat.hu, inserat.tuev, inserat.tüv);
+    const huRaw = firstNonEmpty(inserat.verkauf_hu, inserat.hu, inserat.tuev, inserat.tüv);
     const m = firstNonEmpty(inserat.tuevMonat, inserat.tüvMonat, inserat.huMonat);
     const j = firstNonEmpty(inserat.tuevJahr, inserat.tüvJahr, inserat.huJahr);
     const hu = huRaw || `${m} ${j}`.trim();

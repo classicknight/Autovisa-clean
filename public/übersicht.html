@@ -369,30 +369,70 @@
           </div>
         </div>
 
-        <!-- CSV-Import (nur Händler) -->
-        <div class="profile-import haendler-only" id="dealerImport">
-          <h3 class="profile-subtitle">
-            <i class="fas fa-file-csv"></i> Bestand per CSV importieren
-          </h3>
-          <p class="profile-import-hint">
-            Nur <b>mobile.de CSV</b> (Semikolon, ISO-8859-15). Keine Felder weglassen. Importierte Inserate werden zunächst als Entwurf/Offline gespeichert.
-            <br>
-            Hinweis: Eine Header-Zeile wird automatisch ignoriert.
-            <br>
-            <a href="templates/mobile-de-template.csv" download>mobile.de Vorlage (Feldliste)</a> ·
-            <a href="templates/mobile-de-beispiel.csv" download>Beispieldatei</a>
-          </p>
-          <div class="profile-import-row">
-            <input id="dealerCsvFile" type="file" accept=".csv,text/csv,application/vnd.ms-excel" />
-            <button type="button" class="btn-soft" id="dealerCsvPreview">Vorschau</button>
-            <button type="button" class="btn-primary" id="dealerCsvImport" disabled>Import starten</button>
+        <!-- Mobile.de Integration -->
+        <div class="profile-integration" id="mobileIntegration" aria-labelledby="mobileIntegrationTitle">
+          <div class="integration-head">
+            <div>
+              <h3 class="profile-subtitle" id="mobileIntegrationTitle">
+                <i class="fa-solid fa-plug"></i> Mobile.de Verbindung
+              </h3>
+              <p class="integration-sub">
+                Verbinde deinen Mobile.de Bestand. Zugangsdaten werden verschlüsselt gespeichert.
+              </p>
+            </div>
+            <span class="integration-status" id="mobileStatusBadge" data-status="disconnected">
+              Nicht verbunden
+            </span>
           </div>
-          <div class="profile-import-status" id="dealerCsvStatus"></div>
-          <div class="profile-import-summary" id="dealerCsvSummary"></div>
-          <div class="profile-import-errors" id="dealerCsvErrors"></div>
-          <div class="profile-import-warnings" id="dealerCsvWarnings"></div>
+
+          <div class="integration-grid">
+            <label class="integration-field">
+              <span>API-Username</span>
+              <input type="text" id="mobileUsername" autocomplete="username" placeholder="z. B. mobile-API-Benutzer">
+              <small class="integration-hint" id="mobileUsernameHint"></small>
+            </label>
+
+            <label class="integration-field">
+              <span>API-Passwort</span>
+              <div class="integration-password">
+                <input type="password" id="mobilePassword" autocomplete="current-password" placeholder="••••••••">
+                <button type="button" class="btn-ghost" id="mobileTogglePw">Anzeigen</button>
+              </div>
+              <small class="integration-hint" id="mobilePasswordHint">Passwort wird verschlüsselt gespeichert.</small>
+            </label>
+
+            <label class="integration-field">
+              <span>Seller-ID (optional)</span>
+              <input type="text" id="mobileSellerId" autocomplete="off" placeholder="z. B. 123456">
+            </label>
+          </div>
+
+          <div class="integration-actions">
+            <button type="button" class="profile-btn" id="mobileSaveBtn">
+              <i class="fa-solid fa-floppy-disk"></i> Speichern
+            </button>
+            <button type="button" class="profile-btn secondary" id="mobileTestBtn">
+              <i class="fa-solid fa-vial"></i> Verbindung testen
+            </button>
+            <button type="button" class="profile-btn secondary" id="mobileSyncBtn">
+              <i class="fa-solid fa-rotate"></i> Jetzt synchronisieren
+            </button>
+            <button type="button" class="profile-btn secondary danger" id="mobileDisconnectBtn">
+              <i class="fa-solid fa-unlink"></i> Verbindung trennen
+            </button>
+          </div>
+
+          <div class="integration-meta">
+            <div><span>Letzter Test:</span> <strong id="mobileLastTest">–</strong></div>
+            <div><span>Letzter Sync:</span> <strong id="mobileLastSync">–</strong></div>
+          </div>
+
+          <div class="integration-message" id="mobileMessage" hidden></div>
+          <p class="integration-note" id="mobileNote">
+            Hinweis: Der API-Sync lädt nur Daten von Mobile.de. Änderungen werden nicht zurückgeschrieben.
+          </p>
         </div>
-  
+
       </div>
     </section>
   

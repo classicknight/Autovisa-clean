@@ -138,6 +138,26 @@ function sanitizeImpressumHTML(input = "") {
   return doc.body.innerHTML;
 }
 
+function isHaendlerRoleValue(roleRaw = "") {
+  const role = String(roleRaw || "").toLowerCase();
+  return (
+    role.includes("händ") ||
+    role.includes("haend") ||
+    role === "haendler" ||
+    role === "haendlerkonto"
+  );
+}
+
+function formatDateTimeShort(input) {
+  if (!input) return "–";
+  const d = new Date(input);
+  if (Number.isNaN(d.getTime())) return "–";
+  return d.toLocaleString("de-DE", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  });
+}
+
 // WICHTIG: gibt "" zurück wenn leer -> damit || Fallbacks funktionieren
 function formatEUR(value) {
   if (value == null || value === "") return "";
@@ -1154,285 +1174,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const carList = document.querySelector(".car-list");
   if (!carList) return;
 
-  // CSV-Import (Händler)
-  function setupDealerCsvImport() {
-    const fileEl = document.getElementById("dealerCsvFile");
-    const btnPreview = document.getElementById("dealerCsvPreview");
-    const btnImport = document.getElementById("dealerCsvImport");
-    const statusEl = document.getElementById("dealerCsvStatus");
-    const summaryEl = document.getElementById("dealerCsvSummary");
-    const errorsEl = document.getElementById("dealerCsvErrors");
-    const warningsEl = document.getElementById("dealerCsvWarnings");
-
-    if (!fileEl || !btnPreview || !btnImport) return;
-
-    const MAX_CSV_SIZE = 8 * 1024 * 1024;
-    const ALLOWED_EXT = [".csv"];
-    const ALLOWED_TYPES = [
-      "text/csv",
-      "application/vnd.ms-excel"
-    ];
-
-    let lastFile = null;
-    let lastPreviewOk = false;
-
-    const setStatus = (msg = "") => {
-      if (statusEl) statusEl.textContent = msg;
-    };
-
-    const clearSummary = () => {
-      if (!summaryEl) return;
-      summaryEl.classList.remove("is-visible");
-      summaryEl.innerHTML = "";
-    };
-
-    const clearErrors = () => {
-      if (!errorsEl) return;
-      errorsEl.classList.remove("is-visible");
-      errorsEl.innerHTML = "";
-    };
-
-    const clearWarnings = () => {
-      if (!warningsEl) return;
-      warningsEl.classList.remove("is-visible");
-      warningsEl.innerHTML = "";
-    };
-
-    const renderSummary = (s) => {
-      if (!summaryEl) return;
-      if (!s) {
-        clearSummary();
-        return;
-      }
-      summaryEl.classList.add("is-visible");
-      const delim = s?.delimiter === ";" ? "Semikolon" : (s?.delimiter === "\t" ? "Tab" : "Komma");
-      const format = s?.format ? String(s.format).toUpperCase() : "";
-      summaryEl.innerHTML =
-        `Neu: <b>${s?.newCount ?? 0}</b> · ` +
-        `Updates: <b>${s?.updateCount ?? 0}</b> · ` +
-        `Fehler: <b>${s?.errorCount ?? 0}</b> · ` +
-        `Zeilen: <b>${s?.total ?? 0}</b>` +
-        `${format ? ` · Format: <b>${format}</b>` : ""}` +
-        `${s?.delimiter ? ` · Trennzeichen: <b>${delim}</b>` : ""}`;
-    };
-
-    const renderErrors = (errs = []) => {
-      if (!errorsEl) return;
-      if (!Array.isArray(errs) || errs.length === 0) {
-        clearErrors();
-        return;
-      }
-      const maxShown = 6;
-      const items = errs.slice(0, maxShown).map((e) => {
-        const row = escapeHTML(String(e?.row ?? "—"));
-        const msg = escapeHTML(String(e?.message ?? "Unbekannter Fehler"));
-        return `<li><b>Zeile ${row}</b>: ${msg}</li>`;
-      }).join("");
-      const more = errs.length > maxShown
-        ? `<div class="muted">… ${errs.length - maxShown} weitere Fehler (gekürzt)</div>`
-        : "";
-      errorsEl.classList.add("is-visible");
-      errorsEl.innerHTML = `
-        <div><b>Fehler in der CSV</b></div>
-        <ul>${items}</ul>
-        ${more}
-      `;
-    };
-
-    const renderWarnings = (warns = []) => {
-      if (!warningsEl) return;
-      if (!Array.isArray(warns) || warns.length === 0) {
-        clearWarnings();
-        return;
-      }
-      const maxShown = 6;
-      const items = warns.slice(0, maxShown).map((e) => {
-        const row = escapeHTML(String(e?.row ?? "—"));
-        const msg = escapeHTML(String(e?.message ?? "Unbekannte Warnung"));
-        return `<li><b>Zeile ${row}</b>: ${msg}</li>`;
-      }).join("");
-      const more = warns.length > maxShown
-        ? `<div class="muted">… ${warns.length - maxShown} weitere Warnungen (gekürzt)</div>`
-        : "";
-      warningsEl.classList.add("is-visible");
-      warningsEl.innerHTML = `
-        <div><b>Warnungen (Felder wurden übersprungen)</b></div>
-        <ul>${items}</ul>
-        ${more}
-      `;
-    };
-
-    const validateFile = (file) => {
-      if (!file) return { ok: false, message: "Bitte zuerst eine CSV auswählen." };
-      const name = String(file.name || "");
-      const dot = name.lastIndexOf(".");
-      const ext = dot >= 0 ? name.slice(dot).toLowerCase() : "";
-      const type = String(file.type || "");
-      const extOk = ALLOWED_EXT.includes(ext);
-      const typeOk = !type || ALLOWED_TYPES.includes(type);
-      if (!extOk && !typeOk) {
-        return { ok: false, message: "Bitte eine mobile.de CSV-Datei hochladen." };
-      }
-      if (file.size > MAX_CSV_SIZE) {
-        return { ok: false, message: "Datei ist zu groß (max. 8 MB)." };
-      }
-      return { ok: true };
-    };
-
-    const redirectToLogin = () => {
-      try {
-        localStorage.setItem("redirectAfterLogin", `übersicht.html${location.hash || ""}`);
-      } catch {}
-      window.location.href = "login.html";
-    };
-
-    const handleResponse = async (res, label) => {
-      if (res.status === 401 || res.status === 403) {
-        redirectToLogin();
-        throw new Error("Bitte einloggen.");
-      }
-      const text = await res.text().catch(() => "");
-      if (!res.ok) {
-        let hint = text?.trim() || res.statusText || "Unbekannter Fehler";
-        if (res.status === 413) hint = "Datei ist zu groß (max. 8 MB).";
-        throw new Error(`${label} fehlgeschlagen (${res.status}): ${hint}`);
-      }
-      if (!text) return {};
-      try {
-        return JSON.parse(text);
-      } catch {
-        throw new Error("Unerwartete Serverantwort.");
-      }
-    };
-
-    async function callPreview(file) {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/haendler/import/preview", {
-        method: "POST",
-        body: fd,
-        credentials: "include"
-      });
-      return handleResponse(res, "Vorschau");
-    }
-
-    async function callCommit(file) {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/haendler/import/commit", {
-        method: "POST",
-        body: fd,
-        credentials: "include"
-      });
-      return handleResponse(res, "Import");
-    }
-
-    fileEl.addEventListener("change", () => {
-      const file = fileEl.files && fileEl.files[0];
-      lastFile = file || null;
-      lastPreviewOk = false;
-      btnImport.disabled = true;
-      clearSummary();
-      clearErrors();
-      clearWarnings();
-
-      if (!file) {
-        setStatus("Keine Datei ausgewählt.");
-        return;
-      }
-      const v = validateFile(file);
-      if (!v.ok) {
-        setStatus(v.message);
-        return;
-      }
-      const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
-      setStatus(`Datei gewählt: ${file.name} (${sizeMb} MB)`);
-    });
-
-    btnPreview.addEventListener("click", async () => {
-      const file = fileEl.files && fileEl.files[0];
-      const v = validateFile(file);
-      if (!v.ok) { setStatus(v.message); return; }
-
-      btnPreview.disabled = true;
-      btnImport.disabled = true;
-      lastPreviewOk = false;
-      lastFile = file;
-
-      setStatus("Vorschau wird geladen…");
-      try {
-        const data = await callPreview(file);
-        const summary = data?.summary || null;
-        const errors = Array.isArray(data?.errors) ? data.errors : [];
-        const warnings = Array.isArray(data?.warnings) ? data.warnings : [];
-        renderSummary(summary);
-        renderErrors(errors);
-        renderWarnings(warnings);
-
-        const total = Number(summary?.total || 0);
-        const valid = Number(summary?.newCount || 0) + Number(summary?.updateCount || 0);
-
-        if (total === 0) {
-          lastPreviewOk = false;
-          btnImport.disabled = true;
-          setStatus("Keine Daten gefunden. Prüfe, ob die CSV eine Header-Zeile hat.");
-          return;
-        }
-        if (valid === 0) {
-          lastPreviewOk = false;
-          btnImport.disabled = true;
-          setStatus("Keine gültigen Zeilen gefunden. Bitte CSV prüfen.");
-          return;
-        }
-
-        lastPreviewOk = true;
-        btnImport.disabled = false;
-        setStatus(errors.length ? `Vorschau geladen (${errors.length} Fehler).` : "Vorschau geladen. Prüfen und dann Import starten.");
-      } catch (err) {
-        renderSummary(null);
-        renderErrors([]);
-        renderWarnings([]);
-        setStatus(err.message || "Vorschau fehlgeschlagen.");
-      } finally {
-        btnPreview.disabled = false;
-      }
-    });
-
-    btnImport.addEventListener("click", async () => {
-      const currentFile = fileEl.files && fileEl.files[0];
-      if (!currentFile) {
-        setStatus("Bitte zuerst eine CSV auswählen.");
-        return;
-      }
-      if (lastFile && lastFile !== currentFile) {
-        setStatus("Datei wurde geändert. Bitte Vorschau erneut laden.");
-        return;
-      }
-      if (!lastFile || !lastPreviewOk) {
-        setStatus("Bitte zuerst eine Vorschau laden.");
-        return;
-      }
-      const v = validateFile(currentFile);
-      if (!v.ok) { setStatus(v.message); return; }
-
-      btnImport.disabled = true;
-      btnPreview.disabled = true;
-      setStatus("Import läuft…");
-
-      try {
-        const result = await callCommit(lastFile);
-        setStatus(`Import fertig: Neu ${result.created}, Updates ${result.updated}, Fehler ${result.failed}.`);
-        // Nach Import einmal neu laden, damit neue Inserate erscheinen
-        setTimeout(() => location.reload(), 1200);
-      } catch (err) {
-        setStatus(err.message || "Import fehlgeschlagen.");
-      } finally {
-        btnPreview.disabled = false;
-      }
-    });
-  }
-
-  setupDealerCsvImport();
+  
 
   const actionModal = document.getElementById("listingActionModal");
   const markSoldBtn = document.getElementById("markSoldBtn");
@@ -1784,12 +1526,8 @@ function renderProfileSection(nutzerData, drafts, online) {
   const section = document.querySelector(".profile-section");
   if (!section || !nutzerData) return;
 
-    const roleRaw = (nutzerData.role || nutzerData.rolle || "privat").toLowerCase();
-    const isHaendler =
-      roleRaw.includes("händ") ||
-      roleRaw.includes("haend") ||
-      roleRaw === "haendler" ||
-      roleRaw === "haendlerkonto";
+    const roleRaw = nutzerData.role || nutzerData.rolle || "privat";
+    const isHaendler = isHaendlerRoleValue(roleRaw);
 
     section.classList.toggle("profile--haendler", isHaendler);
     section.classList.toggle("profile--privat", !isHaendler);
@@ -2047,6 +1785,209 @@ function renderProfileSection(nutzerData, drafts, online) {
     if (draftsEl) draftsEl.textContent = String(draftCount);
     if (totalEl)  totalEl.textContent  = String(totalCount);
   }
+
+function setupMobileIntegration(nutzerData) {
+  const root = document.getElementById("mobileIntegration");
+  if (!root || root.dataset.bound === "1") return;
+  root.dataset.bound = "1";
+
+  const usernameInput = root.querySelector("#mobileUsername");
+  const passwordInput = root.querySelector("#mobilePassword");
+  const sellerIdInput = root.querySelector("#mobileSellerId");
+  const togglePwBtn = root.querySelector("#mobileTogglePw");
+  const saveBtn = root.querySelector("#mobileSaveBtn");
+  const testBtn = root.querySelector("#mobileTestBtn");
+  const syncBtn = root.querySelector("#mobileSyncBtn");
+  const disconnectBtn = root.querySelector("#mobileDisconnectBtn");
+  const statusBadge = root.querySelector("#mobileStatusBadge");
+  const messageEl = root.querySelector("#mobileMessage");
+  const lastTestEl = root.querySelector("#mobileLastTest");
+  const lastSyncEl = root.querySelector("#mobileLastSync");
+  const usernameHintEl = root.querySelector("#mobileUsernameHint");
+  const passwordHintEl = root.querySelector("#mobilePasswordHint");
+  const noteEl = root.querySelector("#mobileNote");
+
+  const isHaendler = isHaendlerRoleValue(nutzerData?.role || nutzerData?.rolle || "");
+  if (noteEl && !isHaendler) {
+    noteEl.textContent =
+      "Hinweis: Die Mobile.de API ist in der Regel für Händlerkonten gedacht. " +
+      "Du kannst die Verbindung trotzdem vorbereiten.";
+  }
+
+  const setStatus = (state, label) => {
+    if (!statusBadge) return;
+    statusBadge.dataset.status = state;
+    statusBadge.textContent = label;
+  };
+
+  const showMessage = (text, type = "info") => {
+    if (!messageEl) return;
+    messageEl.textContent = text;
+    messageEl.classList.remove("is-success", "is-error", "is-info");
+    messageEl.classList.add(`is-${type}`);
+    messageEl.hidden = false;
+  };
+
+  const clearMessage = () => {
+    if (!messageEl) return;
+    messageEl.hidden = true;
+    messageEl.textContent = "";
+    messageEl.classList.remove("is-success", "is-error", "is-info");
+  };
+
+  const apiCall = async (url, options = {}) => {
+    const opts = { credentials: "include", ...options };
+    const headers = { ...(opts.headers || {}) };
+    if (opts.body && !headers["Content-Type"]) {
+      headers["Content-Type"] = "application/json";
+    }
+    opts.headers = headers;
+
+    const res = await fetch(url, opts);
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+    return { ok: res.ok, data, status: res.status };
+  };
+
+  const applyStatus = (data = {}) => {
+    const connected = Boolean(data.connected);
+    setStatus(connected ? "connected" : "disconnected", connected ? "Verbunden" : "Nicht verbunden");
+
+    if (usernameHintEl) {
+      usernameHintEl.textContent = data.usernameMasked ? `Gespeichert: ${data.usernameMasked}` : "";
+    }
+
+    if (passwordHintEl) {
+      passwordHintEl.textContent = data.hasPassword
+        ? "Passwort ist gespeichert."
+        : "Passwort noch nicht gespeichert.";
+    }
+
+    if (sellerIdInput) {
+      sellerIdInput.value = data.sellerId || "";
+    }
+
+    if (lastTestEl) lastTestEl.textContent = formatDateTimeShort(data.lastTestAt);
+    if (lastSyncEl) lastSyncEl.textContent = formatDateTimeShort(data.lastSyncAt);
+
+    if (testBtn) testBtn.disabled = !connected;
+    if (syncBtn) syncBtn.disabled = !connected;
+    if (disconnectBtn) {
+      disconnectBtn.disabled = !data.usernameMasked && !data.hasPassword && !data.sellerId;
+    }
+  };
+
+  const loadStatus = async () => {
+    setStatus("pending", "Lade...");
+    const { ok, data } = await apiCall("/api/mobile-de/status");
+    if (!ok) {
+      setStatus("disconnected", "Nicht verbunden");
+      showMessage(data?.error || "Status konnte nicht geladen werden.", "error");
+      return;
+    }
+    applyStatus(data || {});
+  };
+
+  togglePwBtn?.addEventListener("click", () => {
+    if (!passwordInput) return;
+    const isHidden = passwordInput.type === "password";
+    passwordInput.type = isHidden ? "text" : "password";
+    togglePwBtn.textContent = isHidden ? "Verbergen" : "Anzeigen";
+  });
+
+  saveBtn?.addEventListener("click", async () => {
+    clearMessage();
+    const payload = {};
+    const username = usernameInput?.value.trim() || "";
+    const password = passwordInput?.value.trim() || "";
+    const sellerId = sellerIdInput?.value.trim() || "";
+
+    if (username) payload.username = username;
+    if (password) payload.password = password;
+    payload.sellerId = sellerId;
+
+    if (!payload.username && !payload.password && !payload.sellerId) {
+      showMessage("Bitte mindestens ein Feld ausfüllen.", "error");
+      return;
+    }
+
+    if (saveBtn) saveBtn.disabled = true;
+    const { ok, data } = await apiCall("/api/mobile-de/credentials", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    if (saveBtn) saveBtn.disabled = false;
+
+    if (!ok) {
+      showMessage(data?.error || "Speichern fehlgeschlagen.", "error");
+      return;
+    }
+
+    if (passwordInput) passwordInput.value = "";
+    showMessage("Zugangsdaten gespeichert.", "success");
+    await loadStatus();
+  });
+
+  testBtn?.addEventListener("click", async () => {
+    clearMessage();
+    if (testBtn) testBtn.disabled = true;
+    const { ok, data } = await apiCall("/api/mobile-de/test", { method: "POST" });
+    if (testBtn) testBtn.disabled = false;
+
+    if (!ok) {
+      showMessage(data?.error || "Test fehlgeschlagen.", "error");
+      return;
+    }
+
+    showMessage(data?.message || "Test abgeschlossen.", "info");
+    await loadStatus();
+  });
+
+  syncBtn?.addEventListener("click", async () => {
+    clearMessage();
+    if (syncBtn) syncBtn.disabled = true;
+    const { ok, data } = await apiCall("/api/mobile-de/sync", { method: "POST" });
+    if (syncBtn) syncBtn.disabled = false;
+
+    if (!ok) {
+      showMessage(data?.error || "Sync fehlgeschlagen.", "error");
+      return;
+    }
+
+    const msg = data?.message || "Sync ist vorbereitet.";
+    showMessage(msg, data?.ok ? "success" : "info");
+    await loadStatus();
+  });
+
+  disconnectBtn?.addEventListener("click", async () => {
+    clearMessage();
+    const confirmText =
+      "Möchtest du die Mobile.de Verbindung wirklich trennen? " +
+      "Die Zugangsdaten werden gelöscht.";
+    if (!confirm(confirmText)) return;
+
+    if (disconnectBtn) disconnectBtn.disabled = true;
+    const { ok, data } = await apiCall("/api/mobile-de/credentials", { method: "DELETE" });
+    if (disconnectBtn) disconnectBtn.disabled = false;
+
+    if (!ok) {
+      showMessage(data?.error || "Verbindung konnte nicht getrennt werden.", "error");
+      return;
+    }
+
+    if (usernameInput) usernameInput.value = "";
+    if (passwordInput) passwordInput.value = "";
+    if (sellerIdInput) sellerIdInput.value = "";
+    showMessage("Verbindung entfernt.", "success");
+    await loadStatus();
+  });
+
+  loadStatus();
+}
 // Builder (Edit-State) – vollständig korrigiert
 function buildFahrzeugdatenFromInserat(ins) {
   const marke    = ins?.marke || ins?.verkauf_marke || "";
@@ -2230,6 +2171,7 @@ function buildFahrzeugdatenFromInserat(ins) {
     const onlineAll = await onlineRes.json();
 
     renderProfileSection(nutzerData, drafts, onlineAll);
+    setupMobileIntegration(nutzerData);
     ladeHändlerBewertung(nutzerData.nutzerId);
     ladeBewertungen(nutzerData.nutzerId);
 

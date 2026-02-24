@@ -15,7 +15,6 @@ const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
 const cloudinary = require("cloudinary").v2;
 const crypto = require("crypto");
-const { parse } = require("csv-parse/sync"); // ✅ NEU: CSV Parser (Preview/Import)
 
 
 /* =========================
@@ -57,6 +56,47 @@ function decodeSession(token) {
   } catch {
     return null;
   }
+}
+
+/* =========================
+   Mobile.de Credentials (AES-GCM)
+========================= */
+const MOBILE_API_SECRET = process.env.MOBILE_API_SECRET || "";
+const MOBILE_API_KEY = MOBILE_API_SECRET
+  ? crypto.createHash("sha256").update(MOBILE_API_SECRET).digest()
+  : null;
+if (!MOBILE_API_SECRET) {
+  console.warn("⚠️ MOBILE_API_SECRET fehlt – Mobile.de Credentials können nicht gespeichert werden.");
+}
+
+function encryptMobileValue(value) {
+  if (!MOBILE_API_KEY) throw new Error("MOBILE_API_SECRET fehlt");
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", MOBILE_API_KEY, iv);
+  const enc = Buffer.concat([cipher.update(String(value || ""), "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `${iv.toString("base64")}.${tag.toString("base64")}.${enc.toString("base64")}`;
+}
+
+function decryptMobileValue(payload) {
+  if (!MOBILE_API_KEY) throw new Error("MOBILE_API_SECRET fehlt");
+  if (!payload) return "";
+  const [ivB64, tagB64, dataB64] = String(payload).split(".");
+  if (!ivB64 || !tagB64 || !dataB64) return "";
+  const iv = Buffer.from(ivB64, "base64");
+  const tag = Buffer.from(tagB64, "base64");
+  const data = Buffer.from(dataB64, "base64");
+  const decipher = crypto.createDecipheriv("aes-256-gcm", MOBILE_API_KEY, iv);
+  decipher.setAuthTag(tag);
+  const dec = Buffer.concat([decipher.update(data), decipher.final()]);
+  return dec.toString("utf8");
+}
+
+function maskCredential(value) {
+  const s = String(value || "");
+  if (!s) return "";
+  if (s.length <= 4) return "*".repeat(s.length);
+  return `${s.slice(0, 2)}***${s.slice(-2)}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -276,6 +316,10 @@ client.connect()
       { userId: 1, fahrzeugId: 1 },
       { unique: true }
     );
+    await db.collection("mobileCredentials").createIndex(
+      { userId: 1 },
+      { unique: true }
+    );
     await db.collection("inserate").createIndex(
       { sellerId: 1, stockNumber: 1 },
       { unique: true }
@@ -387,1916 +431,6 @@ async function uploadFileToCloudinary(filePath, { folder, resource_type }) {
   return cloudinary.uploader.upload(filePath, options);
 }
 
-
-/* =========================
-   Händler CSV Import (Preview + Commit)
-   - upload: memory (kein TMP)
-   - upsert: (sellerId, stockNumber) -> keine Duplikate
-========================= */
-
-// Multer: CSV in Memory
-const uploadCsv = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024 } // 8MB
-});
-
-// Guard: DB ready
-function requireDb(req, res, next) {
-  if (!db) return res.status(503).send("DB noch nicht bereit. Bitte erneut versuchen.");
-  next();
-}
-
-// Nur Händler/Admin
-function requireDealer(req, res, next) {
-  if (!req.user) return res.status(401).send("Nicht eingeloggt");
-  const role = String(req.user.role || "").toLowerCase();
-  if (role !== "haendler" && role !== "admin") {
-    return res.status(403).send("Nur Händlerzugriff");
-  }
-  next();
-}
-
-function guessDelimiter(text) {
-  const firstLine = (text.split(/\r?\n/)[0] || "");
-  const semis = (firstLine.match(/;/g) || []).length;
-  const commas = (firstLine.match(/,/g) || []).length;
-  const tabs = (firstLine.match(/\t/g) || []).length;
-  if (tabs > semis && tabs > commas) return "\t";
-  return semis >= commas ? ";" : ",";
-}
-
-const HEADER_ALIASES = {
-  // IDs
-  stocknumber: "stock_number",
-  stockno: "stock_number",
-  stocknr: "stock_number",
-  stock_num: "stock_number",
-  stocknummer: "stock_number",
-  vin: "vin",
-  fin: "vin",
-  fahrgestellnummer: "vin",
-  fahrgestell_nr: "vin",
-  fahrgestellnr: "vin",
-  fahrgestell_id: "vin",
-  fahrgestellid: "vin",
-  // KBA / Schlüsselnummer
-  hsn: "hsn",
-  tsn: "tsn",
-  kba: "kba",
-  kba_schluessel: "kba",
-  kba_schluesselnummer: "kba",
-  schluesselnummer: "kba",
-  schluessel_nr: "kba",
-  schluesselnr: "kba",
-  schluesselnummer_hsn_tsn: "kba",
-  hsn_tsn: "kba",
-  vehicleid: "stock_number",
-  vehicle_id: "stock_number",
-  listingid: "stock_number",
-  listing_id: "stock_number",
-  advertid: "stock_number",
-  advert_id: "stock_number",
-  inseratid: "stock_number",
-  inserat_id: "stock_number",
-  kundennummer: "customer_number",
-  customer_number: "customer_number",
-  customer_no: "customer_number",
-  customerid: "customer_number",
-  customer_id: "customer_number",
-  internal_number: "stock_number",
-  internalnumber: "stock_number",
-  interne_nummer: "interne_nummer",
-  interne_nr: "interne_nummer",
-  intern_nr: "interne_nummer",
-  inventory_number: "stock_number",
-  inventoryno: "stock_number",
-  inventory_nr: "stock_number",
-  fahrzeugnummer: "stock_number",
-  fahrzeug_nr: "stock_number",
-  fahrzeugnr: "stock_number",
-  fahrzeug_id: "stock_number",
-  fahrzeugid: "stock_number",
-  artikelnummer: "stock_number",
-  artikel_nr: "stock_number",
-  stock_id: "stock_number",
-  stockid: "stock_number",
-  // Title
-  title: "title",
-  titel: "title",
-  bezeichnung: "title",
-  fahrzeugtitel: "title",
-  modellbezeichnung: "title",
-  verkauf_titel: "title",
-  remark: "description",
-  bemerkung: "description",
-  descriptiontext: "description",
-  // Make / Model / Variant
-  marke: "make",
-  hersteller: "make",
-  brand: "make",
-  make: "make",
-  manufacturer: "make",
-  verkauf_marke: "make",
-  modell: "model",
-  model: "model",
-  baureihe: "model",
-  serie: "model",
-  series: "model",
-  verkauf_modell: "model",
-  kategorie: "category",
-  category: "category",
-  fahrzeugart: "vehicle_type",
-  vehiclecategory: "category",
-  variante: "variant",
-  variant: "variant",
-  ausstattung_variante: "variant",
-  modellvariante: "variant",
-  trim: "variant",
-  version: "variant",
-  verkauf_variante: "variant",
-  verkauf_ausstattung_variante: "variant",
-  // Price
-  priceeur: "price_eur",
-  preis_eur: "price_eur",
-  preiseuro: "price_eur",
-  price: "price_eur",
-  preis: "price_eur",
-  verkaufspreis: "price_eur",
-  verkauf_preis: "price_eur",
-  bruttopreis: "price_gross",
-  brutto_preis: "price_gross",
-  gross_price: "price_gross",
-  grossprice: "price_gross",
-  price_gross: "price_gross",
-  price_gross_eur: "price_gross",
-  price_gross_text: "price_gross",
-  verkauf_brutto: "price_gross",
-  nettopreis: "price_net",
-  netto_preis: "price_net",
-  net_price: "price_net",
-  netprice: "price_net",
-  price_net: "price_net",
-  price_net_eur: "price_net",
-  price_net_text: "price_net",
-  verkauf_netto: "price_net",
-  // Mileage
-  mileagekm: "mileage_km",
-  mileage: "mileage_km",
-  kilometer: "mileage_km",
-  kilometerstand: "mileage_km",
-  laufleistung: "mileage_km",
-  km: "mileage_km",
-  kilometre: "mileage_km",
-  kilometres: "mileage_km",
-  mileage_km: "mileage_km",
-  verkauf_kilometer: "mileage_km",
-  // First registration
-  firstregistration: "first_registration",
-  first_registration: "first_registration",
-  reg_date: "first_registration",
-  regdate: "first_registration",
-  registration_date: "first_registration",
-  registrationdate: "first_registration",
-  erstzulassung: "first_registration",
-  zulassung: "first_registration",
-  ez: "first_registration",
-  verkauf_erstzulassung: "first_registration",
-  verkauf_ez_monat: "reg_month",
-  verkauf_ez_jahr: "reg_year",
-  ez_monat: "reg_month",
-  ez_mon: "reg_month",
-  zulassungsmonat: "reg_month",
-  reg_month: "reg_month",
-  ez_jahr: "reg_year",
-  ez_year: "reg_year",
-  zulassungsjahr: "reg_year",
-  reg_year: "reg_year",
-  baujahr: "reg_year",
-  // Specs
-  kraftstoff: "fuel",
-  fuel: "fuel",
-  fuel_type: "fuel",
-  fuel_category: "fuel",
-  fuel_category_text: "fuel",
-  fuel_type_text: "fuel",
-  verkauf_kraftstoff: "fuel",
-  getriebe: "gearbox",
-  transmission: "gearbox",
-  gearbox: "gearbox",
-  verkauf_getriebe: "gearbox",
-  leistung: "power_ps",
-  leistung_ps: "power_ps",
-  ps: "power_ps",
-  power_ps: "power_ps",
-  verkauf_leistung: "power_ps",
-  performance: "power_kw",
-  leistung_kw: "power_kw",
-  kw: "power_kw",
-  power_kw: "power_kw",
-  verkauf_leistung_kw: "power_kw",
-  hubraum: "displacement_ccm",
-  ccm: "displacement_ccm",
-  displacement: "displacement_ccm",
-  verkauf_hubraum: "displacement_ccm",
-  tueren: "doors",
-  türen: "doors",
-  doors: "doors",
-  verkauf_tueren: "doors",
-  sitze: "seats",
-  seats: "seats",
-  verkauf_sitze: "seats",
-  // Colors
-  farbe: "color",
-  color: "color",
-  colour: "color",
-  verkauf_farbe: "color",
-  aussenfarbe: "exterior_color",
-  außenfarbe: "exterior_color",
-  exterior_color: "exterior_color",
-  verkauf_aussenfarbe: "exterior_color",
-  innenfarbe: "interior_color",
-  interior_color: "interior_color",
-  verkauf_innenfarbe: "interior_color",
-  innenmaterial: "interior_material",
-  sitzmaterial: "interior_material",
-  interior_material: "interior_material",
-  verkauf_innenmaterial: "interior_material",
-  karosseriefarbe: "body_color",
-  body_color: "body_color",
-  verkauf_karosseriefarbe: "body_color",
-  // Type / Body
-  fahrzeugtyp: "vehicle_type",
-  vehicle_type: "vehicle_type",
-  karosserie: "vehicle_type",
-  karosserieform: "vehicle_type",
-  body_type: "vehicle_type",
-  verkauf_fahrzeugtyp: "vehicle_type",
-  // Description / Equipment
-  beschreibung: "description",
-  description: "description",
-  text: "description",
-  verkauf_beschreibung: "description",
-  kurzbeschreibung: "short_description",
-  short_description: "short_description",
-  teaser: "short_description",
-  verkauf_kurzbeschreibung: "short_description",
-  ausstattung: "equipment",
-  equipment: "equipment",
-  features: "equipment",
-  extras: "equipment",
-  options: "equipment",
-  verkauf_ausstattung: "equipment",
-  // Accident / VAT
-  unfallfrei: "accident_free",
-  accident_free: "accident_free",
-  verkauf_unfallfrei: "accident_free",
-  unfall: "accident_history",
-  unfallhistorie: "accident_history",
-  accident_history: "accident_history",
-  verkauf_unfall: "accident_history",
-  verkauf_unfallhistorie: "accident_history",
-  damaged_vehicle: "beschaedigt",
-  beschaedigt: "beschaedigt",
-  beschaedigt_fahrzeug: "beschaedigt",
-  oldtimer: "classic_vehicle",
-  classic_vehicle: "classic_vehicle",
-  mwst: "vat",
-  ust: "vat",
-  vat: "vat",
-  tax: "vat",
-  verkauf_mwst: "vat",
-  mwstsatz: "vat_rate",
-  vat_rate: "vat_rate",
-  // Emissions / consumption
-  emissionsklasse: "emission_class",
-  emission_class: "emission_class",
-  verkauf_emissionsklasse: "emission_class",
-  schadstoffklasse: "pollution_class",
-  verkauf_schadstoffklasse: "pollution_class",
-  umweltplakette: "environmental_badge",
-  environmental_badge: "environmental_badge",
-  verkauf_umweltplakette: "environmental_badge",
-  co2: "co2_emission",
-  co2_emission: "co2_emission",
-  co2emission: "co2_emission",
-  verkauf_co2_emission: "co2_emission",
-  co2_klasse: "co2_class",
-  co2klasse: "co2_class",
-  verkauf_co2_klasse: "co2_class",
-  verbrauch_kombiniert: "consumption_combined",
-  verbrauch: "consumption_combined",
-  wltp_kombiniert: "consumption_combined",
-  fuel_cons_text: "consumption_combined",
-  fuel_cons: "consumption_combined",
-  fuel_consumption: "consumption_combined",
-  verkauf_verbrauch_kombiniert: "consumption_combined",
-  verbrauch_innerorts: "consumption_city",
-  verkauf_verbrauch_innerorts: "consumption_city",
-  verbrauch_ausserorts: "consumption_highway",
-  verkauf_verbrauch_ausserorts: "consumption_highway",
-  // Drive / comfort
-  antrieb: "drivetrain",
-  antriebsart: "drivetrain",
-  drivetrain: "drivetrain",
-  verkauf_antrieb: "drivetrain",
-  klimatisierung: "climate",
-  klima: "climate",
-  ac: "climate",
-  aircondition: "climate",
-  verkauf_klimatisierung: "climate",
-  einparkhilfe: "parking_assist",
-  einparkhilfe_selbstlenkend: "parking_assist_self",
-  verkauf_einparkhilfe: "parking_assist",
-  verkauf_einparkhilfeselbstlenkend: "parking_assist_self",
-  scheinwerfer: "headlights",
-  verkauf_scheinwerfer: "headlights",
-  tagfahrlicht: "daytime_running_lights",
-  verkauf_tagfahrlicht: "daytime_running_lights",
-  kurvenlicht: "curve_light",
-  verkauf_kurvenlicht: "curve_light",
-  partikelfilter: "particulate_filter",
-  verkauf_partikelfilter: "particulate_filter",
-  metallic: "metallic",
-  verkauf_metallic: "metallic",
-  // Owners / HU
-  halter: "previous_owners",
-  anzahlhalter: "previous_owners",
-  verkauf_halter: "previous_owners",
-  owners_text: "previous_owners",
-  owners: "previous_owners",
-  owner_count: "previous_owners",
-  hu: "hu",
-  mot: "hu",
-  tuv: "hu",
-  tuev: "hu",
-  tüv: "hu",
-  verkauf_hu: "hu",
-  hu_bis: "hu_until",
-  tuv_bis: "hu_until",
-  tuev_bis: "hu_until",
-  tüv_bis: "hu_until",
-  verkauf_hu_bis: "hu_until",
-  // Location / Contact
-  standort: "location",
-  location: "location",
-  verkauf_standort: "location",
-  waehrung: "currency",
-  currency: "currency",
-  bild_id: "image_id",
-  image_id: "image_id",
-  dealer_price: "dealer_price",
-  haendlerpreis: "dealer_price",
-  our_recommendation: "recommendation",
-  empfehlung: "recommendation",
-  one_year_old_car: "one_year_old_car",
-  jahreswagen: "one_year_old_car",
-  new_car: "new_car",
-  neufahrzeug: "new_car",
-  vorfuehrwagen: "demo_car",
-  demo_car: "demo_car",
-  plz: "postal_code",
-  zip: "postal_code",
-  postal_code: "postal_code",
-  verkauf_plz: "postal_code",
-  ort: "city",
-  city: "city",
-  verkauf_ort: "city",
-  strasse: "street",
-  street: "street",
-  hausnummer: "street_no",
-  street_no: "street_no",
-  telefon: "phone",
-  phone: "phone",
-  verkauf_telefon: "phone",
-  // Media
-  image_urls: "image_urls",
-  image_url: "image_urls",
-  imageurl: "image_urls",
-  images: "image_urls",
-  bilder: "image_urls",
-  bild: "image_urls",
-  video_url: "video_url",
-  videourl: "video_url",
-  videolink: "video_url",
-  video: "video_url"
-};
-
-function normalizeHeaderKey(header, index) {
-  const raw = String(header || "").replace(/^\uFEFF/, "").trim();
-  if (!raw) return `col_${index + 1}`;
-  const normalized = raw
-    .toLowerCase()
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
-    .replace(/[\s\-]+/g, "_")
-    .replace(/[^\w]/g, "");
-  if (HEADER_ALIASES[normalized]) return HEADER_ALIASES[normalized];
-
-  // Heuristics für unbekannte Header
-  if (/(^|_)preis($|_)/.test(normalized) || normalized.includes("price")) {
-    if (normalized.includes("netto")) return "price_net";
-    if (normalized.includes("brutto") || normalized.includes("gross")) return "price_gross";
-    return "price_eur";
-  }
-  if (/(^|_)km($|_)/.test(normalized) || normalized.includes("kilometer") || normalized.includes("mileage")) {
-    return "mileage_km";
-  }
-  if (normalized.includes("erstzulassung") || normalized.includes("zulassung") || normalized === "ez") {
-    return "first_registration";
-  }
-  if (normalized.includes("marke") || normalized.includes("brand") || normalized.includes("make")) {
-    return "make";
-  }
-  if (normalized.includes("modell") || normalized.includes("model")) {
-    return "model";
-  }
-  if (normalized.includes("variante") || normalized.includes("trim") || normalized.includes("version")) {
-    return "variant";
-  }
-  if (normalized.includes("kraftstoff") || normalized.includes("fuel")) {
-    return "fuel";
-  }
-  if (normalized.includes("getriebe") || normalized.includes("gear")) {
-    return "gearbox";
-  }
-  if (normalized.includes("leistung") || normalized.includes("ps")) {
-    return normalized.includes("kw") ? "power_kw" : "power_ps";
-  }
-  if (normalized.includes("hubraum") || normalized.includes("ccm")) {
-    return "displacement_ccm";
-  }
-  if (normalized.includes("tueren") || normalized.includes("turen") || normalized.includes("doors")) {
-    return "doors";
-  }
-  if (normalized.includes("sitze") || normalized.includes("seats")) {
-    return "seats";
-  }
-  if (normalized.includes("aussenfarbe") || normalized.includes("außenfarbe") || normalized.includes("exterior")) {
-    return "exterior_color";
-  }
-  if (normalized.includes("innenfarbe") || normalized.includes("interior_color")) {
-    return "interior_color";
-  }
-  if (normalized.includes("innenmaterial") || normalized.includes("interior_material")) {
-    return "interior_material";
-  }
-  if (normalized.includes("karosserie") || normalized.includes("body")) {
-    return "vehicle_type";
-  }
-  if (normalized.includes("beschreibung") || normalized.includes("description")) {
-    return normalized.includes("kurz") ? "short_description" : "description";
-  }
-  if (normalized.includes("ausstattung") || normalized.includes("equipment") || normalized.includes("features")) {
-    return "equipment";
-  }
-  if (normalized.includes("unfallfrei") || normalized.includes("accidentfree")) {
-    return "accident_free";
-  }
-  if (normalized.includes("unfall")) {
-    return "accident_history";
-  }
-  if (normalized.includes("emission")) {
-    return "emission_class";
-  }
-  if (normalized.includes("schadstoff")) {
-    return "pollution_class";
-  }
-  if (normalized.includes("co2")) {
-    return normalized.includes("klasse") ? "co2_class" : "co2_emission";
-  }
-  if (normalized.includes("hsn")) return "hsn";
-  if (normalized.includes("tsn")) return "tsn";
-  if (normalized.includes("kba") || normalized.includes("schluessel")) return "kba";
-  if (normalized.includes("fahrgestell") || normalized.includes("vin") || normalized === "fin") {
-    return "vin";
-  }
-  if (normalized.includes("verbrauch")) {
-    if (normalized.includes("inner")) return "consumption_city";
-    if (normalized.includes("ausser") || normalized.includes("außer")) return "consumption_highway";
-    return "consumption_combined";
-  }
-  if (normalized.includes("antrieb") || normalized.includes("drivetrain")) {
-    return "drivetrain";
-  }
-  if (normalized.includes("klima")) {
-    return "climate";
-  }
-  if (normalized.includes("einpark")) {
-    return normalized.includes("selbst") ? "parking_assist_self" : "parking_assist";
-  }
-  if (normalized.includes("scheinwerfer")) {
-    return "headlights";
-  }
-  if (normalized.includes("tagfahr")) {
-    return "daytime_running_lights";
-  }
-  if (normalized.includes("kurvenlicht")) {
-    return "curve_light";
-  }
-  if (normalized.includes("umweltplakette")) {
-    return "environmental_badge";
-  }
-  if (normalized.includes("partikelfilter")) {
-    return "particulate_filter";
-  }
-  if (normalized.includes("metallic")) {
-    return "metallic";
-  }
-  if (normalized.includes("halter") || normalized.includes("owner")) {
-    return "previous_owners";
-  }
-  if (normalized.includes("tuv") || normalized.includes("tuev") || normalized.includes("tüv") || normalized === "hu") {
-    return normalized.includes("bis") ? "hu_until" : "hu";
-  }
-  if (normalized.includes("standort") || normalized.includes("location")) {
-    return "location";
-  }
-  if (normalized.includes("plz") || normalized.includes("postal") || normalized.includes("zip")) {
-    return "postal_code";
-  }
-  if (normalized === "ort" || normalized === "city") {
-    return "city";
-  }
-  if (normalized.includes("strasse") || normalized.includes("street")) {
-    return "street";
-  }
-  if (normalized.includes("hausnummer") || normalized.includes("street_no")) {
-    return "street_no";
-  }
-  if (normalized.includes("telefon") || normalized.includes("phone")) {
-    return "phone";
-  }
-
-  return normalized;
-}
-
-function normalizeHeaders(headers = []) {
-  return headers.map((h, i) => normalizeHeaderKey(h, i));
-}
-
-function normalizeRecordKeys(record = {}) {
-  const out = {};
-  if (!record || typeof record !== "object") return out;
-  Object.entries(record).forEach(([key, value]) => {
-    const nk = normalizeHeaderKey(key, 0);
-    if (out[nk] === undefined || out[nk] === null || out[nk] === "") {
-      out[nk] = value;
-    }
-  });
-  return out;
-}
-
-function unwrapRecord(record) {
-  if (!record || typeof record !== "object") return {};
-  let base = { ...record };
-  const candidates = ["vehicle", "listing", "inserat", "car", "data", "item", "record", "raw"];
-  candidates.forEach((key) => {
-    const val = record[key];
-    if (val && typeof val === "object" && !Array.isArray(val)) {
-      base = { ...val, ...base };
-    }
-  });
-  return base;
-}
-
-function normalizeRecord(record) {
-  return normalizeRecordKeys(unwrapRecord(record));
-}
-
-const EQUIPMENT_KEYS = new Set([
-  "abstandsregeltempomat","applecarplay","androidauto","frontscheibenheizung","heckklappe","led","multifunktion",
-  "navigation","sitzheizung","rueckfahrkamera","nichtraucher","scheckheft","garantie","mettalic","abs","esp","asr",
-  "berganfahrassistent","muedigkeitswarner","spurhalteassistent","totwinkelassistent","notbremsassistent","notrufsystem",
-  "verkehrszeichenerkennung","isofixhinten","isofixbeifahrer","scheinwerferreinigung","blendfreiesfernlicht",
-  "fernlichtassistent","innenspiegelabblendend","nachtsichtassistent","nebelscheinwerfer","lichtsensor","regensensor",
-  "alarmanlage","wegfahrsperre","keylesszv","zentralverriegelung","standheizung","frontscheibebeheizbar","lenkradbeheizbar",
-  "einparkhilfeselbstlenkend","kamerahinten","kamera360","sitzheizungvorne","sitzheizunghinten","sitzeelektrisch",
-  "sportsitze","armlehne","lordosenstuetze","massagesitze","sitzbelueftung","beifahrersitzumklappbar","elektrfensterheber",
-  "elektrspiegel","elektheckklappe","servolenkung","ambientebeleuchtung","lederlenkrad","radio","dab","cd","tv","navi",
-  "soundsystem","touchscreen","sprachsteuerung","multifunktionslenkrad","freisprecheinrichtung","usb","bluetooth","wlan",
-  "streaming","induktionsladen","bordcomputer","headup","volldigital","alufelgen","sommerreifen","winterreifen","allwetterreifen",
-  "reifendruckkontrolle","winterpaket","raucherpaket","sportpaket","sportfahrwerk","luftfederung","gepaeckabtrennung",
-  "skisack","schiebedach","panoramadach","dachreling","behindertengerecht","taxi","anhaengerkupplung","getoente_scheiben"
-]);
-
-const EQUIPMENT_ALIASES = {
-  navigationssystem: ["navigation","navi"],
-  navigation_system: ["navigation","navi"],
-  navi: ["navi"],
-  navigation: ["navigation"],
-  leichtmetallfelgen: ["alufelgen"],
-  alu_felgen: ["alufelgen"],
-  alu_felge: ["alufelgen"],
-  elektrische_fensterheber: ["elektrfensterheber"],
-  elektr_fensterheber: ["elektrfensterheber"],
-  fensterheber: ["elektrfensterheber"],
-  elektrische_spiegel: ["elektrspiegel"],
-  elektrisch_verstellbare_spiegel: ["elektrspiegel"],
-  schiebedach: ["schiebedach"],
-  panoramadach: ["panoramadach"],
-  dachreling: ["dachreling"],
-  zentralverriegelung: ["zentralverriegelung"],
-  wegfahrsperre: ["wegfahrsperre"],
-  standheizung: ["standheizung"],
-  garantie: ["garantie"],
-  scheckheftgepflegt: ["scheckheft"],
-  nichtraucherfahrzeug: ["nichtraucher"],
-  rueckfahrkamera: ["rueckfahrkamera"],
-  anhangerkupplung: ["anhaengerkupplung"],
-  anhaengerkupplung: ["anhaengerkupplung"],
-  getoente_scheiben: ["getoente_scheiben"],
-  scheiben_getoent: ["getoente_scheiben"],
-  tinted_windows: ["getoente_scheiben"],
-  privacy_glass: ["getoente_scheiben"]
-};
-
-function normalizeEquipmentKey(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/ä/g, "ae")
-    .replace(/ö/g, "oe")
-    .replace(/ü/g, "ue")
-    .replace(/ß/g, "ss")
-    .replace(/[\s\-]+/g, "_")
-    .replace(/[^\w]/g, "");
-}
-
-function isTruthyValue(v) {
-  if (v == null) return false;
-  if (typeof v === "boolean") return v;
-  const s = String(v).trim().toLowerCase();
-  if (!s) return false;
-  if (["1","true","ja","yes","y","x"].includes(s)) return true;
-  if (["0","false","nein","no","n"].includes(s)) return false;
-  const num = Number(s.replace(",", "."));
-  if (Number.isFinite(num)) return num > 0;
-  return false;
-}
-
-function buildEquipment(raw = {}) {
-  const keys = new Set();
-  const text = new Set();
-
-  EQUIPMENT_KEYS.forEach((k) => {
-    if (isTruthyValue(raw[k])) keys.add(k);
-  });
-
-  Object.entries(EQUIPMENT_ALIASES).forEach(([from, targets]) => {
-    if (!isTruthyValue(raw[from])) return;
-    (Array.isArray(targets) ? targets : [targets]).forEach((t) => {
-      if (t) keys.add(t);
-    });
-  });
-
-  const list = splitList(raw.equipment ?? raw.ausstattung ?? raw.features ?? raw.extras ?? raw.options);
-  list.forEach((item) => {
-    const norm = normalizeEquipmentKey(item);
-    if (EQUIPMENT_KEYS.has(norm)) keys.add(norm);
-    else if (item) text.add(String(item).trim());
-  });
-
-  return { keys: [...keys], text: [...text] };
-}
-
-function isMobileRecord(raw = {}) {
-  if (raw.__format === "mobile_csv") return true;
-  const markers = [
-    "customer_number","category","image_id","mwstsatz","dealer_price",
-    "our_recommendation","one_year_old_car","new_car","bemerkung","remark"
-  ];
-  return markers.some((k) => raw[k] != null && String(raw[k]).trim() !== "");
-}
-
-function parseClimateValue(value) {
-  if (value == null) return "";
-  const s = String(value).trim();
-  if (!s) return "";
-  const n = Number(s.replace(",", "."));
-  if (Number.isFinite(n)) {
-    if (n >= 2) return "Klimaautomatik";
-    if (n >= 1) return "Klimaanlage";
-    return "";
-  }
-  return s;
-}
-
-function detectConsumptionUnitFromFuel(fuelRaw) {
-  const f = fuelCanon(fuelRaw);
-  if (!f) return "l/100 km";
-  if (/(elektrisch|electric|bev|ev|strom)/.test(f)) return "kWh/100 km";
-  if (/(wasserstoff|hydrogen|h2|cng|erdgas)/.test(f)) return "kg/100 km";
-  return "l/100 km";
-}
-
-function detectConsumptionUnitFromText(textRaw) {
-  const s = String(textRaw || "").toLowerCase();
-  if (/\bkwh\b/.test(s) || /kw\s*\/\s*h/.test(s)) return "kWh/100 km";
-  if (/\bkg\b/.test(s)) return "kg/100 km";
-  if (/\b(l|liter)\b/.test(s)) return "l/100 km";
-  return "";
-}
-
-function consumptionHasInvalidLetters(textRaw) {
-  const s = String(textRaw || "").toLowerCase();
-  const cleaned = s
-    .replace(/[0-9.,\s\/\\\-]/g, "")
-    .replace(/kwh|kw|wh|liter|l|kg|km|pro|per|100/g, "");
-  return cleaned.trim().length > 0;
-}
-
-function parseConsumptionValue(raw, fuelRaw) {
-  if (raw == null) return { value: null, unit: "", valid: false };
-  const s = String(raw).trim();
-  if (!s) return { value: null, unit: "", valid: false };
-  if (consumptionHasInvalidLetters(s)) {
-    return { value: null, unit: "", valid: false, reason: "invalid_text" };
-  }
-  const n = toNumber(s);
-  if (n == null) return { value: null, unit: "", valid: false, reason: "no_number" };
-  const unitFromText = detectConsumptionUnitFromText(s);
-  const fuelUnit = detectConsumptionUnitFromFuel(fuelRaw);
-  const fcanon = fuelCanon(fuelRaw);
-  if (!unitFromText && !KNOWN_FUEL_CANON.has(fcanon || "")) {
-    return { value: null, unit: "", valid: false, reason: "unknown_fuel" };
-  }
-  const strictUnit =
-    fcanon === "elektrisch" ? "kWh/100 km" :
-    (fcanon === "wasserstoff" || fcanon === "cng") ? "kg/100 km" :
-    "";
-  if (unitFromText && strictUnit && unitFromText !== strictUnit) {
-    return { value: null, unit: "", valid: false, reason: "unit_mismatch" };
-  }
-  const unit = unitFromText || fuelUnit;
-  return { value: n, unit, valid: true };
-}
-
-function detectImportFormat(file, text) {
-  const name = String(file?.originalname || "").toLowerCase();
-  const mime = String(file?.mimetype || "").toLowerCase();
-  const trimmed = String(text || "").trim();
-
-  if (name.endsWith(".jsonl") || name.endsWith(".ndjson")) return "jsonl";
-  if (name.endsWith(".json")) return "json";
-
-  if (mime.includes("json")) {
-    if (trimmed.startsWith("[")) return "json";
-    if (trimmed.startsWith("{")) {
-      try {
-        JSON.parse(trimmed);
-        return "json";
-      } catch {
-        return "jsonl";
-      }
-    }
-  }
-
-  if (trimmed.startsWith("[")) return "json";
-  if (trimmed.startsWith("{")) {
-    const lines = trimmed.split(/\r?\n/).filter(Boolean);
-    if (lines.length > 1) return "jsonl";
-    return "json";
-  }
-
-  return "csv";
-}
-
-function decodeCsvBuffer(buffer) {
-  if (!buffer) return "";
-  const utf8 = buffer.toString("utf8");
-  if (!utf8.includes("\uFFFD")) return utf8;
-  // Fallback: mobile.de CSV ist ISO-8859-15 (latin1 ist näher als utf8)
-  return buffer.toString("latin1");
-}
-
-const MOBILE_DE_HEADERS = [
-  "kundennummer",                 // 0
-  "interne_nummer",               // 1
-  "kategorie",                    // 2
-  "marke",                        // 3
-  "modell",                       // 4
-  "leistung",                     // 5 (kW)
-  "hu",                           // 6
-  "reserved",                     // 7
-  "ez",                           // 8
-  "kilometer",                    // 9
-  "preis",                        // 10
-  "mwst",                         // 11
-  "reserved",                     // 12
-  "oldtimer",                     // 13
-  "vin",                          // 14
-  "beschaedigtes_fahrzeug",       // 15
-  "farbe",                        // 16
-  "klima",                        // 17
-  "taxi",                         // 18
-  "behindertengerecht",           // 19
-  "jahreswagen",                  // 20
-  "neufahrzeug",                  // 21
-  "unsere_empfehlung",            // 22
-  "haendlerpreis",                // 23
-  "reserved",                     // 24
-  "bemerkung",                    // 25
-  "bild_id",                      // 26
-  "metallic",                     // 27
-  "waehrung",                     // 28
-  "mwstsatz",                     // 29
-  "garantie",                     // 30
-  "leichtmetallfelgen",           // 31
-  "esp",                          // 32
-  "abs",                          // 33
-  "anhaengerkupplung",            // 34
-  "reserved",                     // 35
-  "wegfahrsperre",                // 36
-  "navigationssystem",            // 37
-  "schiebedach",                  // 38
-  "zentralverriegelung",          // 39
-  "fensterheber",                 // 40
-  "allradantrieb",                // 41
-  "tueren",                       // 42
-  "umweltplakette",               // 43
-  "servolenkung",                 // 44
-  "biodiesel",                    // 45
-  "scheckheftgepflegt",           // 46
-  "katalysator",                  // 47
-  "kickstarter",                  // 48
-  "estarter",                     // 49
-  "vorfuehrfahrzeug",             // 50
-  "antrieb",                      // 51
-  "ccm",                          // 52
-  "tragkraft",                    // 53
-  "nutzlast",                     // 54
-  "gesamtgewicht",                // 55
-  "hubhoehe",                     // 56
-  "bauhoehe",                     // 57
-  "baujahr",                      // 58
-  "betriebsstunden",              // 59
-  "sitze",                        // 60
-  "schadstoff",                   // 61
-  "kabinenart",                   // 62
-  "achsen",                       // 63
-  "tempomat",                     // 64
-  "standheizung",                 // 65
-  "kabine",                       // 66
-  "schutzdach",                   // 67
-  "vollverkleidung",              // 68
-  "komunal",                      // 69
-  "kran",                         // 70
-  "retarder_intarder",            // 71
-  "schlafplatz",                  // 72
-  "tv",                           // 73
-  "wc",                           // 74
-  "ladebordwand",                 // 75
-  "hydraulikanlage",              // 76
-  "schiebetuer",                  // 77
-  "radformel",                    // 78
-  "trennwand",                    // 79
-  "ebs",                          // 80
-  "vermietbar",                   // 81
-  "kompressor",                   // 82
-  "luftfederung",                 // 83
-  "scheibenbremse",               // 84
-  "fronthydraulik",               // 85
-  "bss",                          // 86
-  "schnellwechsel",               // 87
-  "zsa",                          // 88
-  "kueche",                       // 89
-  "kuehlbox",                     // 90
-  "schlafsitze",                  // 91
-  "frontheber",                   // 92
-  "sichtbar_nur_fuer_Haendler",   // 93
-  "reserviert",                   // 94
-  "envkv",                        // 95
-  "verbrauch_innerorts",          // 96
-  "verbrauch_ausserorts",         // 97
-  "verbrauch_kombiniert",         // 98
-  "emission",                     // 99
-  "xenonscheinwerfer",            // 100
-  "sitzheizung",                  // 101
-  "partikelfilter",               // 102
-  "einparkhilfe",                 // 103
-  "schwackecode",                 // 104
-  "lieferdatum",                  // 105
-  "lieferfrist",                  // 106
-  "ueberfuehrungskosten",         // 107
-  "hu/au_neu",                    // 108
-  "kraftstoffart",                // 109
-  "getriebeart",                  // 110
-  "exportfahrzeug",               // 111
-  "tageszulassung",               // 112
-  "blickfaenger",                 // 113
-  "hsn",                          // 114
-  "tsn",                          // 115
-  "seite_1_inserat",              // 116
-  "reserviert",                   // 117
-  "reserviert",                   // 118
-  "e10",                          // 119
-  "reserviert",                   // 120
-  "pflanzenoel",                  // 121
-  "scr",                          // 122
-  "koffer",                       // 123
-  "sturzbuegel",                  // 124
-  "scheibe",                      // 125
-  "standklima",                   // 126
-  "s-s-bereifung",                // 127
-  "strassenzulassung",            // 128
-  "etagenbett",                   // 129
-  "festbett",                     // 130
-  "heckgarage",                   // 131
-  "markise",                      // 132
-  "sep-dusche",                   // 133
-  "solaranlage",                  // 134
-  "mittelsitzgruppe",             // 135
-  "rundsitzgruppe",               // 136
-  "seitensitzgruppe",             // 137
-  "hagelschaden",                 // 138
-  "schlafplaetze",                // 139
-  "fahrzeuglaenge",               // 140
-  "fahrzeugbreite",               // 141
-  "fahrzeughoehe",                // 142
-  "laderaum-europalette",         // 143
-  "laderaum-volumen",             // 144
-  "laderaum-laenge",              // 145
-  "laderaum-breite",              // 146
-  "laderaum-hoehe",               // 147
-  "inserat_als_neu_markieren",    // 148
-  "effektiver_jahreszins",        // 149
-  "monatliche_rate",              // 150
-  "laufzeit",                     // 151
-  "anzahlung",                    // 152
-  "schlussrate",                  // 153
-  "finanzierungsfeature",         // 154
-  "interieurfarbe",               // 155
-  "interieurtyp",                 // 156
-  "airbag",                       // 157
-  "vorbesitzer",                  // 158
-  "top_inserat",                  // 159
-  "bruttokreditbetrag",           // 160
-  "abschlussgebuehren",           // 161
-  "ratenabsicherung",             // 162
-  "nettokreditbetrag",            // 163
-  "anbieterbank",                 // 164
-  "soll-zinssatz",                // 165
-  "art_des_soll-zinssatzes",      // 166
-  "landesversion",                // 167
-  "video-url",                    // 168
-  "energieeffizienzklasse",       // 169
-  "envkv_benzin_sorte",           // 170
-  "elektrische_seitenspiegel",    // 171
-  "sportfahrwerk",                // 172
-  "sportpaket",                   // 173
-  "bluetooth",                    // 174
-  "bordcomputer",                 // 175
-  "cd_spieler",                   // 176
-  "elektrische_sitzeinstellung",  // 177
-  "head-up_display",              // 178
-  "freisprecheinrichtung",        // 179
-  "mp3_schnittstelle",            // 180
-  "multifunktionslenkrad",        // 181
-  "skisack",                      // 182
-  "tuner_oder_radio",             // 183
-  "sportsitze",                   // 184
-  "panorama_dach",                // 185
-  "kindersitzbefestigung",        // 186
-  "kurvenlicht",                  // 187
-  "lichtsensor",                  // 188
-  "nebelscheinwerfer",            // 189
-  "tagfahrlicht",                 // 190
-  "traktionskontrolle",           // 191
-  "start_stop_automatik",         // 192
-  "regensensor",                  // 193
-  "nichtraucher_fahrzeug",        // 194
-  "dachreling",                   // 195
-  "unfallfahrzeug",               // 196
-  "fahrtauglich",                 // 197
-  "produktionsdatum",             // 198
-  "einparkhilfe_sensoren_vorne",  // 199
-  "einparkhilfe_sensoren_hinten", // 200
-  "einparkhilfe_kamera",          // 201
-  "einparkhilfe_selbstlenkendes_system", // 202
-  "reserviert",                   // 203
-  "rotstiftpreis",                // 204
-  "kleinanzeigen_export",         // 205
-  "plugin_hybrid",                // 206
-  "kombinierter_stromverbrauch",  // 207
-  "highlight_1",                  // 208
-  "highlight_2",                  // 209
-  "highlight_3",                  // 210
-  "bedingungen_finanzierungsvorschlag" // 211
-];
-
-const MOBILE_DE_FIELD_OVERRIDES = {
-  kundennummer: "customer_number",
-  leistung: "leistung_kw",
-  kraftstoffart: "kraftstoff",
-  getriebeart: "getriebe",
-  emission: "co2",
-  schadstoff: "schadstoffklasse",
-  "video-url": "video_url",
-  kombinierter_stromverbrauch: "consumption_combined"
-};
-
-const MOBILE_DE_COLUMN_COUNT = MOBILE_DE_HEADERS.length;
-
-function normalizeMobileHeaderToken(token = "") {
-  return String(token)
-    .trim()
-    .toLowerCase()
-    .replace(/^\"|\"$/g, "")
-    .replace(/\s+/g, "_");
-}
-
-function looksLikeMobileHeaderLine(lineOrRow = "") {
-  const parts = Array.isArray(lineOrRow)
-    ? lineOrRow.map(normalizeMobileHeaderToken)
-    : String(lineOrRow || "").split(";").map(normalizeMobileHeaderToken);
-  if (parts.length < 5) return false;
-  const expected = MOBILE_DE_HEADERS.slice(0, 5).map(normalizeMobileHeaderToken);
-  return expected.every((exp, idx) => parts[idx] === exp);
-}
-
-function isReservedMobileField(field = "") {
-  const f = String(field || "").toLowerCase().trim();
-  return f === "reserved" || f === "reserviert";
-}
-
-function mapMobileCsvRow(row = []) {
-  const obj = {};
-  row.forEach((val, idx) => {
-    const key = MOBILE_DE_HEADERS[idx];
-    if (!key || isReservedMobileField(key)) return;
-    const mappedKey = MOBILE_DE_FIELD_OVERRIDES[key] || key;
-    obj[mappedKey] = val;
-  });
-  obj.__raw_cols = row;
-  obj.__format = "mobile_csv";
-  return obj;
-}
-
-function parseImportRecords(file, text) {
-  const format = detectImportFormat(file, text);
-  if (format !== "csv") {
-    throw new Error("Nur mobile.de CSV-Dateien werden unterstützt.");
-  }
-
-  const delimiter = guessDelimiter(text);
-  if (delimiter !== ";") {
-    throw new Error("mobile.de CSV muss mit Semikolon getrennt sein.");
-  }
-
-  const rows = parse(text, {
-    columns: false,
-    skip_empty_lines: true,
-    delimiter: ";",
-    relax_quotes: true,
-    relax_column_count: true,
-    trim: true
-  });
-
-  if (!rows.length) {
-    return { records: [], format: "mobile_csv", delimiter: ";" };
-  }
-
-  if (looksLikeMobileHeaderLine(rows[0])) {
-    rows.shift();
-  }
-
-  const tooShortIdx = rows.findIndex((r) => Array.isArray(r) && r.length < MOBILE_DE_COLUMN_COUNT);
-  if (tooShortIdx >= 0) {
-    throw new Error(`CSV-Zeile ${tooShortIdx + 1} hat zu wenige Spalten (erwartet ${MOBILE_DE_COLUMN_COUNT}).`);
-  }
-
-  const records = rows.map(mapMobileCsvRow);
-  return { records, format: "mobile_csv", delimiter: ";" };
-}
-
-function toNumber(v) {
-  if (v == null) return null;
-  const s = String(v).trim();
-  if (!s) return null;
-
-  // Entferne Währungszeichen/Einheiten, behalte nur Ziffern/Separatoren/Minus
-  const cleaned = s.replace(/[^\d,.\-]/g, "");
-  if (!cleaned) return null;
-
-  const hasComma = cleaned.includes(",");
-  const hasDot = cleaned.includes(".");
-  let norm = cleaned;
-
-  if (hasComma && hasDot) {
-    // Entscheide nach dem letzten Separator
-    if (cleaned.lastIndexOf(",") > cleaned.lastIndexOf(".")) {
-      norm = cleaned.replace(/\./g, "").replace(",", ".");
-    } else {
-      norm = cleaned.replace(/,/g, "");
-    }
-  } else if (hasComma && !hasDot) {
-    norm = cleaned.replace(",", ".");
-  } else if (hasDot && !hasComma) {
-    const parts = cleaned.split(".");
-    if (parts.length === 2 && parts[1].length <= 2) {
-      norm = cleaned; // Dezimalpunkt
-    } else {
-      norm = cleaned.replace(/\./g, "");
-    }
-  }
-
-  const n = Number(norm);
-  return Number.isFinite(n) ? n : null;
-}
-
-function toInt(v) {
-  const n = toNumber(v);
-  return n == null ? null : Math.round(n);
-}
-
-function escapeRegExp(s) {
-  return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function hasInvalidLetters(raw, allowedUnits = []) {
-  const s = String(raw ?? "").toLowerCase();
-  if (!s.trim()) return false;
-
-  let cleaned = s;
-  if (allowedUnits.length) {
-    const unitRe = new RegExp(allowedUnits.map((u) => escapeRegExp(u.toLowerCase())).join("|"), "g");
-    cleaned = cleaned.replace(unitRe, "");
-  }
-
-  cleaned = cleaned
-    .replace(/[0-9\s,.\-\/]/g, "")
-    .replace(/€/g, "");
-
-  return /[a-zäöüß]/i.test(cleaned);
-}
-
-function parseNumberField(raw, { units = [], integer = false } = {}, warnings, label) {
-  const s = String(raw ?? "").trim();
-  if (!s) return { value: null, valid: true };
-
-  if (hasInvalidLetters(s, units)) {
-    if (warnings && label) warnings.push(`${label} enthält ungültige Zeichen`);
-    return { value: null, valid: false };
-  }
-
-  const n = toNumber(s);
-  if (n == null) {
-    if (warnings && label) warnings.push(`${label} ist keine Zahl`);
-    return { value: null, valid: false };
-  }
-
-  return { value: integer ? Math.round(n) : n, valid: true };
-}
-
-function parsePowerField(raw, { expect = "ps", warnings, label } = {}) {
-  const s = String(raw ?? "").trim();
-  if (!s) return { value: null, valid: true };
-  const lower = s.toLowerCase();
-
-  if (expect === "ps" && /(kw|kilowatt)/.test(lower)) {
-    if (warnings && label) warnings.push(`${label} enthält kW`);
-    return { value: null, valid: false };
-  }
-  if (expect === "kw" && /(ps|hp|bhp)/.test(lower)) {
-    if (warnings && label) warnings.push(`${label} enthält PS`);
-    return { value: null, valid: false };
-  }
-
-  const units = expect === "ps" ? ["ps", "hp", "bhp"] : ["kw", "kilowatt"];
-  if (hasInvalidLetters(s, units)) {
-    if (warnings && label) warnings.push(`${label} enthält ungültige Zeichen`);
-    return { value: null, valid: false };
-  }
-
-  const n = toNumber(s);
-  if (n == null) {
-    if (warnings && label) warnings.push(`${label} ist keine Zahl`);
-    return { value: null, valid: false };
-  }
-
-  return { value: n, valid: true };
-}
-
-function normalizeDoorsValue(raw, warnings) {
-  const s = String(raw ?? "").trim();
-  if (!s) return "";
-  const compact = s.replace(/\s+/g, "").replace(/t[uü]ren?/gi, "");
-
-  if (/^2[\/\-]3$/.test(compact) || compact === "23") return "2/3";
-  if (/^4[\/\-]5$/.test(compact) || compact === "45") return "4/5";
-
-  const digits = compact.match(/\d+/g);
-  if (digits && digits.length === 1) {
-    const n = Number(digits[0]);
-    if (Number.isFinite(n)) {
-      if (n <= 3) return "2/3";
-      if (n >= 4 && n <= 5) return "4/5";
-    }
-  }
-
-  if (warnings) warnings.push("Türen ungültig");
-  return "";
-}
-
-function normalizeSeatsValue(raw, warnings) {
-  const n = toInt(raw);
-  if (n == null) return "";
-  if (n < 2 || n > 9) {
-    if (warnings) warnings.push("Sitze ungültig");
-    return "";
-  }
-  return n;
-}
-
-function normalizeGearboxValue(raw) {
-  const s = String(raw ?? "").trim();
-  if (!s) return { value: "", valid: true };
-  const flat = norm(s).replace(/[^a-z0-9]+/g, " ").trim();
-  if (!flat) return { value: "", valid: false };
-
-  const isManual = /(schalt|getriebe|manuell|manual)/.test(flat);
-  const isAuto = /(automatik|automatic|tiptronic|steptronic|dsg|doppelkupplung|cvt|stufenlos|halbautomatik|gtronic|tronic)/.test(flat);
-
-  if (isManual && !isAuto) return { value: "Schaltgetriebe", valid: true };
-  if (isAuto) return { value: "Automatik", valid: true };
-
-  if (/^\d+(\s*(gang|g))?$/.test(flat)) return { value: "", valid: false, reason: "numeric_only" };
-
-  return { value: "", valid: false, reason: "unknown" };
-}
-
-function normalizeFuelLabel(raw) {
-  const canon = fuelCanon(raw);
-  if (canon === "benzin") return "Benzin";
-  if (canon === "diesel") return "Diesel";
-  if (canon === "elektrisch") return "Elektro";
-  if (canon === "hybrid-benzin") return "Hybrid (Benzin)";
-  if (canon === "hybrid-diesel") return "Hybrid (Diesel)";
-  if (canon === "autogas") return "Autogas (LPG)";
-  if (canon === "wasserstoff") return "Wasserstoff";
-  if (canon === "ethanol") return "Ethanol";
-  if (canon === "cng") return "Erdgas (CNG)";
-  return String(raw ?? "").trim();
-}
-
-function normalizeModelValue(make, model) {
-  const s = String(model || "").trim();
-  if (!s) return "";
-  if (!make) return s;
-  return stripMakeModelFromTitle(s, make, "");
-}
-
-function normalizeVariantValue(make, model, variant) {
-  const s = String(variant || "").trim();
-  if (!s) return "";
-  return stripMakeModelFromTitle(s, make, model);
-}
-
-function stripMakeModelFromTitle(title, make, model) {
-  if (!title) return "";
-  let out = String(title);
-  if (make) out = out.replace(new RegExp(`\\b${escapeRegExp(make)}\\b`, "ig"), " ");
-  if (model) out = out.replace(new RegExp(`\\b${escapeRegExp(model)}\\b`, "ig"), " ");
-  return out.replace(/\s+/g, " ").trim();
-}
-
-function buildTitle(make, model, variant, rawTitle) {
-  const m = String(make || "").trim();
-  const mo = String(model || "").trim();
-  const v = String(variant || "").trim();
-  const base = [m, mo, v].filter(Boolean).join(" ").trim();
-
-  if (!m || !mo) {
-    return { title: String(rawTitle || "").trim(), valid: false };
-  }
-
-  if (!rawTitle) return { title: base, valid: true };
-
-  const normTitle = norm(rawTitle).replace(/[^a-z0-9]+/g, " ").trim();
-  const hasMake = normTitle.includes(norm(m).replace(/[^a-z0-9]+/g, " ").trim());
-  const hasModel = normTitle.includes(norm(mo).replace(/[^a-z0-9]+/g, " ").trim());
-
-  if (hasMake && hasModel) {
-    return { title: base || rawTitle, valid: true };
-  }
-
-  return { title: base || rawTitle, valid: true, adjusted: true };
-}
-
-function pickFirst(...vals) {
-  for (const v of vals) {
-    if (v === 0) return 0;
-    if (v == null) continue;
-    const s = String(v).trim();
-    if (s !== "") return v;
-  }
-  return "";
-}
-
-function pickStr(...vals) {
-  const v = pickFirst(...vals);
-  return v === 0 ? "0" : String(v || "").trim();
-}
-
-function parseBool(v) {
-  if (v == null) return null;
-  if (typeof v === "boolean") return v;
-  const s = String(v).trim().toLowerCase();
-  if (!s) return null;
-  if (["1","true","ja","yes","y","x"].includes(s)) return true;
-  if (["0","false","nein","no","n"].includes(s)) return false;
-  return null;
-}
-
-function splitList(v) {
-  if (!v) return [];
-  if (Array.isArray(v)) return v.map(x => String(x).trim()).filter(Boolean);
-  return String(v)
-    .split(/[|,;\n]/g)
-    .map(x => x.trim())
-    .filter(Boolean);
-}
-
-// erwartet YYYY-MM oder MM/YYYY oder MM.YYYY
-function normalizeFirstRegistration(v) {
-  if (!v) return null;
-  const s = String(v).trim();
-  if (!s) return null;
-
-  if (/^\d{4}-\d{2}$/.test(s)) return s;
-
-  const m = s.match(/^(\d{1,2})[\/\.](\d{4})$/); // 03/2018 oder 03.2018
-  if (m) {
-    const mm = String(m[1]).padStart(2, "0");
-    const yyyy = m[2];
-    return `${yyyy}-${mm}`;
-  }
-  return null;
-}
-
-function toFirstRegistrationDisplay(v) {
-  if (!v) return "";
-  const s = String(v).trim();
-  const m = s.match(/^(\d{4})-(\d{2})$/);
-  if (m) return `${m[2]}/${m[1]}`;
-  return s;
-}
-
-function splitUrls(v) {
-  if (!v) return [];
-  return String(v)
-    .split(/[|,;\n]/g)
-    .map(x => x.trim())
-    .filter(Boolean);
-}
-
-/**
- * Unterstützte Spalten:
- * Pflicht: stock_number (oder VIN), make, model, title
- * Optional: image_urls (URL1|URL2|...), video_url
- */
-function mapRow(raw) {
-  const mobileLike = isMobileRecord(raw);
-  const equipment = buildEquipment(raw);
-  const warnings = [];
-
-  const stock_number = pickStr(
-    raw.stock_number,
-    raw.interne_nummer,
-    raw.stock_id
-  );
-
-  const make = pickStr(raw.make, raw.marke, raw.brand, raw.hersteller, raw.manufacturer);
-  let model = pickStr(raw.model, raw.modell, raw.baureihe, raw.serie);
-  let variant = pickStr(raw.variant, raw.variante, raw.ausstattung_variante, raw.trim, raw.version);
-
-  if (make && model) {
-    const cleanedModel = normalizeModelValue(make, model);
-    if (cleanedModel !== model) model = cleanedModel;
-  }
-  if (variant) {
-    const cleanedVariant = normalizeVariantValue(make, model, variant);
-    if (cleanedVariant !== variant) variant = cleanedVariant;
-  }
-
-  const vin = pickStr(raw.vin, raw.fin, raw.fahrgestellnummer, raw.fahrgestell_nr, raw.fahrgestellnr);
-  const hsn = pickStr(raw.hsn);
-  const tsn = pickStr(raw.tsn);
-  let kba = pickStr(raw.kba);
-  if (!kba && hsn && tsn) kba = `${hsn}/${tsn}`;
-  const stockNumberFinal = stock_number || vin || "";
-
-  const titleRaw = pickStr(raw.title, raw.titel, raw.bezeichnung, raw.fahrzeugtitel);
-  if (!variant && titleRaw && make && model) {
-    const extra = stripMakeModelFromTitle(titleRaw, make, model);
-    if (extra) variant = extra;
-  }
-  const titleInfo = buildTitle(make, model, variant, titleRaw);
-  let title = titleInfo.title;
-  if (!title) title = stock_number ? `Inserat ${stock_number}` : "Inserat";
-
-  const priceGrossRaw = pickFirst(raw.price_gross, raw.brutto_preis, raw.bruttopreis);
-  const priceNetRaw = pickFirst(raw.price_net, raw.netto_preis, raw.nettopreis);
-  const priceRaw = pickFirst(raw.price_eur, raw.price, raw.preis);
-
-  const priceGrossInfo = parseNumberField(priceGrossRaw, { units: ["€", "eur", "euro"] }, warnings, "Bruttopreis");
-  const priceNetInfo = parseNumberField(priceNetRaw, { units: ["€", "eur", "euro"] }, warnings, "Nettopreis");
-  const priceInfo = parseNumberField(priceRaw, { units: ["€", "eur", "euro"] }, warnings, "Preis");
-
-  const price_gross = priceGrossInfo.value;
-  const price_net = priceNetInfo.value;
-  let price_eur = priceInfo.value;
-  if (price_eur == null) price_eur = price_gross ?? price_net ?? null;
-
-  const mileageRaw = pickFirst(raw.mileage_km, raw.kilometer, raw.km, raw.mileage);
-  const mileageInfo = parseNumberField(
-    mileageRaw,
-    { units: ["km", "kilometer", "kilometre"], integer: true },
-    warnings,
-    "Laufleistung"
-  );
-  const mileage_km = mileageInfo.value;
-
-  let first_registration = normalizeFirstRegistration(
-    raw.first_registration ?? raw.ez ?? raw.erstzulassung
-  );
-  if (!first_registration) {
-    const regMonth = pickFirst(raw.reg_month, raw.ez_monat);
-    const regYear = pickFirst(raw.reg_year, raw.ez_jahr, raw.baujahr);
-    if (regMonth && regYear) {
-      first_registration = normalizeFirstRegistration(`${regMonth}/${regYear}`);
-    } else if (regYear) {
-      first_registration = normalizeFirstRegistration(`01/${regYear}`);
-    }
-  }
-  if (!first_registration && (raw.first_registration ?? raw.ez ?? raw.erstzulassung)) {
-    warnings.push("Erstzulassung ungültig");
-  }
-
-  const image_urls = splitUrls(raw.image_urls ?? raw.images ?? raw.bilder);
-  const video_url = pickStr(raw.video_url, raw.video) || null;
-
-  const powerPsRaw = pickFirst(raw.power_ps, raw.ps, raw.leistung_ps);
-  const powerKwRaw = pickFirst(raw.power_kw, raw.performance, raw.leistung_kw);
-
-  let powerPs = parsePowerField(powerPsRaw, { expect: "ps", warnings, label: "Leistung (PS)" }).value;
-  let powerKw = parsePowerField(powerKwRaw, { expect: "kw", warnings, label: "Leistung (kW)" }).value;
-
-  if (mobileLike && powerKw == null && raw.power_ps != null) {
-    const mobileKw = parsePowerField(raw.power_ps, { expect: "kw", warnings, label: "Leistung (kW)" });
-    if (mobileKw.value != null) {
-      powerKw = mobileKw.value;
-      powerPs = null;
-    }
-  }
-
-  if (powerPs == null && powerKw != null) {
-    powerPs = Math.round(powerKw * 1.35962);
-  }
-
-  const climate = parseClimateValue(pickFirst(raw.climate, raw.klima, raw.klimaautomatik, raw.klimaanlage));
-
-  let condition = pickStr(raw.zustand, raw.condition);
-  if (!condition) {
-    if (isTruthyValue(raw.new_car)) condition = "Neuwagen";
-    else if (isTruthyValue(raw.one_year_old_car)) condition = "Jahreswagen";
-    else if (isTruthyValue(raw.demo_car)) condition = "Vorführwagen";
-  }
-
-  const damaged = parseBool(raw.beschaedigt ?? raw.damaged_vehicle);
-
-  const vehicle_type = pickStr(raw.vehicle_type, raw.category, raw.kategorie, raw.fahrzeugart, raw.karosserie);
-  const description = pickStr(raw.description, raw.beschreibung, raw.bemerkung, raw.remark, raw.text);
-  const short_description = pickStr(raw.short_description, raw.kurzbeschreibung, raw.teaser);
-
-  const fuelRaw = pickStr(raw.fuel, raw.kraftstoff);
-  const fuel = normalizeFuelLabel(fuelRaw);
-  const cCombRaw = pickStr(raw.consumption_combined, raw.verbrauch_kombiniert, raw.verbrauch);
-  const cCityRaw = pickStr(raw.consumption_city, raw.verbrauch_innerorts);
-  const cHighRaw = pickStr(raw.consumption_highway, raw.verbrauch_ausserorts);
-
-  const cComb = parseConsumptionValue(cCombRaw, fuel);
-  const cCity = parseConsumptionValue(cCityRaw, fuel);
-  const cHigh = parseConsumptionValue(cHighRaw, fuel);
-
-  if (!cComb.valid && cCombRaw) warnings.push("Verbrauch (kombiniert) ungültig");
-  if (!cCity.valid && cCityRaw) warnings.push("Verbrauch (innerorts) ungültig");
-  if (!cHigh.valid && cHighRaw) warnings.push("Verbrauch (außerorts) ungültig");
-
-  const gearboxRaw = pickStr(raw.gearbox, raw.getriebe);
-  const gearboxInfo = normalizeGearboxValue(gearboxRaw);
-  if (!gearboxInfo.valid && gearboxRaw) warnings.push("Getriebe ungültig (nur Schaltgetriebe oder Automatik)");
-
-  const doorsRaw = pickFirst(raw.doors, raw.tueren, raw["türen"]);
-  const seatsRaw = pickFirst(raw.seats, raw.sitze);
-  const displacementRaw = pickFirst(raw.displacement_ccm, raw.ccm, raw.hubraum);
-  const displacementInfo = parseNumberField(
-    displacementRaw,
-    { units: ["ccm", "cm3", "cm³"], integer: true },
-    warnings,
-    "Hubraum"
-  );
-  const doors = normalizeDoorsValue(doorsRaw, warnings);
-  const seats = normalizeSeatsValue(seatsRaw, warnings);
-  const displacement_ccm = displacementInfo.value ?? "";
-
-  return {
-    stock_number: stockNumberFinal,
-    vin,
-    hsn,
-    tsn,
-    kba,
-    title,
-    price_eur,
-    price_net,
-    price_gross,
-    mileage_km,
-    first_registration,
-    make,
-    model,
-    variant,
-    fuel,
-    gearbox: gearboxInfo.value,
-    power_ps: powerPs,
-    power_kw: powerKw,
-    displacement_ccm,
-    doors,
-    seats,
-    color: pickStr(raw.color, raw.farbe),
-    exterior_color: pickStr(raw.exterior_color, raw.aussenfarbe, raw["außenfarbe"]),
-    interior_color: pickStr(raw.interior_color, raw.innenfarbe),
-    interior_material: pickStr(raw.interior_material, raw.innenmaterial, raw.sitzmaterial),
-    body_color: pickStr(raw.body_color, raw.karosseriefarbe),
-    vehicle_type: vehicle_type,
-    description,
-    short_description,
-    equipment: splitList(raw.equipment ?? raw.ausstattung ?? raw.features ?? raw.extras),
-    equipment_keys: equipment.keys,
-    equipment_text: equipment.text,
-    accident_free: parseBool(raw.accident_free ?? raw.unfallfrei),
-    accident_history: pickStr(raw.accident_history ?? raw.unfall ?? raw.unfallhistorie),
-    vat: raw.vat ?? raw.mwst ?? raw.ust,
-    vat_rate: pickStr(raw.vat_rate, raw.mwstsatz),
-    currency: pickStr(raw.currency, raw.waehrung),
-    damaged,
-    condition,
-    emission_class: pickStr(raw.emission_class, raw.emissionsklasse),
-    pollution_class: pickStr(raw.pollution_class, raw.schadstoffklasse),
-    environmental_badge: pickStr(raw.environmental_badge, raw.umweltplakette),
-    co2_emission: pickStr(raw.co2_emission, raw.co2),
-    co2_class: pickStr(raw.co2_class, raw.co2klasse),
-    consumption_combined: cComb.valid ? cComb.value : "",
-    consumption_combined_unit: cComb.valid ? cComb.unit : "",
-    consumption_city: cCity.valid ? cCity.value : "",
-    consumption_city_unit: cCity.valid ? cCity.unit : "",
-    consumption_highway: cHigh.valid ? cHigh.value : "",
-    consumption_highway_unit: cHigh.valid ? cHigh.unit : "",
-    drivetrain: pickStr(raw.drivetrain, raw.antrieb, raw.antriebsart),
-    climate,
-    parking_assist: pickStr(raw.parking_assist, raw.einparkhilfe),
-    parking_assist_self: pickStr(raw.parking_assist_self, raw.einparkhilfe_selbstlenkend),
-    headlights: pickStr(raw.headlights, raw.scheinwerfer),
-    daytime_running_lights: pickStr(raw.daytime_running_lights, raw.tagfahrlicht),
-    curve_light: pickStr(raw.curve_light, raw.kurvenlicht),
-    particulate_filter: pickStr(raw.particulate_filter, raw.partikelfilter),
-    metallic: parseBool(raw.metallic),
-    previous_owners: pickStr(raw.previous_owners, raw.halter, raw.anzahlhalter),
-    hu: pickStr(raw.hu, raw.tuv, raw["tüv"]),
-    hu_until: pickStr(raw.hu_until, raw.tuv_bis, raw["tüv_bis"]),
-    location: pickStr(raw.location, raw.standort),
-    postal_code: pickStr(raw.postal_code, raw.plz),
-    city: pickStr(raw.city, raw.ort),
-    street: pickStr(raw.street, raw.strasse),
-    street_no: pickStr(raw.street_no, raw.hausnummer),
-    phone: pickStr(raw.phone, raw.telefon),
-    image_urls,
-    video_url,
-    mobile_like: mobileLike,
-    _warnings: warnings
-  };
-}
-
-function validateRow(r) {
-  const errors = [];
-  const warnings = Array.isArray(r._warnings) ? r._warnings : [];
-
-  if (!r.stock_number) errors.push("Stock-Nummer/VIN fehlt");
-  if (!r.make || !r.model) errors.push("Marke oder Modell fehlt");
-  if (!r.title) errors.push("Titel fehlt");
-
-  return { errors, warnings };
-}
-
-/* ---------- PREVIEW ---------- */
-app.post("/api/haendler/import/preview", requireDb, requireDealer, uploadCsv.single("file"), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).send("Keine Datei erhalten");
-
-    const text = decodeCsvBuffer(req.file.buffer);
-    const { records, delimiter, format } = parseImportRecords(req.file, text);
-
-    const mapped = records.map(mapRow);
-
-    // Fehler sammeln / valid rows
-    const errors = [];
-    const valid = [];
-    const warnings = [];
-    mapped.forEach((r, idx) => {
-      const { errors: rowErrors, warnings: rowWarnings } = validateRow(r);
-      if (rowErrors.length) {
-        errors.push({ row: idx + 2, message: rowErrors.join(", ") }); // +2 wegen Header + 1-index
-      } else {
-        valid.push(r);
-      }
-      if (rowWarnings && rowWarnings.length) {
-        warnings.push({ row: idx + 2, message: rowWarnings.join(", ") });
-      }
-    });
-
-    const sellerId = String(req.user.id);
-    const ids = valid.map(v => v.stock_number);
-
-    // existierende Inserate -> neu/update
-    const existing = await db.collection("inserate")
-      .find(
-        {
-          stockNumber: { $in: ids },
-          $or: [{ verkaeuferId: sellerId }, { sellerId }]
-        },
-        { projection: { stockNumber: 1 } }
-      )
-      .toArray();
-
-    const existingSet = new Set(existing.map(x => x.stockNumber));
-
-    const rows = valid.map(v => ({
-      ...v,
-      image_count: v.image_urls.length,
-      status: existingSet.has(v.stock_number) ? "update" : "new"
-    }));
-
-    const summary = {
-      delimiter,
-      format,
-      total: records.length,
-      newCount: rows.filter(r => r.status === "new").length,
-      updateCount: rows.filter(r => r.status === "update").length,
-      errorCount: errors.length
-    };
-
-    res.json({ summary, errors, warnings, rows });
-  } catch (e) {
-    res.status(500).send(e.message || "Preview error");
-  }
-});
-
-/* ---------- COMMIT ---------- */
-app.post("/api/haendler/import/commit", requireDb, requireDealer, uploadCsv.single("file"), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).send("Keine Datei erhalten");
-
-    const text = decodeCsvBuffer(req.file.buffer);
-    const { records } = parseImportRecords(req.file, text);
-
-    const mapped = records.map(mapRow);
-
-    const sellerId = String(req.user.id);
-    const nutzer = await db.collection("nutzer").findOne(
-      { id: sellerId },
-      {
-        projection: {
-          id: 1,
-          role: 1,
-          firma: 1,
-          name: 1,
-          logoUrl: 1,
-          strasse: 1,
-          hausnummer: 1,
-          plz: 1,
-          ort: 1,
-          land: 1,
-          adresse: 1,
-          standort: 1,
-          telefon: 1,
-          telefon2: 1,
-          impressum: 1,
-          oeffnungszeiten: 1,
-          "öffnungszeiten": 1,
-          sprachen: 1
-        }
-      }
-    );
-
-    const sellerRoleRaw = nutzer?.role || "haendler";
-    const isHaendler = isHaendlerRole(sellerRoleRaw);
-
-    const sellerName = nutzer?.firma || nutzer?.name || (isHaendler ? "Händler" : "Privatverkäufer");
-    const street = [nutzer?.strasse, nutzer?.hausnummer].filter(Boolean).join(" ");
-    const zipCity = [nutzer?.plz, nutzer?.ort].filter(Boolean).join(" ");
-    const address = [street, zipCity].filter(Boolean).join(", ");
-
-    const sellerStandort = nutzer?.standort || nutzer?.adresse || address || "";
-    const sellerTelefon = nutzer?.telefon || nutzer?.telefon2 || "";
-
-    const sellerSnapshot = {
-      type: isHaendler ? "haendler" : "privat",
-      id: sellerId,
-      name: sellerName,
-      logoUrl: nutzer?.logoUrl || "",
-      strasse: nutzer?.strasse || "",
-      hausnummer: nutzer?.hausnummer || "",
-      plz: nutzer?.plz || "",
-      ort: nutzer?.ort || "",
-      land: nutzer?.land || "",
-      impressum: nutzer?.impressum || "",
-      oeffnungszeiten: nutzer?.oeffnungszeiten || nutzer?.["öffnungszeiten"] || "",
-      sprachen: Array.isArray(nutzer?.sprachen) ? nutzer.sprachen : []
-    };
-
-    const ops = [];
-    let failed = 0;
-
-    for (let i = 0; i < mapped.length; i++) {
-      const r = mapped[i];
-      const { errors: errs } = validateRow(r);
-      if (errs.length) {
-        failed++;
-        continue;
-      }
-
-      const ezDisplay = toFirstRegistrationDisplay(r.first_registration);
-      const images = Array.isArray(r.image_urls) ? r.image_urls : [];
-      const equipment = Array.isArray(r.equipment) ? r.equipment : [];
-      const equipKeys = Array.isArray(r.equipment_keys) ? r.equipment_keys : [];
-      const equipText = Array.isArray(r.equipment_text) ? r.equipment_text : [];
-      const equipList = [...new Set([...equipKeys, ...equipText, ...equipment])].filter(Boolean);
-      const equipFlags = {};
-      equipKeys.forEach((k) => {
-        if (k) equipFlags[`verkauf_${k}`] = true;
-      });
-
-      const rowStreet = [r.street, r.street_no].filter(Boolean).join(" ");
-      const rowZipCity = [r.postal_code, r.city].filter(Boolean).join(" ");
-      const rowStandort = r.location || [rowStreet, rowZipCity].filter(Boolean).join(", ");
-      const finalStandort = rowStandort || sellerStandort;
-      const finalTelefon = r.phone || sellerTelefon;
-
-      const unfallfrei = r.accident_free;
-      let unfallText = "";
-      if (r.accident_history) unfallText = r.accident_history;
-      else if (unfallfrei === true) unfallText = "keine";
-      else if (unfallfrei === false) unfallText = "ja";
-
-      const mwstBool = parseBool(r.vat);
-      let mwstText = "";
-      if (r.mobile_like && r.vat != null) {
-        const sv = String(r.vat).trim();
-        if (sv === "0") mwstText = "inkl. MwSt.";
-        else if (sv === "1") mwstText = "nicht ausweisbar";
-      }
-      if (!mwstText) {
-        if (mwstBool === true) mwstText = "inkl. MwSt.";
-        else if (mwstBool === false) mwstText = "keine";
-        else if (r.vat != null && String(r.vat).trim()) mwstText = String(r.vat).trim();
-      }
-
-      const kurz = r.short_description || r.description || "";
-      const besch = r.description || "";
-
-      // ✅ Für den Start: status="offline", damit nichts ungeprüft öffentlich ist.
-      // Du kannst später "online" setzen oder eine Review-UI bauen.
-      ops.push({
-        updateOne: {
-          filter: {
-            stockNumber: r.stock_number,
-            $or: [{ verkaeuferId: sellerId }, { sellerId }]
-          },
-          update: {
-            $set: {
-              source: "csv",
-              status: "offline",
-              verkauf_status: "offline",
-
-              verkaeuferId: sellerId,
-              sellerId: sellerId,
-              stockNumber: r.stock_number,
-
-              verkauf_vin: r.vin || "",
-              verkauf_hsn: r.hsn || "",
-              verkauf_tsn: r.tsn || "",
-              verkauf_kba: r.kba || "",
-
-              titel: r.title,
-              verkauf_titel: r.title,
-
-              verkauf_verkaeufer: isHaendler ? "Händler" : "Privatverkäufer",
-              verkauf_name: sellerName,
-
-              preis: r.price_eur,
-              verkauf_preis: r.price_eur,
-              verkauf_brutto: r.price_gross ?? null,
-              verkauf_netto: r.price_net ?? null,
-              verkauf_mwst: mwstText,
-
-              verkauf_kilometer: r.mileage_km,
-              verkauf_erstzulassung: ezDisplay || r.first_registration || "",
-
-              verkauf_marke: r.make || "",
-              verkauf_modell: r.model || "",
-              verkauf_variante: r.variant || "",
-              verkauf_ausstattung_variante: r.variant || "",
-
-              verkauf_fahrzeugtyp: r.vehicle_type || "",
-              verkauf_kraftstoff: r.fuel || "",
-              verkauf_getriebe: r.gearbox || "",
-              verkauf_leistung: r.power_ps ?? "",
-              verkauf_leistung_kw: r.power_kw ?? "",
-              verkauf_hubraum: r.displacement_ccm ?? "",
-              verkauf_tueren: r.doors ?? "",
-              verkauf_sitze: r.seats ?? "",
-
-              verkauf_farbe: r.color || "",
-              verkauf_aussenfarbe: r.exterior_color || r.color || "",
-              verkauf_karosseriefarbe: r.body_color || r.exterior_color || r.color || "",
-              verkauf_innenfarbe: r.interior_color || "",
-              verkauf_innenmaterial: r.interior_material || "",
-
-              zustand: r.condition || "",
-              verkauf_beschaedigt: r.damaged ?? "",
-              beschaedigt: r.damaged ?? "",
-
-              verkauf_beschreibung: besch,
-              verkauf_kurzbeschreibung: kurz,
-              verkauf_ausstattung: equipList,
-
-              verkauf_unfallfrei: unfallfrei,
-              verkauf_unfall: unfallText,
-              verkauf_unfallhistorie: unfallText,
-
-              verkauf_emissionsklasse: r.emission_class || "",
-              verkauf_schadstoffklasse: r.pollution_class || "",
-              verkauf_umweltplakette: r.environmental_badge || "",
-              verkauf_co2_emission: r.co2_emission || "",
-              verkauf_co2_klasse: r.co2_class || "",
-              verkauf_verbrauch_kombiniert: r.consumption_combined ?? "",
-              verkauf_verbrauch_kombiniert_unit: r.consumption_combined_unit || "",
-              verkauf_verbrauch_innerorts: r.consumption_city ?? "",
-              verkauf_verbrauch_innerorts_unit: r.consumption_city_unit || "",
-              verkauf_verbrauch_ausserorts: r.consumption_highway ?? "",
-              verkauf_verbrauch_ausserorts_unit: r.consumption_highway_unit || "",
-              verkauf_antrieb: r.drivetrain || "",
-              verkauf_klimatisierung: r.climate || "",
-              verkauf_einparkhilfe: r.parking_assist || "",
-              verkauf_einparkhilfeselbstlenkend: r.parking_assist_self || "",
-              verkauf_scheinwerfer: r.headlights || "",
-              verkauf_tagfahrlicht: r.daytime_running_lights || "",
-              verkauf_kurvenlicht: r.curve_light || "",
-              verkauf_partikelfilter: r.particulate_filter || "",
-              verkauf_metallic: r.metallic === true ? "ja" : (r.metallic === false ? "nein" : ""),
-
-              verkauf_halter: r.previous_owners || "",
-              verkauf_hu: r.hu || "",
-              verkauf_hu_bis: r.hu_until || "",
-
-              verkauf_standort: finalStandort,
-              verkauf_plz: r.postal_code || nutzer?.plz || "",
-              verkauf_ort: r.city || nutzer?.ort || "",
-
-              images,
-              bilder: images,
-              video: r.video_url || null,
-
-              standort: finalStandort,
-              telefon: finalTelefon,
-              seller: sellerSnapshot,
-
-              ...equipFlags,
-
-              updatedAt: new Date()
-            },
-            $setOnInsert: { createdAt: new Date() }
-          },
-          upsert: true
-        }
-      });
-    }
-
-    let created = 0;
-    let updated = 0;
-
-    if (ops.length) {
-      const result = await db.collection("inserate").bulkWrite(ops, { ordered: false });
-      created = result.upsertedCount || 0;
-      updated = result.modifiedCount || 0;
-    }
-
-    res.json({ created, updated, failed });
-  } catch (e) {
-    res.status(500).send(e.message || "Commit error");
-  }
-});
 
 /* =========================
    Draft Save: Fahrzeugdaten
@@ -4223,6 +2357,162 @@ app.post("/profil/update", checkLogin, async (req, res) => {
   } catch (err) {
     console.error("❌ Fehler bei /profil/update:", err);
     return res.status(500).json({ error: "Interner Serverfehler." });
+  }
+});
+
+
+/* =========================
+   Mobile.de Integration (Credentials + Status)
+========================= */
+app.get("/api/mobile-de/status", checkLogin, async (req, res) => {
+  try {
+    const coll = db.collection("mobileCredentials");
+    const doc = await coll.findOne({ userId: req.nutzer.id });
+    if (!doc) {
+      return res.json({
+        connected: false,
+        hasPassword: false,
+        usernameMasked: "",
+        sellerId: "",
+        lastTestAt: null,
+        lastTestStatus: "",
+        lastTestMessage: "",
+        lastSyncAt: null,
+        lastSyncStatus: "",
+        lastSyncMessage: ""
+      });
+    }
+
+    return res.json({
+      connected: Boolean(doc.usernameEnc && doc.passwordEnc),
+      hasPassword: Boolean(doc.passwordEnc),
+      usernameMasked: doc.usernameMasked || "",
+      sellerId: doc.sellerId || "",
+      lastTestAt: doc.lastTestAt || null,
+      lastTestStatus: doc.lastTestStatus || "",
+      lastTestMessage: doc.lastTestMessage || "",
+      lastSyncAt: doc.lastSyncAt || null,
+      lastSyncStatus: doc.lastSyncStatus || "",
+      lastSyncMessage: doc.lastSyncMessage || ""
+    });
+  } catch (err) {
+    console.error("❌ Fehler bei /api/mobile-de/status:", err);
+    return res.status(500).json({ error: "Status konnte nicht geladen werden." });
+  }
+});
+
+app.post("/api/mobile-de/credentials", checkLogin, async (req, res) => {
+  try {
+    if (!MOBILE_API_KEY) {
+      return res.status(500).json({ error: "MOBILE_API_SECRET fehlt in der Server-Konfiguration." });
+    }
+
+    const { username, password, sellerId } = req.body || {};
+    const usernameValue = String(username || "").trim();
+    const passwordValue = String(password || "").trim();
+    const sellerIdValue = sellerId !== undefined ? String(sellerId || "").trim() : undefined;
+
+    const coll = db.collection("mobileCredentials");
+    const existing = await coll.findOne({ userId: req.nutzer.id });
+
+    if (!usernameValue && !existing?.usernameEnc) {
+      return res.status(400).json({ error: "API-Username fehlt." });
+    }
+    if (!passwordValue && !existing?.passwordEnc) {
+      return res.status(400).json({ error: "API-Passwort fehlt." });
+    }
+
+    const update = {
+      userId: req.nutzer.id,
+      updatedAt: new Date()
+    };
+    if (!existing) update.createdAt = new Date();
+
+    if (usernameValue) {
+      update.usernameEnc = encryptMobileValue(usernameValue);
+      update.usernameMasked = maskCredential(usernameValue);
+    }
+
+    if (passwordValue) {
+      update.passwordEnc = encryptMobileValue(passwordValue);
+    }
+
+    if (sellerIdValue !== undefined) {
+      update.sellerId = sellerIdValue;
+    }
+
+    await coll.updateOne({ userId: req.nutzer.id }, { $set: update }, { upsert: true });
+
+    return res.json({
+      ok: true,
+      connected: true,
+      hasPassword: Boolean(passwordValue || existing?.passwordEnc),
+      usernameMasked: update.usernameMasked || existing?.usernameMasked || "",
+      sellerId: update.sellerId ?? existing?.sellerId ?? ""
+    });
+  } catch (err) {
+    console.error("❌ Fehler bei /api/mobile-de/credentials:", err);
+    return res.status(500).json({ error: "Speichern fehlgeschlagen." });
+  }
+});
+
+app.delete("/api/mobile-de/credentials", checkLogin, async (req, res) => {
+  try {
+    await db.collection("mobileCredentials").deleteOne({ userId: req.nutzer.id });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("❌ Fehler bei /api/mobile-de/credentials DELETE:", err);
+    return res.status(500).json({ error: "Verbindung konnte nicht getrennt werden." });
+  }
+});
+
+app.post("/api/mobile-de/test", checkLogin, async (req, res) => {
+  try {
+    const coll = db.collection("mobileCredentials");
+    const doc = await coll.findOne({ userId: req.nutzer.id });
+    if (!doc?.usernameEnc || !doc?.passwordEnc) {
+      return res.status(400).json({ error: "Bitte zuerst Zugangsdaten speichern." });
+    }
+
+    const now = new Date();
+    const status = "local";
+    const message =
+      "Zugangsdaten gespeichert. Ein echter API-Test ist erst nach Freischaltung möglich.";
+
+    await coll.updateOne(
+      { userId: req.nutzer.id },
+      { $set: { lastTestAt: now, lastTestStatus: status, lastTestMessage: message } }
+    );
+
+    return res.json({ ok: true, at: now, status, message });
+  } catch (err) {
+    console.error("❌ Fehler bei /api/mobile-de/test:", err);
+    return res.status(500).json({ error: "Test fehlgeschlagen." });
+  }
+});
+
+app.post("/api/mobile-de/sync", checkLogin, async (req, res) => {
+  try {
+    const coll = db.collection("mobileCredentials");
+    const doc = await coll.findOne({ userId: req.nutzer.id });
+    if (!doc?.usernameEnc || !doc?.passwordEnc) {
+      return res.status(400).json({ error: "Bitte zuerst Zugangsdaten speichern." });
+    }
+
+    const now = new Date();
+    const status = "pending";
+    const message =
+      "Sync ist vorbereitet. Die echte Synchronisation folgt nach Freischaltung der Mobile.de API.";
+
+    await coll.updateOne(
+      { userId: req.nutzer.id },
+      { $set: { lastSyncAt: now, lastSyncStatus: status, lastSyncMessage: message } }
+    );
+
+    return res.json({ ok: false, at: now, status, message });
+  } catch (err) {
+    console.error("❌ Fehler bei /api/mobile-de/sync:", err);
+    return res.status(500).json({ error: "Sync fehlgeschlagen." });
   }
 });
 
