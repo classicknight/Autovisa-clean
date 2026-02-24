@@ -31,6 +31,8 @@ const stripToken = (text, token) => {
   const re = new RegExp(`\\b${escapeRegExp(tok)}\\b`, "ig");
   return t.replace(re, " ").replace(/\s+/g, " ").trim();
 };
+// TEST-Subtitle (einfach entfernen, wenn nicht mehr gebraucht)
+const TEST_SUBTITLE = "Test-Subtitle";
 const normalizeModelText = (brand, model) => {
   const m = String(model || "").trim();
   if (!brand || !m) return m;
@@ -78,7 +80,7 @@ const getDisplayTexts = (inserat) => {
     [brand, modelClean].filter(Boolean).join(" ").trim() ||
     firstNonEmpty(inserat?.verkauf_titel, inserat?.titel) ||
     "Unbekanntes Fahrzeug";
-  const subtitle = firstNonEmpty(variantClean);
+  const subtitle = firstNonEmpty(variantClean) || TEST_SUBTITLE;
   return { title, subtitle, brand, model: modelClean, variant: variantClean };
 };
 

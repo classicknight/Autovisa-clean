@@ -850,6 +850,8 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
     return isNaN(n) ? "Preis n. a." : n.toLocaleString("de-DE") + " €";
   };
   const sanitizePhone = (p) => String(p || "").replace(/[^\d+]/g, "");
+  // TEST-Subtitle (einfach entfernen, wenn nicht mehr gebraucht)
+  const TEST_SUBTITLE = "Test-Subtitle";
   const pickText = (...vals) => {
     for (const v of vals) {
       if (v === null || v === undefined) continue;
@@ -922,7 +924,7 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
       inserat?.kurzbeschreibung,
       inserat?.raw?.verkauf_kurzbeschreibung
     );
-    return { title, subtitle };
+    return { title, subtitle: subtitle || TEST_SUBTITLE };
   };
 
 
@@ -1256,6 +1258,7 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   async function fetchSearch(p = 1, limit = pageSize) {
     const reqId = ++lastReqId;
     const params = new URLSearchParams(window.location.search);
+    ensureSortParam(params);
 
     normalizeHuParams(params);
     // Client-only: nicht ans Backend senden
@@ -1939,16 +1942,17 @@ function applyClientFilters(items) {
       btn.addEventListener("click", (e) => {
         const target = Number(e.currentTarget.getAttribute("data-page"));
         if (!Number.isFinite(target)) return;
-  
+
         const nextPage = clamp(target, 1, totalPages);
         if (nextPage === page) return;
-  
+
         page = nextPage;
-  
+
         const params = new URLSearchParams(window.location.search);
+        ensureSortParam(params);
         params.set("page", String(page));
         replaceUrlParams(params);
-  
+
         loadAndRender(page);
   
         // Optional (UX): nach dem Blättern zurück zum Beginn der Ergebnisse
@@ -2324,7 +2328,16 @@ function applyClientFilters(items) {
     if (v === "ez-desc")      return "ez_desc";
     if (v === "ez-asc")       return "ez_asc";
     return "neueste"; // default
-  }function setOrDelete(params, key, val) {
+  }
+  function ensureSortParam(params) {
+    if (!params) return params;
+    if (params.get("sort")) return params;
+    const sortSel = document.getElementById("sortBy");
+    const mapped = mapSortSelectToParam(sortSel?.value || "default");
+    if (mapped) params.set("sort", mapped);
+    return params;
+  }
+  function setOrDelete(params, key, val) {
     if (val == null) return params.delete(key);
     const s = String(val).trim();
     if (s === "" || s === "Beliebig" || s === "-" || s === "any" || s === "alle" || s === "all") params.delete(key);
