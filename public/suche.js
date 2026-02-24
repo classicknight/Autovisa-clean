@@ -2299,7 +2299,8 @@ function applyClientFilters(items) {
       filteredItems = Array.isArray(results) ? results.map(normalizeItem) : [];
       page          = Number(serverPage) || 1;
 
-      // Server liefert bereits gefiltert & sortiert – clientseitig nichts mehr ändern
+      // Fallback: clientseitig nach UI-Sortierung sortieren (falls Backend ignoriert)
+      filteredItems = sortItems(filteredItems);
 
       renderItems();
 

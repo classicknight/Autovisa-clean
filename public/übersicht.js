@@ -1177,6 +1177,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const openingApplyAllBtn = document.getElementById("openingHoursApplyAll");
   const openingMessage = document.getElementById("openingHoursMessage");
   const openingRows = openingModal?.querySelectorAll(".opening-hours-row") || [];
+  const openingQuickFrom = document.getElementById("openingQuickFrom");
+  const openingQuickTo = document.getElementById("openingQuickTo");
+  const openingQuickWeekdaysBtn = document.getElementById("openingQuickWeekdays");
+  const openingQuickAllBtn = document.getElementById("openingQuickAll");
+  const openingQuickWeekendBtn = document.getElementById("openingQuickWeekend");
+  const openingQuickClosedAllBtn = document.getElementById("openingQuickClosedAll");
   let openingTargetEl = null;
 
   const showOpeningMessage = (text) => {
@@ -1214,6 +1220,22 @@ document.addEventListener("DOMContentLoaded", () => {
     const closed = !!closedInput?.checked;
     return { von, bis, closed };
   }
+  const toMinutes = (t) => {
+    const parts = String(t || "").split(":");
+    if (parts.length !== 2) return NaN;
+    return Number(parts[0]) * 60 + Number(parts[1]);
+  };
+  const isValidRange = (von, bis) => {
+    const fromMin = toMinutes(von);
+    const toMin = toMinutes(bis);
+    return Number.isFinite(fromMin) && Number.isFinite(toMin) && fromMin < toMin;
+  };
+  const applyToDayKeys = (keys, data) => {
+    keys.forEach((day) => {
+      const row = openingModal?.querySelector(`.opening-hours-row[data-day="${day}"]`);
+      setRowState(row, data);
+    });
+  };
 
   function getOpeningDetailsFromUser() {
     const details =
@@ -1231,6 +1253,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const dayKey = row.dataset.day;
       setRowState(row, details?.[dayKey] || {});
     });
+    const monday = openingModal.querySelector('.opening-hours-row[data-day="mo"]');
+    if (monday) {
+      const monState = readRowState(monday);
+      if (openingQuickFrom) openingQuickFrom.value = monState.closed ? "" : (monState.von || "");
+      if (openingQuickTo) openingQuickTo.value = monState.closed ? "" : (monState.bis || "");
+    }
     openingModal.classList.add("show");
     openingModal.classList.remove("hidden");
     document.body.classList.add("modal-open");
@@ -1273,6 +1301,38 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  const applyQuickTimes = (keys) => {
+    const von = String(openingQuickFrom?.value || "").trim();
+    const bis = String(openingQuickTo?.value || "").trim();
+    if (!von || !bis) {
+      showOpeningMessage("Bitte zuerst „von“ und „bis“ im Schnell-Setzen wählen.");
+      return;
+    }
+    if (!isValidRange(von, bis)) {
+      showOpeningMessage("Bitte gültige Zeiten eintragen (von < bis).");
+      return;
+    }
+    clearOpeningMessage();
+    applyToDayKeys(keys, { von, bis, closed: false });
+  };
+
+  openingQuickWeekdaysBtn?.addEventListener("click", () => {
+    applyQuickTimes(["mo", "di", "mi", "do", "fr"]);
+  });
+
+  openingQuickAllBtn?.addEventListener("click", () => {
+    applyQuickTimes(OPENING_DAYS.map(d => d.key));
+  });
+
+  openingQuickWeekendBtn?.addEventListener("click", () => {
+    applyQuickTimes(["sa", "so"]);
+  });
+
+  openingQuickClosedAllBtn?.addEventListener("click", () => {
+    clearOpeningMessage();
+    applyToDayKeys(OPENING_DAYS.map(d => d.key), { von: "", bis: "", closed: true });
+  });
+
   openingCancelBtn?.addEventListener("click", closeOpeningHoursModal);
   openingBackdrop?.addEventListener("click", closeOpeningHoursModal);
 
@@ -1298,11 +1358,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      const toMinutes = (t) => {
-        const parts = String(t || "").split(":");
-        if (parts.length !== 2) return NaN;
-        return Number(parts[0]) * 60 + Number(parts[1]);
-      };
       const fromMin = toMinutes(von);
       const toMin = toMinutes(bis);
       if (!Number.isFinite(fromMin) || !Number.isFinite(toMin) || fromMin >= toMin) {

@@ -3161,8 +3161,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const sellerId = getSellerIdFromInserat(inserat);
   if (sellerId) {
     ladeBewertung(sellerId);
-    setupToggleRatingList(sellerId); // 👈 HIER NEU
   }
+  setupToggleRatingList(sellerId); // 👈 immer binden
 
   // Tastatursteuerung (Slider / Lightbox)
   document.addEventListener("keydown", (e) => {
@@ -3442,13 +3442,15 @@ async function ladeBewertungenMitText(sellerId) {
 }
 
 // ⭐ Toggle-Button zum Ein-/Ausklappen der Bewertungsliste
-function setupToggleRatingList(sellerId) {
+function setupToggleRatingList(sellerId = "") {
   const btn = document.getElementById("toggleRatingListBtn");
   const container = document.getElementById("ratingList");
 
   if (!btn || !container) return;
 
   let visible = false;
+  btn.setAttribute("aria-expanded", "false");
+  container.setAttribute("aria-hidden", "true");
 
   btn.addEventListener("click", async () => {
     visible = !visible;
@@ -3456,10 +3458,18 @@ function setupToggleRatingList(sellerId) {
     if (visible) {
       btn.innerHTML = `<i class="fas fa-chevron-up"></i> Bewertungen verbergen`;
       container.style.display = "block";
-      await ladeBewertungenMitText(sellerId);
+      container.setAttribute("aria-hidden", "false");
+      btn.setAttribute("aria-expanded", "true");
+      if (sellerId) {
+        await ladeBewertungenMitText(sellerId);
+      } else {
+        container.innerHTML = "<p style='color:#777;'>Bewertungen sind für diesen Anbieter nicht verfügbar.</p>";
+      }
     } else {
       btn.innerHTML = `<i class="fas fa-chevron-down"></i> Bewertungen anzeigen`;
       container.style.display = "none";
+      container.setAttribute("aria-hidden", "true");
+      btn.setAttribute("aria-expanded", "false");
     }
   });
 }

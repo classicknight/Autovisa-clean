@@ -2482,7 +2482,8 @@ img, video, canvas {
   
   /* Untertitel */
   .car-subtitle{
-    font-size:14px; color:#6c7a89; margin:0;
+    font-family:'Inter', sans-serif;
+    font-size:14px; font-weight:600; color:#2f3b45; margin:0;
     display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
     line-height:1.25; min-height:2.4em;        /* ⬅️ etwas kompakter */
   }

@@ -3885,6 +3885,29 @@ body.modal-open{
   font-size: 13.5px;
 }
 
+.opening-hours-quick{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px dashed #dbe3ea;
+  background: #f7fafc;
+  margin-bottom: 12px;
+}
+.opening-hours-quick-inputs{
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.opening-hours-quick-actions{
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .opening-hours-grid{
   display: flex;
   flex-direction: column;
@@ -3977,6 +4000,15 @@ body.modal-open{
 }
 
 @media (max-width: 800px) {
+  .opening-hours-quick{
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .opening-hours-quick-inputs,
+  .opening-hours-quick-actions{
+    width: 100%;
+    justify-content: flex-start;
+  }
   .opening-hours-row{
     grid-template-columns: 1fr 1fr;
     grid-template-areas:

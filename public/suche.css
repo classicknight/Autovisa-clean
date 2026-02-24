@@ -1197,8 +1197,10 @@ img, video, canvas {
   text-align:right;
 }
 .car-subtitle{
+  font-family:'Inter', sans-serif;
   font-size:14px;
-  color:#6c7a89;
+  font-weight:600;
+  color:#2f3b45;
   margin:0;
 }
 .car-info-grid{
@@ -1338,8 +1340,10 @@ img, video, canvas {
     }
   
     .car-subtitle {
+      font-family: 'Inter', sans-serif;
       font-size: 13.5px;
-      color: #6c7a89;
+      font-weight: 600;
+      color: #2f3b45;
       margin-bottom: 8px;
     }
   
