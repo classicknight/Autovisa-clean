@@ -1651,6 +1651,26 @@ img, video, canvas {
     border-radius: 6px;
     animation: pulseLine 3s infinite ease-in-out;
   }
+
+  /* Titel-Block im Header: Linie erst NACH dem Subtitle */
+  .car-header-box .car-title::after { display:none; }
+  .car-header-box .car-title-block{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    z-index:1;
+  }
+  .car-header-box .car-subtitle{ margin-top:0; }
+  .car-header-box .car-title-block::after{
+    content:'';
+    display:block;
+    margin-top:10px;
+    height:3px;
+    width:80px;
+    background: linear-gradient(90deg, #00ffcc, #00bfa6);
+    border-radius:6px;
+    animation: pulseLine 3s infinite ease-in-out;
+  }
   
   @keyframes pulseLine {
     0%, 100% {

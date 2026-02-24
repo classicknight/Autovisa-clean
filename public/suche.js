@@ -1258,7 +1258,9 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   async function fetchSearch(p = 1, limit = pageSize) {
     const reqId = ++lastReqId;
     const params = new URLSearchParams(window.location.search);
+    const before = params.toString();
     ensureSortParam(params);
+    if (before !== params.toString()) replaceUrlParams(params);
 
     normalizeHuParams(params);
     // Client-only: nicht ans Backend senden
@@ -2172,13 +2174,14 @@ function applyClientFilters(items) {
   
         <div class="car-details">
           <div class="car-top-row">
-            <h2 class="car-title"></h2>
+            <div class="car-title-block">
+              <h2 class="car-title"></h2>
+              <p class="car-subtitle"></p>
+            </div>
             <div class="car-price-wrap">
               <p class="car-price">${isNaN(priceNum) ? "Preis n. a." : priceNum.toLocaleString("de-DE") + " €"}${mwstSup}</p>
             </div>
           </div>
-  
-          <p class="car-subtitle"></p>
   
           <div class="car-info-grid">
             <p><i class="fas fa-road"></i> ${isNaN(kmNum) ? "?" : kmNum.toLocaleString("de-DE")} km</p>
