@@ -1288,8 +1288,12 @@ function fillSellerCard(inserat) {
     ratingWrap.style.display = "none";
   } else if (ratingWrap) {
     ratingWrap.style.display = "";
-    const ratingNum = Number(seller.rating || inserat.rating || 0);
-    const ratingCnt = Number(seller.reviews || inserat.reviews || 0);
+    const ratingNum = Number(
+      seller.ratingAvg ?? seller.rating ?? inserat.ratingAvg ?? inserat.rating ?? 0
+    );
+    const ratingCnt = Number(
+      seller.ratingCount ?? seller.reviews ?? inserat.ratingCount ?? inserat.reviews ?? 0
+    );
     const pct = (Math.max(0, Math.min(5, ratingNum)) / 5) * 100;
 
     if (ratingFill)  ratingFill.style.width = pct + "%";
@@ -1642,6 +1646,22 @@ function fillOpeningHours(seller, inserat, isDealer) {
   });
 
   box.style.display = "";
+}
+
+let currentInserat = null;
+
+function getSellerIdFromInserat(ins) {
+  if (!ins) return "";
+  return String(
+    ins.verkaeuferId ||
+    ins.seller?.id ||
+    ins.sellerId ||
+    ins.anbieterId ||
+    ins.haendlerId ||
+    ins.nutzerId ||
+    ins.raw?.seller?.id ||
+    ""
+  ).trim();
 }
 // === Google-Maps Karte für Händler & Privat =======================
 // - Händler: komplette Adresse (Straße + Hausnr + PLZ + Ort + Land)
@@ -2695,8 +2715,12 @@ async function renderSeller(inseratArg = null) {
   }
 
   // --- Bewertung ---
-  const rating = Number(profile.rating || inserat.rating || 0);
-  const rCnt   = Number(profile.reviews || inserat.reviews || 0);
+  const rating = Number(
+    profile.ratingAvg ?? profile.rating ?? inserat.ratingAvg ?? inserat.rating ?? 0
+  );
+  const rCnt   = Number(
+    profile.ratingCount ?? profile.reviews ?? inserat.ratingCount ?? inserat.reviews ?? 0
+  );
   const ratingWidth = (Math.max(0, Math.min(5, rating)) / 5) * 100;
 
   const starsFillEl = $id("sellerRatingFill");
@@ -3005,11 +3029,16 @@ function setupRatingPanel() {
     });
   });
 
-  document.getElementById("btnRate")?.addEventListener("click", () => {
+  const openBtn = document.getElementById("openRatingPanel") || document.getElementById("btnRate");
+  openBtn?.addEventListener("click", () => {
     panel.style.display = "block";
     chosen = 0;
     panel.querySelector("#ratingText").value = "";
-    [...panel.querySelectorAll("#starRating button i")].forEach((i) => (i.style.color = "#888"));
+    [...panel.querySelectorAll("#starRating button")].forEach((b, i) => {
+      b.style.background = "#f3f7f8";
+      const icon = b.querySelector("i");
+      if (icon) icon.style.color = "#888";
+    });
   });
 
   panel.querySelector("#closeRatingBtn")?.addEventListener("click", () => {
@@ -3018,11 +3047,13 @@ function setupRatingPanel() {
 
   panel.querySelector("#submitRatingBtn")?.addEventListener("click", async () => {
     const text = (panel.querySelector("#ratingText").value || "").trim();
-    let inserat = {};
-    try {
-      inserat = JSON.parse(localStorage.getItem("ausgewaehltesInserat") || "{}");
-    } catch {}
-    const sellerId = inserat?.verkaeuferId || inserat?.seller?.id || inserat?.sellerId || "";
+    let inserat = currentInserat || {};
+    if (!inserat || !getSellerIdFromInserat(inserat)) {
+      try {
+        inserat = JSON.parse(localStorage.getItem("ausgewaehltesInserat") || "{}");
+      } catch {}
+    }
+    const sellerId = getSellerIdFromInserat(inserat);
     if (!sellerId) {
       alert("Kein Händler zugeordnet.");
       return;
@@ -3042,6 +3073,10 @@ function setupRatingPanel() {
 
       if (res.status === 401) {
         alert("Bitte einloggen, um zu bewerten.");
+        return;
+      }
+      if (res.status === 403) {
+        alert("Bitte bestätige zuerst deine E-Mail-Adresse.");
         return;
       }
       if (!res.ok) throw new Error();
@@ -3120,14 +3155,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   initStickySummary(inserat);
 
   // ⭐ Bewertung laden & Klick-Handler aktivieren
-  const sellerId = inserat?.verkaeuferId || inserat?.seller?.id;
+  currentInserat = inserat;
+  const sellerId = getSellerIdFromInserat(inserat);
   if (sellerId) {
     ladeBewertung(sellerId);
     setupToggleRatingList(sellerId); // 👈 HIER NEU
-
-    document.getElementById("openRatingPanel")?.addEventListener("click", () => {
-      toggleRatingPanel();
-    });
   }
 
   // Tastatursteuerung (Slider / Lightbox)
@@ -3363,11 +3395,15 @@ async function ladeBewertung(sellerId) {
     const avg = data.avg ?? "–";
     const count = data.count ?? 0;
 
-    document.getElementById("sellerRatingValue").textContent = avg === "–" ? "– / 5" : `${avg} / 5`;
-    document.getElementById("sellerRatingCount").textContent = count > 0 ? `(${count})` : "";
+    const valueEl = document.getElementById("sellerRatingValue");
+    const countEl = document.getElementById("sellerRatingCount");
+    const fillEl  = document.getElementById("sellerRatingFill");
+
+    if (valueEl) valueEl.textContent = avg === "–" ? "– / 5" : `${avg} / 5`;
+    if (countEl) countEl.textContent = count > 0 ? `(${count})` : "";
 
     const percent = avg && avg !== "–" ? `${(avg / 5) * 100}%` : "0%";
-    document.getElementById("sellerRatingFill").style.width = percent;
+    if (fillEl) fillEl.style.width = percent;
   } catch (e) {
     console.warn("Konnte Bewertung nicht laden:", e);
   }

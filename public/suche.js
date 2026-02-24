@@ -786,7 +786,6 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
     else if (QP.sort === "km_desc")    sortBy.value = "mileage-desc";
     else if (QP.sort === "ez_desc")    sortBy.value = "ez-desc";
     else if (QP.sort === "ez_asc")     sortBy.value = "ez-asc";
-    else if (QP.sort === "ps_desc")    sortBy.value = "power-desc";
     else                               sortBy.value = "default";
   }
 
@@ -1849,9 +1848,6 @@ function applyClientFilters(items) {
         copy.sort((a,b) => dir * getEz(a).localeCompare(getEz(b)) || (getDate(b) - getDate(a)));
         break;
       }
-      case "power-desc":
-        copy.sort((a,b) => (toNum(b.leistung) || -Infinity) - (toNum(a.leistung) || -Infinity));
-        break;
       case "date-desc": {
         copy.sort((a,b) => getDate(b) - getDate(a));
         break;
@@ -2327,7 +2323,6 @@ function applyClientFilters(items) {
     if (v === "mileage-desc") return "km_desc";
     if (v === "ez-desc")      return "ez_desc";
     if (v === "ez-asc")       return "ez_asc";
-    if (v === "power-desc")   return "ps_desc";
     return "neueste"; // default
   }function setOrDelete(params, key, val) {
     if (val == null) return params.delete(key);
@@ -2603,7 +2598,6 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
       v === "mileage-desc" ? "km_desc"    :
       v === "ez-desc"      ? "ez_desc"    :
       v === "ez-asc"       ? "ez_asc"     :
-      v === "power-desc"   ? "ps_desc"    :
       "neueste";
     const sortVal = sortSelect?.value || "";
     const sortParam = mapSort(sortVal);
