@@ -1593,8 +1593,8 @@ img, video, canvas {
   justify-content:space-between;
   align-items:center;
   gap:14px;
-  margin-top:0;
-  padding-top:10px;
+  margin-top:8px;
+  padding-top:12px;
   border-top:1px solid #e6eaf0;
 }
   
@@ -1929,8 +1929,8 @@ img, video, canvas {
     justify-content: space-between;
     align-items: center;
     gap: 14px;
-    margin-top: 0;
-    padding-top: 10px;
+    margin-top: 8px;
+    padding-top: 12px;
     border-top: 1px solid #e6eaf0;
   }
   
@@ -2077,6 +2077,62 @@ img, video, canvas {
   min-height: 28px;
 }
 
+/* Mobile Sticky Dock für Filter (sichtbar beim Hochscrollen) */
+.mobile-filter-dock{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  z-index:1200;
+  background:rgba(255,255,255,.96);
+  border-bottom:1px solid #e6eaf0;
+  box-shadow:0 10px 24px rgba(0,0,0,.08);
+  padding:8px 12px 6px;
+  transform:translateY(-110%);
+  opacity:0;
+  pointer-events:none;
+  transition:transform .22s ease, opacity .18s ease;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.mobile-filter-dock.show{
+  transform:translateY(0);
+  opacity:1;
+  pointer-events:auto;
+}
+.mobile-filter-dock-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.mobile-filter-dock .toggle-filters{
+  margin:0;
+  padding:8px 12px 8px 10px;
+  font-size:13px;
+  border-radius:999px;
+  gap:8px;
+  box-shadow:none;
+}
+.mobile-filter-dock .toggle-filters i{
+  width:22px;height:22px;
+  font-size:11px;
+  padding:6px;
+}
+.mobile-filter-dock .active-filter-bar{
+  padding:6px 0 0;
+  flex-wrap:nowrap;
+  overflow-x:auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width:none;
+}
+.mobile-filter-dock .active-filter-bar::-webkit-scrollbar{
+  height:0;
+}
+
+@media (min-width:901px){
+  .mobile-filter-dock{ display:none; }
+}
+
 .filter-chip{
   display:inline-flex;
   align-items:center;
@@ -2140,6 +2196,9 @@ img, video, canvas {
 
 /* Wenn die Leiste leer ist, komplett ausblenden */
 #activeFilterBar.is-empty {
+  display: none;
+}
+#activeFilterBarDock.is-empty {
   display: none;
 }
 

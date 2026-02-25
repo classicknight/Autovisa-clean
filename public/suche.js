@@ -494,6 +494,65 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
       toggleBtn.setAttribute("aria-expanded", String(next));
     });
   }
+
+  // Mobile: Sticky Filter-Dock (zeigt aktive Filter beim Hochscrollen)
+  function setupMobileFilterDock() {
+    const dock = document.getElementById("mobileFilterDock");
+    if (!dock) return;
+
+    const dockBtn = document.getElementById("toggleFiltersBtnDock");
+    if (dockBtn && toggleBtn) {
+      dockBtn.addEventListener("click", () => toggleBtn.click());
+    }
+
+    let lastY = window.scrollY || 0;
+    let ticking = false;
+    const threshold = 120;
+
+    const setDockVisible = (show) => {
+      dock.classList.toggle("show", show);
+      dock.setAttribute("aria-hidden", show ? "false" : "true");
+    };
+
+    const updateDock = () => {
+      const hasChips =
+        document.getElementById("activeFilterBar")?.dataset.hasChips === "1";
+      const y = window.scrollY || 0;
+
+      if (!hasChips || y <= threshold) {
+        setDockVisible(false);
+        lastY = y;
+        return;
+      }
+
+      if (y < lastY - 6) {
+        setDockVisible(true);
+      } else if (y > lastY + 6) {
+        setDockVisible(false);
+      }
+      lastY = y;
+    };
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        updateDock();
+        ticking = false;
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", () => {
+      lastY = window.scrollY || 0;
+      updateDock();
+    });
+
+    // von renderActiveFilters() aufrufbar
+    window.updateMobileFilterDock = () => updateDock();
+  }
+
+  setupMobileFilterDock();
 // --- Prefill aus URL in die UI ---
 (function prefillFromQuery () {
   const sp = new URLSearchParams(location.search);
@@ -1828,44 +1887,6 @@ function applyClientFilters(items) {
 
 
 
-  // ===== Sortierung (optional, clientseitig) =====
-  function sortItems(items) {
-    const v = sortBy?.value || "default";
-    const copy = items.slice();
-    const getDate = (x) => (x?.raw?.veroeffentlichtAm ? new Date(x.raw.veroeffentlichtAm)
-                         : x?._id?.$date ? new Date(x._id.$date)
-                         : new Date(0));
-
-    switch (v) {
-      case "price-asc":
-        copy.sort((a,b) => (toNum(a.preis) || Infinity) - (toNum(b.preis) || Infinity));
-        break;
-      case "price-desc":
-        copy.sort((a,b) => (toNum(b.preis) || -Infinity) - (toNum(a.preis) || -Infinity));
-        break;
-      case "mileage-desc":
-        copy.sort((a,b) => (toNum(b.kilometer) || -Infinity) - (toNum(a.kilometer) || -Infinity));
-        break;
-      case "ez-desc":
-      case "ez-asc": {
-        const dir = v === "ez-asc" ? 1 : -1;
-        const getEz = (x) => String(x?.erstzulassung || x?.raw?.verkauf_erstzulassung || "");
-        copy.sort((a,b) => dir * getEz(a).localeCompare(getEz(b)) || (getDate(b) - getDate(a)));
-        break;
-      }
-      case "date-desc": {
-        copy.sort((a,b) => getDate(b) - getDate(a));
-        break;
-      }
-      case "mileage-asc":
-        copy.sort((a,b) => (toNum(a.kilometer) || Infinity) - (toNum(b.kilometer) || Infinity));
-        break;
-      default: // standard
-        break;
-    }
-    return copy;
-  }
-
   function renderPager(totalCount) {
     if (!pager) return;
   
@@ -2301,9 +2322,6 @@ function applyClientFilters(items) {
       filteredItems = Array.isArray(results) ? results.map(normalizeItem) : [];
       page          = Number(serverPage) || 1;
 
-      // Fallback: clientseitig nach UI-Sortierung sortieren (falls Backend ignoriert)
-      filteredItems = sortItems(filteredItems);
-
       renderItems();
 
       // Chips-Leiste nach jedem (Neu-)Laden aktualisieren, falls vorhanden
@@ -2463,13 +2481,13 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
     })();
   
     // Ort / Umkreis
-    const locVal = (document.getElementById("location")?.value || "").trim();
+    const locVal = (document.getElementById("location")?.value || document.getElementById("ort")?.value || "").trim();
     const hasLoc = !!locVal;
     setOrDelete(params, "ort", locVal);
     const distSel    = document.getElementById("distance-select");
     const distCustom = document.getElementById("distance-custom");
     let umkreisSet = false;
-    if (distSel && !distSel.disabled) {
+    if (hasLoc && distSel && !distSel.disabled) {
       const dRaw = distSel.value === "custom" ? (distCustom?.value || "") : distSel.value;
       const d    = parseInt(dRaw, 10);
       if (!Number.isNaN(d) && d > 0 && d !== 999) {
@@ -2480,6 +2498,19 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
       }
     } else {
       params.delete("umkreis");
+    }
+    if (!hasLoc) {
+      params.delete("umkreis");
+      params.delete("ort_lat"); params.delete("ort_lon");
+      params.delete("ort-lat"); params.delete("ort-lon");
+      if (distSel) {
+        distSel.value = "999";
+        distSel.disabled = true;
+      }
+      if (distCustom) {
+        distCustom.value = "";
+        distCustom.style.display = "none";
+      }
     }
     // Default: wenn Ort gesetzt ist, aber kein Umkreis gewählt → 100 km
     if (hasLoc && !umkreisSet) {
@@ -3073,32 +3104,56 @@ const displayPower = (psVal) => {
       bar.classList.add("is-empty");
       bar.removeAttribute("data-has-chips");
       if (barWrap) barWrap.classList.add("no-chips");
+      const dockBarEmpty = document.getElementById("activeFilterBarDock");
+      if (dockBarEmpty) {
+        dockBarEmpty.textContent = "";
+        dockBarEmpty.classList.add("is-empty");
+        dockBarEmpty.removeAttribute("data-has-chips");
+      }
+      if (typeof window.updateMobileFilterDock === "function") {
+        window.updateMobileFilterDock();
+      }
       return;
     }
   
     bar.classList.remove("is-empty");
     bar.setAttribute("data-has-chips", "1");
     if (barWrap) barWrap.classList.remove("no-chips");
-  
-    bar.innerHTML = chips.map(c => `
-      <div class="filter-chip" data-key="${c.key}" ${('value' in c) ? `data-value="${c.value}"` : ""}>
-        <span class="chip-label">${c.label}</span>
-        <button class="chip-remove" type="button" aria-label="Filter entfernen" title="Filter entfernen">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-    `).join("") + `<button class="clear-all" type="button">Alle löschen</button>`;
-  
-    bar.querySelectorAll(".filter-chip .chip-remove").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        const chip = e.currentTarget.closest(".filter-chip");
-        if (!chip) return;
-        const key = chip.getAttribute("data-key");
-        const val = chip.getAttribute("data-value") || "";
-        removeFilterChip(key, val);
+
+    const renderChipsTo = (target) => {
+      if (!target) return;
+      target.innerHTML = chips.map(c => `
+        <div class="filter-chip" data-key="${c.key}" ${('value' in c) ? `data-value="${c.value}"` : ""}>
+          <span class="chip-label">${c.label}</span>
+          <button class="chip-remove" type="button" aria-label="Filter entfernen" title="Filter entfernen">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      `).join("") + `<button class="clear-all" type="button">Alle löschen</button>`;
+
+      target.querySelectorAll(".filter-chip .chip-remove").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          const chip = e.currentTarget.closest(".filter-chip");
+          if (!chip) return;
+          const key = chip.getAttribute("data-key");
+          const val = chip.getAttribute("data-value") || "";
+          removeFilterChip(key, val);
+        });
       });
-    });
-    bar.querySelector(".clear-all")?.addEventListener("click", () => clearAllFilters());
+      target.querySelector(".clear-all")?.addEventListener("click", () => clearAllFilters());
+    };
+
+    renderChipsTo(bar);
+
+    const dockBar = document.getElementById("activeFilterBarDock");
+    if (dockBar) {
+      dockBar.classList.remove("is-empty");
+      dockBar.setAttribute("data-has-chips", "1");
+      renderChipsTo(dockBar);
+    }
+    if (typeof window.updateMobileFilterDock === "function") {
+      window.updateMobileFilterDock();
+    }
   }
   
 // ---- Einzelnen Chip entfernen ----
@@ -3337,6 +3392,20 @@ function removeFilterChip(key, val = "") {
 
     case "ort":
       params.delete("ort"); params.delete("ort_lat"); params.delete("ort_lon");
+      params.delete("ort-lat"); params.delete("ort-lon");
+      params.delete("umkreis");
+      {
+        const distSel = document.getElementById("distance-select");
+        const distCustom = document.getElementById("distance-custom");
+        if (distSel) {
+          distSel.value = "999";
+          distSel.disabled = true;
+        }
+        if (distCustom) {
+          distCustom.value = "";
+          distCustom.style.display = "none";
+        }
+      }
       break;
 
     case "umkreis":

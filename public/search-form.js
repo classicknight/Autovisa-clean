@@ -864,6 +864,10 @@ document.addEventListener("DOMContentLoaded", () => {
   
   function buildQueryParams() {
     const qs = new URLSearchParams();
+    const toIntLoose = (v) => {
+      const s = String(v ?? "").replace(/[^\d]/g, "");
+      return s ? parseInt(s, 10) : NaN;
+    };
 
     const brand = String(markeSel?.value || "").trim();
     if (brand && brand !== ANY_BRAND_VALUE) qs.set("marke", brand);
@@ -915,7 +919,7 @@ if (y) {
     // Startseite km_max (Select + Custom)
     if (kmSel) {
       const raw = kmSel.value === "custom" ? kmCustom?.value || "" : kmSel.value;
-      const n = parseInt(raw, 10);
+      const n = toIntLoose(raw);
       if (!Number.isNaN(n) && n > 0) qs.set("km_max", String(n));
     }
     // Kriterien-Seite km-bis überschreibt ggf.
@@ -937,12 +941,12 @@ if (y) {
     // Startseite price_max (Select + Custom)
     if (priceSel) {
       const raw = priceSel.value === "custom" ? priceCustom?.value || "" : priceSel.value;
-      const n = parseInt(raw, 10);
+      const n = toIntLoose(raw);
       if (!Number.isNaN(n) && n > 0) qs.set("price_max", String(n));
     }
     // Kriterien-Seite preis-bis überschreibt ggf.
     const preisBisEl = document.getElementById("preis-bis");
-    const preisBis = parseInt(preisBisEl?.value || "", 10);
+    const preisBis = toIntLoose(preisBisEl?.value || "");
     if (!Number.isNaN(preisBis) && preisBis > 0) qs.set("price_max", String(preisBis));
 
  // Getriebe/Kraftstoff (Startseite Select)

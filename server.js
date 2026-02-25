@@ -4759,9 +4759,38 @@ app.get("/api/search", async (req, res) => {
     }
         
 
-    // ---- Zahlen aus Query
-    const priceMaxNum  = parseInt(price_max, 10);
-    const priceMinNum  = parseInt(price_min, 10);
+    // ---- Zahlen aus Query (robust + Fallbacks)
+    const pickParam = (...vals) => {
+      for (const v of vals) {
+        if (v == null) continue;
+        const s = String(v).trim();
+        if (s) return s;
+      }
+      return "";
+    };
+    const parseIntLoose = (v) => {
+      const s = String(v ?? "").replace(/[^\d]/g, "");
+      return s ? parseInt(s, 10) : NaN;
+    };
+
+    const priceMaxRaw = pickParam(
+      price_max,
+      req.query.preis_max,
+      req.query.preis,
+      req.query.price,
+      req.query["price-select"],
+      req.query["preis-bis"],
+      req.query.price_max
+    );
+    const priceMinRaw = pickParam(
+      price_min,
+      req.query.preis_min,
+      req.query["preis-von"],
+      req.query.price_min
+    );
+
+    const priceMaxNum  = parseIntLoose(priceMaxRaw);
+    const priceMinNum  = parseIntLoose(priceMinRaw);
     const kmMaxNum     = parseInt(km_max, 10);
     const kmMinNum     = parseInt(km_min, 10);
     let psMinNum     = parseInt(ps_min, 10);
@@ -5341,7 +5370,7 @@ app.get("/api/search", async (req, res) => {
     if (kraftstoff) {
       const fuels = splitCsv(kraftstoff).map(fuelCanon).filter(Boolean);
 
-      const FIELDS = ["verkauf_kraftstoff", "kraftstoff", "kraftstoffart", "beschreibung"];
+      const FIELDS = ["verkauf_kraftstoff", "kraftstoff", "kraftstoffart"];
       const OR_FIELDS  = (rx) => ({ $or: FIELDS.map(f => ({ [f]: rx })) });
       const NOR_FIELDS = (rx) => ({ $nor: FIELDS.map(f => ({ [f]: rx })) });
 
@@ -5372,11 +5401,11 @@ app.get("/api/search", async (req, res) => {
           continue;
         }
         if (t === "hybrid-benzin") {
-          conds.push({ $and: [ OR_FIELDS(RX.hybridAny), OR_FIELDS(RX.benzin) ] });
+          conds.push({ $and: [ OR_FIELDS(RX.hybridAny), OR_FIELDS(RX.benzin), NOR_FIELDS(RX.diesel), NOR_FIELDS(RX.wasserstoff) ] });
           continue;
         }
         if (t === "hybrid-diesel") {
-          conds.push({ $and: [ OR_FIELDS(RX.hybridAny), OR_FIELDS(RX.diesel) ] });
+          conds.push({ $and: [ OR_FIELDS(RX.hybridAny), OR_FIELDS(RX.diesel), NOR_FIELDS(RX.benzin), NOR_FIELDS(RX.wasserstoff) ] });
           continue;
         }
         if (t === "hybrid") {

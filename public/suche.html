@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Autovisa – Fahrzeuge kaufen & verkaufen</title>
 
-  <link rel="stylesheet" href="suche.css?v=2026-02-25-2" />
+  <link rel="stylesheet" href="suche.css?v=2026-02-25-4" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
@@ -133,6 +133,16 @@
 <button class="toggle-filters" id="toggleFiltersBtn">
   <i class="fas fa-sliders-h"></i> Filter anzeigen
 </button>
+
+<!-- Mobile: Sticky Filter-Dock (zeigt aktive Filter beim Hochscrollen) -->
+<div class="mobile-filter-dock" id="mobileFilterDock" aria-hidden="true">
+  <div class="mobile-filter-dock-row">
+    <button class="toggle-filters toggle-filters--dock" id="toggleFiltersBtnDock" type="button">
+      <i class="fas fa-sliders-h"></i> Filter
+    </button>
+  </div>
+  <div class="active-filter-bar" id="activeFilterBarDock" aria-live="polite"></div>
+</div>
 
 <div class="search-layout">
   <aside class="filter-sidebar" id="filterSidebar">
@@ -371,9 +381,9 @@
   </div>
 
 
-<script src="suche.js?v=2026-02-24-4" defer></script>
+<script src="suche.js?v=2026-02-25-7" defer></script>
 
-  <script src="search-form.js?v=2026-02-24-4" defer></script>
+  <script src="search-form.js?v=2026-02-25-1" defer></script>
 
   <script src="ui-feedback.js" defer></script>
 </body>

@@ -796,7 +796,7 @@ img, video, canvas {
   }
   
   /* Menüeinträge */
-  .sidebar-link {
+.sidebar-link {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -809,6 +809,8 @@ img, video, canvas {
     cursor: pointer;
     transition: all 0.25s ease;
     border: 1px solid transparent;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
   
   .sidebar-link i {
@@ -1721,7 +1723,17 @@ img, video, canvas {
     }
     
     .sidebar-link:hover {
-      background-color: #e0f7f4;
+      background-color: #f5f8fc;
+    }
+
+    .sidebar-link:active {
+      background-color: #00b8a9;
+      color: white;
+      border-color: #00b8a9;
+    }
+
+    .sidebar-link:active i {
+      color: #ffffff;
     }
     
     .menu-divider {

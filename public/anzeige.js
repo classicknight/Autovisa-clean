@@ -1673,6 +1673,34 @@ function getSellerIdFromInserat(ins) {
     ""
   ).trim();
 }
+
+async function resolveSellerIdForRatings(inserat) {
+  let id = getSellerIdFromInserat(inserat);
+  if (id) return id;
+
+  let fromLS = null;
+  try {
+    fromLS = JSON.parse(localStorage.getItem("ausgewaehltesInserat") || "{}");
+  } catch {
+    fromLS = null;
+  }
+
+  id = getSellerIdFromInserat(fromLS);
+  if (id) return id;
+
+  const listingId = getDocId(inserat) || getDocId(fromLS) || "";
+  if (!listingId) return "";
+
+  try {
+    const res = await fetch(api(`/inserat-details/${encodeURIComponent(listingId)}`), { credentials: "include" });
+    if (res.ok) {
+      const details = await res.json();
+      if (details?.seller?.id) return String(details.seller.id);
+    }
+  } catch {}
+
+  return "";
+}
 // === Google-Maps Karte für Händler & Privat =======================
 // - Händler: komplette Adresse (Straße + Hausnr + PLZ + Ort + Land)
 // - Privat: nur Ort/PLZ-Ort
@@ -3167,7 +3195,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // ⭐ Bewertung laden & Klick-Handler aktivieren
   currentInserat = inserat;
-  const sellerId = getSellerIdFromInserat(inserat);
+  const sellerId = await resolveSellerIdForRatings(inserat);
   if (sellerId) {
     ladeBewertung(sellerId);
   }
