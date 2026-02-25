@@ -4867,21 +4867,8 @@ app.get("/api/search", async (req, res) => {
         }
       },
       { $addFields: {
-          _preis_clean: {
-            $replaceAll: {
-              input: { $replaceAll: {
-                input: { $replaceAll: {
-                  input: { $replaceAll: {
-                    input: { $trim: { input: { $toString: "$_preis_raw" } } },
-                    find: ".", replacement: ""
-                  } },
-                  find: "€", replacement: ""
-                } },
-                find: " ", replacement: ""
-              } },
-              find: ",", replacement: ""
-            }
-          },
+          _preis_str: { $trim: { input: { $toString: "$_preis_raw" } } },
+          _preis_parts: { $regexFindAll: { input: { $toString: "$_preis_raw" }, regex: /\\d+/ } },
           _km_clean: {
             $replaceAll: {
               input: { $replaceAll: {
@@ -4889,6 +4876,35 @@ app.get("/api/search", async (req, res) => {
                 find: ".", replacement: ""
               } },
               find: " ", replacement: ""
+            }
+          }
+        }
+      },
+      { $addFields: {
+          _preis_parts_arr: {
+            $map: { input: "$_preis_parts", as: "m", in: "$$m.match" }
+          }
+        }
+      },
+      { $addFields: {
+          _preis_parts_trim: {
+            $cond: [
+              { $and: [
+                { $gte: [ { $size: "$_preis_parts_arr" }, 2 ] },
+                { $eq:  [ { $strLenCP: { $arrayElemAt: [ "$_preis_parts_arr", -1 ] } }, 2 ] }
+              ] },
+              { $slice: [ "$_preis_parts_arr", 0, { $subtract: [ { $size: "$_preis_parts_arr" }, 1 ] } ] },
+              "$_preis_parts_arr"
+            ]
+          }
+        }
+      },
+      { $addFields: {
+          _preis_clean: {
+            $reduce: {
+              input: "$_preis_parts_trim",
+              initialValue: "",
+              in: { $concat: [ "$$value", "$$this" ] }
             }
           }
         }
@@ -5643,7 +5659,7 @@ app.get("/api/search", async (req, res) => {
           data: [
             { $project: {
                 token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0,
-                _preis_raw: 0, _km_raw: 0, _preis_clean: 0, _km_clean: 0,
+                _preis_raw: 0, _km_raw: 0, _preis_str: 0, _preis_parts: 0, _preis_parts_arr: 0, _preis_parts_trim: 0, _preis_clean: 0, _km_clean: 0,
                 _ps_raw: 0, _seats_raw: 0, _ccm_raw: 0, _verb_raw: 0, _halter_raw: 0,
                 _ps_match: 0, _seats_match: 0, _ccm_match: 0, _verb_norm: 0, _verb_all_any: 0,
                 _halter_match: 0, _preis_null: 0, _km_null: 0, _ps_null: 0,

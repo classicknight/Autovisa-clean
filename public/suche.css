@@ -1146,6 +1146,13 @@ img, video, canvas {
   gap:12px;
   overflow:hidden;
 }
+.car-meta-block{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin-top:auto;             /* rückt Info-Grid + Verkäufer nach unten */
+  min-height:0;
+}
 .car-top-row{
   display:flex;
   align-items:flex-start;
@@ -1528,6 +1535,7 @@ img, video, canvas {
     display: flex;
     align-items: center;
     gap: 12px;
+    width: 100%;
     font-family: 'Poppins', sans-serif;
     font-size: 15px;
     color: #1a2a33;
@@ -1569,6 +1577,7 @@ img, video, canvas {
     font-weight: 500;
     color: #5c6b76;
     white-space: nowrap;
+    margin-left: auto;
   }
   
   .results-container {
@@ -1578,15 +1587,15 @@ img, video, canvas {
     gap: 24px;
     min-width: 0;
   }/* Verkäuferzeile mit Logo/Initialen + Desktop-Aktionen */
-  .dealer-info-row{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:14px;
-    margin-top:12px;
-    padding-top:10px;
-    border-top:1px solid #e6eaf0;
-  }
+.dealer-info-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:14px;
+  margin-top:0;
+  padding-top:10px;
+  border-top:1px solid #e6eaf0;
+}
   
   /* Linke Seite: Avatar + Name/Ort */
   .dealer-row{
@@ -1698,13 +1707,14 @@ img, video, canvas {
     }
 
     .result-count {
-      order: -1;
-      align-self: flex-start;
+      order: 3;
+      flex: 1 1 100%;
+      align-self: stretch;
       background: #ffffff;
       border: 1px solid #e3e9ef;
       border-radius: 999px;
       padding: 6px 12px;
-      font-size: 13px;
+      font-size: 12.5px;
       color: #42505a;
     }
     
@@ -1918,7 +1928,7 @@ img, video, canvas {
     justify-content: space-between;
     align-items: center;
     gap: 14px;
-    margin-top: 14px;
+    margin-top: 0;
     padding-top: 10px;
     border-top: 1px solid #e6eaf0;
   }

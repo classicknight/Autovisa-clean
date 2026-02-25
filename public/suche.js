@@ -2183,41 +2183,43 @@ function applyClientFilters(items) {
             </div>
           </div>
   
-          <div class="car-info-grid">
-            <p><i class="fas fa-road"></i> ${isNaN(kmNum) ? "?" : kmNum.toLocaleString("de-DE")} km</p>
-            <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.erstzulassung || "?"}</p>
-            <p><i class="fas fa-gas-pump"></i> ${inserat.kraftstoff || "?"}</p>
-            <p><i class="fas fa-gauge-high"></i> ${inserat.leistung || "?"} PS</p>
-            <p><i class="fas fa-gears"></i> ${inserat.getriebe || "?"}</p>
-            <p><i class="fas fa-tint"></i> ${vShowText}</p>
-          </div>
-  
-          <div class="dealer-info-row">
-            <div class="dealer-row">
-              <div class="dealer-avatar">
-                <img alt="">
-                <span class="dealer-initials">${sellerInitials(sellerName)}</span>
-              </div>
-              <div class="dealer-meta">
-                <div class="dealer-name"></div>
-                ${dealerRatingHTML}
-                <div class="dealer-location"></div>
-              </div>
+          <div class="car-meta-block">
+            <div class="car-info-grid">
+              <p><i class="fas fa-road"></i> ${isNaN(kmNum) ? "?" : kmNum.toLocaleString("de-DE")} km</p>
+              <p><i class="fas fa-calendar-alt"></i> EZ ${inserat.erstzulassung || "?"}</p>
+              <p><i class="fas fa-gas-pump"></i> ${inserat.kraftstoff || "?"}</p>
+              <p><i class="fas fa-gauge-high"></i> ${inserat.leistung || "?"} PS</p>
+              <p><i class="fas fa-gears"></i> ${inserat.getriebe || "?"}</p>
+              <p><i class="fas fa-tint"></i> ${vShowText}</p>
             </div>
-            <div class="card-actions desktop-only">
-              <button
-                class="save-btn"
-                type="button"
-                title="Auto speichern"
-                aria-pressed="false"
-                data-inserat-id="${realId}"
-                ${realId ? "" : "disabled aria-disabled='true'"}
-              >
-                <i class="far fa-heart" aria-hidden="true"></i>
-              </button>
-              <a href="${phoneHref}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${phoneHref === "#" ? "aria-disabled='true'" : ""}>
-                <i class="fas fa-phone"></i>
-              </a>
+  
+            <div class="dealer-info-row">
+              <div class="dealer-row">
+                <div class="dealer-avatar">
+                  <img alt="">
+                  <span class="dealer-initials">${sellerInitials(sellerName)}</span>
+                </div>
+                <div class="dealer-meta">
+                  <div class="dealer-name"></div>
+                  ${dealerRatingHTML}
+                  <div class="dealer-location"></div>
+                </div>
+              </div>
+              <div class="card-actions desktop-only">
+                <button
+                  class="save-btn"
+                  type="button"
+                  title="Auto speichern"
+                  aria-pressed="false"
+                  data-inserat-id="${realId}"
+                  ${realId ? "" : "disabled aria-disabled='true'"}
+                >
+                  <i class="far fa-heart" aria-hidden="true"></i>
+                </button>
+                <a href="${phoneHref}" class="contact-btn clean-phone" title="Verkäufer kontaktieren" role="button" ${phoneHref === "#" ? "aria-disabled='true'" : ""}>
+                  <i class="fas fa-phone"></i>
+                </a>
+              </div>
             </div>
           </div>
         </div>
