@@ -3108,6 +3108,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupNavbarShortcuts();
   setupBackButton();
   setupRatingPanel();
+  setupToggleRatingList(); // früh binden
 
   // 🔽 "Nachricht schreiben" scrollt zum Formular
   const scrollMsgBtn = document.getElementById("scrollToMessageBtn");
@@ -3448,6 +3449,11 @@ function setupToggleRatingList(sellerId = "") {
 
   if (!btn || !container) return;
 
+  if (sellerId) btn.dataset.sellerId = sellerId;
+
+  if (btn.dataset.bound === "1") return;
+  btn.dataset.bound = "1";
+
   let visible = false;
   btn.setAttribute("aria-expanded", "false");
   container.setAttribute("aria-hidden", "true");
@@ -3460,8 +3466,12 @@ function setupToggleRatingList(sellerId = "") {
       container.style.display = "block";
       container.setAttribute("aria-hidden", "false");
       btn.setAttribute("aria-expanded", "true");
-      if (sellerId) {
-        await ladeBewertungenMitText(sellerId);
+      const resolvedSellerId =
+        btn.dataset.sellerId ||
+        getSellerIdFromInserat(currentInserat) ||
+        "";
+      if (resolvedSellerId) {
+        await ladeBewertungenMitText(resolvedSellerId);
       } else {
         container.innerHTML = "<p style='color:#777;'>Bewertungen sind für diesen Anbieter nicht verfügbar.</p>";
       }

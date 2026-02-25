@@ -12,6 +12,12 @@ body {
   padding-top: 0;
 }
 
+:root{
+  --subtitle-font: 'Inter', sans-serif;
+  --subtitle-color: #2f3b45;
+  --subtitle-weight: 600;
+}
+
 /* ==== NAVBAR DESKTOP ==== */
 .navbar {
   /* NICHT fixed – normal oben, scrollt mit */
@@ -1149,7 +1155,7 @@ img, video, canvas {
 .car-title-block{
   display:flex;
   flex-direction:column;
-  gap:4px;
+  gap:2px;
   flex:1 1 0;
   min-width:0;
 }
@@ -1197,10 +1203,10 @@ img, video, canvas {
   text-align:right;
 }
 .car-subtitle{
-  font-family:'Inter', sans-serif;
+  font-family:var(--subtitle-font);
   font-size:14px;
-  font-weight:600;
-  color:#2f3b45;
+  font-weight:var(--subtitle-weight);
+  color:var(--subtitle-color);
   margin:0;
 }
 .car-info-grid{
@@ -1340,10 +1346,10 @@ img, video, canvas {
     }
   
     .car-subtitle {
-      font-family: 'Inter', sans-serif;
+      font-family: var(--subtitle-font);
       font-size: 13.5px;
-      font-weight: 600;
-      color: #2f3b45;
+      font-weight: var(--subtitle-weight);
+      color: var(--subtitle-color);
       margin-bottom: 8px;
     }
   

@@ -626,26 +626,27 @@
       <h3 id="openingHoursTitle">Öffnungszeiten bearbeiten</h3>
       <p class="opening-hours-hint">Wähle pro Tag die Uhrzeiten oder markiere „geschlossen“.</p>
 
-      <div class="opening-hours-quick">
-        <div class="opening-hours-quick-inputs">
-          <label class="opening-hours-time">
-            <span>von</span>
-            <input type="time" id="openingQuickFrom" step="300">
-          </label>
-          <label class="opening-hours-time">
-            <span>bis</span>
-            <input type="time" id="openingQuickTo" step="300">
-          </label>
+      <div class="opening-hours-body">
+        <div class="opening-hours-quick">
+          <div class="opening-hours-quick-inputs">
+            <label class="opening-hours-time">
+              <span>von</span>
+              <input type="time" id="openingQuickFrom" step="300">
+            </label>
+            <label class="opening-hours-time">
+              <span>bis</span>
+              <input type="time" id="openingQuickTo" step="300">
+            </label>
+          </div>
+          <div class="opening-hours-quick-actions">
+            <button type="button" class="btn-soft" id="openingQuickWeekdays">Auf Werktage</button>
+            <button type="button" class="btn-soft" id="openingQuickAll">Auf alle Tage</button>
+            <button type="button" class="btn-soft" id="openingQuickWeekend">Auf Wochenende</button>
+            <button type="button" class="btn-soft" id="openingQuickClosedAll">Alle geschlossen</button>
+          </div>
         </div>
-        <div class="opening-hours-quick-actions">
-          <button type="button" class="btn-soft" id="openingQuickWeekdays">Auf Werktage</button>
-          <button type="button" class="btn-soft" id="openingQuickAll">Auf alle Tage</button>
-          <button type="button" class="btn-soft" id="openingQuickWeekend">Auf Wochenende</button>
-          <button type="button" class="btn-soft" id="openingQuickClosedAll">Alle geschlossen</button>
-        </div>
-      </div>
 
-      <div class="opening-hours-grid" id="openingHoursGrid">
+        <div class="opening-hours-grid" id="openingHoursGrid">
         <div class="opening-hours-row" data-day="mo">
           <span class="opening-hours-day">Montag</span>
           <label class="opening-hours-time">
@@ -744,14 +745,15 @@
             <input type="checkbox" data-field="closed"> geschlossen
           </label>
         </div>
-      </div>
+        </div>
 
-      <div class="opening-hours-tools">
-        <button type="button" class="btn-soft" id="openingHoursApplyWeek">Mo → Werktage</button>
-        <button type="button" class="btn-soft" id="openingHoursApplyAll">Mo → alle Tage</button>
-      </div>
+        <div class="opening-hours-tools">
+          <button type="button" class="btn-soft" id="openingHoursApplyWeek">Mo → Werktage</button>
+          <button type="button" class="btn-soft" id="openingHoursApplyAll">Mo → alle Tage</button>
+        </div>
 
-      <div class="opening-hours-message" id="openingHoursMessage" hidden></div>
+        <div class="opening-hours-message" id="openingHoursMessage" hidden></div>
+      </div>
 
       <div class="opening-hours-actions">
         <button type="button" class="btn-primary" id="openingHoursSave">Speichern</button>
