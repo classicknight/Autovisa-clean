@@ -3466,6 +3466,39 @@ function setupToggleRatingList(sellerId = "") {
   btn.setAttribute("aria-expanded", "false");
   container.setAttribute("aria-hidden", "true");
 
+  const resolveSellerId = async () => {
+    let id =
+      btn.dataset.sellerId ||
+      getSellerIdFromInserat(currentInserat) ||
+      "";
+
+    let fromLS = null;
+    if (!id) {
+      try {
+        fromLS = JSON.parse(localStorage.getItem("ausgewaehltesInserat") || "{}");
+      } catch {
+        fromLS = null;
+      }
+      if (fromLS) id = getSellerIdFromInserat(fromLS) || "";
+    }
+
+    if (!id) {
+      const listingId = getDocId(currentInserat) || getDocId(fromLS) || "";
+      if (listingId) {
+        try {
+          const res = await fetch(api(`/inserat-details/${encodeURIComponent(listingId)}`), { credentials: "include" });
+          if (res.ok) {
+            const details = await res.json();
+            if (details?.seller?.id) id = String(details.seller.id);
+          }
+        } catch {}
+      }
+    }
+
+    if (id) btn.dataset.sellerId = id;
+    return id;
+  };
+
   btn.addEventListener("click", async () => {
     visible = !visible;
 
@@ -3474,10 +3507,8 @@ function setupToggleRatingList(sellerId = "") {
       container.style.display = "block";
       container.setAttribute("aria-hidden", "false");
       btn.setAttribute("aria-expanded", "true");
-      const resolvedSellerId =
-        btn.dataset.sellerId ||
-        getSellerIdFromInserat(currentInserat) ||
-        "";
+      container.innerHTML = "<p style='color:#777;'>Bewertungen werden geladen…</p>";
+      const resolvedSellerId = await resolveSellerId();
       if (resolvedSellerId) {
         await ladeBewertungenMitText(resolvedSellerId);
       } else {
