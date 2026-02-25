@@ -1139,7 +1139,7 @@ img, video, canvas {
 
 /* --- Details --- */
 .car-details{
-  padding:24px 28px;
+  padding:24px 28px 16px;
   display:flex;
   flex-direction:column;
   justify-content:flex-start;  /* keine “Lücke” in der Mitte */
@@ -1149,7 +1149,7 @@ img, video, canvas {
 .car-meta-block{
   display:flex;
   flex-direction:column;
-  gap:12px;
+  gap:16px;
   margin-top:auto;             /* rückt Info-Grid + Verkäufer nach unten */
   min-height:0;
 }
@@ -1310,7 +1310,7 @@ img, video, canvas {
     }
   
     .car-details {
-      padding: 16px 18px 20px;
+      padding: 16px 18px 14px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -1495,7 +1495,7 @@ img, video, canvas {
     }
     
     .car-details {
-      padding: 20px;
+      padding: 20px 20px 16px;
     }
     
     .car-info-grid {

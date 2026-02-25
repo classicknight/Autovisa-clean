@@ -4849,12 +4849,21 @@ app.get("/api/search", async (req, res) => {
     /* ---------------- Parsing / Normalisierung ---------------- */
     const parseNumberStages = [
       { $addFields: {
-          _preis_raw: {
+          _preis_raw_base: {
             $ifNull: [
               "$brutto-preis",
               { $ifNull: [
                 "$brutto_preis",
                 { $ifNull: [ "$verkauf_brutto", { $ifNull: [ "$preis", { $ifNull: [ "$verkauf_preis", "$verkauf_netto" ] } ] } ] }
+              ] }
+            ]
+          },
+          _mwst_raw: {
+            $ifNull: [
+              "$verkauf_mwst",
+              { $ifNull: [
+                "$mwst",
+                { $ifNull: [ "$mwst_type", { $ifNull: [ "$mwstType", { $ifNull: [ "$vat", "$vat_type" ] } ] } ] }
               ] }
             ]
           },
@@ -4864,6 +4873,28 @@ app.get("/api/search", async (req, res) => {
           _ccm_raw:    { $ifNull: [ "$verkauf_hubraum",  { $ifNull: [ "$hubraum",  "$ccm" ] } ] },
           _verb_raw:   { $ifNull: [ "$verkauf_verbrauch_kombiniert", { $ifNull: [ "$verbrauch_kombiniert", "$verbrauch" ] } ] },
           _halter_raw: { $ifNull: [ "$halter", { $ifNull: [ "$halteranzahl", "$fahrzeughalter" ] } ] }
+        }
+      },
+      { $addFields: {
+          _mwst_str: { $toLower: { $trim: { input: { $toString: "$_mwst_raw" } } } },
+          _mwst_keine: {
+            $or: [
+              { $regexMatch: { input: "$_mwst_str", regex: /keine|nicht/ } },
+              { $in: [ "$_mwst_str", ["0","false","nein"] ] }
+            ]
+          },
+          _mwst_zzgl: { $regexMatch: { input: "$_mwst_str", regex: /zzgl/ } },
+          _preis_raw: {
+            $cond: [
+              "$_mwst_keine",
+              { $ifNull: [ "$verkauf_preis", { $ifNull: [ "$preis", "$_preis_raw_base" ] } ] },
+              { $cond: [
+                "$_mwst_zzgl",
+                { $ifNull: [ "$verkauf_brutto", { $ifNull: [ "$brutto_preis", { $ifNull: [ "$brutto-preis", "$_preis_raw_base" ] } ] } ] },
+                "$_preis_raw_base"
+              ] }
+            ]
+          }
         }
       },
       { $addFields: {
@@ -5659,7 +5690,8 @@ app.get("/api/search", async (req, res) => {
           data: [
             { $project: {
                 token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0,
-                _preis_raw: 0, _km_raw: 0, _preis_str: 0, _preis_parts: 0, _preis_parts_arr: 0, _preis_parts_trim: 0, _preis_clean: 0, _km_clean: 0,
+                _preis_raw: 0, _preis_raw_base: 0, _mwst_raw: 0, _mwst_str: 0, _mwst_keine: 0, _mwst_zzgl: 0,
+                _km_raw: 0, _preis_str: 0, _preis_parts: 0, _preis_parts_arr: 0, _preis_parts_trim: 0, _preis_clean: 0, _km_clean: 0,
                 _ps_raw: 0, _seats_raw: 0, _ccm_raw: 0, _verb_raw: 0, _halter_raw: 0,
                 _ps_match: 0, _seats_match: 0, _ccm_match: 0, _verb_norm: 0, _verb_all_any: 0,
                 _halter_match: 0, _preis_null: 0, _km_null: 0, _ps_null: 0,

@@ -851,7 +851,7 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
   };
   const sanitizePhone = (p) => String(p || "").replace(/[^\d+]/g, "");
   // TEST-Subtitle (einfach entfernen, wenn nicht mehr gebraucht)
-  const TEST_SUBTITLE = "Test-Subtitle";
+  const TEST_SUBTITLE = "Tributo Carbon-LED/Lift/360Kam/Garantie04/26";
   const pickText = (...vals) => {
     for (const v of vals) {
       if (v === null || v === undefined) continue;

@@ -32,7 +32,7 @@ const stripToken = (text, token) => {
   return t.replace(re, " ").replace(/\s+/g, " ").trim();
 };
 // TEST-Subtitle (einfach entfernen, wenn nicht mehr gebraucht)
-const TEST_SUBTITLE = "Test-Subtitle";
+const TEST_SUBTITLE = "Tributo Carbon-LED/Lift/360Kam/Garantie04/26";
 const normalizeModelText = (brand, model) => {
   const m = String(model || "").trim();
   if (!brand || !m) return m;
@@ -46,6 +46,14 @@ const normalizeVariantText = (brand, model, variant) => {
   if (brand) cleaned = stripToken(cleaned, brand);
   if (model) cleaned = stripToken(cleaned, model);
   return cleaned !== v ? cleaned : v;
+};
+const formatPhoneDisplay = (raw) => {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  if (/^\+49\d/.test(s) && !/^\+49\s/.test(s)) {
+    return s.replace(/^\+49/, "+49 ");
+  }
+  return s;
 };
 const getDisplayTexts = (inserat) => {
   const brand = firstNonEmpty(
@@ -2125,7 +2133,7 @@ function showPhoneNumber() {
   } catch {}
 
   if (inserat.telefon) {
-    phoneContainer.textContent = inserat.telefon;
+    phoneContainer.textContent = formatPhoneDisplay(inserat.telefon);
   } else {
     phoneContainer.textContent = "Keine Nummer vorhanden";
   }
@@ -2755,7 +2763,7 @@ async function renderSeller(inseratArg = null) {
   // Telefon
   const phoneRow = $id("sellerPhoneRow");
   const phoneDisplay = $id("sellerPhoneDisplay");
-  if (phoneDisplay) phoneDisplay.textContent = phone || "–";
+  if (phoneDisplay) phoneDisplay.textContent = formatPhoneDisplay(phone) || "–";
   if (phoneRow) phoneRow.style.display = phone ? "" : "none";
 
   // E-Mail: in der Anzeige nicht anzeigen
