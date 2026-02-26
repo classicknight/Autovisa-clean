@@ -435,6 +435,16 @@ app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(cookieParser());
 
 /* =========================
+   Admin Guard (nur /admin & /admin.html)
+========================= */
+app.use((req, res, next) => {
+  if (req.path === "/admin" || req.path === "/admin.html") {
+    return checkAdmin(req, res, () => next());
+  }
+  return next();
+});
+
+/* =========================
    Auth Helper: req.user aus Session-Cookie setzen
    (damit API-Routen "req.user" nutzen können)
 ========================= */
@@ -461,6 +471,16 @@ app.use("/data", express.static(path.join(__dirname, "data"), {
 ========================= */
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+/* =========================
+   Admin Dashboard (nur Admin)
+========================= */
+app.get("/admin", checkAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "admin.html"));
+});
+app.get("/admin.html", checkAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "admin.html"));
 });
 
 /* =========================
@@ -875,7 +895,8 @@ app.post("/api/inserat/:id/start-edit", checkLogin, async (req, res) => {
     if (!doc) return res.status(404).json({ error: "Inserat nicht gefunden." });
 
     const ownerId = doc.verkaeuferId || doc.nutzerId;
-    if (ownerId !== req.nutzer.id) {
+    const isAdmin = isAdminRole(req.nutzer?.role);
+    if (!isAdmin && ownerId !== req.nutzer.id) {
       return res.status(403).json({ error: "Kein Zugriff auf dieses Inserat." });
     }
 
@@ -1128,6 +1149,20 @@ async function checkLogin(req, res, next) {
     console.error("checkLogin error:", err);
     return res.status(401).json({ error: "Ungültiger Login." });
   }
+}
+
+function isAdminRole(role) {
+  const r = String(role || "").toLowerCase();
+  return r === "admin" || r === "superadmin" || r === "owner" || r.includes("admin");
+}
+
+async function checkAdmin(req, res, next) {
+  return checkLogin(req, res, () => {
+    if (!isAdminRole(req.nutzer?.role)) {
+      return res.status(403).json({ error: "Kein Admin-Zugriff." });
+    }
+    return next();
+  });
 }
 
 /* =========================
@@ -3459,6 +3494,169 @@ app.get("/api/seller", async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------
+// === Admin: Händlerübersicht
+// ------------------------------------------------------------
+app.get("/api/admin/haendler", checkAdmin, async (req, res) => {
+  try {
+    const q = String(req.query.q || "").trim();
+    const page = Math.max(parseInt(req.query.page || "1", 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit || "20", 10) || 20, 1), 100);
+    const skip = (page - 1) * limit;
+
+    const roleRx = /haend|händ/i;
+    const match = { role: { $regex: roleRx } };
+    if (q) {
+      const rx = new RegExp(escRe(q), "i");
+      match.$or = [
+        { id: rx },
+        { firma: rx },
+        { name: rx },
+        { email: rx },
+        { telefon: rx },
+        { telefon2: rx }
+      ];
+    }
+
+    const nutzerColl = db.collection("nutzer");
+    const total = await nutzerColl.countDocuments(match);
+
+    const docs = await nutzerColl
+      .find(match, {
+        projection: {
+          id: 1,
+          role: 1,
+          firma: 1,
+          name: 1,
+          email: 1,
+          telefon: 1,
+          telefon2: 1,
+          logoUrl: 1,
+          createdAt: 1,
+          erstelltAm: 1
+        }
+      })
+      .sort({ createdAt: -1, _id: -1 })
+      .skip(skip)
+      .limit(limit)
+      .toArray();
+
+    const ids = docs.map(d => d.id).filter(Boolean);
+    let counts = {};
+    if (ids.length) {
+      const agg = await db.collection("inserate").aggregate([
+        {
+          $addFields: {
+            _sid: {
+              $ifNull: ["$verkaeuferId", { $ifNull: ["$sellerId", "$nutzerId"] }]
+            }
+          }
+        },
+        { $match: { _sid: { $in: ids } } },
+        {
+          $group: {
+            _id: "$_sid",
+            total: { $sum: 1 },
+            online: {
+              $sum: {
+                $cond: [{ $eq: ["$status", "online"] }, 1, 0]
+              }
+            },
+            sold: {
+              $sum: {
+                $cond: [{ $eq: ["$status", "verkauft"] }, 1, 0]
+              }
+            }
+          }
+        }
+      ]).toArray();
+      agg.forEach(r => { counts[String(r._id)] = r; });
+    }
+
+    const results = docs.map(d => {
+      const c = counts[String(d.id)] || { total: 0, online: 0, sold: 0 };
+      return {
+        id: d.id || "",
+        role: d.role || "privat",
+        firma: d.firma || "",
+        name: d.name || "",
+        email: d.email || "",
+        telefon: d.telefon || d.telefon2 || "",
+        logoUrl: d.logoUrl || "",
+        createdAt: d.createdAt || d.erstelltAm || null,
+        listings: {
+          total: c.total || 0,
+          online: c.online || 0,
+          sold: c.sold || 0
+        }
+      };
+    });
+
+    res.json({ page, limit, total, results });
+  } catch (err) {
+    console.error("❌ Fehler bei /api/admin/haendler:", err);
+    return res.status(500).json({ error: "Serverfehler" });
+  }
+});
+
+// ------------------------------------------------------------
+// === Admin: Nutzerprofil (intern)
+// ------------------------------------------------------------
+app.get("/api/admin/user", checkAdmin, async (req, res) => {
+  try {
+    const id = String(req.query.id || "").trim();
+    if (!id) return res.status(400).json({ error: "ID fehlt." });
+
+    const user = await db.collection("nutzer").findOne(
+      { id },
+      {
+        projection: {
+          id: 1,
+          role: 1,
+          email: 1,
+          verified: 1,
+          firma: 1,
+          name: 1,
+          telefon: 1,
+          telefon2: 1,
+          logoUrl: 1,
+          strasse: 1,
+          hausnummer: 1,
+          plz: 1,
+          ort: 1,
+          land: 1,
+          website: 1,
+          webseite: 1,
+          createdAt: 1,
+          erstelltAm: 1
+        }
+      }
+    );
+    if (!user) return res.status(404).json({ error: "Nicht gefunden" });
+
+    res.json({
+      id: user.id || id,
+      role: user.role || "privat",
+      email: user.email || "",
+      verified: !!user.verified,
+      firma: user.firma || "",
+      name: user.name || "",
+      telefon: user.telefon || user.telefon2 || "",
+      logoUrl: user.logoUrl || "",
+      strasse: user.strasse || "",
+      hausnummer: user.hausnummer || "",
+      plz: user.plz || "",
+      ort: user.ort || "",
+      land: user.land || "",
+      website: user.website || user.webseite || "",
+      createdAt: user.createdAt || user.erstelltAm || null
+    });
+  } catch (err) {
+    console.error("❌ Fehler bei /api/admin/user:", err);
+    return res.status(500).json({ error: "Serverfehler" });
+  }
+});
+
 
 // ------------------------------------------------------------
 // === Legacy: Inserat speichern/entspeichern
@@ -3529,7 +3727,8 @@ app.post("/inserat/:id/sold", checkLogin, async (req, res) => {
     if (!doc) return res.status(404).json({ error: "Inserat nicht gefunden." });
 
     const ownerId = doc.verkaeuferId || doc.nutzerId;
-    if (String(ownerId) !== String(req.nutzer.id)) {
+    const isAdmin = isAdminRole(req.nutzer?.role);
+    if (!isAdmin && String(ownerId) !== String(req.nutzer.id)) {
       return res.status(403).json({ error: "Kein Zugriff auf dieses Inserat." });
     }
 
@@ -3569,7 +3768,8 @@ app.post("/inserat/:id/relist", checkLogin, async (req, res) => {
     if (!doc) return res.status(404).json({ error: "Inserat nicht gefunden." });
 
     const ownerId = doc.verkaeuferId || doc.nutzerId;
-    if (String(ownerId) !== String(req.nutzer.id)) {
+    const isAdmin = isAdminRole(req.nutzer?.role);
+    if (!isAdmin && String(ownerId) !== String(req.nutzer.id)) {
       return res.status(403).json({ error: "Kein Zugriff auf dieses Inserat." });
     }
 
@@ -3653,7 +3853,8 @@ app.post("/inserat/:id/delete", checkLogin, async (req, res) => {
     const onlineDoc = await inserateColl.findOne({ _id: oid });
     if (onlineDoc) {
       const ownerId = onlineDoc.verkaeuferId || onlineDoc.nutzerId;
-      if (String(ownerId) !== String(req.nutzer.id)) {
+      const isAdmin = isAdminRole(req.nutzer?.role);
+      if (!isAdmin && String(ownerId) !== String(req.nutzer.id)) {
         return res.status(403).json({ error: "Kein Zugriff auf dieses Inserat." });
       }
 
@@ -4318,7 +4519,8 @@ app.get("/api/inserat/:id/edit-data", checkLogin, async (req, res) => {
     if (!doc) return res.status(404).json({ error: "Inserat nicht gefunden." });
 
     const ownerId = doc.verkaeuferId || doc.nutzerId;
-    if (ownerId !== req.nutzer.id) {
+    const isAdmin = isAdminRole(req.nutzer?.role);
+    if (!isAdmin && ownerId !== req.nutzer.id) {
       return res.status(403).json({ error: "Kein Zugriff auf dieses Inserat." });
     }
 
@@ -4928,7 +5130,12 @@ app.get("/api/search", async (req, res) => {
       },
       { $addFields: {
           _preis_str: { $trim: { input: { $toString: "$_preis_raw" } } },
-          _preis_parts: { $regexFindAll: { input: { $toString: "$_preis_raw" }, regex: /\\d+/ } },
+          _preis_matches: {
+            $regexFindAll: {
+              input: { $toString: "$_preis_raw" },
+              regex: /(\\d{1,3}(?:[.,\\s]\\d{3})+|\\d+)(?:[.,]\\d{2})?/
+            }
+          },
           _km_clean: {
             $replaceAll: {
               input: { $replaceAll: {
@@ -4941,30 +5148,45 @@ app.get("/api/search", async (req, res) => {
         }
       },
       { $addFields: {
-          _preis_parts_arr: {
-            $map: { input: "$_preis_parts", as: "m", in: "$$m.match" }
-          }
-        }
-      },
-      { $addFields: {
-          _preis_parts_trim: {
-            $cond: [
-              { $and: [
-                { $gte: [ { $size: "$_preis_parts_arr" }, 2 ] },
-                { $eq:  [ { $strLenCP: { $arrayElemAt: [ "$_preis_parts_arr", -1 ] } }, 2 ] }
-              ] },
-              { $slice: [ "$_preis_parts_arr", 0, { $subtract: [ { $size: "$_preis_parts_arr" }, 1 ] } ] },
-              "$_preis_parts_arr"
-            ]
-          }
-        }
-      },
-      { $addFields: {
-          _preis_clean: {
-            $reduce: {
-              input: "$_preis_parts_trim",
-              initialValue: "",
-              in: { $concat: [ "$$value", "$$this" ] }
+          _preis_ints: {
+            $map: {
+              input: "$_preis_matches",
+              as: "m",
+              in: {
+                $convert: {
+                  input: {
+                    $let: {
+                      vars: {
+                        intPart: {
+                          $ifNull: [
+                            { $arrayElemAt: [ "$$m.captures", 0 ] },
+                            "$$m.match"
+                          ]
+                        }
+                      },
+                      in: {
+                        $replaceAll: {
+                          input: {
+                            $replaceAll: {
+                              input: {
+                                $replaceAll: {
+                                  input: "$$intPart",
+                                  find: ".", replacement: ""
+                                }
+                              },
+                              find: ",", replacement: ""
+                            }
+                          },
+                          find: " ", replacement: ""
+                        }
+                      }
+                    }
+                  },
+                  to: "int",
+                  onError: null,
+                  onNull: null
+                }
+              }
             }
           }
         }
@@ -4981,7 +5203,18 @@ app.get("/api/search", async (req, res) => {
         }
       },
       { $addFields: {
-          preis_num: { $convert: { input: "$_preis_clean", to: "int", onError: null, onNull: null } },
+          preis_num: {
+            $let: {
+              vars: { nums: "$_preis_ints" },
+              in: {
+                $cond: [
+                  { $gt: [ { $size: "$$nums" }, 0 ] },
+                  { $max: "$$nums" },
+                  null
+                ]
+              }
+            }
+          },
           km_num:    { $convert: { input: "$_km_clean",    to: "int", onError: null, onNull: null } },
           ps_num:    { $convert: { input: { $ifNull: ["$_ps_match.match",  null] }, to: "int", onError: null, onNull: null } },
           seats_num: { $convert: { input: { $ifNull: ["$_seats_match.match", null] }, to: "int", onError: null, onNull: null } },
@@ -5720,7 +5953,7 @@ app.get("/api/search", async (req, res) => {
             { $project: {
                 token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0,
                 _preis_raw: 0, _preis_raw_base: 0, _mwst_raw: 0, _mwst_str: 0, _mwst_keine: 0, _mwst_zzgl: 0,
-                _km_raw: 0, _preis_str: 0, _preis_parts: 0, _preis_parts_arr: 0, _preis_parts_trim: 0, _preis_clean: 0, _km_clean: 0,
+                _km_raw: 0, _preis_str: 0, _preis_matches: 0, _preis_ints: 0, _km_clean: 0,
                 _ps_raw: 0, _seats_raw: 0, _ccm_raw: 0, _verb_raw: 0, _halter_raw: 0,
                 _ps_match: 0, _seats_match: 0, _ccm_match: 0, _verb_norm: 0, _verb_all_any: 0,
                 _halter_match: 0, _preis_null: 0, _km_null: 0, _ps_null: 0,

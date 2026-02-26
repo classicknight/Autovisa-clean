@@ -2411,11 +2411,15 @@ function applyClientFilters(items) {
     setOrDelete(params, "ezFrom", ezFrom);
     setOrDelete(params, "ezTo",   ezTo);
   
-// Preis / KM (min + max)
-const pMin  = parseInt(document.getElementById("priceFrom")?.value || "", 10);
-const pMax  = parseInt(document.getElementById("priceTo")?.value   || "", 10);
-const kmMin = parseInt(document.getElementById("mileageFrom")?.value || "", 10);
-const kmMax = parseInt(document.getElementById("mileageTo")?.value   || "", 10);
+// Preis / KM (min + max) – robust gegen "10.000"
+const toIntParam = (v) => {
+  const n = toNum(v ?? "");
+  return Number.isFinite(n) ? Math.round(n) : NaN;
+};
+const pMin  = toIntParam(document.getElementById("priceFrom")?.value || "");
+const pMax  = toIntParam(document.getElementById("priceTo")?.value   || "");
+const kmMin = toIntParam(document.getElementById("mileageFrom")?.value || "");
+const kmMax = toIntParam(document.getElementById("mileageTo")?.value   || "");
 
 if (!Number.isNaN(pMin)  && pMin  > 0) params.set("price_min", String(pMin)); else params.delete("price_min");
 if (!Number.isNaN(pMax)  && pMax  > 0) params.set("price_max", String(pMax)); else params.delete("price_max");

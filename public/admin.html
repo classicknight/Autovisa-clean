@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autovisa Admin</title>
+
+  <link rel="stylesheet" href="admin.css" />
+  <link rel="icon" href="/favicon.ico?v=3">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Inter:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- Font Awesome -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
+</head>
+<body class="admin-body">
+  <header class="admin-header">
+    <div class="brand">
+      <img src="autovisa-logo.png" alt="Autovisa" class="brand-logo" />
+      <div class="brand-text">
+        <div class="brand-title">Autovisa Admin</div>
+        <div class="brand-sub">Nur für Admin-Zugriff</div>
+      </div>
+    </div>
+    <a class="btn-ghost" href="index.html">Zur Startseite</a>
+  </header>
+
+  <main class="admin-main">
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Händlerübersicht</h2>
+        <div class="panel-tools">
+          <input id="dealerSearch" type="text" placeholder="Name, ID oder E-Mail" />
+          <button id="dealerSearchBtn" class="btn-primary">
+            <i class="fa-solid fa-magnifying-glass"></i> Suchen
+          </button>
+        </div>
+      </div>
+      <div id="dealerMeta" class="panel-meta">Lade Händler…</div>
+      <div id="dealerList" class="dealer-list"></div>
+      <div id="dealerPager" class="pager"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Händlerdetails</h2>
+        <div class="panel-tools">
+          <input id="dealerIdInput" type="text" placeholder="Händler-ID" />
+          <button id="loadDealerBtn" class="btn-primary">
+            <i class="fa-solid fa-id-card"></i> Laden
+          </button>
+          <a id="openSellerSearch" class="btn-ghost" href="#" target="_blank" rel="noopener">
+            Alle Inserate
+          </a>
+        </div>
+      </div>
+
+      <div id="dealerProfile" class="dealer-profile">
+        <div class="empty-state">Wähle einen Händler aus der Liste oder gib eine ID ein.</div>
+      </div>
+
+      <div class="panel-subheader">
+        <h3>Inserate dieses Händlers</h3>
+        <div class="panel-subtools">
+          <button id="refreshListingsBtn" class="btn-ghost">
+            <i class="fa-solid fa-rotate"></i> Aktualisieren
+          </button>
+        </div>
+      </div>
+      <div id="dealerListings" class="listing-list"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Inserat-Tools</h2>
+        <div class="panel-tools">
+          <input id="listingIdInput" type="text" placeholder="Inserat-ID" />
+          <button id="loadListingBtn" class="btn-primary">
+            <i class="fa-solid fa-file-lines"></i> Laden
+          </button>
+        </div>
+      </div>
+      <div id="listingDetail" class="listing-detail">
+        <div class="empty-state">Gib eine Inserat-ID ein, um Details zu sehen.</div>
+      </div>
+    </section>
+  </main>
+
+  <div id="adminStatus" class="admin-status" aria-live="polite"></div>
+
+  <script src="admin.js" defer></script>
+</body>
+</html>
