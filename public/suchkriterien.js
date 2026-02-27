@@ -550,6 +550,9 @@ document.addEventListener("DOMContentLoaded", () => {
      
      let slimMarke = null;
      let slimModell = null;
+     let brandSyncing = false;
+     let modellSyncing = false;
+     let lastModellValues = [ALL_MODELS_VALUE];
      
      function setModelEnabled(enabled) {
        if (!modelDropdown) return;
@@ -561,6 +564,43 @@ document.addEventListener("DOMContentLoaded", () => {
          if (!enabled && typeof slimModell.disable === "function") slimModell.disable();
          if ( enabled && typeof slimModell.enable  === "function") slimModell.enable();
        }
+     }
+
+     function getSelectedBrandsRaw() {
+       if (!brandDropdown) return [];
+       return Array.from(brandDropdown.selectedOptions || [])
+         .map(o => String(o.value || "").trim());
+     }
+
+     function getSelectedBrands() {
+       return getSelectedBrandsRaw().filter(Boolean);
+     }
+
+     function setSelectedBrands(values) {
+       const vals = (Array.isArray(values) ? values : [])
+         .map(v => String(v || "").trim())
+         .filter(Boolean);
+       if (slimMarke && typeof slimMarke.setSelected === "function") {
+         slimMarke.setSelected(vals);
+         return;
+       }
+       if (!brandDropdown) return;
+       for (const opt of brandDropdown.options) {
+         opt.selected = vals.includes(opt.value);
+       }
+     }
+
+     function normalizeBrandValues(values) {
+       const raw = (Array.isArray(values) ? values : [])
+         .map(v => String(v || "").trim());
+       const cleaned = raw.filter(Boolean);
+       if (raw.some(v => !v) && cleaned.length) {
+         if (!brandSyncing) {
+           brandSyncing = true;
+           try { setSelectedBrands(cleaned); } finally { brandSyncing = false; }
+         }
+       }
+       return cleaned;
      }
      
 
@@ -657,13 +697,19 @@ const initSlim = (selector, opts) => {
 // let slimModell = null;
 
 slimMarke = initSlim('#marke', {
-  closeOnSelect: true,
+  closeOnSelect: false,
   placeholder: 'Beliebig (alle Marken)',
-  allowDeselect: false,   // weil du Option value="" hast
-  showSearch: true
+  allowDeselect: true,
+  showSearch: true,
+  events: {
+    afterChange: (newSelected) => {
+      if (brandSyncing) return;
+      const raw = (newSelected || []).map(s => String(s.value || "").trim());
+      const brands = normalizeBrandValues(raw);
+      rebuildModelOptions(brands, lastModellValues);
+    }
+  }
 });
-let modellSyncing = false;
-let lastModellValues = [ALL_MODELS_VALUE];
 
 slimModell = initSlim('#modell', {
   closeOnSelect: false,
@@ -676,10 +722,12 @@ slimModell = initSlim('#modell', {
     afterChange: (newSelected) => {
       if (modellSyncing) return;
     
-      const brand = (brandDropdown?.value || "").trim();
-      if (!brand) return; // Marke "Beliebig" -> keine Modell-Logik
-    
-      const allowGroups = ALLOW_GROUPS_FOR[brand] || [];
+      const brands = getSelectedBrands();
+      if (!brands.length) return; // Marke "Beliebig" -> keine Modell-Logik
+
+      const singleBrand = brands.length === 1;
+      const brand = singleBrand ? brands[0] : "";
+      const allowGroups = singleBrand ? (ALLOW_GROUPS_FOR[brand] || []) : [];
       const currentVals = (newSelected || [])
         .map(s => canonAlle(s.value))
         .filter(Boolean);
@@ -707,12 +755,14 @@ slimModell = initSlim('#modell', {
         return;
       }
     
-      const fullList = sanitizeModelList(brandToModels[brand] || []);
+      const fullList = singleBrand
+        ? sanitizeModelList(brandToModels[brand] || [])
+        : unionModelsForBrands(brands);
       const nextSet  = new Set();
     
       vals.forEach(v => {
         const rx = modelGroups[v];
-        const isAllowedGroup = rx && allowGroups.includes(v);
+        const isAllowedGroup = singleBrand && rx && allowGroups.includes(v);
     
         if (isAllowedGroup) {
           fullList.forEach(m => {
@@ -813,37 +863,67 @@ setModelEnabled(false);
         brandToModels = {};
       }
     }
-    function rebuildModelOptions(brand) {
+    function unionModelsForBrands(brands) {
+      const seen = new Set();
+      const out = [];
+      for (const b of (brands || [])) {
+        const list = sanitizeModelList((brandToModels && brandToModels[b]) || []);
+        for (const m of list) {
+          const key = m.toLowerCase();
+          if (!seen.has(key)) { seen.add(key); out.push(m); }
+        }
+      }
+      return out;
+    }
+
+    function rebuildModelOptions(brands, preselect = []) {
       if (!modelDropdown) return;
     
-      const b = (brand || "").trim();
+      const brandList = (Array.isArray(brands) ? brands : [brands])
+        .map(b => String(b || "").trim())
+        .filter(Boolean);
     
       // Marke = Beliebig -> Modell komplett deaktivieren und leeren
-      if (!b) {
+      if (!brandList.length) {
         if (slimModell) {
           slimModell.setData([]);
-          slimModell.setSelected([]);
+          modellSyncing = true;
+          try { slimModell.setSelected([]); } finally { modellSyncing = false; }
         } else {
           modelDropdown.innerHTML = "";
           modelDropdown.value = "";
         }
         setModelEnabled(false);
+        lastModellValues = [ALL_MODELS_VALUE];
         return;
       }
     
       setModelEnabled(true);
     
-      const rawList = (brandToModels && brandToModels[b]) || [];
-      const models  = sanitizeModelList(rawList);
+      const modelsRaw =
+        (brandList.length === 1)
+          ? sanitizeModelList((brandToModels && brandToModels[brandList[0]]) || [])
+          : unionModelsForBrands(brandList);
+      const models =
+        (brandList.length === 1)
+          ? modelsRaw
+          : modelsRaw.filter(m => !modelGroups[m]);
     
       const data = [
         { text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE },
         ...models.map(m => ({ text: m, value: m }))
       ];
     
+      const valid = new Set(data.map(d => d.value));
+      const wanted = (Array.isArray(preselect) ? preselect : [])
+        .map(v => canonAlle(v))
+        .filter(v => v && valid.has(v));
+      const selected = wanted.length ? wanted : [ALL_MODELS_VALUE];
+
       if (slimModell) {
         slimModell.setData(data);
-        slimModell.setSelected([ALL_MODELS_VALUE]);
+        modellSyncing = true;
+        try { slimModell.setSelected(selected); } finally { modellSyncing = false; }
       } else {
         modelDropdown.innerHTML = "";
         data.forEach(({ text, value }) => {
@@ -852,8 +932,11 @@ setModelEnabled(false);
           opt.textContent = text;
           modelDropdown.appendChild(opt);
         });
-        modelDropdown.value = ALL_MODELS_VALUE;
+        for (const opt of modelDropdown.options) {
+          opt.selected = selected.includes(opt.value);
+        }
       }
+      lastModellValues = selected;
     }
     
 
@@ -920,54 +1003,50 @@ setModelEnabled(false);
       }
 
       brandDropdown?.addEventListener("change", () => {
-        const brand = (brandDropdown.value || "").trim();
-        rebuildModelOptions(brand); // handled auch brand="" sauber
+        if (slimMarke) return; // SlimSelect handled im afterChange
+        const raw = getSelectedBrandsRaw();
+        const brands = normalizeBrandValues(raw);
+        rebuildModelOptions(brands, lastModellValues); // handled auch brand="" sauber
       });
       
 
-    // URL-Parameter übernehmen
+// URL-Parameter übernehmen
 const qs = new URLSearchParams(location.search);
+const splitCsv = (v) =>
+  v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : [];
 
-// 1) Marke aus URL
-const qBrand = (qs.get("marke") || "").trim();
+// 1) Marken aus URL
+const qBrands = splitCsv(qs.get("marke"));
 
 if (brandDropdown) {
-  if (qBrand) {
-    // Marke setzen (SlimSelect oder nicht ist egal – wir setzen den echten <select>-Value)
-    brandDropdown.value = qBrand;
-
-    // Modelle passend zur Marke neu aufbauen (und dabei "Beliebig Modelle" setzen)
-    rebuildModelOptions(qBrand);
-
-    // Falls SlimSelect für Marke existiert: UI synchronisieren
-    if (slimMarke && typeof slimMarke.setSelected === "function") {
-      slimMarke.setSelected(qBrand);
-    }
+  if (qBrands.length) {
+    setSelectedBrands(qBrands);
+    rebuildModelOptions(qBrands);
   } else {
-    // Keine Marke in URL => wenn aktuell eine Marke gewählt ist, Modelle passend aufbauen,
-    // sonst Modell deaktiviert lassen (macht rebuildModelOptions bei brand="" sowieso)
-    const current = (brandDropdown.value || "").trim();
+    const current = getSelectedBrands();
     rebuildModelOptions(current);
   }
 }
 
-const qModels = (qs.get("modell") || "")
-  .split(",")
+const qModels = splitCsv(qs.get("modell"))
   .map(canonAlle)
-
   .filter(Boolean);
 
 if (qModels.length) {
-  const brand = (qBrand || brandDropdown?.value || "").trim();
+  const brands = qBrands.length ? qBrands : getSelectedBrands();
 
   // Wenn keine Marke -> Modelle ignorieren (Modell ist dann sowieso disabled)
-  if (brand) {
-    const list  = sanitizeModelList((brandToModels[brand] || []).map(String));
-    const allowedForBrand = ALLOW_GROUPS_FOR[brand] || [];
+  if (brands.length) {
+    const singleBrand = brands.length === 1;
+    const brand = singleBrand ? brands[0] : "";
+    const list = singleBrand
+      ? sanitizeModelList((brandToModels[brand] || []).map(String))
+      : unionModelsForBrands(brands);
+    const allowedForBrand = singleBrand ? (ALLOW_GROUPS_FOR[brand] || []) : [];
     const expanded = new Set();
 
     for (const item of qModels) {
-      if (allowedForBrand.includes(item) && modelGroups[item]) {
+      if (singleBrand && allowedForBrand.includes(item) && modelGroups[item]) {
         const rx = modelGroups[item];
         list.forEach(m => { if (!/\(alle\)/i.test(m) && rx.test(m)) expanded.add(m); });
       } else if (list.includes(item)) {
@@ -979,19 +1058,12 @@ if (qModels.length) {
 
     // ✅ SlimSelect korrekt setzen
     if (slimModell && typeof slimModell.setSelected === "function") {
-      slimModell.setSelected(vals);
+      modellSyncing = true;
+      try { slimModell.setSelected(vals); } finally { modellSyncing = false; }
     } else if (modelDropdown) {
       for (const opt of modelDropdown.options) opt.selected = vals.includes(opt.value);
       modelDropdown.dispatchEvent(new Event("change"));
     }
-  }
-} else {
-  // ✅ Default: "Beliebig (alle Modelle)"
-  if (slimModell && typeof slimModell.setSelected === "function") {
-    slimModell.setSelected([ALL_MODELS_VALUE]);
-  } else if (modelDropdown) {
-    for (const opt of modelDropdown.options) opt.selected = (opt.value === ALL_MODELS_VALUE);
-    modelDropdown.dispatchEvent(new Event("change"));
   }
 }
 
@@ -1119,10 +1191,6 @@ if (qModels.length) {
             if (getriebe.includes("schalt") && v.includes("schalt")) inp.checked = true;
           });
       }
-
-// Kleine Helper-Funktion lokal:
-const splitCsv = (v) =>
-  v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : [];
 
 // Kraftstoff (Mehrfach; Werte wie "benzin", "diesel", "hybrid-benzin", ...)
 const kraftValues = splitCsv(qs.get("kraftstoff")).map(v => v.toLowerCase());
@@ -1262,24 +1330,68 @@ if (equipValues.length) {
   /* =========================
      Button "Fahrzeuge anzeigen" → suche.html
      ========================= */
-  function _numFallback(v){ const n=parseInt(String(v||"").trim(),10); return Number.isFinite(n)?n:null; }
+  function _numFallback(v) {
+    if (v == null || v === "") return null;
+    if (typeof v === "number") return Number.isFinite(v) ? v : null;
+
+    let s = String(v).trim();
+    if (!s) return null;
+
+    s = s.replace(/[\u202F\u00A0\s]/g, "").replace(/[€]/g, "");
+
+    const hasComma = s.includes(",");
+    const hasDot = s.includes(".");
+
+    if (hasComma && hasDot) {
+      const lastComma = s.lastIndexOf(",");
+      const lastDot = s.lastIndexOf(".");
+      const decPos = Math.max(lastComma, lastDot);
+      const intPart = s.slice(0, decPos).replace(/[.,]/g, "");
+      const fracPart = s.slice(decPos + 1).replace(/[.,]/g, "");
+      s = `${intPart}.${fracPart}`;
+    } else if (hasComma || hasDot) {
+      const sep = hasComma ? "," : ".";
+      const parts = s.split(sep);
+      if (parts.length === 2) {
+        const frac = parts[1];
+        if (/^\d{1,2}$/.test(frac)) {
+          s = parts[0].replace(/[.,]/g, "") + "." + frac;
+        } else {
+          s = s.replace(/[.,]/g, "");
+        }
+      } else {
+        s = s.replace(/[.,]/g, "");
+      }
+    }
+
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
   function buildAdvancedQuery() {
     const qs = new URLSearchParams();
     const numLocal = (typeof window.num === "function") ? window.num : _numFallback;
   
-    // Marke
+    // Marke (Mehrfach)
     const brandEl = document.getElementById("marke") || window.brandDropdown;
-    const brand = brandEl?.value?.trim() || "";
-    if (brand) qs.set("marke", brand);
+    const brandVals = (() => {
+      if (!brandEl) return [];
+      if (brandEl.selectedOptions) {
+        return Array.from(brandEl.selectedOptions || [])
+          .map(o => String(o.value || "").trim())
+          .filter(Boolean);
+      }
+      const v = String(brandEl.value || "").trim();
+      return v ? [v] : [];
+    })();
+    if (brandVals.length) qs.set("marke", Array.from(new Set(brandVals)).join(","));
   
     // Modelle
     (function collectModels() {
       const sel = document.getElementById("modell");
       if (!sel) return;
     
-      // NEU: wenn Marke Beliebig, niemals modell mitsenden
-      const brand = (document.getElementById("marke")?.value || "").trim();
-      if (!brand) return;
+      // NEU: wenn keine Marke gewählt, niemals modell mitsenden
+      if (!brandVals.length) return;
     
       let vals = Array.from(sel.selectedOptions || [])
         .map(o => (o.value || "").trim())
@@ -1752,13 +1864,18 @@ if (schadSel === "custom") {
         case 'marke': {
           const brandSel = document.getElementById('marke');
           if (typeof slimMarke !== 'undefined' && slimMarke && typeof slimMarke.setSelected === 'function') {
-            slimMarke.setSelected('');
-          } else {
-            if (brandSel) brandSel.value = '';
-            brandSel?.dispatchEvent(new Event('change', { bubbles: true }));
+            slimMarke.setSelected([]);
+          } else if (brandSel) {
+            if (brandSel.multiple) clearMultiSelect(brandSel);
+            else brandSel.value = '';
+            brandSel.dispatchEvent(new Event('change', { bubbles: true }));
           }
-  
-          if (typeof setModelEnabled === 'function') setModelEnabled(false);
+
+          if (typeof rebuildModelOptions === 'function') {
+            rebuildModelOptions([]);
+          } else if (typeof setModelEnabled === 'function') {
+            setModelEnabled(false);
+          }
           if (typeof slimModell !== 'undefined' && slimModell && typeof slimModell.setSelected === 'function') {
             try { slimModell.setSelected([ALL_MODELS_VALUE]); } catch {}
           } else {
@@ -1997,7 +2114,12 @@ if (schadSel === "custom") {
       }
   
       const brand = get('marke');
-      if (brand) { addChip(`Marke: ${brand}`, 'marke'); count++; }
+      if (brand) {
+        const parts = brand.split(',').map(s => s.trim()).filter(Boolean);
+        const nice = parts.length > 3 ? `${parts.slice(0, 3).join(', ')} +${parts.length - 3}` : parts.join(', ');
+        addChip(`Marke${parts.length > 1 ? 'n' : ''}: ${nice}`, 'marke');
+        count++;
+      }
   
       const modell = get('modell');
       if (modell) {
@@ -2007,7 +2129,12 @@ if (schadSel === "custom") {
       }
   
       const modVar = get('modellausfuehrung');
-      if (modVar) { addChip(`Variante: ${modVar}`, 'modVar'); count++; }
+      if (modVar) {
+        const parts = modVar.split(',').map(s => s.trim()).filter(Boolean);
+        const nice = parts.length > 3 ? `${parts.slice(0, 3).join(', ')} +${parts.length - 3}` : parts.join(', ');
+        addChip(`Variante${parts.length > 1 ? 'n' : ''}: ${nice}`, 'modVar');
+        count++;
+      }
   
       const tueren = get('tueren');
       if (tueren) { addChip(`Türen: ${tueren}`, 'tueren'); count++; }

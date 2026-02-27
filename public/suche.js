@@ -1344,12 +1344,19 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
         : "");
 
     // Preis robust picken
+    const unwrapPrice = (v) => {
+      if (v === null || v === undefined) return null;
+      if (typeof v === "object") {
+        if (typeof v.value === "number" || typeof v.value === "string") return v.value;
+        if (typeof v.amount === "number" || typeof v.amount === "string") return v.amount;
+        if (typeof v.$numberDecimal === "string") return v.$numberDecimal;
+      }
+      return v;
+    };
     const pickPrice = (...vals) => {
-      for (const v of vals) {
-        if (v === null || v === undefined) continue;
-        const s = String(v).trim();
-        if (!s) continue;
-        const n = Number(s.replace(/\./g, "").replace(",", "."));
+      for (const v0 of vals) {
+        const v = unwrapPrice(v0);
+        const n = toNum(v);
         if (Number.isFinite(n)) return n;
       }
       return "";
@@ -1360,6 +1367,9 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
       raw.brutto_preis,
       raw.verkauf_brutto,
       raw.preis,
+      raw.price,
+      raw.price_eur,
+      raw.priceEUR,
       raw.verkauf_preis,
       raw.verkauf_netto
     );

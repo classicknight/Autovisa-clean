@@ -4910,8 +4910,18 @@ app.get("/api/search", async (req, res) => {
     // ---- Basisfilter (immer)
     const baseMatch = { status: "online" };
 
-    // Marke exakt (case-insensitive)
-    if (marke) baseMatch.marke = new RegExp(`^${escRe(marke)}$`, "i");
+    // Marke: einzelne oder mehrere (CSV), jeweils exakt (case-insensitive)
+    if (marke) {
+      const arr = String(marke)
+        .split(",")
+        .map(m => m.trim())
+        .filter(Boolean);
+      if (arr.length === 1) {
+        baseMatch.marke = new RegExp(`^${escRe(arr[0])}$`, "i");
+      } else if (arr.length > 1) {
+        baseMatch.marke = { $in: arr.map(m => new RegExp(`^${escRe(m)}$`, "i")) };
+      }
+    }
 
     // Modell: mehrere erlaubt (CSV), jeweils exakt
     if (modell) {
@@ -5085,7 +5095,22 @@ app.get("/api/search", async (req, res) => {
               "$brutto-preis",
               { $ifNull: [
                 "$brutto_preis",
-                { $ifNull: [ "$verkauf_brutto", { $ifNull: [ "$preis", { $ifNull: [ "$verkauf_preis", "$verkauf_netto" ] } ] } ] }
+                { $ifNull: [
+                  "$verkauf_brutto",
+                  { $ifNull: [
+                    "$preis",
+                    { $ifNull: [
+                      "$price",
+                      { $ifNull: [
+                        "$price_eur",
+                        { $ifNull: [
+                          "$priceEUR",
+                          { $ifNull: [ "$verkauf_preis", "$verkauf_netto" ] }
+                        ] }
+                      ] }
+                    ] }
+                  ] }
+                ] }
               ] }
             ]
           },
