@@ -1365,6 +1365,8 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
     const preis = pickPrice(
       raw["brutto-preis"],
       raw.brutto_preis,
+      raw["netto-preis"],
+      raw.netto_preis,
       raw.verkauf_brutto,
       raw.preis,
       raw.price,

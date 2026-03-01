@@ -5096,6 +5096,10 @@ app.get("/api/search", async (req, res) => {
               { $ifNull: [
                 "$brutto_preis",
                 { $ifNull: [
+                  "$netto-preis",
+                  { $ifNull: [
+                    "$netto_preis",
+                { $ifNull: [
                   "$verkauf_brutto",
                   { $ifNull: [
                     "$preis",
@@ -5109,6 +5113,8 @@ app.get("/api/search", async (req, res) => {
                         ] }
                       ] }
                     ] }
+                  ] }
+                ] }
                   ] }
                 ] }
               ] }
