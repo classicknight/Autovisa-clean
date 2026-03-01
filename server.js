@@ -5213,7 +5213,7 @@ app.get("/api/search", async (req, res) => {
         }
       },
       { $addFields: {
-          _mwst_str: { $toLower: { $trim: { input: { $convert: { input: "$_mwst_raw", to: "string", onError: "", onNull: "" } } } } },
+          _mwst_str: { $toLower: { $trim: { input: { $toString: "$_mwst_raw" } } } },
           _mwst_keine: {
             $or: [
               { $regexMatch: { input: "$_mwst_str", regex: /keine|nicht/ } },
@@ -5248,17 +5248,17 @@ app.get("/api/search", async (req, res) => {
               "$_preis_raw"
             ]
           },
-          _preis_str: { $trim: { input: { $convert: { input: "$_preis_raw_val", to: "string", onError: "", onNull: "" } } } },
+          _preis_str: { $trim: { input: { $toString: "$_preis_raw_val" } } },
           _preis_matches: {
             $regexFindAll: {
-              input: { $convert: { input: "$_preis_raw_val", to: "string", onError: "", onNull: "" } },
+              input: { $toString: "$_preis_raw_val" },
               regex: /(\\d{1,3}(?:[.,\\s]\\d{3})+|\\d+)(?:[.,]\\d{2})?/
             }
           },
           _km_clean: {
             $replaceAll: {
               input: { $replaceAll: {
-                input: { $trim: { input: { $convert: { input: "$_km_raw", to: "string", onError: "", onNull: "" } } } },
+                input: { $trim: { input: { $toString: "$_km_raw" } } },
                 find: ".", replacement: ""
               } },
               find: " ", replacement: ""
@@ -5311,14 +5311,14 @@ app.get("/api/search", async (req, res) => {
         }
       },
       { $addFields: {
-          _ps_match:   { $regexFind:  { input: { $convert: { input: "$_ps_raw", to: "string", onError: "", onNull: "" } }, regex: /(\d{2,4})/ } },
-          _seats_match:{ $regexFind:  { input: { $convert: { input: "$_seats_raw", to: "string", onError: "", onNull: "" } }, regex: /(\d{1,2})/ } },
-          _ccm_match:  { $regexFind:  { input: { $convert: { input: "$_ccm_raw", to: "string", onError: "", onNull: "" } }, regex: /(\d{3,5})/ } },
-          _verb_norm:  { $replaceAll: { input: { $convert: { input: "$_verb_raw", to: "string", onError: "", onNull: "" } }, find: ",", replacement: "." } },
+          _ps_match:   { $regexFind:  { input: { $toString: "$_ps_raw"  }, regex: /(\d{2,4})/ } },
+          _seats_match:{ $regexFind:  { input: { $toString: "$_seats_raw" }, regex: /(\d{1,2})/ } },
+          _ccm_match:  { $regexFind:  { input: { $toString: "$_ccm_raw" }, regex: /(\d{3,5})/ } },
+          _verb_norm:  { $replaceAll: { input: { $toString: "$_verb_raw" }, find: ",", replacement: "." } },
           _verb_liters:{ $regexFindAll:{ input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)(?=\s*(?:l|L)\s*\/\s*100\s*km)/i } },
           _verb_kwh:   { $regexFindAll:{ input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)(?=\s*kwh\s*\/\s*100\s*km)/i } },
           _verb_all_any:{ $regexFindAll:{ input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)/ } },
-          _halter_match:{ $regexFind:   { input: { $convert: { input: "$_halter_raw", to: "string", onError: "", onNull: "" } }, regex: /(\d{1,2})/ } }
+          _halter_match:{ $regexFind:   { input: { $toString: "$_halter_raw" }, regex: /(\d{1,2})/ } }
         }
       },
       { $addFields: {
@@ -5414,13 +5414,13 @@ app.get("/api/search", async (req, res) => {
           },
           _hu_field_m_str: {
             $toLower: {
-              $trim: { input: { $convert: { input: { $ifNull: [ "$tuevMonat", { $ifNull: [ "$tüvMonat", "$tuvMonat" ] } ] }, to: "string", onError: "", onNull: "" } } }
+              $trim: { input: { $toString: { $ifNull: [ "$tuevMonat", { $ifNull: [ "$tüvMonat", "$tuvMonat" ] } ] } } }
             }
           }
         }
       },
       { $addFields: {
-          _hu_str: { $convert: { input: { $ifNull: ["$_hu_raw", ""] }, to: "string", onError: "", onNull: "" } },
+          _hu_str: { $toString: { $ifNull: ["$_hu_raw", ""] } },
           _hu_rx_y_m: { $regexFind: { input: "$_hu_str", regex: /(\d{4})[-/.](\d{1,2})/ } },
           _hu_rx_m_y: { $regexFind: { input: "$_hu_str", regex: /(\d{1,2})[-/.](\d{4})/ } },
           _hu_rx_y:   { $regexFind: { input: "$_hu_str", regex: /(\d{4})/ } },
