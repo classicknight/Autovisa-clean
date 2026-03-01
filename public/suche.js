@@ -1675,9 +1675,14 @@ function applyClientFilters(items) {
   const ezFromEff = parseYM(firstRegFromUI || sp.get("ezFrom") || "", 1);
   const ezToEff   = parseYM(firstRegToUI   || sp.get("ezTo")   || "", 12);
 
-  // Marke/Modell
-  let brandEff  = sp.get("marke") ? norm(sp.get("marke")) : "";
-  let modelsEff = splitCsv(sp.get("modell")).map(norm);
+  // Marke/Modell (bei Mehrfach-Parametern nicht clientseitig einschränken)
+  const hasMultiRows =
+    sp.getAll("marke").length > 1 ||
+    sp.getAll("modell").length > 1 ||
+    sp.getAll("modellausfuehrung").length > 1;
+
+  let brandEff  = hasMultiRows ? "" : (sp.get("marke") ? norm(sp.get("marke")) : "");
+  let modelsEff = hasMultiRows ? [] : splitCsv(sp.get("modell")).map(norm);
   if (markeEl && markeEl.value) brandEff = norm(markeEl.value);
   if (modellEl && modellEl.options) {
     const selected = [...modellEl.options].filter(o => o.selected).map(o => norm(o.value));
@@ -1686,7 +1691,7 @@ function applyClientFilters(items) {
 
   // Modellvariante
   const modVarUI  = (modVarEl?.value || "").trim().toLowerCase();
-  const modVarEff = modVarUI || (sp.get("modellausfuehrung") || "").toLowerCase();
+  const modVarEff = (hasMultiRows && !modVarUI) ? "" : (modVarUI || (sp.get("modellausfuehrung") || "").toLowerCase());
 
   // Verbrauch (max)
   const rawV = selV
@@ -2391,15 +2396,23 @@ function applyClientFilters(items) {
     const markeEl  = document.getElementById("marke");
     const modellEl = document.getElementById("modell");
     const modVarEl = document.getElementById("modellausfuehrung");
-    setOrDelete(params, "marke", markeEl?.value || "");
-    if (modellEl && modellEl.options) {
-      const selected = [...modellEl.options]
-        .filter(o => o.selected)
-        .map(o => o.value)
-        .filter(Boolean);
-      setOrDelete(params, "modell", selected.length ? selected.join(",") : "");
+    const hasMultiRows =
+      params.getAll("marke").length > 1 ||
+      params.getAll("modell").length > 1 ||
+      params.getAll("modellausfuehrung").length > 1;
+    const selectedModels = (modellEl && modellEl.options)
+      ? [...modellEl.options].filter(o => o.selected).map(o => o.value).filter(Boolean)
+      : [];
+    const hasRowUi =
+      !!(markeEl?.value || "").trim() ||
+      selectedModels.length > 0 ||
+      !!(modVarEl?.value || "").trim();
+
+    if (!hasMultiRows || hasRowUi) {
+      setOrDelete(params, "marke", markeEl?.value || "");
+      setOrDelete(params, "modell", selectedModels.length ? selectedModels.join(",") : "");
+      setOrDelete(params, "modellausfuehrung", modVarEl?.value || "");
     }
-    setOrDelete(params, "modellausfuehrung", modVarEl?.value || "");
   
     // Erstzulassung FROM/TO (inkl. Fallback-Felder)
     const firstRegFromEl     = document.getElementById("firstRegFrom");

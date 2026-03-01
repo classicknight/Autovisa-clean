@@ -15,6 +15,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
   const KW_TO_PS = 1.35962;
   const PS_TO_KW = 1 / KW_TO_PS;
+  const splitCsv = (v) =>
+    v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : [];
 
   function closeAllDropdowns(except = null) {
     dropdownLis.forEach(li => {
@@ -542,74 +544,15 @@ document.addEventListener("DOMContentLoaded", () => {
   /* =========================
      Marken/Modelle (SlimSelect + JSON)
      ========================= */
-     const brandDropdown = document.getElementById("marke");
-     const modelDropdown = document.getElementById("modell");
-     
-     const FILTER_OUT_BELIEBIG = true;
-     const ALL_MODELS_VALUE = "__ALL_MODELS__";
-     
-     let slimMarke = null;
-     let slimModell = null;
-     let brandSyncing = false;
-     let modellSyncing = false;
-     let lastModellValues = [ALL_MODELS_VALUE];
-     
-     function setModelEnabled(enabled) {
-       if (!modelDropdown) return;
-     
-       modelDropdown.disabled = !enabled;
-     
-       // SlimSelect UI mitziehen
-       if (slimModell) {
-         if (!enabled && typeof slimModell.disable === "function") slimModell.disable();
-         if ( enabled && typeof slimModell.enable  === "function") slimModell.enable();
-       }
-     }
+  const bmvRowsEl = document.getElementById("bmv-rows");
+  const bmvAddBtn = document.getElementById("bmv-add");
+  const bmvTemplate = document.getElementById("bmv-row-template");
 
-     function getSelectedBrandsRaw() {
-       if (!brandDropdown) return [];
-       return Array.from(brandDropdown.selectedOptions || [])
-         .map(o => String(o.value || "").trim());
-     }
+  const FILTER_OUT_BELIEBIG = true;
+  const ALL_MODELS_VALUE = "__ALL_MODELS__";
 
-     function getSelectedBrands() {
-       return getSelectedBrandsRaw().filter(Boolean);
-     }
-
-     function setSelectedBrands(values) {
-       const vals = (Array.isArray(values) ? values : [])
-         .map(v => String(v || "").trim())
-         .filter(Boolean);
-       if (slimMarke && typeof slimMarke.setSelected === "function") {
-         slimMarke.setSelected(vals);
-         return;
-       }
-       if (!brandDropdown) return;
-       for (const opt of brandDropdown.options) {
-         opt.selected = vals.includes(opt.value);
-       }
-     }
-
-     function normalizeBrandValues(values) {
-       const raw = (Array.isArray(values) ? values : [])
-         .map(v => String(v || "").trim());
-       const cleaned = raw.filter(Boolean);
-       if (raw.some(v => !v) && cleaned.length) {
-         if (!brandSyncing) {
-           brandSyncing = true;
-           try { setSelectedBrands(cleaned); } finally { brandSyncing = false; }
-         }
-       }
-       return cleaned;
-     }
-     
-
-  // ⬇️⬇️ NEU: GUARD – nur initialisieren, wenn SlimSelect hier noch NICHT aktiv ist
-  const _isSlim = el => !!(el && el.nextElementSibling && el.nextElementSibling.classList.contains('ss-main'));
-  if (!_isSlim(brandDropdown) && !_isSlim(modelDropdown)) {
-
-    // Gruppen-Definitionen
-    const modelGroups = {
+  // Gruppen-Definitionen
+  const modelGroups = {
     "1er Reihe (Alle)": /^(1(1[0-9]|2[0-9]|3[0-9]|4[0-9]|14[0-9])|1er M Coupé)/i,
 
       "2er Reihe (Alle)": /^2(1[0-9]|2[0-9]|3[0-9])/i,
@@ -684,120 +627,6 @@ document.addEventListener("DOMContentLoaded", () => {
       "T6 (Alle)":     /^T6(?!\s*\(Alle\))(\s|$)/i
     };
 
- // SlimSelect-Helfer (im Guard-Block weiterhin ok)
-const initSlim = (selector, opts) => {
-  const el = document.querySelector(selector);
-  if (!el) return null;
-  return new SlimSelect({ select: selector, ...opts });
-};
-
-// WICHTIG: slimMarke/slimModell NICHT neu als const/let deklarieren,
-// sondern die äußeren Variablen befüllen (die du vorher oben definiert hast):
-// let slimMarke = null;
-// let slimModell = null;
-
-slimMarke = initSlim('#marke', {
-  closeOnSelect: true,
-  placeholder: 'Beliebig (alle Marken)',
-  allowDeselect: true,
-  showSearch: true,
-  events: {
-    afterChange: (newSelected) => {
-      if (brandSyncing) return;
-      const raw = (newSelected || []).map(s => String(s.value || "").trim());
-      const brands = normalizeBrandValues(raw);
-      rebuildModelOptions(brands, lastModellValues);
-    }
-  }
-});
-
-slimModell = initSlim('#modell', {
-  closeOnSelect: true,
-  placeholder: 'Bitte zuerst Marke wählen',
-  allowDeselect: true,
-  hideSelected: false,
-  showSearch: true,
-  data: [], // wird erst nach Markenwahl gefüllt
-  events: {
-    afterChange: (newSelected) => {
-      if (modellSyncing) return;
-    
-      const brands = getSelectedBrands();
-      if (!brands.length) return; // Marke "Beliebig" -> keine Modell-Logik
-
-      const singleBrand = brands.length === 1;
-      const brand = singleBrand ? brands[0] : "";
-      const allowGroups = singleBrand ? (ALLOW_GROUPS_FOR[brand] || []) : [];
-      const currentVals = (newSelected || [])
-        .map(s => canonAlle(s.value))
-        .filter(Boolean);
-    
-      const hadAllBefore = lastModellValues.includes(ALL_MODELS_VALUE);
-      const hasAllNow = currentVals.includes(ALL_MODELS_VALUE);
-    
-      // ✅ Wenn der User "Beliebig" aktiv anklickt: IMMER resetten auf nur Beliebig
-      if (hasAllNow && !hadAllBefore) {
-        lastModellValues = [ALL_MODELS_VALUE];
-        modellSyncing = true;
-        try { slimModell.setSelected([ALL_MODELS_VALUE]); } finally { modellSyncing = false; }
-        return;
-      }
-    
-      // Wenn "Beliebig" aktiv ist und der User etwas anderes auswählt -> "Beliebig" entfernen
-      let vals = currentVals;
-      if (hasAllNow && vals.length > 1) {
-        vals = vals.filter(v => v !== ALL_MODELS_VALUE);
-      }
-    
-      // Nur Beliebig ausgewählt -> fertig
-      if (vals.length === 1 && vals[0] === ALL_MODELS_VALUE) {
-        lastModellValues = [ALL_MODELS_VALUE];
-        return;
-      }
-    
-      const fullList = singleBrand
-        ? sanitizeModelList(brandToModels[brand] || [])
-        : unionModelsForBrands(brands);
-      const nextSet  = new Set();
-    
-      vals.forEach(v => {
-        const rx = modelGroups[v];
-        const isAllowedGroup = singleBrand && rx && allowGroups.includes(v);
-    
-        if (isAllowedGroup) {
-          fullList.forEach(m => {
-            if (/\(alle\)/i.test(m)) return; // Gruppenlabel nicht als echtes Modell nutzen
-            if (rx.test(m)) nextSet.add(m);
-          });
-        } else if (v && v !== ALL_MODELS_VALUE) {
-          nextSet.add(v);
-        }
-      });
-    
-      const next   = nextSet.size ? [...nextSet] : [ALL_MODELS_VALUE];
-      const nowKey = currentVals.slice().sort().join("|");
-      const nxtKey = next.slice().sort().join("|");
-    
-      if (nowKey !== nxtKey) {
-        lastModellValues = next;
-        modellSyncing = true;
-        try { slimModell.setSelected(next); } finally { modellSyncing = false; }
-      } else {
-        lastModellValues = currentVals.length ? currentVals : [ALL_MODELS_VALUE];
-      }
-    }
-  }
-});
-
-
-// Ganz wichtig: Modell soll auch in SlimSelect optisch disabled starten
-setModelEnabled(false);
-
-// ❌ Diese beiden Zeilen HIER entfernen (Duplikate!)
-// const FILTER_OUT_BELIEBIG = true;
-// const ALL_MODELS_VALUE = "__ALL_MODELS__";
-
-
     // Nur diese Marken bekommen Gruppen
     const ALLOW_GROUPS_FOR = {
       "Bentley": ["Continental (Alle)"],
@@ -828,10 +657,20 @@ setModelEnabled(false);
       "Porsche": ["911er Reihe (Alle)"],
       "Volkswagen": ["Golf (Alle)","Passat (Alle)","T3 (Alle)","T4 (Alle)","T5 (Alle)","T6 (Alle)"]
     };
+
     const canonAlle = (s) =>
       String(s ?? "").trim().replace(/\(\s*alle\s*\)/i, "(Alle)");
-    
+
     let brandToModels = {};
+    let bmvRowSeq = 0;
+
+    const initSlim = (target, opts) => {
+      if (typeof SlimSelect === "undefined") return null;
+      const el = (typeof target === "string") ? document.querySelector(target) : target;
+      if (!el) return null;
+      return new SlimSelect({ select: el, ...opts });
+    };
+
     function sanitizeModelList(listRaw = []) {
       const seen = new Set();
       const clean = [];
@@ -863,82 +702,276 @@ setModelEnabled(false);
         brandToModels = {};
       }
     }
-    function unionModelsForBrands(brands) {
-      const seen = new Set();
-      const out = [];
-      for (const b of (brands || [])) {
-        const list = sanitizeModelList((brandToModels && brandToModels[b]) || []);
-        for (const m of list) {
-          const key = m.toLowerCase();
-          if (!seen.has(key)) { seen.add(key); out.push(m); }
-        }
-      }
-      return out;
+
+    function buildModelData(brand) {
+      const modelsRaw = sanitizeModelList((brandToModels && brandToModels[brand]) || []);
+      const allowGroups = ALLOW_GROUPS_FOR[brand] || [];
+      const models = modelsRaw.filter(m => !modelGroups[m]);
+      const data = [{ text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE }];
+      allowGroups.forEach(g => data.push({ text: g, value: g }));
+      models.forEach(m => data.push({ text: m, value: m }));
+      return data;
     }
 
-    function rebuildModelOptions(brands, preselect = []) {
-      if (!modelDropdown) return;
-    
-      const brandList = (Array.isArray(brands) ? brands : [brands])
-        .map(b => String(b || "").trim())
-        .filter(Boolean);
-    
-      // Marke = Beliebig -> Modell komplett deaktivieren und leeren
-      if (!brandList.length) {
-        if (slimModell) {
-          slimModell.setData([]);
-          modellSyncing = true;
-          try { slimModell.setSelected([]); } finally { modellSyncing = false; }
+    function setRowModelOptions(row, brand, preselect = "") {
+      const modelSel = row ? row.querySelector('.bmv-model') : null;
+      if (!modelSel) return;
+      const slim = row._slimModel;
+      const brandVal = String(brand || "").trim();
+
+      if (!brandVal) {
+        if (slim && typeof slim.setData === "function") {
+          slim.setData([]);
+          row._modelSyncing = true;
+          try { slim.setSelected([]); } finally { row._modelSyncing = false; }
         } else {
-          modelDropdown.innerHTML = "";
-          modelDropdown.value = "";
+          modelSel.innerHTML = "";
+          modelSel.value = "";
         }
-        setModelEnabled(false);
-        lastModellValues = [ALL_MODELS_VALUE];
+        modelSel.disabled = true;
         return;
       }
-    
-      setModelEnabled(true);
-    
-      const modelsRaw =
-        (brandList.length === 1)
-          ? sanitizeModelList((brandToModels && brandToModels[brandList[0]]) || [])
-          : unionModelsForBrands(brandList);
-      const models =
-        (brandList.length === 1)
-          ? modelsRaw
-          : modelsRaw.filter(m => !modelGroups[m]);
-    
-      const data = [
-        { text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE },
-        ...models.map(m => ({ text: m, value: m }))
-      ];
-    
-      const valid = new Set(data.map(d => d.value));
-      const wanted = (Array.isArray(preselect) ? preselect : [])
-        .map(v => canonAlle(v))
-        .filter(v => v && valid.has(v));
-      const selected = wanted.length ? wanted : [ALL_MODELS_VALUE];
 
-      if (slimModell) {
-        slimModell.setData(data);
-        modellSyncing = true;
-        try { slimModell.setSelected(selected); } finally { modellSyncing = false; }
+      const data = buildModelData(brandVal);
+      const allowed = new Set(data.map(d => d.value));
+      let selected = canonAlle(preselect || modelSel.value || "");
+      if (!selected || !allowed.has(selected)) selected = ALL_MODELS_VALUE;
+
+      if (slim && typeof slim.setData === "function") {
+        slim.setData(data);
+        row._modelSyncing = true;
+        try { slim.setSelected([selected]); } finally { row._modelSyncing = false; }
       } else {
-        modelDropdown.innerHTML = "";
+        modelSel.innerHTML = "";
         data.forEach(({ text, value }) => {
           const opt = document.createElement("option");
           opt.value = value;
           opt.textContent = text;
-          modelDropdown.appendChild(opt);
+          modelSel.appendChild(opt);
         });
-        for (const opt of modelDropdown.options) {
-          opt.selected = selected.includes(opt.value);
-        }
+        modelSel.value = selected;
       }
-      lastModellValues = selected;
+      modelSel.disabled = false;
     }
-    
+
+    function destroyBmvRow(row) {
+      if (!row) return;
+      try { row._slimBrand?.destroy?.(); } catch {}
+      try { row._slimModel?.destroy?.(); } catch {}
+    }
+
+    function removeBmvRow(row) {
+      if (!bmvRowsEl || !row) return;
+      const rows = bmvRowsEl.querySelectorAll('.bmv-row');
+      if (rows.length <= 1) return; // Mindestens eine Zeile behalten
+      destroyBmvRow(row);
+      row.remove();
+      syncBmvRemoveButtons();
+      if (typeof update === "function") update();
+    }
+
+    function createBmvRow(data = {}) {
+      if (!bmvTemplate || !bmvRowsEl) return null;
+      const frag = bmvTemplate.content.cloneNode(true);
+      const row = frag.querySelector('.bmv-row');
+      if (!row) return null;
+
+      const brandSel = row.querySelector('.bmv-brand');
+      const modelSel = row.querySelector('.bmv-model');
+      const variantInp = row.querySelector('.bmv-variant');
+      const removeBtn = row.querySelector('.bmv-remove');
+
+      const idx = ++bmvRowSeq;
+      const brandId = `marke-${idx}`;
+      const modelId = `modell-${idx}`;
+      const varId = `modellausfuehrung-${idx}`;
+
+      const labelBrand = row.querySelector('label[for="marke"]');
+      const labelModel = row.querySelector('label[for="modell"]');
+      const labelVar   = row.querySelector('label[for="modellausfuehrung"]');
+      if (labelBrand) labelBrand.setAttribute('for', brandId);
+      if (labelModel) labelModel.setAttribute('for', modelId);
+      if (labelVar)   labelVar.setAttribute('for', varId);
+
+      if (brandSel) brandSel.id = brandId;
+      if (modelSel) modelSel.id = modelId;
+      if (variantInp) variantInp.id = varId;
+
+      bmvRowsEl.appendChild(frag);
+
+      const slimBrand = initSlim(brandSel, {
+        placeholder: 'Beliebig (alle Marken)',
+        allowDeselect: true,
+        showSearch: true,
+        events: {
+          afterChange: (newSelected) => {
+            if (row._brandSyncing) return;
+            const val = (newSelected && newSelected[0] && newSelected[0].value)
+              ? String(newSelected[0].value || "").trim()
+              : "";
+            setRowModelOptions(row, val, "");
+          }
+        }
+      });
+
+      const slimModel = initSlim(modelSel, {
+        placeholder: 'Bitte zuerst Marke wählen',
+        allowDeselect: true,
+        showSearch: true,
+        data: []
+      });
+
+      row._slimBrand = slimBrand;
+      row._slimModel = slimModel;
+
+      if (!slimBrand && brandSel) {
+        brandSel.addEventListener('change', () => {
+          if (row._brandSyncing) return;
+          setRowModelOptions(row, brandSel.value, "");
+        });
+      }
+
+      if (removeBtn) removeBtn.addEventListener('click', () => removeBmvRow(row));
+
+      const brandVal = String(data.brand || "").trim();
+      const modelVal = canonAlle(String(data.model || "").trim());
+      const variantVal = String(data.variant || "").trim();
+
+      if (variantInp) variantInp.value = variantVal;
+
+      if (slimBrand && typeof slimBrand.setSelected === "function") {
+        row._brandSyncing = true;
+        try { slimBrand.setSelected(brandVal ? [brandVal] : []); } finally { row._brandSyncing = false; }
+      } else if (brandSel) {
+        brandSel.value = brandVal;
+      }
+
+      setRowModelOptions(row, brandVal, modelVal);
+
+      return row;
+    }
+
+    function syncBmvRemoveButtons() {
+      if (!bmvRowsEl) return;
+      const rows = bmvRowsEl.querySelectorAll('.bmv-row');
+      const show = rows.length > 1;
+      rows.forEach(r => {
+        const btn = r.querySelector('.bmv-remove');
+        if (btn) btn.style.display = show ? '' : 'none';
+      });
+    }
+
+    function addBmvRow(data = {}) {
+      const row = createBmvRow(data);
+      syncBmvRemoveButtons();
+      return row;
+    }
+
+    function resetBmvRows(rows = []) {
+      if (!bmvRowsEl) return;
+      bmvRowSeq = 0;
+      bmvRowsEl.querySelectorAll('.bmv-row').forEach(r => {
+        destroyBmvRow(r);
+        r.remove();
+      });
+      const list = (rows && rows.length) ? rows : [{}];
+      list.forEach(r => addBmvRow(r));
+      syncBmvRemoveButtons();
+    }
+
+    function getBmvRowsData() {
+      if (!bmvRowsEl) return [];
+      return Array.from(bmvRowsEl.querySelectorAll('.bmv-row')).map(row => {
+        const brand = String(row.querySelector('.bmv-brand')?.value || "").trim();
+        let model = String(row.querySelector('.bmv-model')?.value || "").trim();
+        model = canonAlle(model);
+        if (!model || model === ALL_MODELS_VALUE || /^beliebig/i.test(model)) model = "";
+        const variant = String(row.querySelector('.bmv-variant')?.value || "").trim();
+        return { brand, model, variant };
+      });
+    }
+
+    function parseBmvRowsFromQuery(qs) {
+      if (!qs) return [];
+
+      const tryGroupForModels = (brand, modelsRaw) => {
+        const b = String(brand || "").trim();
+        if (!b) return "";
+        const list = Array.isArray(modelsRaw)
+          ? modelsRaw.map(canonAlle).filter(Boolean)
+          : splitCsv(modelsRaw).map(canonAlle).filter(Boolean);
+        if (list.length < 2) return "";
+
+        const allowGroups = ALLOW_GROUPS_FOR[b] || [];
+        const set = new Set(list.map(v => v.toLowerCase()));
+        for (const g of allowGroups) {
+          const expanded = expandModelValue(b, g);
+          if (!expanded.length) continue;
+          const eSet = new Set(expanded.map(v => v.toLowerCase()));
+          if (eSet.size !== set.size) continue;
+          let ok = true;
+          for (const v of eSet) { if (!set.has(v)) { ok = false; break; } }
+          if (ok) return g;
+        }
+        return "";
+      };
+
+      const markeAll = qs.getAll('marke');
+      const modellAll = qs.getAll('modell');
+      const modVarAll = qs.getAll('modellausfuehrung');
+      const hasRowArrays = markeAll.length > 1 || modellAll.length > 1 || modVarAll.length > 1;
+
+      if (hasRowArrays) {
+        const len = Math.max(markeAll.length, modellAll.length, modVarAll.length);
+        const out = [];
+        for (let i = 0; i < len; i++) {
+          const brand = String(markeAll[i] ?? "").trim();
+          const modelRaw = String(modellAll[i] ?? "").trim();
+          let model = canonAlle(modelRaw);
+          const group = tryGroupForModels(brand, modelRaw);
+          if (group) model = group;
+          const variant = String(modVarAll[i] ?? "").trim();
+          if (!brand && !model && !variant) continue;
+          out.push({ brand, model, variant });
+        }
+        return out;
+      }
+
+      const qBrands = splitCsv(qs.get('marke'));
+      const qModels = splitCsv(qs.get('modell')).map(canonAlle).filter(Boolean);
+      const qVar = String(qs.get('modellausfuehrung') || "").trim();
+
+      const out = [];
+      if (qBrands.length > 1 && qModels.length === qBrands.length) {
+        qBrands.forEach((b, i) => out.push({ brand: b, model: qModels[i] || "", variant: "" }));
+      } else if (qBrands.length > 1) {
+        qBrands.forEach(b => out.push({ brand: b, model: "", variant: "" }));
+      } else if (qBrands.length === 1 && qModels.length > 1) {
+        const brand = qBrands[0];
+        const group = tryGroupForModels(brand, qModels);
+        if (group) out.push({ brand, model: group, variant: "" });
+        else qModels.forEach(m => out.push({ brand, model: m, variant: "" }));
+      } else if (qBrands.length || qModels.length || qVar) {
+        out.push({ brand: qBrands[0] || "", model: qModels[0] || "", variant: qVar });
+      }
+
+      if (qVar && out.length > 1) out[0].variant = qVar;
+      return out;
+    }
+
+    function expandModelValue(brand, modelValue) {
+      const b = String(brand || "").trim();
+      const m = canonAlle(String(modelValue || "").trim());
+      if (!b || !m) return [];
+
+      const allowGroups = ALLOW_GROUPS_FOR[b] || [];
+      const rx = modelGroups[m];
+      if (rx && allowGroups.includes(m)) {
+        const list = sanitizeModelList((brandToModels && brandToModels[b]) || []);
+        return list.filter(x => !/\(alle\)/i.test(x) && rx.test(x));
+      }
+      return [m];
+    }
 
     // Lade Daten & initialisiere
     (async () => {
@@ -1002,71 +1035,9 @@ setModelEnabled(false);
         new SlimSelect({ select: `#${selYear.id}`,  placeholder: 'Jahr',  showSearch: true  });
       }
 
-      brandDropdown?.addEventListener("change", () => {
-        if (slimMarke) return; // SlimSelect handled im afterChange
-        const raw = getSelectedBrandsRaw();
-        const brands = normalizeBrandValues(raw);
-        rebuildModelOptions(brands, lastModellValues); // handled auch brand="" sauber
-      });
-      
-
-// URL-Parameter übernehmen
-const qs = new URLSearchParams(location.search);
-const splitCsv = (v) =>
-  v ? String(v).split(",").map(s => s.trim()).filter(Boolean) : [];
-
-// 1) Marken aus URL
-const qBrands = splitCsv(qs.get("marke"));
-
-if (brandDropdown) {
-  if (qBrands.length) {
-    setSelectedBrands(qBrands);
-    rebuildModelOptions(qBrands);
-  } else {
-    const current = getSelectedBrands();
-    rebuildModelOptions(current);
-  }
-}
-
-const qModels = splitCsv(qs.get("modell"))
-  .map(canonAlle)
-  .filter(Boolean);
-
-if (qModels.length) {
-  const brands = qBrands.length ? qBrands : getSelectedBrands();
-
-  // Wenn keine Marke -> Modelle ignorieren (Modell ist dann sowieso disabled)
-  if (brands.length) {
-    const singleBrand = brands.length === 1;
-    const brand = singleBrand ? brands[0] : "";
-    const list = singleBrand
-      ? sanitizeModelList((brandToModels[brand] || []).map(String))
-      : unionModelsForBrands(brands);
-    const allowedForBrand = singleBrand ? (ALLOW_GROUPS_FOR[brand] || []) : [];
-    const expanded = new Set();
-
-    for (const item of qModels) {
-      if (singleBrand && allowedForBrand.includes(item) && modelGroups[item]) {
-        const rx = modelGroups[item];
-        list.forEach(m => { if (!/\(alle\)/i.test(m) && rx.test(m)) expanded.add(m); });
-      } else if (list.includes(item)) {
-        expanded.add(item);
-      }
-    }
-
-    const vals = expanded.size ? [...expanded] : [ALL_MODELS_VALUE];
-
-    // ✅ SlimSelect korrekt setzen
-    if (slimModell && typeof slimModell.setSelected === "function") {
-      modellSyncing = true;
-      try { slimModell.setSelected(vals); } finally { modellSyncing = false; }
-    } else if (modelDropdown) {
-      for (const opt of modelDropdown.options) opt.selected = vals.includes(opt.value);
-      modelDropdown.dispatchEvent(new Event("change"));
-    }
-  }
-}
-
+      const qs = new URLSearchParams(location.search);
+      if (bmvAddBtn) bmvAddBtn.addEventListener("click", () => addBmvRow());
+      resetBmvRows(parseBmvRowsFromQuery(qs));
 
       // EZ aus URL
       const ezFrom = qs.get("ezFrom");
@@ -1231,17 +1202,10 @@ if (equipValues.length) {
 }
 
     })();
-  } // ⬅️⬅️ ENDE: GUARD
 
   /* =========================
      SlimSelects für restliche Felder (nur wenn vorhanden)
      ========================= */
-  const initSlim = (selector, opts) => {
-    const el = document.querySelector(selector);
-    if (!el) return null;
-    return new SlimSelect({ select: selector, ...opts });
-  };
-
   initSlim('#hu-gueltig',      { placeholder: 'HU mind. gültig', allowDeselect: true, showSearch: false });
   initSlim('#fahrzeughalter',  { placeholder: 'Fahrzeughalter',  allowDeselect: true, showSearch: false });
   initSlim('#land',            { placeholder: 'Land',            allowDeselect: true, showSearch: false });
@@ -1371,40 +1335,29 @@ if (equipValues.length) {
     const qs = new URLSearchParams();
     const numLocal = (typeof window.num === "function") ? window.num : _numFallback;
   
-    // Marke
-    const brandEl = document.getElementById("marke") || window.brandDropdown;
-    const brandVals = (() => {
-      if (!brandEl) return [];
-      if (brandEl.selectedOptions) {
-        return Array.from(brandEl.selectedOptions || [])
-          .map(o => String(o.value || "").trim())
-          .filter(Boolean);
-      }
-      const v = String(brandEl.value || "").trim();
-      return v ? [v] : [];
-    })();
-    if (brandVals.length) qs.set("marke", Array.from(new Set(brandVals)).join(","));
-  
-    // Modelle
-    (function collectModels() {
-      const sel = document.getElementById("modell");
-      if (!sel) return;
-    
-      // NEU: wenn keine Marke gewählt, niemals modell mitsenden
-      if (!brandVals.length) return;
-    
-      let vals = Array.from(sel.selectedOptions || [])
-        .map(o => (o.value || "").trim())
-        .filter(Boolean);
-    
-      vals = vals.filter(v => v !== "__ALL_MODELS__" && !/^beliebig/i.test(v) && !/\(alle\)$/i.test(v));
-      vals = Array.from(new Set(vals));
-      if (vals.length) qs.set("modell", vals.join(","));
-    })();
-    
-    // Modellvariante
-    const modVar = document.getElementById("modellausfuehrung")?.value?.trim();
-    if (modVar) qs.set("modellausfuehrung", modVar);
+    // Marke / Modell / Variante (mehrere Zeilen)
+    const rows = (typeof getBmvRowsData === "function") ? getBmvRowsData() : [];
+    const nonEmptyRows = rows.filter(r => r && (r.brand || r.model || r.variant));
+    const useArrays = nonEmptyRows.length > 1;
+
+    if (useArrays) {
+      nonEmptyRows.forEach(r => {
+        const brandVal = String(r.brand || "").trim();
+        const modelList = r.model ? expandModelValue(brandVal, r.model) : [];
+        const modelParam = modelList.length > 1 ? modelList.join(",") : (modelList[0] || "");
+        qs.append("marke", brandVal);
+        qs.append("modell", modelParam);
+        qs.append("modellausfuehrung", String(r.variant || "").trim());
+      });
+    } else if (nonEmptyRows.length === 1) {
+      const r = nonEmptyRows[0];
+      const brandVal = String(r.brand || "").trim();
+      if (brandVal) qs.set("marke", brandVal);
+      const modelList = r.model ? expandModelValue(brandVal, r.model) : [];
+      if (modelList.length) qs.set("modell", modelList.length > 1 ? modelList.join(",") : modelList[0]);
+      const modVar = String(r.variant || "").trim();
+      if (modVar) qs.set("modellausfuehrung", modVar);
+    }
   
     // Türen
     const tueren = document.getElementById("tueren")?.value?.trim();
@@ -1862,41 +1815,32 @@ if (schadSel === "custom") {
           break;
   
         case 'marke': {
-          const brandSel = document.getElementById('marke');
-          if (typeof slimMarke !== 'undefined' && slimMarke && typeof slimMarke.setSelected === 'function') {
-            slimMarke.setSelected([]);
-          } else if (brandSel) {
-            if (brandSel.multiple) clearMultiSelect(brandSel);
-            else brandSel.value = '';
-            brandSel.dispatchEvent(new Event('change', { bubbles: true }));
-          }
-
-          if (typeof rebuildModelOptions === 'function') {
-            rebuildModelOptions([]);
-          } else if (typeof setModelEnabled === 'function') {
-            setModelEnabled(false);
-          }
-          if (typeof slimModell !== 'undefined' && slimModell && typeof slimModell.setSelected === 'function') {
-            try { slimModell.setSelected([ALL_MODELS_VALUE]); } catch {}
-          } else {
-            const mSel = document.getElementById('modell');
-            if (mSel) clearMultiSelect(mSel);
+          if (typeof resetBmvRows === 'function') {
+            resetBmvRows([{}]);
+          } else if (bmvRowsEl) {
+            bmvRowsEl.querySelectorAll('.bmv-row').forEach(row => {
+              const brandSel = row.querySelector('.bmv-brand');
+              if (brandSel) brandSel.value = '';
+              setRowModelOptions(row, '', '');
+              const v = row.querySelector('.bmv-variant');
+              if (v) v.value = '';
+            });
           }
           break;
         }
   
         case 'modell': {
-          if (typeof slimModell !== 'undefined' && slimModell && typeof slimModell.setSelected === 'function') {
-            try { slimModell.setSelected([ALL_MODELS_VALUE]); } catch {}
-          } else {
-            const mSel = document.getElementById('modell');
-            if (mSel) clearMultiSelect(mSel);
+          if (bmvRowsEl) {
+            bmvRowsEl.querySelectorAll('.bmv-row').forEach(row => {
+              const brand = row.querySelector('.bmv-brand')?.value || '';
+              setRowModelOptions(row, brand, '');
+            });
           }
           break;
         }
   
         case 'modVar':
-          (document.getElementById('modellausfuehrung') || {}).value = '';
+          document.querySelectorAll('.bmv-variant').forEach(inp => { inp.value = ''; });
           break;
   
         case 'tueren':
@@ -2026,7 +1970,8 @@ if (schadSel === "custom") {
       clearGroup('marke');
   
       document.querySelectorAll('.search-section select').forEach(sel => {
-        if (!sel || sel.id === 'marke' || sel.id === 'modell') return;
+        if (!sel) return;
+        if (sel.closest('.bmv-row')) return;
         if (sel.multiple) clearMultiSelect(sel);
         else setSelectToDefault(sel);
       });
@@ -2113,26 +2058,23 @@ if (schadSel === "custom") {
         count++;
       }
   
-      const brand = get('marke');
-      if (brand) {
-        const parts = brand.split(',').map(s => s.trim()).filter(Boolean);
-        const nice = parts.length > 3 ? `${parts.slice(0, 3).join(', ')} +${parts.length - 3}` : parts.join(', ');
-        addChip(`Marke${parts.length > 1 ? 'n' : ''}: ${nice}`, 'marke');
+      const brands = qs.getAll('marke').flatMap(v => splitCsv(v)).filter(Boolean);
+      if (brands.length) {
+        const nice = brands.length > 3 ? `${brands.slice(0, 3).join(', ')} +${brands.length - 3}` : brands.join(', ');
+        addChip(`Marke${brands.length > 1 ? 'n' : ''}: ${nice}`, 'marke');
         count++;
       }
   
-      const modell = get('modell');
-      if (modell) {
-        const parts = modell.split(',').map(s => s.trim()).filter(Boolean);
-        const nice = parts.length > 3 ? `${parts.slice(0, 3).join(', ')} +${parts.length - 3}` : parts.join(', ');
+      const models = qs.getAll('modell').flatMap(v => splitCsv(v)).filter(Boolean);
+      if (models.length) {
+        const nice = models.length > 3 ? `${models.slice(0, 3).join(', ')} +${models.length - 3}` : models.join(', ');
         addChip(`Modell: ${nice}`, 'modell'); count++;
       }
   
-      const modVar = get('modellausfuehrung');
-      if (modVar) {
-        const parts = modVar.split(',').map(s => s.trim()).filter(Boolean);
-        const nice = parts.length > 3 ? `${parts.slice(0, 3).join(', ')} +${parts.length - 3}` : parts.join(', ');
-        addChip(`Variante${parts.length > 1 ? 'n' : ''}: ${nice}`, 'modVar');
+      const modVars = qs.getAll('modellausfuehrung').flatMap(v => splitCsv(v)).filter(Boolean);
+      if (modVars.length) {
+        const nice = modVars.length > 3 ? `${modVars.slice(0, 3).join(', ')} +${modVars.length - 3}` : modVars.join(', ');
+        addChip(`Variante${modVars.length > 1 ? 'n' : ''}: ${nice}`, 'modVar');
         count++;
       }
   
