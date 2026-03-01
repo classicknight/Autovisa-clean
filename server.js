@@ -4910,54 +4910,9 @@ app.get("/api/search", async (req, res) => {
     // ---- Basisfilter (immer)
     const baseMatch = { status: "online" };
 
-    const listify = (v) => Array.isArray(v) ? v : (v != null ? [v] : []);
-    const markeListRaw = listify(marke);
-    const modellListRaw = listify(modell);
-    const modVarListRaw = listify(modellausfuehrung);
-    const hasRowArrays =
-      markeListRaw.length > 1 ||
-      modellListRaw.length > 1 ||
-      modVarListRaw.length > 1;
-
-    const addAndClause = (match, clause) => {
-      if (!clause) return;
-      if (match.$or) {
-        match.$and = [
-          { $or: match.$or },
-          clause
-        ];
-        delete match.$or;
-      } else if (Array.isArray(match.$and)) {
-        match.$and.push(clause);
-      } else {
-        match.$and = [clause];
-      }
-    };
-
-    const buildVariantClause = (raw) => {
-      const modVarRaw = String(raw || "").trim();
-      if (!modVarRaw) return null;
-      const phrases = modVarRaw.split(",").map(s => s.trim()).filter(Boolean).slice(0, 6);
-      if (!phrases.length) return null;
-      const phraseClauses = phrases.map(phrase => {
-        const tokens = phrase.split(/\\s+/).map(s => s.trim()).filter(Boolean).slice(0, 6);
-        if (!tokens.length) return null;
-        const andClauses = tokens.map(w => {
-          const rx = new RegExp(escRe(w), "i");
-          return { $or: [
-            { titel: rx }, { modell: rx }, { beschreibung: rx },
-            { modellvariante: rx }, { verkauf_modellvariante: rx }
-          ]};
-        });
-        return { $and: andClauses };
-      }).filter(Boolean);
-      return phraseClauses.length ? { $or: phraseClauses } : null;
-    };
-
     // Marke: einzelne oder mehrere (CSV), jeweils exakt (case-insensitive)
-    if (!hasRowArrays && marke) {
-      const raw = Array.isArray(marke) ? marke[0] : marke;
-      const arr = String(raw)
+    if (marke) {
+      const arr = String(marke)
         .split(",")
         .map(m => m.trim())
         .filter(Boolean);
@@ -4969,9 +4924,8 @@ app.get("/api/search", async (req, res) => {
     }
 
     // Modell: mehrere erlaubt (CSV), jeweils exakt
-    if (!hasRowArrays && modell) {
-      const raw = Array.isArray(modell) ? modell[0] : modell;
-      const arr = String(raw)
+    if (modell) {
+      const arr = String(modell)
         .split(",").map(m => m.trim()).filter(Boolean)
         .map(m => new RegExp(`^${escRe(m)}$`, "i"));
       if (arr.length) baseMatch.modell = { $in: arr };
@@ -5014,41 +4968,6 @@ app.get("/api/search", async (req, res) => {
       } else {
         baseMatch.$and = [{ $or: sellerOr }];
       }
-    }
-
-    if (hasRowArrays) {
-      const len = Math.max(markeListRaw.length, modellListRaw.length, modVarListRaw.length);
-      const rowClauses = [];
-      for (let i = 0; i < len; i++) {
-        const brandVal = String(markeListRaw[i] ?? "").trim();
-        const modelVal = String(modellListRaw[i] ?? "").trim();
-        const modVarVal = String(modVarListRaw[i] ?? "").trim();
-        if (!brandVal && !modelVal && !modVarVal) continue;
-
-        const andClauses = [];
-        if (brandVal) {
-          const brands = brandVal.split(",").map(b => b.trim()).filter(Boolean);
-          if (brands.length === 1) {
-            andClauses.push({ marke: new RegExp(`^${escRe(brands[0])}$`, "i") });
-          } else if (brands.length > 1) {
-            andClauses.push({ marke: { $in: brands.map(b => new RegExp(`^${escRe(b)}$`, "i")) } });
-          }
-        }
-        if (modelVal) {
-          const models = modelVal.split(",").map(m => m.trim()).filter(Boolean);
-          if (models.length) {
-            const rxes = models.map(m => new RegExp(`^${escRe(m)}$`, "i"));
-            andClauses.push({ modell: { $in: rxes } });
-          }
-        }
-        if (modVarVal) {
-          const clause = buildVariantClause(modVarVal);
-          if (clause) andClauses.push(clause);
-        }
-        if (andClauses.length) rowClauses.push({ $and: andClauses });
-      }
-
-      if (rowClauses.length) addAndClause(baseMatch, { $or: rowClauses });
     }
         
 
@@ -5169,33 +5088,47 @@ app.get("/api/search", async (req, res) => {
         : [{ $sort: { veroeffentlichtAm: -1, _id: -1 } }];
 
     /* ---------------- Parsing / Normalisierung ---------------- */
+    // Hilfs-Expr: behandelt leere Strings wie null (damit leere Felder die Kette nicht blockieren)
+    const nonEmpty = (expr) => ({
+      $cond: [
+        {
+          $and: [
+            { $ne: [expr, null] },
+            { $ne: [{ $trim: { input: { $toString: expr } } }, ""] }
+          ]
+        },
+        expr,
+        null
+      ]
+    });
+
     const parseNumberStages = [
       { $addFields: {
           _preis_raw_base: {
             $ifNull: [
-              "$brutto-preis",
+              nonEmpty("$brutto-preis"),
               { $ifNull: [
-                "$brutto_preis",
+                nonEmpty("$brutto_preis"),
                 { $ifNull: [
-                  "$netto-preis",
+                  nonEmpty("$netto-preis"),
                   { $ifNull: [
-                    "$netto_preis",
-                { $ifNull: [
-                  "$verkauf_brutto",
-                  { $ifNull: [
-                    "$preis",
+                    nonEmpty("$netto_preis"),
                     { $ifNull: [
-                      "$price",
+                      nonEmpty("$verkauf_brutto"),
                       { $ifNull: [
-                        "$price_eur",
+                        nonEmpty("$preis"),
                         { $ifNull: [
-                          "$priceEUR",
-                          { $ifNull: [ "$verkauf_preis", "$verkauf_netto" ] }
+                          nonEmpty("$price"),
+                          { $ifNull: [
+                            nonEmpty("$price_eur"),
+                            { $ifNull: [
+                              nonEmpty("$priceEUR"),
+                              { $ifNull: [ nonEmpty("$verkauf_preis"), nonEmpty("$verkauf_netto") ] }
+                            ] }
+                          ] }
                         ] }
                       ] }
                     ] }
-                  ] }
-                ] }
                   ] }
                 ] }
               ] }
@@ -5230,10 +5163,10 @@ app.get("/api/search", async (req, res) => {
           _preis_raw: {
             $cond: [
               "$_mwst_keine",
-              { $ifNull: [ "$verkauf_preis", { $ifNull: [ "$preis", "$_preis_raw_base" ] } ] },
+              { $ifNull: [ nonEmpty("$verkauf_preis"), { $ifNull: [ nonEmpty("$preis"), "$_preis_raw_base" ] } ] },
               { $cond: [
                 "$_mwst_zzgl",
-                { $ifNull: [ "$verkauf_brutto", { $ifNull: [ "$brutto_preis", { $ifNull: [ "$brutto-preis", "$_preis_raw_base" ] } ] } ] },
+                { $ifNull: [ nonEmpty("$verkauf_brutto"), { $ifNull: [ nonEmpty("$brutto_preis"), { $ifNull: [ nonEmpty("$brutto-preis"), "$_preis_raw_base" ] } ] } ] },
                 "$_preis_raw_base"
               ] }
             ]
@@ -5574,7 +5507,7 @@ app.get("/api/search", async (req, res) => {
     }
 
     // ---- Modellvariante (Freitext)
-    const modVarRaw = hasRowArrays ? "" : String(modellausfuehrung || "").trim();
+    const modVarRaw = String(modellausfuehrung || "").trim();
     let variantStages = [];
     if (modVarRaw) {
       const tokens = modVarRaw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean).slice(0, 6);
