@@ -697,7 +697,7 @@ const initSlim = (selector, opts) => {
 // let slimModell = null;
 
 slimMarke = initSlim('#marke', {
-  closeOnSelect: false,
+  closeOnSelect: true,
   placeholder: 'Beliebig (alle Marken)',
   allowDeselect: true,
   showSearch: true,
@@ -712,7 +712,7 @@ slimMarke = initSlim('#marke', {
 });
 
 slimModell = initSlim('#modell', {
-  closeOnSelect: false,
+  closeOnSelect: true,
   placeholder: 'Bitte zuerst Marke wählen',
   allowDeselect: true,
   hideSelected: false,
@@ -1371,7 +1371,7 @@ if (equipValues.length) {
     const qs = new URLSearchParams();
     const numLocal = (typeof window.num === "function") ? window.num : _numFallback;
   
-    // Marke (Mehrfach)
+    // Marke
     const brandEl = document.getElementById("marke") || window.brandDropdown;
     const brandVals = (() => {
       if (!brandEl) return [];
