@@ -1673,26 +1673,18 @@ function applyClientFilters(items) {
   const ezFromEff = parseYM(firstRegFromUI || sp.get("ezFrom") || "", 1);
   const ezToEff   = parseYM(firstRegToUI   || sp.get("ezTo")   || "", 12);
 
-  // Marke/Modell (CSV) + Multi-Row (mehrere Params)
-  const markeAll = sp.getAll("marke");
-  const modellAll = sp.getAll("modell");
-  const modVarAll = sp.getAll("modellausfuehrung");
-  const hasMultiRow = markeAll.length > 1 || modellAll.length > 1 || modVarAll.length > 1;
-
-  let brandList = splitCsv(markeAll[0] || "").map(norm).filter(Boolean);
-  let modelsEff = splitCsv(modellAll[0] || "").map(norm).filter(Boolean);
-
-  if (markeEl && markeEl.value) brandList = [norm(markeEl.value)].filter(Boolean);
+  // Marke/Modell
+  let brandEff  = sp.get("marke") ? norm(sp.get("marke")) : "";
+  let modelsEff = splitCsv(sp.get("modell")).map(norm);
+  if (markeEl && markeEl.value) brandEff = norm(markeEl.value);
   if (modellEl && modellEl.options) {
     const selected = [...modellEl.options].filter(o => o.selected).map(o => norm(o.value));
     if (selected.length) modelsEff = selected;
   }
 
-  // Modellvariante (Mehrfach per Komma = ODER)
+  // Modellvariante
   const modVarUI  = (modVarEl?.value || "").trim().toLowerCase();
-  const modVarList = (modVarUI ? splitCsv(modVarUI) : splitCsv(modVarAll[0] || ""))
-    .map(s => String(s || "").toLowerCase())
-    .filter(Boolean);
+  const modVarEff = modVarUI || (sp.get("modellausfuehrung") || "").toLowerCase();
 
   // Verbrauch (max)
   const rawV = selV
@@ -1762,17 +1754,15 @@ function applyClientFilters(items) {
     const iModel = norm(i.modell);
     const iTitle = norm(i.titel || "");
 
-    if (!hasMultiRow) {
-      if (brandList.length && !brandList.includes(iBrand)) return false;
-      if (modelsEff.length) {
-        const hit = modelsEff.some(m => iModel.includes(m) || iTitle.includes(m));
-        if (!hit) return false;
-      }
-      if (modVarList.length) {
-        const hay = (String(i.raw?.modellausfuehrung || "") + " " + (i.titel || "")).toLowerCase();
-        const ok = modVarList.some(v => hay.includes(v));
-        if (!ok) return false;
-      }
+    if (brandEff && iBrand !== brandEff) return false;
+    if (modelsEff.length) {
+      const hit = modelsEff.some(m => iModel.includes(m) || iTitle.includes(m));
+      if (!hit) return false;
+    }
+
+    if (modVarEff) {
+      const hay = (String(i.raw?.modellausfuehrung || "") + " " + (i.titel || "")).toLowerCase();
+      if (!hay.includes(modVarEff)) return false;
     }
 
     const preis = toNum(i.preis);
@@ -2399,7 +2389,7 @@ function applyClientFilters(items) {
     const markeEl  = document.getElementById("marke");
     const modellEl = document.getElementById("modell");
     const modVarEl = document.getElementById("modellausfuehrung");
-    if (markeEl) setOrDelete(params, "marke", markeEl.value || "");
+    setOrDelete(params, "marke", markeEl?.value || "");
     if (modellEl && modellEl.options) {
       const selected = [...modellEl.options]
         .filter(o => o.selected)
@@ -2407,7 +2397,7 @@ function applyClientFilters(items) {
         .filter(Boolean);
       setOrDelete(params, "modell", selected.length ? selected.join(",") : "");
     }
-    if (modVarEl) setOrDelete(params, "modellausfuehrung", modVarEl.value || "");
+    setOrDelete(params, "modellausfuehrung", modVarEl?.value || "");
   
     // Erstzulassung FROM/TO (inkl. Fallback-Felder)
     const firstRegFromEl     = document.getElementById("firstRegFrom");
@@ -2805,14 +2795,10 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
       /^(scheckheft|scheckheftgepflegt|scheckheft\s*gepflegt|serviceheft|serviceheftgepflegt|serviceheft\s*gepflegt)$/.test(m)
     );
   
-    const markeList = sp.getAll("marke").flatMap(v => splitCsv(v)).filter(Boolean);
-    const modellList = sp.getAll("modell").flatMap(v => splitCsv(v)).filter(Boolean);
-    const modVarList = sp.getAll("modellausfuehrung").flatMap(v => splitCsv(v)).filter(Boolean);
-
     const qp = {
-      marke_list: markeList,
-      modell_list: modellList,
-      modellausfuehrung_list: modVarList,
+      marke: sp.get("marke") || "",
+      modell: (sp.get("modell") || "").split(",").filter(Boolean),
+      modellausfuehrung: sp.get("modellausfuehrung") || "",
       fahrzeugtyp: (sp.get("fahrzeugtyp") || "").split(",").filter(Boolean),
       tueren: (sp.get("tueren") || "").split(",").filter(Boolean),
   
@@ -3038,31 +3024,19 @@ const displayPower = (psVal) => {
       chips.push({ key: "sellerId", label: `Anbieter: ${labelName}` });
     }
 
-    if (qp.marke_list?.length) {
-      const nice = qp.marke_list.length > 3
-        ? `${qp.marke_list.slice(0, 3).join(", ")} +${qp.marke_list.length - 3}`
-        : qp.marke_list.join(", ");
-      const label = qp.marke_list.length > 1 ? "Marken" : "Marke";
-      chips.push({ key: "marke", label: `${label}: ${nice}` });
-    }
+    if (qp.marke)
+      chips.push({ key: "marke", label: `Marke: ${qp.marke}` });
   
-    if (qp.modell_list?.length) {
-      const nice = qp.modell_list.length > 3
-        ? `${qp.modell_list.slice(0, 3).join(", ")} +${qp.modell_list.length - 3}`
-        : qp.modell_list.join(", ");
-      const label = qp.modell_list.length > 1 ? "Modelle" : "Modell";
-      chips.push({ key: "modell", label: `${label}: ${nice}` });
-    }
+    if (qp.modell?.length)
+      qp.modell.forEach(m =>
+        chips.push({ key: "modell", value: m, label: `Modell: ${m}` })
+      );
   
-    if (qp.modellausfuehrung_list?.length) {
-      const nice = qp.modellausfuehrung_list.length > 3
-        ? `${qp.modellausfuehrung_list.slice(0, 3).join(", ")} +${qp.modellausfuehrung_list.length - 3}`
-        : qp.modellausfuehrung_list.join(", ");
+    if (qp.modellausfuehrung)
       chips.push({
         key: "modellausfuehrung",
-        label: `${qp.modellausfuehrung_list.length > 1 ? "Modellvarianten" : "Modellvariante"}: ${nice}`
+        label: `Modellvariante: ${qp.modellausfuehrung}`
       });
-    }
   
     if (qp.fahrzeugtyp?.length)
       qp.fahrzeugtyp.forEach(t =>
@@ -3361,16 +3335,10 @@ function removeFilterChip(key, val = "") {
       break;
 
     case "modell": {
-      if (!val) {
-        params.delete("modell");
-        break;
-      }
-      const list = params.getAll("modell")
-        .flatMap(v => (typeof splitCsv === "function" ? splitCsv(v) : String(v || "").split(",")))
-        .filter(Boolean);
+      const list = (typeof splitCsv === "function" ? splitCsv(params.get("modell")) : String(params.get("modell")||"").split(","));
       const next = list.filter(m => m.toLowerCase() !== String(val || "").toLowerCase());
-      params.delete("modell");
       if (next.length) params.set("modell", next.join(","));
+      else params.delete("modell");
       break;
     }
 

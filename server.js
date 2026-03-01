@@ -4910,54 +4910,9 @@ app.get("/api/search", async (req, res) => {
     // ---- Basisfilter (immer)
     const baseMatch = { status: "online" };
 
-    const listify = (v) => Array.isArray(v) ? v : (v != null ? [v] : []);
-    const markeListRaw = listify(marke);
-    const modellListRaw = listify(modell);
-    const modVarListRaw = listify(modellausfuehrung);
-    const hasRowArrays =
-      markeListRaw.length > 1 ||
-      modellListRaw.length > 1 ||
-      modVarListRaw.length > 1;
-
-    const addAndClause = (match, clause) => {
-      if (!clause) return;
-      if (match.$or) {
-        match.$and = [
-          { $or: match.$or },
-          clause
-        ];
-        delete match.$or;
-      } else if (Array.isArray(match.$and)) {
-        match.$and.push(clause);
-      } else {
-        match.$and = [clause];
-      }
-    };
-
-    const buildVariantClause = (raw) => {
-      const modVarRaw = String(raw || "").trim();
-      if (!modVarRaw) return null;
-      const phrases = modVarRaw.split(",").map(s => s.trim()).filter(Boolean).slice(0, 6);
-      if (!phrases.length) return null;
-      const phraseClauses = phrases.map(phrase => {
-        const tokens = phrase.split(/\s+/).map(s => s.trim()).filter(Boolean).slice(0, 6);
-        if (!tokens.length) return null;
-        const andClauses = tokens.map(w => {
-          const rx = new RegExp(escRe(w), "i");
-          return { $or: [
-            { titel: rx }, { modell: rx }, { beschreibung: rx },
-            { modellvariante: rx }, { verkauf_modellvariante: rx }
-          ]};
-        });
-        return { $and: andClauses };
-      }).filter(Boolean);
-      return phraseClauses.length ? { $or: phraseClauses } : null;
-    };
-
     // Marke: einzelne oder mehrere (CSV), jeweils exakt (case-insensitive)
-    if (!hasRowArrays && marke) {
-      const raw = Array.isArray(marke) ? marke[0] : marke;
-      const arr = String(raw)
+    if (marke) {
+      const arr = String(marke)
         .split(",")
         .map(m => m.trim())
         .filter(Boolean);
@@ -4969,9 +4924,8 @@ app.get("/api/search", async (req, res) => {
     }
 
     // Modell: mehrere erlaubt (CSV), jeweils exakt
-    if (!hasRowArrays && modell) {
-      const raw = Array.isArray(modell) ? modell[0] : modell;
-      const arr = String(raw)
+    if (modell) {
+      const arr = String(modell)
         .split(",").map(m => m.trim()).filter(Boolean)
         .map(m => new RegExp(`^${escRe(m)}$`, "i"));
       if (arr.length) baseMatch.modell = { $in: arr };
@@ -5016,41 +4970,6 @@ app.get("/api/search", async (req, res) => {
       }
     }
         
-    if (hasRowArrays) {
-      const len = Math.max(markeListRaw.length, modellListRaw.length, modVarListRaw.length);
-      const rowClauses = [];
-      for (let i = 0; i < len; i++) {
-        const brandVal = String(markeListRaw[i] ?? "").trim();
-        const modelVal = String(modellListRaw[i] ?? "").trim();
-        const modVarVal = String(modVarListRaw[i] ?? "").trim();
-        if (!brandVal && !modelVal && !modVarVal) continue;
-
-        const andClauses = [];
-        if (brandVal) {
-          const brands = brandVal.split(",").map(b => b.trim()).filter(Boolean);
-          if (brands.length === 1) {
-            andClauses.push({ marke: new RegExp(`^${escRe(brands[0])}$`, "i") });
-          } else if (brands.length > 1) {
-            andClauses.push({ marke: { $in: brands.map(b => new RegExp(`^${escRe(b)}$`, "i")) } });
-          }
-        }
-        if (modelVal) {
-          const models = modelVal.split(",").map(m => m.trim()).filter(Boolean);
-          if (models.length) {
-            const rxes = models.map(m => new RegExp(`^${escRe(m)}$`, "i"));
-            andClauses.push({ modell: { $in: rxes } });
-          }
-        }
-        if (modVarVal) {
-          const clause = buildVariantClause(modVarVal);
-          if (clause) andClauses.push(clause);
-        }
-        if (andClauses.length) rowClauses.push({ $and: andClauses });
-      }
-
-      if (rowClauses.length) addAndClause(baseMatch, { $or: rowClauses });
-    }
-
 
     // ---- Zahlen aus Query (robust + Fallbacks)
     const pickParam = (...vals) => {
@@ -5235,23 +5154,10 @@ app.get("/api/search", async (req, res) => {
         }
       },
       { $addFields: {
-          _preis_raw_val: {
-            $cond: [
-              { $eq: [ { $type: "$_preis_raw" }, "object" ] },
-              { $ifNull: [
-                "$_preis_raw.value",
-                { $ifNull: [
-                  "$_preis_raw.amount",
-                  { $ifNull: [ "$_preis_raw.$numberDecimal", null ] }
-                ] }
-              ] },
-              "$_preis_raw"
-            ]
-          },
-          _preis_str: { $trim: { input: { $toString: "$_preis_raw_val" } } },
+          _preis_str: { $trim: { input: { $toString: "$_preis_raw" } } },
           _preis_matches: {
             $regexFindAll: {
-              input: { $toString: "$_preis_raw_val" },
+              input: { $toString: "$_preis_raw" },
               regex: /(\\d{1,3}(?:[.,\\s]\\d{3})+|\\d+)(?:[.,]\\d{2})?/
             }
           },
@@ -5581,12 +5487,21 @@ app.get("/api/search", async (req, res) => {
     }
 
     // ---- Modellvariante (Freitext)
-    const modVarRaw = !hasRowArrays
-      ? String((Array.isArray(modellausfuehrung) ? modellausfuehrung[0] : modellausfuehrung) || "").trim()
-      : "";
+    const modVarRaw = String(modellausfuehrung || "").trim();
     let variantStages = [];
-    const variantClause = buildVariantClause(modVarRaw);
-    if (variantClause) variantStages = [{ $match: variantClause }];
+    if (modVarRaw) {
+      const tokens = modVarRaw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean).slice(0, 6);
+      if (tokens.length) {
+        const andClauses = tokens.map(w => {
+          const rx = new RegExp(escRe(w), "i");
+          return { $or: [
+            { titel: rx }, { modell: rx }, { beschreibung: rx },
+            { modellvariante: rx }, { verkauf_modellvariante: rx }
+          ]};
+        });
+        variantStages = [{ $match: { $and: andClauses } }];
+      }
+    }
 
     // ---- Fahrzeugtyp
     function makeVehTypeRegexes(inputCsv = "") {
@@ -6062,7 +5977,7 @@ app.get("/api/search", async (req, res) => {
           data: [
             { $project: {
                 token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0,
-                _preis_raw: 0, _preis_raw_base: 0, _preis_raw_val: 0, _mwst_raw: 0, _mwst_str: 0, _mwst_keine: 0, _mwst_zzgl: 0,
+                _preis_raw: 0, _preis_raw_base: 0, _mwst_raw: 0, _mwst_str: 0, _mwst_keine: 0, _mwst_zzgl: 0,
                 _km_raw: 0, _preis_str: 0, _preis_matches: 0, _preis_ints: 0, _km_clean: 0,
                 _ps_raw: 0, _seats_raw: 0, _ccm_raw: 0, _verb_raw: 0, _halter_raw: 0,
                 _ps_match: 0, _seats_match: 0, _ccm_match: 0, _verb_norm: 0, _verb_all_any: 0,
