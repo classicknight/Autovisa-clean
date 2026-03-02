@@ -5204,7 +5204,8 @@ app.get("/api/search", async (req, res) => {
           _preis_matches: {
             $regexFindAll: {
               input: { $toString: "$_preis_raw" },
-              regex: /(\\d{1,3}(?:[.,\\s]\\d{3})+|\\d+)(?:[.,]\\d{2})?/
+              // Regex literal (kein String) -> \d und \s nur einfach escapen
+              regex: /(\d{1,3}(?:[.,\s]\d{3})+|\d+)(?:[.,]\d{2})?/
             }
           },
           _km_clean: {

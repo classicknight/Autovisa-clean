@@ -873,48 +873,6 @@ img, video, canvas {
   
     color: #ffffff; /* <<< Das ist neu */
   }
-
-  .bmv-group {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-bottom: 18px;
-  }
-
-  .bmv-row {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .bmv-actions {
-    display: none;
-  }
-
-  .bmv-add {
-    align-self: flex-start;
-    border: 1px dashed rgba(63, 240, 211, 0.45);
-    background: transparent;
-    color: #cbd5e1;
-    padding: 8px 12px;
-    border-radius: 10px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
-  }
-
-  .bmv-add:hover {
-    border-color: #3ff0d3;
-    background: rgba(63, 240, 211, 0.08);
-    color: #e6fffb;
-  }
-
-  @media (max-width: 900px) {
-    .bmv-add {
-      width: 100%;
-      justify-content: center;
-    }
-  }
   
   .search-group input:focus,
   .search-group select:focus {
