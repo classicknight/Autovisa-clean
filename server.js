@@ -5088,13 +5088,14 @@ app.get("/api/search", async (req, res) => {
         : [{ $sort: { veroeffentlichtAm: -1, _id: -1 } }];
 
     /* ---------------- Parsing / Normalisierung ---------------- */
-    // Hilfs-Expr: behandelt leere Strings wie null (damit leere Felder die Kette nicht blockieren)
-    const nonEmpty = (expr) => ({
+    // Hilfs-Expr: nur Werte mit Ziffern durchlassen (z.B. "Preis auf Anfrage" blocken)
+    const nonEmptyNum = (expr) => ({
       $cond: [
         {
           $and: [
             { $ne: [expr, null] },
-            { $ne: [{ $trim: { input: { $toString: expr } } }, ""] }
+            { $ne: [{ $trim: { input: { $toString: expr } } }, ""] },
+            { $regexMatch: { input: { $toString: expr }, regex: /\d/ } }
           ]
         },
         expr,
@@ -5106,24 +5107,24 @@ app.get("/api/search", async (req, res) => {
       { $addFields: {
           _preis_raw_base: {
             $ifNull: [
-              nonEmpty("$brutto-preis"),
+              nonEmptyNum("$brutto-preis"),
               { $ifNull: [
-                nonEmpty("$brutto_preis"),
+                nonEmptyNum("$brutto_preis"),
                 { $ifNull: [
-                  nonEmpty("$netto-preis"),
+                  nonEmptyNum("$netto-preis"),
                   { $ifNull: [
-                    nonEmpty("$netto_preis"),
+                    nonEmptyNum("$netto_preis"),
                     { $ifNull: [
-                      nonEmpty("$verkauf_brutto"),
+                      nonEmptyNum("$verkauf_brutto"),
                       { $ifNull: [
-                        nonEmpty("$preis"),
+                        nonEmptyNum("$preis"),
                         { $ifNull: [
-                          nonEmpty("$price"),
+                          nonEmptyNum("$price"),
                           { $ifNull: [
-                            nonEmpty("$price_eur"),
+                            nonEmptyNum("$price_eur"),
                             { $ifNull: [
-                              nonEmpty("$priceEUR"),
-                              { $ifNull: [ nonEmpty("$verkauf_preis"), nonEmpty("$verkauf_netto") ] }
+                              nonEmptyNum("$priceEUR"),
+                              { $ifNull: [ nonEmptyNum("$verkauf_preis"), nonEmptyNum("$verkauf_netto") ] }
                             ] }
                           ] }
                         ] }
@@ -5163,10 +5164,10 @@ app.get("/api/search", async (req, res) => {
           _preis_raw: {
             $cond: [
               "$_mwst_keine",
-              { $ifNull: [ nonEmpty("$verkauf_preis"), { $ifNull: [ nonEmpty("$preis"), "$_preis_raw_base" ] } ] },
+              { $ifNull: [ nonEmptyNum("$verkauf_preis"), { $ifNull: [ nonEmptyNum("$preis"), "$_preis_raw_base" ] } ] },
               { $cond: [
                 "$_mwst_zzgl",
-                { $ifNull: [ nonEmpty("$verkauf_brutto"), { $ifNull: [ nonEmpty("$brutto_preis"), { $ifNull: [ nonEmpty("$brutto-preis"), "$_preis_raw_base" ] } ] } ] },
+                { $ifNull: [ nonEmptyNum("$verkauf_brutto"), { $ifNull: [ nonEmptyNum("$brutto_preis"), { $ifNull: [ nonEmptyNum("$brutto-preis"), "$_preis_raw_base" ] } ] } ] },
                 "$_preis_raw_base"
               ] }
             ]
