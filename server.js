@@ -5088,20 +5088,45 @@ app.get("/api/search", async (req, res) => {
         : [{ $sort: { veroeffentlichtAm: -1, _id: -1 } }];
 
     /* ---------------- Parsing / Normalisierung ---------------- */
-    // Hilfs-Expr: nur Werte mit Ziffern durchlassen (z.B. "Preis auf Anfrage" blocken)
-    const nonEmptyNum = (expr) => ({
-      $cond: [
-        {
-          $and: [
-            { $ne: [expr, null] },
-            { $ne: [{ $trim: { input: { $toString: expr } } }, ""] },
-            { $regexMatch: { input: { $toString: expr }, regex: /\d/ } }
+    // Preiswerte aus Objekten entpacken (value / amount / $numberDecimal)
+    const unwrapPriceExpr = (expr) => ({
+      $let: {
+        vars: { v: expr },
+        in: {
+          $cond: [
+            { $eq: [{ $type: "$$v" }, "object"] },
+            {
+              $ifNull: [
+                "$$v.value",
+                { $ifNull: [
+                  "$$v.amount",
+                  { $getField: { field: "$numberDecimal", input: "$$v" } }
+                ] }
+              ]
+            },
+            "$$v"
           ]
-        },
-        expr,
-        null
-      ]
+        }
+      }
     });
+
+    // Hilfs-Expr: nur Werte mit Ziffern durchlassen (z.B. "Preis auf Anfrage" blocken)
+    const nonEmptyNum = (expr) => {
+      const v = unwrapPriceExpr(expr);
+      return {
+        $cond: [
+          {
+            $and: [
+              { $ne: [v, null] },
+              { $ne: [{ $trim: { input: { $toString: v } } }, ""] },
+              { $regexMatch: { input: { $toString: v }, regex: /\d/ } }
+            ]
+          },
+          v,
+          null
+        ]
+      };
+    };
 
     const parseNumberStages = [
       { $addFields: {
