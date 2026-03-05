@@ -42,6 +42,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Startseite ODER Suchkriterien-Seite (location vs. ort)
   const locInput = document.getElementById("location") || document.getElementById("ort");
+  const locLatEl = document.getElementById("ort-lat");
+  const locLonEl = document.getElementById("ort-lon");
 
   // Startseite (distance-select) – Kriterien-Seite hat 'umkreis'
   const distSel = document.getElementById("distance-select");
@@ -62,6 +64,15 @@ document.addEventListener("DOMContentLoaded", () => {
   // Suchkriterien-Seite: eigener Umkreis
   const umkreisSel = document.getElementById("umkreis");
   const umkreisCustom = document.getElementById("custom-umkreis");
+
+  // Browser-Autofill/Places bestmöglich unterdrücken (v. a. Startseite)
+  if (locInput) {
+    locInput.setAttribute("autocomplete", "new-password");
+    locInput.setAttribute("name", "ort_display");
+    locInput.setAttribute("autocorrect", "off");
+    locInput.setAttribute("autocapitalize", "off");
+    locInput.setAttribute("spellcheck", "false");
+  }
 
   // ============================
   // Konstanten / State
@@ -985,6 +996,12 @@ if (fuelCbs.length) {
     const loc = (locInput?.value || "").trim();
     const hasLoc = !!loc;
     if (loc) qs.set("ort", loc);
+    const latV = parseFloat(locLatEl?.value);
+    const lonV = parseFloat(locLonEl?.value);
+    if (Number.isFinite(latV) && Number.isFinite(lonV)) {
+      qs.set("ort_lat", String(latV));
+      qs.set("ort_lon", String(lonV));
+    }
 
     // Umkreis: Kriterien-Seite zuerst, sonst Startseite
     let umkreisSet = false;
@@ -1035,6 +1052,63 @@ if (fuelCbs.length) {
     return qs;
   }
 
+  // ============================
+  // Trefferzahl im Such-Button (Startseite)
+  // ============================
+  const homeSearchBtn =
+    document.getElementById("homeSearchBtn") ||
+    form?.querySelector(".btn-search");
+  const homeCountEl =
+    document.getElementById("homeSearchCount") ||
+    homeSearchBtn?.querySelector(".btn-count");
+
+  let countTimer = null;
+  let countAbort = null;
+  let countReqId = 0;
+
+  const formatCount = (n) =>
+    Number(n).toLocaleString("de-DE");
+
+  const setCountText = (n) => {
+    if (!homeCountEl) return;
+    if (!Number.isFinite(n)) {
+      homeCountEl.textContent = "";
+      return;
+    }
+    homeCountEl.textContent = `(${formatCount(n)})`;
+  };
+
+  const fetchCount = async () => {
+    if (!homeCountEl) return;
+    const qs = buildQueryParams();
+    qs.set("page", "1");
+    qs.set("limit", "1");
+
+    if (countAbort) countAbort.abort();
+    countAbort = new AbortController();
+    const reqId = ++countReqId;
+
+    try {
+      const res = await fetch(`/api/search?${qs.toString()}`, {
+        credentials: "omit",
+        signal: countAbort.signal
+      });
+      if (!res.ok) throw new Error("count failed");
+      const data = await res.json();
+      if (reqId !== countReqId) return;
+      setCountText(Number(data?.total || 0));
+    } catch (e) {
+      if (e?.name === "AbortError") return;
+      setCountText(NaN);
+    }
+  };
+
+  const scheduleCount = (delay = 400) => {
+    if (!homeCountEl) return;
+    if (countTimer) clearTimeout(countTimer);
+    countTimer = setTimeout(fetchCount, delay);
+  };
+
   // Submit → suche.html (nur wenn Formular existiert)
   if (form) {
     form.addEventListener("submit", (e) => {
@@ -1056,6 +1130,69 @@ if (fuelCbs.length) {
     btnSearch.addEventListener("click", () => {
       const qs = buildQueryParams();
       window.location.href = `suche.html?${qs.toString()}`;
+    });
+  }
+
+  // Live-Trefferzahl (Startseite)
+  if (homeCountEl) {
+    const section = document.getElementById("search-section");
+    if (section) {
+      section.addEventListener("input", (e) => {
+        // Ort/PLZ: nicht bei jedem Tastendruck zählen (Geocode teuer)
+        if (e?.target === locInput) return;
+        scheduleCount(450);
+      }, true);
+      section.addEventListener("change", () => scheduleCount(150), true);
+      locInput?.addEventListener("blur", () => scheduleCount(150));
+    }
+    scheduleCount(0);
+  }
+
+  // Geolocation-Button (Startseite)
+  const geoBtn = document.getElementById("geoBtnHome");
+  if (geoBtn && locInput && locLatEl && locLonEl) {
+    let suppressClear = false;
+
+    const setCoords = (lat, lon) => {
+      locLatEl.value = String(lat);
+      locLonEl.value = String(lon);
+      suppressClear = true;
+      if (!locInput.value.trim()) locInput.value = "Mein Standort";
+      locInput.dispatchEvent(new Event("change", { bubbles: true }));
+      suppressClear = false;
+      scheduleCount?.(0);
+    };
+
+    locInput.addEventListener("input", () => {
+      if (suppressClear) return;
+      locLatEl.value = "";
+      locLonEl.value = "";
+    });
+
+    geoBtn.addEventListener("click", () => {
+      if (!("geolocation" in navigator)) {
+        alert("Standort wird von deinem Browser nicht unterstützt.");
+        return;
+      }
+      geoBtn.disabled = true;
+      geoBtn.classList.add("is-loading");
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords || {};
+          if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+            setCoords(latitude, longitude);
+          }
+          geoBtn.disabled = false;
+          geoBtn.classList.remove("is-loading");
+        },
+        () => {
+          geoBtn.disabled = false;
+          geoBtn.classList.remove("is-loading");
+          alert("Standort konnte nicht ermittelt werden.");
+        },
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 }
+      );
     });
   }
 });

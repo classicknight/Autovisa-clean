@@ -491,6 +491,39 @@ document.addEventListener("DOMContentLoaded", () => {
     
    
      setupOrtGeoSuggest();
+
+     // Standort verwenden (Geolocation)
+     const geoBtn = document.getElementById("geoBtnCriteria");
+     if (geoBtn && ortInput && ortLatEl && ortLonEl) {
+       geoBtn.addEventListener("click", () => {
+         if (!("geolocation" in navigator)) {
+           alert("Standort wird von deinem Browser nicht unterstützt.");
+           return;
+         }
+         geoBtn.disabled = true;
+         geoBtn.classList.add("is-loading");
+
+         navigator.geolocation.getCurrentPosition(
+           (pos) => {
+             const { latitude, longitude } = pos.coords || {};
+             if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+               ortLatEl.value = String(latitude);
+               ortLonEl.value = String(longitude);
+               if (!ortInput.value.trim()) ortInput.value = "Mein Standort";
+               ortInput.dispatchEvent(new Event("change", { bubbles: true }));
+             }
+             geoBtn.disabled = false;
+             geoBtn.classList.remove("is-loading");
+           },
+           () => {
+             geoBtn.disabled = false;
+             geoBtn.classList.remove("is-loading");
+             alert("Standort konnte nicht ermittelt werden.");
+           },
+           { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 }
+         );
+       });
+     }
    
   /* =========================
      Login-abhängige Navigationsziele
@@ -1751,6 +1784,57 @@ if (schadSel === "custom") {
     const countEl = bar.querySelector('#avFilterCount');
     const chipsEl = bar.querySelector('#avFilterChips');
     const resetBtn = bar.querySelector('#avFilterReset');
+    const searchBtn = document.getElementById("btn-search");
+    const searchCountEl =
+      document.getElementById("criteriaSearchCount") ||
+      searchBtn?.querySelector(".btn-count");
+
+    let searchCountTimer = null;
+    let searchCountAbort = null;
+    let searchCountReqId = 0;
+
+    const setSearchCount = (n) => {
+      if (!searchCountEl) return;
+      if (!Number.isFinite(n)) {
+        searchCountEl.textContent = "";
+        return;
+      }
+      searchCountEl.textContent = `(${Number(n).toLocaleString('de-DE')})`;
+    };
+
+    const fetchSearchCount = async (qs) => {
+      if (!searchCountEl) return;
+      const params = new URLSearchParams(qs);
+      params.set("page", "1");
+      params.set("limit", "1");
+
+      if (searchCountAbort) searchCountAbort.abort();
+      searchCountAbort = new AbortController();
+      const reqId = ++searchCountReqId;
+
+      try {
+        const res = await fetch(`/api/search?${params.toString()}`, {
+          credentials: "omit",
+          signal: searchCountAbort.signal
+        });
+        if (!res.ok) throw new Error("count failed");
+        const data = await res.json();
+        if (reqId !== searchCountReqId) return;
+        setSearchCount(Number(data?.total || 0));
+      } catch (e) {
+        if (e?.name === "AbortError") return;
+        setSearchCount(NaN);
+      }
+    };
+
+    const scheduleSearchCount = (qs, delay = 450) => {
+      if (!searchCountEl) return;
+      // Ort-Feld: nicht bei jedem Tastendruck zählen
+      const ortInput = document.getElementById("ort");
+      if (document.activeElement === ortInput) return;
+      if (searchCountTimer) clearTimeout(searchCountTimer);
+      searchCountTimer = setTimeout(() => fetchSearchCount(qs), delay);
+    };
   
     const fmtInt = (n) => {
       const x = Number(n);
@@ -2061,6 +2145,8 @@ if (schadSel === "custom") {
   
     function update() {
       const qs = buildAdvancedQuery();
+      const qsForCount = new URLSearchParams(qs);
+      scheduleSearchCount(qsForCount);
       qs.delete('ort_lat');
       qs.delete('ort_lon');
   

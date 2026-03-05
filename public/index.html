@@ -491,7 +491,7 @@
     <div class="form-group icon-left location-group">
       <label for="location">PLZ / Ort:</label>
     
-      <div class="input-icon-wrapper">
+      <div class="input-icon-wrapper has-geo-btn">
         <i class="fas fa-map-marker-alt"></i>
     
         <input
@@ -501,7 +501,9 @@
           placeholder="z. B. 10115 Berlin"
           autocomplete="off"
           inputmode="search">
-    
+        <button type="button" class="geo-btn" id="geoBtnHome" aria-label="Standort verwenden" title="Standort verwenden">
+          <i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i>
+        </button>
         <input type="hidden" id="ort-lat" name="ort_lat" value="">
         <input type="hidden" id="ort-lon" name="ort_lon" value="">
       </div>
@@ -537,8 +539,10 @@
 
     <div class="form-buttons">
       <button type="button" class="btn-advanced">Weitere Filter</button>
-      <button type="submit" class="btn-search">
-        <i class="fas fa-search"></i> Suchen
+      <button type="submit" class="btn-search" id="homeSearchBtn">
+        <i class="fas fa-search"></i>
+        <span class="btn-text">Suchen</span>
+        <span class="btn-count" id="homeSearchCount" aria-live="polite"></span>
       </button>
     </div>
   </form>

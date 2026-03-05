@@ -394,13 +394,18 @@
 
 <div class="search-group" id="group-ort">
   <label for="ort">Ort / PLZ</label>
-  <input
-    type="text"
-    id="ort"
-    name="ort"
-    placeholder="z. B. 10115 oder Berlin"
-    autocomplete="off"
-  />
+  <div class="geo-input">
+    <input
+      type="text"
+      id="ort"
+      name="ort"
+      placeholder="z. B. 10115 oder Berlin"
+      autocomplete="off"
+    />
+    <button type="button" class="geo-btn" id="geoBtnCriteria" aria-label="Standort verwenden" title="Standort verwenden">
+      <i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i>
+    </button>
+  </div>
   <!-- NEU: versteckte Felder für Geokoordinaten, werden vom Autocomplete gesetzt -->
   <input type="hidden" id="ort-lat" name="ort_lat">
   <input type="hidden" id="ort-lon" name="ort_lon">
@@ -698,7 +703,9 @@
 
 <div class="search-submit">
   <button id="btn-search" class="submit-btn" type="button">
-    <i class="fas fa-search"></i> Fahrzeuge anzeigen
+    <i class="fas fa-search"></i>
+    <span class="btn-text">Fahrzeuge anzeigen</span>
+    <span class="btn-count" id="criteriaSearchCount" aria-live="polite"></span>
   </button>
 </div>
 

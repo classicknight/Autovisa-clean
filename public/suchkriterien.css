@@ -873,6 +873,42 @@ img, video, canvas {
   
     color: #ffffff; /* <<< Das ist neu */
   }
+  .geo-input{
+    position: relative;
+  }
+  .geo-input input{
+    padding-right: 50px;
+  }
+  .geo-btn{
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid #3ff0d3;
+    background: #1f2a33;
+    color: #3ff0d3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color .2s ease, color .2s ease, border-color .2s ease, box-shadow .2s ease;
+  }
+  .geo-btn:hover{
+    background: #233241;
+    color: #00ffcc;
+    border-color: #00ffcc;
+  }
+  .geo-btn:focus-visible{
+    outline: 2px solid rgba(0, 255, 204, 0.6);
+    outline-offset: 2px;
+  }
+  .geo-btn.is-loading{
+    opacity: .65;
+    cursor: wait;
+  }
   
   .search-group input:focus,
   .search-group select:focus {
@@ -1064,6 +1100,13 @@ img, video, canvas {
     cursor: pointer;
     box-shadow: 0 4px 20px rgba(0, 255, 204, 0.3);
     transition: background 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .submit-btn .btn-count{
+    font-weight: 700;
+    opacity: .9;
   }
   
 

@@ -34,13 +34,15 @@ document.addEventListener("DOMContentLoaded", () => {
     alert("Google-Login ist aktuell nicht konfiguriert.");
   }
 
-  const googleBtn = document.getElementById("googleLoginBtn");
-  googleBtn?.addEventListener("click", () => {
-    const redirect = localStorage.getItem("redirectAfterLogin") || "";
-    const url = redirect
-      ? `/auth/google?redirect=${encodeURIComponent(redirect)}`
-      : "/auth/google";
-    window.location.href = url;
+  const googleBtns = document.querySelectorAll(".google-btn");
+  googleBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const redirect = localStorage.getItem("redirectAfterLogin") || "";
+      const url = redirect
+        ? `/auth/google?redirect=${encodeURIComponent(redirect)}`
+        : "/auth/google";
+      window.location.href = url;
+    });
   });
 
   // === LOGIN senden ===

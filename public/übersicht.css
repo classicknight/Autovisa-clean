@@ -3976,17 +3976,17 @@ body.modal-open{
 }
 
 .opening-hours-time input{
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid #dbe3ea;
-  font-size: 0.9rem;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1.6px solid #e3e9ef;
+  font-size: 0.95rem;
   background: #fff;
-  transition: border-color .2s ease, box-shadow .2s ease;
+  transition: border .3s, box-shadow .3s;
 }
 .opening-hours-time input:focus{
   outline: none;
   border-color: #00b8a9;
-  box-shadow: 0 0 0 2px rgba(0,184,169,0.12);
+  box-shadow: none;
 }
 
 .opening-hours-closed{
