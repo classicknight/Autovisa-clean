@@ -495,6 +495,17 @@ document.addEventListener("DOMContentLoaded", () => {
      // Standort verwenden (Geolocation)
      const geoBtn = document.getElementById("geoBtnCriteria");
      if (geoBtn && ortInput && ortLatEl && ortLonEl) {
+       const reverseGeo = async (lat, lon) => {
+         try {
+           const res = await fetch(`/api/georeverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`, { credentials: "omit" });
+           if (!res.ok) return "";
+           const data = await res.json().catch(() => ({}));
+           return String(data?.label || "").trim();
+         } catch {
+           return "";
+         }
+       };
+
        geoBtn.addEventListener("click", () => {
          if (!("geolocation" in navigator)) {
            alert("Standort wird von deinem Browser nicht unterstützt.");
@@ -504,17 +515,18 @@ document.addEventListener("DOMContentLoaded", () => {
          geoBtn.classList.add("is-loading");
 
          navigator.geolocation.getCurrentPosition(
-           (pos) => {
-             const { latitude, longitude } = pos.coords || {};
-             if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
-               ortLatEl.value = String(latitude);
-               ortLonEl.value = String(longitude);
-               if (!ortInput.value.trim()) ortInput.value = "Mein Standort";
-               ortInput.dispatchEvent(new Event("change", { bubbles: true }));
-             }
-             geoBtn.disabled = false;
-             geoBtn.classList.remove("is-loading");
-           },
+          async (pos) => {
+            const { latitude, longitude } = pos.coords || {};
+            if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+              ortLatEl.value = String(latitude);
+              ortLonEl.value = String(longitude);
+              const label = await reverseGeo(latitude, longitude);
+              ortInput.value = label || "Mein Standort";
+              ortInput.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+            geoBtn.disabled = false;
+            geoBtn.classList.remove("is-loading");
+          },
            () => {
              geoBtn.disabled = false;
              geoBtn.classList.remove("is-loading");
@@ -1797,9 +1809,35 @@ if (schadSel === "custom") {
       if (!searchCountEl) return;
       if (!Number.isFinite(n)) {
         searchCountEl.textContent = "";
+        searchCountEl.dataset.count = "";
         return;
       }
-      searchCountEl.textContent = `(${Number(n).toLocaleString('de-DE')})`;
+      const next = Math.max(0, Math.round(n));
+      const prev = Number(searchCountEl.dataset.count);
+      searchCountEl.dataset.count = String(next);
+
+      if (!Number.isFinite(prev) || prev === next) {
+        searchCountEl.textContent = `(${Number(next).toLocaleString('de-DE')})`;
+        return;
+      }
+
+      const diff = Math.abs(next - prev);
+      const duration =
+        diff < 100 ? 220 :
+        diff < 1000 ? 340 :
+        diff < 5000 ? 460 : 580;
+
+      const start = performance.now();
+      if (searchCountEl._countRaf) cancelAnimationFrame(searchCountEl._countRaf);
+
+      const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+      const tick = (now) => {
+        const p = Math.min(1, (now - start) / duration);
+        const v = Math.round(prev + (next - prev) * easeOut(p));
+        searchCountEl.textContent = `(${Number(v).toLocaleString('de-DE')})`;
+        if (p < 1) searchCountEl._countRaf = requestAnimationFrame(tick);
+      };
+      searchCountEl._countRaf = requestAnimationFrame(tick);
     };
 
     const fetchSearchCount = async (qs) => {

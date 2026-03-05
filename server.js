@@ -4635,9 +4635,9 @@ async function geocodeToPoint(query) {
    - Quelle 1: Nominatim (OSM)
    - Quelle 2 (Fallback): Photon/Komoot
    ============================================================ */
-   const GEO_TTL_MS = 1000 * 60 * 60 * 24; // 24h
-   const NOMINATIM_TIMEOUT_MS = 4000;
-   const geoMem = new Map(); // key -> { v, t }
+const GEO_TTL_MS = 1000 * 60 * 60 * 24; // 24h
+const NOMINATIM_TIMEOUT_MS = 4000;
+const geoMem = new Map(); // key -> { v, t }
    
    const getGeoMem = (key) => {
      const e = geoMem.get(key);
@@ -4645,10 +4645,10 @@ async function geocodeToPoint(query) {
      if (Date.now() - e.t > GEO_TTL_MS) { geoMem.delete(key); return null; }
      return e.v;
    };
-   const setGeoMem = (key, v) => {
-     geoMem.set(key, { v, t: Date.now() });
-     if (geoMem.size > 500) geoMem.delete(geoMem.keys().next().value);
-   };
+const setGeoMem = (key, v) => {
+  geoMem.set(key, { v, t: Date.now() });
+  if (geoMem.size > 500) geoMem.delete(geoMem.keys().next().value);
+};
    
    function dedupeByLabel(list) {
      const seen = new Set();
@@ -4831,6 +4831,70 @@ app.get("/api/geosuggest", async (req, res) => {
     console.error("❌ /api/geosuggest fatal:", err);
     // ✅ niemals auf undefinierte Variablen zugreifen
     return res.status(500).json({ suggestions: [], items: [] });
+  }
+});
+
+/* ============================================================
+   Reverse-Geocoding: /api/georeverse?lat=...&lon=...
+   - Memory-Cache (geoMem) mit "rev:"-Prefix
+   - Quelle: Nominatim Reverse
+   ============================================================ */
+app.get("/api/georeverse", async (req, res) => {
+  try {
+    const lat = parseFloat(req.query.lat);
+    const lon = parseFloat(req.query.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return res.json({ label: "", city: "", postcode: "", state: "" });
+    }
+
+    const key = `rev:${lat.toFixed(4)},${lon.toFixed(4)}`;
+    const mem = getGeoMem(key);
+    if (mem) {
+      res.set("Cache-Control", "public, max-age=120");
+      return res.json(mem);
+    }
+
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), NOMINATIM_TIMEOUT_MS);
+
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=10&addressdetails=1`;
+    const r = await fetch(url, {
+      headers: {
+        "User-Agent": "autovisa/1.0 (contact: info@autovisa.de)",
+        "Accept-Language": "de-DE,de;q=0.9",
+      },
+      signal: ctrl.signal,
+    }).catch(() => null);
+
+    clearTimeout(timer);
+
+    if (!r || !r.ok) {
+      return res.json({ label: "", city: "", postcode: "", state: "" });
+    }
+
+    const data = await r.json().catch(() => ({}));
+    const a = data?.address || {};
+    const city =
+      a.city ||
+      a.town ||
+      a.village ||
+      a.hamlet ||
+      a.suburb ||
+      a.neighbourhood ||
+      a.locality ||
+      a.municipality ||
+      "";
+    const postcode = a.postcode || "";
+    const state = a.state || a.county || "";
+    const label = [postcode, city].filter(Boolean).join(" ") || data?.display_name || "";
+
+    const payload = { label, city, postcode, state };
+    if (label) setGeoMem(key, payload);
+
+    return res.json(payload);
+  } catch (err) {
+    console.error("❌ /api/georeverse error:", err);
+    return res.json({ label: "", city: "", postcode: "", state: "" });
   }
 });
 

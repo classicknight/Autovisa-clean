@@ -3996,6 +3996,55 @@ body.modal-open{
   align-items: center;
   gap: 6px;
 }
+.opening-hours-closed input[type="checkbox"]{
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1.6px solid #dbe3ea;
+  background: #fff;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  transition: border-color .2s ease, background-color .2s ease;
+}
+.opening-hours-closed input[type="checkbox"]::after{
+  content: "";
+  width: 8px;
+  height: 5px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(-45deg);
+  opacity: 0;
+}
+.opening-hours-closed input[type="checkbox"]:checked{
+  background: #00b8a9;
+  border-color: #00b8a9;
+}
+.opening-hours-closed input[type="checkbox"]:checked::after{
+  opacity: 1;
+}
+.opening-hours-closed input[type="checkbox"]:focus-visible{
+  outline: 2px solid rgba(0,184,169,0.35);
+  outline-offset: 2px;
+}
+
+.opening-hours-card .btn-soft{
+  border: 1.6px solid #e3e9ef;
+  background: #fff;
+  color: #1a2a33;
+  border-radius: 10px;
+  box-shadow: none;
+  transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease;
+}
+.opening-hours-card .btn-soft:hover{
+  border-color: #00b8a9;
+  box-shadow: none;
+}
+.opening-hours-card .btn-soft:focus-visible{
+  outline: 2px solid rgba(0,184,169,0.35);
+  outline-offset: 2px;
+}
 
 .opening-hours-tools{
   display: flex;

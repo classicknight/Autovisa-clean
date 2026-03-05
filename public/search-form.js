@@ -1066,16 +1066,41 @@ if (fuelCbs.length) {
   let countAbort = null;
   let countReqId = 0;
 
-  const formatCount = (n) =>
-    Number(n).toLocaleString("de-DE");
+  const formatCount = (n) => Number(n).toLocaleString("de-DE");
 
   const setCountText = (n) => {
     if (!homeCountEl) return;
     if (!Number.isFinite(n)) {
       homeCountEl.textContent = "";
+      homeCountEl.dataset.count = "";
       return;
     }
-    homeCountEl.textContent = `(${formatCount(n)})`;
+    const next = Math.max(0, Math.round(n));
+    const prev = Number(homeCountEl.dataset.count);
+    homeCountEl.dataset.count = String(next);
+
+    if (!Number.isFinite(prev) || prev === next) {
+      homeCountEl.textContent = `(${formatCount(next)})`;
+      return;
+    }
+
+    const diff = Math.abs(next - prev);
+    const duration =
+      diff < 100 ? 220 :
+      diff < 1000 ? 340 :
+      diff < 5000 ? 460 : 580;
+
+    const start = performance.now();
+    if (homeCountEl._countRaf) cancelAnimationFrame(homeCountEl._countRaf);
+
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+    const tick = (now) => {
+      const p = Math.min(1, (now - start) / duration);
+      const v = Math.round(prev + (next - prev) * easeOut(p));
+      homeCountEl.textContent = `(${formatCount(v)})`;
+      if (p < 1) homeCountEl._countRaf = requestAnimationFrame(tick);
+    };
+    homeCountEl._countRaf = requestAnimationFrame(tick);
   };
 
   const fetchCount = async () => {
@@ -1150,6 +1175,16 @@ if (fuelCbs.length) {
 
   // Geolocation-Button (Startseite)
   const geoBtn = document.getElementById("geoBtnHome");
+  const reverseGeo = async (lat, lon) => {
+    try {
+      const res = await fetch(`/api/georeverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`, { credentials: "omit" });
+      if (!res.ok) return "";
+      const data = await res.json().catch(() => ({}));
+      return String(data?.label || "").trim();
+    } catch {
+      return "";
+    }
+  };
   if (geoBtn && locInput && locLatEl && locLonEl) {
     let suppressClear = false;
 
@@ -1157,7 +1192,6 @@ if (fuelCbs.length) {
       locLatEl.value = String(lat);
       locLonEl.value = String(lon);
       suppressClear = true;
-      if (!locInput.value.trim()) locInput.value = "Mein Standort";
       locInput.dispatchEvent(new Event("change", { bubbles: true }));
       suppressClear = false;
       scheduleCount?.(0);
@@ -1178,9 +1212,11 @@ if (fuelCbs.length) {
       geoBtn.classList.add("is-loading");
 
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
+        async (pos) => {
           const { latitude, longitude } = pos.coords || {};
           if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+            const label = await reverseGeo(latitude, longitude);
+            locInput.value = label || "Mein Standort";
             setCoords(latitude, longitude);
           }
           geoBtn.disabled = false;

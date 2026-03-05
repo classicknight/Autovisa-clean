@@ -1182,7 +1182,7 @@ img, video, canvas {
     align-items: center;
   }
   
-  .input-icon-wrapper i {
+  .input-icon-wrapper .input-icon {
     position: absolute;
     left: 20px;
     top: 50%;
