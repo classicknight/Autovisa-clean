@@ -3146,6 +3146,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupRatingPanel();
   setupToggleRatingList(); // früh binden
 
+  const printBtn = document.getElementById("printListingBtn");
+  printBtn?.addEventListener("click", () => window.print());
+
   // 🔽 "Nachricht schreiben" scrollt zum Formular
   const scrollMsgBtn = document.getElementById("scrollToMessageBtn");
   if (scrollMsgBtn) {
