@@ -3415,6 +3415,28 @@ app.get("/inserat-details/:id", async (req, res) => {
       impressum: sellerProfile?.impressum || doc.seller?.impressum || "",
     };
 
+    // ⭐ Händler-Bewertungen (avg + count) für Detailseite
+    let ratingAvg = null;
+    let ratingCount = 0;
+    if (sellerId && String(sellerType || "").toLowerCase().includes("haend")) {
+      try {
+        const agg = await db.collection("bewertungen").aggregate([
+          { $match: { $or: [ { sellerId }, { haendlerId: sellerId } ] } },
+          { $project: { ratingNum: { $convert: { input: "$rating", to: "double", onError: null, onNull: null } } } },
+          { $match: { ratingNum: { $gt: 0 } } },
+          { $group: { _id: null, avg: { $avg: "$ratingNum" }, count: { $sum: 1 } } }
+        ]).toArray();
+        if (agg.length && agg[0].count > 0) {
+          ratingAvg = Math.round(agg[0].avg * 10) / 10;
+          ratingCount = agg[0].count;
+        }
+      } catch (e) {
+        console.warn("Bewertung-Aggregat fehlgeschlagen:", e?.message || e);
+      }
+    }
+    sellerMerged.ratingAvg = ratingAvg;
+    sellerMerged.ratingCount = ratingCount;
+
     res.json({
       ...baseDoc,
       seller: sellerMerged,
