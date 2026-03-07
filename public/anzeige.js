@@ -1311,8 +1311,8 @@ function fillSellerCard(inserat) {
       ? ratingNum.toFixed(1) + " / 5"
       : "– / 5";
     if (ratingCount) ratingCount.textContent = ratingCnt
-      ? `(${ratingCnt})`
-      : "";
+      ? `${ratingCnt} Bewertungen`
+      : "Keine Bewertungen";
   }
 
   // --- Telefon (immer erlaubt, bei fehlend: Zeile ausblenden) ---
@@ -3442,7 +3442,7 @@ async function ladeBewertung(sellerId) {
     const fillEl  = document.getElementById("sellerRatingFill");
 
     if (valueEl) valueEl.textContent = avg === "–" ? "– / 5" : `${avg} / 5`;
-    if (countEl) countEl.textContent = count > 0 ? `(${count})` : "";
+    if (countEl) countEl.textContent = count > 0 ? `${count} Bewertungen` : "Keine Bewertungen";
 
     const percent = avg && avg !== "–" ? `${(avg / 5) * 100}%` : "0%";
     if (fillEl) fillEl.style.width = percent;
