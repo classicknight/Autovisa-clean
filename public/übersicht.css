@@ -1714,11 +1714,27 @@ img, video, canvas {
       align-items: center;
       justify-content: center;
       gap: 8px;
+      -webkit-tap-highlight-color: transparent;
     }
     
     .sidebar-link.active {
       background-color: #00b8a9;
       color: white;
+      border-color: #00b8a9;
+    }
+
+    .sidebar-link:focus,
+    .sidebar-link:focus-visible {
+      outline: none;
+      background-color: #f5f8fc;
+      color: #1a2a33;
+      border-color: #dfe6ec;
+    }
+
+    .sidebar-link.active:focus,
+    .sidebar-link.active:focus-visible {
+      background-color: #00b8a9;
+      color: #ffffff;
       border-color: #00b8a9;
     }
     

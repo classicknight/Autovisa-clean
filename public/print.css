@@ -1,6 +1,6 @@
 @page {
   size: A4;
-  margin: 12mm;
+  margin: 8mm;
 }
 
 * {
@@ -34,9 +34,9 @@ img {
 .print-btn {
   padding: 8px 12px;
   border-radius: 8px;
-  border: 1px solid #00b8a9;
-  background: #00ffcc;
-  color: #002a2b;
+  border: 1px solid #00c7a2;
+  background: linear-gradient(135deg, #003a4d, #002c3b);
+  color: #eafffb;
   font-weight: 600;
   cursor: pointer;
 }
@@ -45,6 +45,10 @@ img {
   background: #fff;
   border-color: #e3e9ef;
   color: #1a2a33;
+}
+
+.print-btn:hover {
+  filter: brightness(1.08);
 }
 
 .print-page {
@@ -65,6 +69,10 @@ img {
   align-items: center;
   gap: 10px;
   font-weight: 700;
+  background: #002c3b;
+  color: #ffffff;
+  padding: 6px 10px;
+  border-radius: 10px;
 }
 
 .brand img {
@@ -218,5 +226,90 @@ img {
   }
   body {
     margin: 0;
+    font-size: 12px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-page {
+    max-width: 190mm;
+    padding: 0;
+  }
+
+  .print-header {
+    margin-bottom: 10px;
+  }
+
+  .print-title h1 {
+    font-size: 22px;
+  }
+
+  .price {
+    font-size: 18px;
+  }
+
+  .print-main {
+    grid-template-columns: 1.2fr 1fr;
+    gap: 12px;
+    margin: 10px 0 12px;
+  }
+
+  .print-image img {
+    max-height: 220px;
+    object-fit: cover;
+  }
+
+  .spec {
+    padding: 6px 8px;
+  }
+
+  .spec .label {
+    font-size: 10px;
+  }
+
+  .spec .value {
+    font-size: 12px;
+  }
+
+  .print-section {
+    margin-top: 10px;
+  }
+
+  .print-section h2 {
+    font-size: 11px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+  }
+
+  .print-section p {
+    font-size: 12px;
+    line-height: 1.4;
+    margin: 0 0 6px;
+  }
+
+  .features-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px 16px;
+    padding-left: 0;
+    list-style-position: inside;
+    font-size: 12px;
+  }
+
+  .features-list li {
+    margin-bottom: 4px;
+  }
+
+  .print-qr {
+    padding: 8px 10px;
+  }
+
+  .print-qr img {
+    width: 110px;
+    height: 110px;
+  }
+
+  .qr-url {
+    font-size: 10px;
   }
 }

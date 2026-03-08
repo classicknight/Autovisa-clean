@@ -44,6 +44,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     return "";
   };
 
+  const truncateText = (text, maxChars) => {
+    const raw = String(text || "").trim();
+    if (!raw || raw.length <= maxChars) return raw;
+    let cut = raw.slice(0, maxChars);
+    cut = cut.replace(/\s+\S*$/, "");
+    return `${cut}… (mehr online)`;
+  };
+
   const toNum = (v) => {
     if (v === null || v === undefined || v === "") return NaN;
     if (typeof v === "number") return Number.isFinite(v) ? v : NaN;
@@ -152,7 +160,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     inserat.beschreibung_long
   );
   if (desc) {
-    $("printDescription").textContent = desc;
+    $("printDescription").textContent = truncateText(desc, 700);
   } else {
     $("printDescriptionSection").style.display = "none";
   }
@@ -166,8 +174,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     .filter(Boolean);
   const uniqueEquip = Array.from(new Set(equip));
   if (uniqueEquip.length) {
-    const list = uniqueEquip.slice(0, 40).map((e) => `<li>${e}</li>`).join("");
-    const rest = uniqueEquip.length > 40 ? `<li>+ ${uniqueEquip.length - 40} weitere</li>` : "";
+    const maxEquip = 26;
+    const list = uniqueEquip.slice(0, maxEquip).map((e) => `<li>${e}</li>`).join("");
+    const rest = uniqueEquip.length > maxEquip ? `<li>+ ${uniqueEquip.length - maxEquip} weitere online</li>` : "";
     $("printFeatures").innerHTML = `<ul class="features-list">${list}${rest}</ul>`;
   } else {
     $("printFeaturesSection").style.display = "none";

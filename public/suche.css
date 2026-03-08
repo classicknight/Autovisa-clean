@@ -2087,23 +2087,21 @@ img, video, canvas {
   background:rgba(255,255,255,.96);
   border-bottom:1px solid #e6eaf0;
   box-shadow:0 10px 24px rgba(0,0,0,.08);
-  padding:8px 12px 6px;
+  padding:8px 12px;
   transform:translateY(-110%);
   opacity:0;
   pointer-events:none;
   transition:transform .22s ease, opacity .18s ease;
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
+  display:flex;
+  align-items:center;
+  gap:10px;
 }
 .mobile-filter-dock.show{
   transform:translateY(0);
   opacity:1;
   pointer-events:auto;
-}
-.mobile-filter-dock-row{
-  display:flex;
-  align-items:center;
-  gap:8px;
 }
 .mobile-filter-dock .toggle-filters{
   margin:0;
@@ -2112,6 +2110,7 @@ img, video, canvas {
   border-radius:999px;
   gap:8px;
   box-shadow:none;
+  flex-shrink:0;
 }
 .mobile-filter-dock .toggle-filters i{
   width:22px;height:22px;
@@ -2119,11 +2118,13 @@ img, video, canvas {
   padding:6px;
 }
 .mobile-filter-dock .active-filter-bar{
-  padding:6px 0 0;
+  padding:0;
   flex-wrap:nowrap;
   overflow-x:auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width:none;
+  flex:1;
+  min-width:0;
 }
 .mobile-filter-dock .active-filter-bar::-webkit-scrollbar{
   height:0;
