@@ -56,80 +56,23 @@ const formatPhoneDisplay = (raw) => {
   return s;
 };
 
-function openPrintView() {
-  const title = (document.getElementById("car-title")?.textContent || "Inserat").trim();
-  const shareUrl = (() => {
+function openPrintPage() {
+  const fromCurrent = getDocId(currentInserat);
+  let id = fromCurrent;
+  if (!id) {
     try {
-      const u = new URL(window.location.href);
-      u.hash = "";
-      return u.toString();
-    } catch {
-      return window.location.href || "";
-    }
-  })();
-  const qrSrc = shareUrl
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=0&data=${encodeURIComponent(shareUrl)}`
-    : "";
-  const bodyClone = document.body.cloneNode(true);
-  bodyClone.querySelectorAll("script").forEach((el) => el.remove());
-
-  const html = `<!doctype html>
-<html lang="de">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${title} – Druckansicht</title>
-  <style>
-    body{ font-family: "Inter", Arial, sans-serif; color:#111; background:#fff; margin:24px; }
-    img{ max-width:100%; height:auto; }
-    .print-toolbar{ display:flex; gap:8px; margin:0 0 16px; }
-    .print-btn{ padding:8px 12px; border-radius:8px; border:1px solid #00b8a9; background:#00ffcc; color:#002a2b; font-weight:600; cursor:pointer; }
-    .print-btn.secondary{ background:#fff; border-color:#e3e9ef; color:#1a2a33; }
-    .print-qr{ display:flex; align-items:center; gap:16px; margin:0 0 18px; padding:12px 14px; border:1px solid #e3e9ef; border-radius:12px; }
-    .print-qr img{ width:160px; height:160px; border:1px solid #e3e9ef; border-radius:8px; }
-    .print-qr .meta{ display:flex; flex-direction:column; gap:6px; }
-    .print-qr .meta strong{ font-size:14px; letter-spacing:.02em; }
-    .print-qr .meta small{ color:#5b6b79; word-break:break-all; }
-
-    /* Web-UI im Print ausblenden */
-    .navbar, .sticky-summary, .media-detail-actions-outside,
-    .contact-wrapper, .save-cta, .listing-print, .lightbox-overlay,
-    .hamburger, .nav-links, .mobile-shortcuts,
-    .btn-soft, .btn-primary, #printListingBtn { display:none !important; }
-
-    .media-prev, .media-next, .media-detail-thumbnails-scroll { display:none !important; }
-    .seller-map-embed iframe { display:none !important; }
-
-    @media print{
-      body{ margin:0; }
-      .print-toolbar{ display:none; }
-    }
-  </style>
-</head>
-<body>
-  <div class="print-toolbar">
-    <button class="print-btn" onclick="window.print()">Drucken</button>
-    <button class="print-btn secondary" onclick="window.close()">Schließen</button>
-  </div>
-  ${qrSrc ? `
-  <div class="print-qr">
-    <img src="${qrSrc}" alt="QR Code zum Inserat" onerror="this.style.display='none'">
-    <div class="meta">
-      <strong>Zum Inserat auf Autovisa</strong>
-      <small>${shareUrl}</small>
-    </div>
-  </div>` : ""}
-  ${bodyClone.innerHTML}
-</body>
-</html>`;
-
-  const w = window.open("", "_blank", "noopener,noreferrer");
-  if (!w) {
-    window.print();
-    return;
+      const params = new URLSearchParams(window.location.search || "");
+      id = params.get("id") || params.get("inserat") || params.get("listing") || "";
+    } catch {}
   }
-  w.document.write(html);
-  w.document.close();
+  if (!id) {
+    try {
+      const raw = localStorage.getItem("ausgewaehltesInserat");
+      if (raw) id = getDocId(JSON.parse(raw)) || "";
+    } catch {}
+  }
+  const url = id ? `print.html?id=${encodeURIComponent(id)}` : "print.html";
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 const getDisplayTexts = (inserat) => {
   const brand = firstNonEmpty(
@@ -3223,7 +3166,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupToggleRatingList(); // früh binden
 
   const printBtn = document.getElementById("printListingBtn");
-  printBtn?.addEventListener("click", () => openPrintView());
+  printBtn?.addEventListener("click", () => openPrintPage());
 
   // 🔽 "Nachricht schreiben" scrollt zum Formular
   const scrollMsgBtn = document.getElementById("scrollToMessageBtn");

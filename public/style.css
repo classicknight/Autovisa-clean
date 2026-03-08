@@ -1017,6 +1017,7 @@ img, video, canvas {
   .btn-search {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     background: linear-gradient(135deg, #00ffcc, #00c7a2);
   color: #002c3b;

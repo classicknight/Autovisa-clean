@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Autovisa – Druckansicht</title>
+  <link rel="stylesheet" href="print.css" />
+  <link rel="icon" href="/favicon.ico?v=3">
+</head>
+<body>
+  <div class="print-toolbar">
+    <button class="print-btn" id="printBtn">Drucken</button>
+    <button class="print-btn secondary" id="closeBtn">Schließen</button>
+  </div>
+
+  <main class="print-page">
+    <header class="print-header">
+      <div class="brand">
+        <img src="autovisa-logo.png" alt="Autovisa Logo" />
+        <span>Autovisa</span>
+      </div>
+      <div class="meta">
+        <div id="printListingId"></div>
+        <div id="printDate"></div>
+      </div>
+    </header>
+
+    <section class="print-title">
+      <h1 id="printTitle">—</h1>
+      <div class="price-row">
+        <span class="price" id="printPrice">—</span>
+        <span class="price-note" id="printPriceNote"></span>
+      </div>
+      <div class="subtitle" id="printSubtitle"></div>
+    </section>
+
+    <section class="print-main">
+      <div class="print-image" id="printImageWrap">
+        <img id="printImage" alt="Fahrzeug" />
+      </div>
+      <div class="print-specs" id="printSpecs"></div>
+    </section>
+
+    <section class="print-section" id="printDescriptionSection">
+      <h2>Beschreibung</h2>
+      <div id="printDescription"></div>
+    </section>
+
+    <section class="print-section" id="printFeaturesSection">
+      <h2>Ausstattung</h2>
+      <div id="printFeatures"></div>
+    </section>
+
+    <section class="print-section" id="printSellerSection">
+      <h2>Anbieter</h2>
+      <div id="printSeller"></div>
+    </section>
+
+    <section class="print-section">
+      <div class="print-qr">
+        <img id="printQr" alt="QR Code zum Inserat" />
+        <div>
+          <strong>Zum Inserat auf Autovisa</strong>
+          <div class="qr-url" id="printUrl"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="print.js"></script>
+</body>
+</html>
