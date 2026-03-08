@@ -1,6 +1,6 @@
 @page {
   size: A4;
-  margin: 8mm;
+  margin: 6mm;
 }
 
 * {
@@ -71,14 +71,33 @@ img {
   font-weight: 700;
   background: #002c3b;
   color: #ffffff;
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-radius: 10px;
 }
 
 .brand img {
-  width: 42px;
-  height: 42px;
+  width: 56px;
+  height: 56px;
   object-fit: contain;
+}
+
+.brand-divider {
+  width: 1px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.brand-tagline {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.brand-line1,
+.brand-line2 {
+  font-weight: 600;
 }
 
 .meta {
@@ -127,6 +146,14 @@ img {
   border: 1px solid #e3e9ef;
   border-radius: 12px;
   overflow: hidden;
+  background: #f2f5f7;
+  height: 240px;
+}
+
+.print-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .specs-grid {
@@ -211,6 +238,19 @@ img {
   word-break: break-all;
 }
 
+.print-bottom {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 16px;
+  margin-top: 14px;
+  align-items: start;
+  page-break-inside: avoid;
+}
+
+.print-bottom .print-section {
+  margin-top: 0;
+}
+
 @media (max-width: 900px) {
   .print-main {
     grid-template-columns: 1fr;
@@ -226,7 +266,7 @@ img {
   }
   body {
     margin: 0;
-    font-size: 12px;
+    font-size: 11px;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -237,26 +277,25 @@ img {
   }
 
   .print-header {
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
 
   .print-title h1 {
-    font-size: 22px;
+    font-size: 20px;
   }
 
   .price {
-    font-size: 18px;
+    font-size: 17px;
   }
 
   .print-main {
     grid-template-columns: 1.2fr 1fr;
-    gap: 12px;
-    margin: 10px 0 12px;
+    gap: 10px;
+    margin: 8px 0 10px;
   }
 
-  .print-image img {
-    max-height: 220px;
-    object-fit: cover;
+  .print-image {
+    height: 200px;
   }
 
   .spec {
@@ -272,28 +311,28 @@ img {
   }
 
   .print-section {
-    margin-top: 10px;
+    margin-top: 8px;
   }
 
   .print-section h2 {
-    font-size: 11px;
+    font-size: 10.5px;
     margin-bottom: 6px;
     padding-bottom: 4px;
   }
 
   .print-section p {
-    font-size: 12px;
-    line-height: 1.4;
+    font-size: 11px;
+    line-height: 1.35;
     margin: 0 0 6px;
   }
 
   .features-list {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 2px 16px;
+    gap: 2px 14px;
     padding-left: 0;
     list-style-position: inside;
-    font-size: 12px;
+    font-size: 11px;
   }
 
   .features-list li {
@@ -305,11 +344,33 @@ img {
   }
 
   .print-qr img {
-    width: 110px;
-    height: 110px;
+    width: 96px;
+    height: 96px;
   }
 
   .qr-url {
-    font-size: 10px;
+    font-size: 9.5px;
+  }
+
+  .print-bottom {
+    margin-top: 10px;
+    gap: 12px;
+  }
+
+  .brand {
+    padding: 6px 10px;
+  }
+
+  .brand img {
+    width: 48px;
+    height: 48px;
+  }
+
+  .brand-divider {
+    height: 30px;
+  }
+
+  .brand-tagline {
+    font-size: 11px;
   }
 }

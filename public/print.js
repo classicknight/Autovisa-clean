@@ -20,7 +20,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("printUrl").textContent = shareUrl;
   $("printQr").src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=0&data=${encodeURIComponent(shareUrl)}`;
 
-  $("printBtn")?.addEventListener("click", () => window.print());
   $("closeBtn")?.addEventListener("click", () => window.close());
 
   if (!id) {
@@ -160,7 +159,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     inserat.beschreibung_long
   );
   if (desc) {
-    $("printDescription").textContent = truncateText(desc, 700);
+    $("printDescription").textContent = truncateText(desc, 520);
   } else {
     $("printDescriptionSection").style.display = "none";
   }
@@ -174,7 +173,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     .filter(Boolean);
   const uniqueEquip = Array.from(new Set(equip));
   if (uniqueEquip.length) {
-    const maxEquip = 26;
+    const maxEquip = 20;
     const list = uniqueEquip.slice(0, maxEquip).map((e) => `<li>${e}</li>`).join("");
     const rest = uniqueEquip.length > maxEquip ? `<li>+ ${uniqueEquip.length - maxEquip} weitere online</li>` : "";
     $("printFeatures").innerHTML = `<ul class="features-list">${list}${rest}</ul>`;

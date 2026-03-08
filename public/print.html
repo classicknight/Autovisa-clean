@@ -9,7 +9,7 @@
 </head>
 <body>
   <div class="print-toolbar">
-    <button class="print-btn" id="printBtn">Drucken</button>
+    <button class="print-btn" id="printBtn" type="button" onclick="window.print()">Drucken</button>
     <button class="print-btn secondary" id="closeBtn">Schließen</button>
   </div>
 
@@ -17,7 +17,11 @@
     <header class="print-header">
       <div class="brand">
         <img src="autovisa-logo.png" alt="Autovisa Logo" />
-        <span>Autovisa</span>
+        <span class="brand-divider" aria-hidden="true"></span>
+        <span class="brand-tagline">
+          <span class="brand-line1">Autos kaufen</span>
+          <span class="brand-line2">&amp; verkaufen</span>
+        </span>
       </div>
       <div class="meta">
         <div id="printListingId"></div>
@@ -51,20 +55,23 @@
       <div id="printFeatures"></div>
     </section>
 
-    <section class="print-section" id="printSellerSection">
-      <h2>Anbieter</h2>
-      <div id="printSeller"></div>
-    </section>
+    <div class="print-bottom">
+      <section class="print-section" id="printSellerSection">
+        <h2>Anbieter</h2>
+        <div id="printSeller"></div>
+      </section>
 
-    <section class="print-section">
-      <div class="print-qr">
-        <img id="printQr" alt="QR Code zum Inserat" />
-        <div>
-          <strong>Zum Inserat auf Autovisa</strong>
-          <div class="qr-url" id="printUrl"></div>
+      <section class="print-section" id="printQrSection">
+        <h2>QR-Code</h2>
+        <div class="print-qr">
+          <img id="printQr" alt="QR Code zum Inserat" />
+          <div>
+            <strong>Zum Inserat auf Autovisa</strong>
+            <div class="qr-url" id="printUrl"></div>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   </main>
 
   <script src="print.js"></script>
