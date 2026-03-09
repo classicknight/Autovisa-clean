@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>Autovisa – Selfmailer Designer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="selfmailer.css" />
+  <script src="analytics.js" defer></script>
+  <link rel="icon" href="/favicon.ico?v=3">
+</head>
+<body>
+  <div class="sm-page">
+    <aside class="sm-panel">
+      <div class="sm-panel-head">
+        <h1>Selfmailer Designer</h1>
+        <p>Format: A5 quer · 300 dpi Export</p>
+      </div>
+
+      <div class="sm-field">
+        <label for="smImageInput">Fahrzeugbild</label>
+        <input type="file" id="smImageInput" accept="image/*" />
+      </div>
+
+      <div class="sm-field">
+        <label for="smTitleInput">Modell / Titel</label>
+        <input type="text" id="smTitleInput" placeholder="Audi Q5 2.0 TDI" />
+      </div>
+
+      <div class="sm-row">
+        <div class="sm-field">
+          <label for="smPriceInput">Preis (EUR)</label>
+          <input type="text" id="smPriceInput" placeholder="28.990" />
+        </div>
+        <div class="sm-field">
+          <label for="smYearInput">Baujahr</label>
+          <input type="text" id="smYearInput" placeholder="2016" />
+        </div>
+      </div>
+
+      <div class="sm-row">
+        <div class="sm-field">
+          <label for="smPowerInput">Leistung (PS)</label>
+          <input type="text" id="smPowerInput" placeholder="190" />
+        </div>
+        <div class="sm-field">
+          <label for="smKmInput">Kilometer</label>
+          <input type="text" id="smKmInput" placeholder="120.000" />
+        </div>
+      </div>
+
+      <div class="sm-field">
+        <label for="smHighlightsInput">Highlights (je Zeile)</label>
+        <textarea id="smHighlightsInput" rows="4" placeholder="Scheckheft gepflegt\n1. Hand\nKlimaautomatik"></textarea>
+      </div>
+
+      <div class="sm-row">
+        <div class="sm-field">
+          <label for="smDealerInput">Händler / Anbieter</label>
+          <input type="text" id="smDealerInput" placeholder="Autohaus Muster GmbH" />
+        </div>
+        <div class="sm-field">
+          <label for="smLocationInput">Standort</label>
+          <input type="text" id="smLocationInput" placeholder="Dortmund" />
+        </div>
+      </div>
+
+      <div class="sm-row">
+        <div class="sm-field">
+          <label for="smPhoneInput">Telefon</label>
+          <input type="text" id="smPhoneInput" placeholder="0231 123456" />
+        </div>
+        <div class="sm-field">
+          <label for="smWebsiteInput">Website</label>
+          <input type="text" id="smWebsiteInput" placeholder="autovisa.de" />
+        </div>
+      </div>
+
+      <div class="sm-field">
+        <label for="smCtaInput">Call-to-Action</label>
+        <input type="text" id="smCtaInput" placeholder="Jetzt Probefahrt sichern" />
+      </div>
+
+      <div class="sm-field">
+        <label for="smQrInput">QR-Code URL</label>
+        <input type="text" id="smQrInput" placeholder="https://www.autovisa.de" />
+      </div>
+
+      <div class="sm-actions">
+        <button type="button" class="sm-btn" id="smDownloadFront">Front herunterladen</button>
+        <button type="button" class="sm-btn secondary" id="smDownloadBack">Rueckseite herunterladen</button>
+      </div>
+
+      <p class="sm-note">Hinweis: Hilfslinien (Bleed/Safe) werden beim Export automatisch ausgeblendet.</p>
+    </aside>
+
+    <main class="sm-preview">
+      <div class="sm-board">
+        <section class="sm-side sm-front" id="smFront">
+          <div class="sm-guides" aria-hidden="true"></div>
+          <div class="sm-front-hero">
+            <div class="sm-brand">
+              <img src="autovisa-logo.png" alt="Autovisa" />
+              <div class="sm-brand-text">
+                <span>Autos kaufen</span>
+                <span>&amp; verkaufen</span>
+              </div>
+            </div>
+            <div class="sm-price" id="smPrice">28.990 EUR</div>
+          </div>
+
+          <div class="sm-front-image">
+            <img id="smCarImage" src="1.jpeg" alt="Fahrzeug" />
+            <div class="sm-image-glow" aria-hidden="true"></div>
+          </div>
+
+          <div class="sm-front-footer">
+            <div class="sm-title" id="smTitle">Audi Q5 2.0 TDI</div>
+            <div class="sm-specs">
+              <div class="sm-spec"><span id="smSpecYear">2016</span><small>Baujahr</small></div>
+              <div class="sm-spec"><span id="smSpecPower">190</span><small>PS</small></div>
+              <div class="sm-spec"><span id="smSpecKm">120.000</span><small>km</small></div>
+            </div>
+            <div class="sm-cta" id="smCta">Jetzt Probefahrt sichern</div>
+          </div>
+        </section>
+
+        <section class="sm-side sm-back" id="smBack">
+          <div class="sm-guides" aria-hidden="true"></div>
+          <header class="sm-back-head">
+            <div>
+              <h2>Dein naechstes Fahrzeug</h2>
+              <p id="smBackTitle">Audi Q5 2.0 TDI</p>
+            </div>
+            <div class="sm-back-price" id="smBackPrice">28.990 EUR</div>
+          </header>
+
+          <div class="sm-back-body">
+            <div class="sm-back-left">
+              <h3>Highlights</h3>
+              <ul id="smHighlightsList">
+                <li>Scheckheft gepflegt</li>
+                <li>1. Hand</li>
+                <li>Klimaautomatik</li>
+              </ul>
+              <div class="sm-back-note">
+                Mehr Details und Bilder online auf Autovisa.
+              </div>
+            </div>
+
+            <div class="sm-back-right">
+              <div class="sm-contact">
+                <h3>Kontakt</h3>
+                <p class="sm-dealer" id="smDealer">Autohaus Muster GmbH</p>
+                <p id="smLocation">Dortmund</p>
+                <p id="smPhone">0231 123456</p>
+                <p id="smWebsite">autovisa.de</p>
+              </div>
+
+              <div class="sm-qr">
+                <img id="smQrImage" alt="QR Code" crossorigin="anonymous" />
+                <span>Zum Inserat</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="selfmailer.js"></script>
+</body>
+</html>

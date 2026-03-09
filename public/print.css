@@ -239,16 +239,17 @@ img {
 }
 
 .print-bottom {
-  display: grid;
-  grid-template-columns: 1.3fr 1fr;
-  gap: 16px;
   margin-top: 14px;
-  align-items: start;
   page-break-inside: avoid;
 }
 
 .print-bottom .print-section {
   margin-top: 0;
+}
+
+.print-qr-section {
+  margin-top: 12px;
+  page-break-inside: avoid;
 }
 
 @media (max-width: 900px) {
@@ -354,7 +355,10 @@ img {
 
   .print-bottom {
     margin-top: 10px;
-    gap: 12px;
+  }
+
+  .print-qr-section {
+    margin-top: 10px;
   }
 
   .brand {

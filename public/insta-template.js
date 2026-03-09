@@ -131,10 +131,15 @@ if (downloadBtn) {
           await document.fonts.ready;
         }
   
+        const rect = post.getBoundingClientRect();
+        const targetWidth = 1080;
+        let scale = rect.width ? targetWidth / rect.width : 2;
+        scale = Math.max(2, Math.min(4, scale));
+
         const canvas = await html2canvas(post, {
           useCORS: true,
           backgroundColor: null,
-          scale: 2
+          scale
         });
   
         canvas.toBlob((blob) => {
