@@ -1689,9 +1689,12 @@ function applyClientFilters(items) {
   const modVarEff = modVarUI || (sp.get("modellausfuehrung") || "").toLowerCase();
 
   // Verbrauch (max)
-  const rawV = selV
-    ? (selV.value === "custom" ? (inpV?.value || "") : selV.value)
-    : (inpV?.value || "");
+  const customV = (inpV?.value || "").trim();
+  const rawV = customV
+    ? customV
+    : selV
+      ? (selV.value === "custom" ? "" : selV.value)
+      : "";
   const uiMax = toDec(rawV);
   const qpMax = toDec(sp.get("verbrauch_max"));
   const vMax  = Number.isFinite(uiMax) && uiMax > 0 ? uiMax
@@ -2490,8 +2493,9 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
         return Number.isFinite(n) ? n : null;
       };
       let raw = "";
-      if (sel) raw = sel.value === "custom" ? (inp?.value || "") : sel.value;
-      else raw = inp?.value || "";
+      const customVal = (inp?.value || "").trim();
+      if (customVal) raw = customVal;
+      else if (sel) raw = sel.value === "custom" ? "" : sel.value;
       const n = toDec(raw);
       setOrDelete(params, "verbrauch_max", (n != null && n > 0) ? String(n) : "");
     })();

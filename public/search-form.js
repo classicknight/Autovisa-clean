@@ -539,28 +539,14 @@ document.addEventListener("DOMContentLoaded", () => {
   // ============================
   function bindCustom(selectEl, inputEl) {
     if (!selectEl || !inputEl) return;
-    inputEl.style.display = "block";
-
-    const ensureCustom = () => {
-      if (selectEl.value === "custom") return;
-      const hasOption = !!selectEl.querySelector('option[value="custom"]');
-      if (!hasOption) return;
-      selectEl.value = "custom";
-      selectEl.dispatchEvent(new Event("change", { bubbles: true }));
-    };
-
-    const onSelectChange = () => {
+    const toggle = () => {
       const isCustom = selectEl.value === "custom";
+      inputEl.style.display = isCustom ? "block" : "none";
       if (!isCustom) inputEl.value = "";
+      if (isCustom) inputEl.focus();
     };
-
-    inputEl.addEventListener("focus", ensureCustom);
-    inputEl.addEventListener("input", () => {
-      if ((inputEl.value || "").trim()) ensureCustom();
-    });
-
-    selectEl.addEventListener("change", onSelectChange);
-    onSelectChange();
+    selectEl.addEventListener("change", toggle);
+    toggle();
   }
 
   bindCustom(kmSel, kmCustom);
@@ -586,9 +572,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!hasLoc && distCustom) {
       distSel.value = "999"; // "Beliebig"
       distCustom.value = "";
-      distCustom.disabled = true;
-    } else if (distCustom) {
-      distCustom.disabled = false;
+      distCustom.style.display = "none";
     }
   }
   locInput?.addEventListener("input", syncDistanceEnabled);
@@ -945,8 +929,7 @@ if (y) {
 
     // Startseite km_max (Select + Custom)
     if (kmSel) {
-      const customVal = (kmCustom?.value || "").trim();
-      const raw = customVal || (kmSel.value === "custom" ? "" : kmSel.value);
+      const raw = kmSel.value === "custom" ? kmCustom?.value || "" : kmSel.value;
       const n = toIntLoose(raw);
       if (!Number.isNaN(n) && n > 0) qs.set("km_max", String(n));
     }
@@ -957,22 +940,18 @@ if (y) {
 
     // Verbrauch (max) – Komma/Punkt tolerant
     if (consSel || consCustom) {
-      const customVal = (consCustom?.value || "").trim();
-      const raw = customVal
-        ? customVal
-        : consSel
-          ? consSel.value === "custom"
-            ? ""
-            : consSel.value
-          : "";
+      const raw = consSel
+        ? consSel.value === "custom"
+          ? consCustom?.value || ""
+          : consSel.value
+        : consCustom?.value || "";
       const n = parseFloat(String(raw).replace(",", "."));
       if (Number.isFinite(n) && n > 0) qs.set("verbrauch_max", String(n));
     }
 
     // Startseite price_max (Select + Custom)
     if (priceSel) {
-      const customVal = (priceCustom?.value || "").trim();
-      const raw = customVal || (priceSel.value === "custom" ? "" : priceSel.value);
+      const raw = priceSel.value === "custom" ? priceCustom?.value || "" : priceSel.value;
       const n = toIntLoose(raw);
       if (!Number.isNaN(n) && n > 0) qs.set("price_max", String(n));
     }
@@ -1027,8 +1006,7 @@ if (fuelCbs.length) {
     // Umkreis: Kriterien-Seite zuerst, sonst Startseite
     let umkreisSet = false;
     if (umkreisSel) {
-      const customVal = (umkreisCustom?.value || "").trim();
-      const raw = customVal || (umkreisSel.value === "custom" ? "" : umkreisSel.value);
+      const raw = umkreisSel.value === "custom" ? umkreisCustom?.value || "" : umkreisSel.value;
       const n = parseInt(raw, 10);
       if (!Number.isNaN(n) && n > 0) {
         qs.set("umkreis", String(n));
@@ -1037,8 +1015,7 @@ if (fuelCbs.length) {
         qs.delete("umkreis");
       }
     } else if (distSel && !distSel.disabled) {
-      const customVal = (distCustom?.value || "").trim();
-      const dRaw = customVal || (distSel.value === "custom" ? "" : distSel.value);
+      const dRaw = distSel.value === "custom" ? distCustom?.value || "" : distSel.value;
       const d = parseInt(dRaw, 10);
       if (!Number.isNaN(d) && d > 0 && d !== 999) {
         qs.set("umkreis", String(d));

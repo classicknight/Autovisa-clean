@@ -427,7 +427,7 @@
     type="number"
     id="custom-umkreis"
     placeholder="Eigener Wert in km"
-    style="margin-top: 10px"
+    style="display: none; margin-top: 10px"
     min="1"
     class="modern-input"
   />
@@ -464,7 +464,7 @@
   </select>
 
   <!-- 2) eigener Input darunter (nur sichtbar bei „Benutzerdefiniert…“) -->
-  <div id="verbrauch-custom-wrap" style="margin-top:10px">
+  <div id="verbrauch-custom-wrap" style="display:none; margin-top:10px">
     <input
       type="number"
       id="verbrauch"
@@ -525,7 +525,7 @@
   <div class="search-group">
     <label for="schadstoffklasse">Schadstoffklasse</label>
   
-    <select id="schadstoffklasse" onchange="toggleCustomSchadstoff(this.value)">
+    <select id="schadstoffklasse">
       <!-- ✅ wichtig: wieder auf "Beliebig" zurückwechselbar -->
       <option value="" selected>Beliebig</option>
   
@@ -540,16 +540,7 @@
       <option value="Euro 6d-TEMP">Euro 6d-TEMP</option>
       <option value="Euro 6d">Euro 6d</option>
   
-      <option value="custom">Benutzerdefiniert…</option>
     </select>
-  
-  <input
-    type="text"
-    id="custom-schadstoff"
-    placeholder="Eigener Eintrag z. B. Euro 7"
-    style="margin-top: 10px"
-    class="modern-input"
-  />
   </div>
   
    

@@ -1163,7 +1163,7 @@ img, video, canvas {
 .car-title-block{
   display:flex;
   flex-direction:column;
-  gap:2px;
+  gap:0;
   flex:1 1 0;
   min-width:0;
 }
@@ -1215,6 +1215,7 @@ img, video, canvas {
   font-size:var(--subtitle-size);
   font-weight:var(--subtitle-weight);
   color:var(--subtitle-color);
+  line-height:1.2;
   margin:0;
 }
 .car-info-grid{
@@ -1358,7 +1359,7 @@ img, video, canvas {
       font-size: var(--subtitle-size);
       font-weight: var(--subtitle-weight);
       color: var(--subtitle-color);
-      margin-bottom: 8px;
+      margin-bottom: 4px;
     }
   
     .car-info-grid {
