@@ -1281,10 +1281,13 @@ if (equipValues.length) {
   /* =========================
      SlimSelects für restliche Felder (nur wenn vorhanden)
      ========================= */
+  const slimInstances = {};
   const initSlim = (selector, opts) => {
     const el = document.querySelector(selector);
     if (!el) return null;
-    return new SlimSelect({ select: selector, ...opts });
+    const inst = new SlimSelect({ select: selector, ...opts });
+    slimInstances[selector] = inst;
+    return inst;
   };
 
   initSlim('#hu-gueltig',      { placeholder: 'HU mind. gültig', allowDeselect: true, showSearch: false });
@@ -1303,23 +1306,15 @@ if (equipValues.length) {
   window.toggleCustomUmkreis = function(value) {
     const customField = document.getElementById('custom-umkreis');
     if (!customField) return;
-    if (value === 'custom') {
-      customField.style.display = 'block';
-    } else {
-      customField.style.display = 'none';
-      customField.value = '';
-    }
+    customField.style.display = 'block';
+    if (value !== 'custom') customField.value = '';
   };
 
   window.toggleCustomSchadstoff = function(value) {
     const input = document.getElementById('custom-schadstoff');
     if (!input) return;
-    if (value === 'custom') {
-      input.style.display = 'block';
-    } else {
-      input.style.display = 'none';
-      input.value = '';
-    }
+    input.style.display = 'block';
+    if (value !== 'custom') input.value = '';
   };
 
   // HU Custom (optional)
@@ -1340,12 +1335,54 @@ if (equipValues.length) {
   function syncVerbrauchUI() {
     if (!vbSel || !vbWrap) return;
     const isCustom = vbSel.value === 'custom';
-    vbWrap.style.display = isCustom ? '' : 'none';
+    vbWrap.style.display = '';
     if (!isCustom && vbInput) vbInput.value = '';
   }
 
   vbSel?.addEventListener('change', syncVerbrauchUI);
   syncVerbrauchUI();
+
+  // Direkte Eingabe: Custom-Felder ohne "Benutzerdefiniert" klicken
+  const setSlimValue = (selectEl, value) => {
+    if (!selectEl) return;
+    if (selectEl.value === value) return;
+    const key = `#${selectEl.id}`;
+    const inst = slimInstances[key];
+    if (inst && typeof inst.setSelected === "function") {
+      inst.setSelected([value]);
+      selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+    } else {
+      selectEl.value = value;
+      selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  };
+
+  const bindDirectCustom = (selectEl, inputEl, wrapEl = null) => {
+    if (!selectEl || !inputEl) return;
+    if (wrapEl) wrapEl.style.display = '';
+    else inputEl.style.display = 'block';
+
+    const hasCustomOption = !!selectEl.querySelector('option[value="custom"]');
+    const ensureCustom = () => {
+      if (!hasCustomOption) return;
+      setSlimValue(selectEl, "custom");
+    };
+
+    inputEl.addEventListener("focus", ensureCustom);
+    inputEl.addEventListener("input", () => {
+      if ((inputEl.value || "").trim()) ensureCustom();
+    });
+
+    selectEl.addEventListener("change", () => {
+      if (selectEl.value !== "custom") inputEl.value = "";
+    });
+
+    if ((inputEl.value || "").trim()) ensureCustom();
+  };
+
+  bindDirectCustom(document.getElementById('umkreis'), document.getElementById('custom-umkreis'));
+  bindDirectCustom(document.getElementById('verbrauch-select'), document.getElementById('verbrauch'), vbWrap);
+  bindDirectCustom(document.getElementById('schadstoffklasse'), document.getElementById('custom-schadstoff'));
 
   // Leistungseinheit (PS / kW)
   const powerUnitEl = document.getElementById('leistung-einheit');
@@ -1513,9 +1550,11 @@ if (equipValues.length) {
     const umkreisSel = document.getElementById("umkreis");
     if (umkreisSel && !umkreisSel.disabled) {
       let radius = umkreisSel.value;
-      if (radius === "custom") {
-        const c = _numFallback(document.getElementById("custom-umkreis")?.value);
-        radius = (c != null && c > 0) ? String(c) : "";
+      const c = _numFallback(document.getElementById("custom-umkreis")?.value);
+      if (c != null && c > 0) {
+        radius = String(c);
+      } else if (radius === "custom") {
+        radius = "";
       }
       if (radius) {
         qs.set("umkreis", radius);
@@ -1557,8 +1596,9 @@ if (equipValues.length) {
         return Number.isFinite(n) ? n : null;
       };
       let raw = '';
-      if (sel) raw = sel.value === 'custom' ? (input?.value || '') : sel.value;
-      else     raw = input?.value || '';
+      const customVal = (input?.value || '').trim();
+      if (customVal) raw = customVal;
+      else if (sel) raw = sel.value === 'custom' ? '' : sel.value;
       const n = toDec(raw);
       if (n != null && n > 0) qs.set('verbrauch_max', String(n));
     })();
@@ -1637,9 +1677,9 @@ if (equipValues.length) {
 const schadSel = (document.getElementById("schadstoffklasse")?.value || "").trim();
 const schadCustom = (document.getElementById("custom-schadstoff")?.value || "").trim();
 
-if (schadSel === "custom") {
-  if (schadCustom) qs.set("schadstoffklasse", schadCustom);
-} else if (schadSel) {
+if (schadCustom) {
+  qs.set("schadstoffklasse", schadCustom);
+} else if (schadSel && schadSel !== "custom") {
   qs.set("schadstoffklasse", schadSel);
 }
 
@@ -2049,7 +2089,7 @@ if (schadSel === "custom") {
           (document.getElementById('verbrauch') || {}).value = '';
           {
             const vbWrap = document.getElementById('verbrauch-custom-wrap');
-            if (vbWrap) vbWrap.style.display = 'none';
+            if (vbWrap) vbWrap.style.display = '';
           }
           break;
   
@@ -2160,7 +2200,7 @@ if (schadSel === "custom") {
       hideAndClear('custom-hu-wrapper', 'custom-hu');
 
       const vbWrap = document.getElementById('verbrauch-custom-wrap');
-      if (vbWrap) vbWrap.style.display = 'none';
+      if (vbWrap) vbWrap.style.display = '';
 
       if (typeof syncPowerUnitUI === 'function') syncPowerUnitUI();
 

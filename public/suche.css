@@ -15,7 +15,7 @@ body {
 :root{
   --subtitle-font: 'Inter', sans-serif;
   --subtitle-color: #2f3b45;
-  --subtitle-weight: 600;
+  --subtitle-weight: 500;
   --subtitle-size: 14.5px;
 }
 
