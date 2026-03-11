@@ -165,68 +165,6 @@ body {
   transform: translateY(1px) scale(.985);
 }
 
-/* ===== Dark Mode (Suchkriterien) ===== */
-@media (prefers-color-scheme: dark) {
-  .page-suchkriterien{
-    background:#0b141a;
-    color:#e6f3f7;
-  }
-
-  .page-suchkriterien .search-section{
-    background: linear-gradient(135deg, #101e26, #142935);
-    border-color: rgba(0,184,169,0.22);
-    box-shadow: 0 22px 44px rgba(0,0,0,.35);
-  }
-
-  .page-suchkriterien .search-section h2{
-    color:#7ff3e2;
-    border-bottom-color: rgba(255,255,255,0.12);
-  }
-
-  .page-suchkriterien .search-group label{
-    color:#9fb2bf;
-  }
-
-  .page-suchkriterien .search-group input,
-  .page-suchkriterien .search-group select{
-    background-color:#11232d;
-    border-color: rgba(0,184,169,0.35);
-    color:#e6f3f7;
-  }
-
-  .page-suchkriterien .search-group input::placeholder{
-    color:#8ea3b1;
-  }
-
-  .page-suchkriterien .search-group input:focus,
-  .page-suchkriterien .search-group select:focus{
-    border-color:#00e6ba;
-    box-shadow: 0 0 0 3px rgba(0, 230, 186, 0.18);
-    background-color:#142936;
-  }
-
-  .page-suchkriterien .geo-btn{
-    background:#11232d;
-    border-color:#00e6ba;
-    color:#00e6ba;
-  }
-
-  .page-suchkriterien .geo-btn:hover{
-    background:#142936;
-    color:#00ffcc;
-    border-color:#00ffcc;
-  }
-
-  .page-suchkriterien .unit-label{
-    color:#8fe9dd;
-  }
-
-  .page-suchkriterien .color-option{
-    border-color: rgba(227,233,239,0.18);
-    color: rgba(234,243,246,0.92);
-  }
-}
-
 /* Glanz-Sweep */
 .nav-links > li:not(.active) > a::before {
   content: "";

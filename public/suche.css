@@ -989,7 +989,14 @@ img, video, canvas {
     cursor: pointer;
     font-size: 15px;
     transition: background 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     
+  }
+  .filter-button .btn-count{
+    font-weight: 700;
+    opacity: .9;
   }
   
   .filter-button-wrapper {

@@ -1113,7 +1113,25 @@ app.post("/entwurf/:id/publish", checkLogin, async (req, res) => {
 
     delete neuesInserat._id;
 
-    await inserateCollection.insertOne(neuesInserat);
+    const insertRes = await inserateCollection.insertOne(neuesInserat);
+    const insertedId = insertRes?.insertedId ? String(insertRes.insertedId) : "";
+    const baseUrl = getBaseUrlFromReq(req);
+    const listingUrl = insertedId ? `${baseUrl}/anzeige.html?id=${encodeURIComponent(insertedId)}` : "";
+
+    await sendAdminNotification({
+      subject: "Neues Inserat veröffentlicht",
+      title: "Neues Fahrzeug online",
+      rows: [
+        { label: "Titel", value: getListingTitle(neuesInserat) },
+        { label: "Preis", value: getListingPrice(neuesInserat) },
+        { label: "Anbieter", value: seller?.name || "" },
+        { label: "Standort", value: neuesInserat.standort || "" },
+        { label: "Inserat-ID", value: insertedId },
+        { label: "Link", value: listingUrl },
+        { label: "Zeit", value: formatAdminDate(new Date()) }
+      ]
+    });
+
     await entwurfCollection.deleteOne({ _id });
 
     return res.json({ success: true, message: "Inserat erfolgreich veröffentlicht." });
@@ -1328,6 +1346,91 @@ function buildAutovisaEmail({
 }
 
 /* =========================
+   🔔 Admin-Notifications
+========================= */
+const ADMIN_NOTIFY_ENABLED = (process.env.ADMIN_NOTIFY_ENABLED ?? "1") !== "0";
+const ADMIN_NOTIFY_EMAILS = (process.env.ADMIN_NOTIFY_EMAILS || "a.gotfrid@gmx.net")
+  .split(/[;,]/)
+  .map((email) => email.trim())
+  .filter(Boolean);
+
+function formatAdminDate(date = new Date()) {
+  try {
+    return new Intl.DateTimeFormat("de-DE", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Europe/Berlin"
+    }).format(date);
+  } catch {
+    return date.toISOString();
+  }
+}
+
+function buildAdminRows(rows = []) {
+  const filtered = rows.filter((row) => row && row.value);
+  const html = filtered
+    .map((row) => `<p><b>${escapeHtml(row.label)}:</b> ${escapeHtml(row.value)}</p>`)
+    .join("");
+  const text = filtered
+    .map((row) => `${row.label}: ${row.value}`)
+    .join("\n");
+  return { html, text };
+}
+
+async function sendAdminNotification({ subject, title, rows, htmlText, text }) {
+  if (!ADMIN_NOTIFY_ENABLED) return;
+  if (!ADMIN_NOTIFY_EMAILS.length) return;
+
+  const { logoSrc, attachments } = getEmailLogoAsset();
+  const resolved = rows ? buildAdminRows(rows) : { html: htmlText || "", text: text || "" };
+  const html = buildAutovisaEmail({
+    subject,
+    logoSrc,
+    greeting: "Neue Autovisa Aktivität",
+    title: title || subject,
+    htmlText: resolved.html,
+    footerNote: "Automatische System-Benachrichtigung."
+  });
+
+  try {
+    await transporter.sendMail({
+      from: MAIL_FROM,
+      replyTo: MAIL_REPLY_TO,
+      to: ADMIN_NOTIFY_EMAILS,
+      subject,
+      html,
+      text: resolved.text || subject,
+      attachments
+    });
+  } catch (err) {
+    console.error("❌ Fehler bei Admin-Notify:", err);
+  }
+}
+
+function getListingTitle(doc = {}) {
+  const candidates = [
+    doc.titel,
+    doc.verkauf_titel,
+    [doc.marke, doc.modell].filter(Boolean).join(" ")
+  ];
+  const found = candidates.find((value) => String(value || "").trim());
+  return found ? String(found).trim() : "Inserat";
+}
+
+function getListingPrice(doc = {}) {
+  const raw =
+    doc.verkauf_preis ??
+    doc.preis ??
+    doc.verkauf_brutto ??
+    doc["brutto-preis"] ??
+    doc["netto-preis"] ??
+    doc.verkauf_netto ??
+    "";
+  if (raw == null) return "";
+  return String(raw).trim();
+}
+
+/* =========================
    📬 Kontaktformular
 ========================= */
 const CONTACT_EMAIL = process.env.CONTACT_EMAIL || "kontakt@autovisa.de";
@@ -1474,6 +1577,19 @@ Wenn du dich nicht registriert hast, ignoriere diese E-Mail.`;
     });
 
     console.log("✅ Bestätigungsmail gesendet:", info.messageId || info.response);
+
+    await sendAdminNotification({
+      subject: "Neue Registrierung bei Autovisa",
+      title: "Neuer Nutzer registriert",
+      rows: [
+        { label: "Name", value: name },
+        { label: "E-Mail", value: email },
+        { label: "Rolle", value: "privat" },
+        { label: "Quelle", value: "E-Mail/Passwort" },
+        { label: "Zeit", value: formatAdminDate(neuerNutzer.createdAt || new Date()) }
+      ]
+    });
+
     return res.json({ success: true, message: "E-Mail zur Bestätigung wurde gesendet." });
 
   } catch (mailOrDbErr) {
@@ -1701,6 +1817,17 @@ app.get("/auth/google/callback", async (req, res) => {
         authProvider: "google"
       };
       await nutzerColl.insertOne(newUser);
+      await sendAdminNotification({
+        subject: "Neue Registrierung bei Autovisa",
+        title: "Neuer Nutzer registriert",
+        rows: [
+          { label: "Name", value: displayName },
+          { label: "E-Mail", value: email },
+          { label: "Rolle", value: "privat" },
+          { label: "Quelle", value: "Google OAuth" },
+          { label: "Zeit", value: formatAdminDate(newUser.createdAt || new Date()) }
+        ]
+      });
       user = newUser;
     }
 
@@ -2966,6 +3093,20 @@ Falls Sie sich nicht registriert haben, können Sie diese E-Mail ignorieren.`;
       html,
       text,
       attachments,
+    });
+
+    await sendAdminNotification({
+      subject: "Neue Händlerregistrierung bei Autovisa",
+      title: "Neuer Händler registriert",
+      rows: [
+        { label: "Firma", value: _firma },
+        { label: "E-Mail", value: _email },
+        { label: "Telefon", value: _telefon },
+        { label: "Standort", value: [addressPlz, addressCity].filter(Boolean).join(" ") },
+        { label: "Tarif", value: _tarif },
+        { label: "Rolle", value: "haendler" },
+        { label: "Zeit", value: formatAdminDate(neuerHaendler.createdAt || new Date()) }
+      ]
     });
 
     return res.json({
@@ -4326,6 +4467,24 @@ async function publishFromDraft(req, res, { requireId = false } = {}) {
     // ✅ Insert + insertedId sauber zurückgeben
     const insertRes = await inserateColl.insertOne(neuesInserat);
     const insertedId = insertRes?.insertedId;
+
+    const insertedIdStr = insertedId ? String(insertedId) : "";
+    const baseUrl = getBaseUrlFromReq(req);
+    const listingUrl = insertedIdStr ? `${baseUrl}/anzeige.html?id=${encodeURIComponent(insertedIdStr)}` : "";
+
+    await sendAdminNotification({
+      subject: "Neues Inserat veröffentlicht",
+      title: "Neues Fahrzeug online",
+      rows: [
+        { label: "Titel", value: getListingTitle(neuesInserat) },
+        { label: "Preis", value: getListingPrice(neuesInserat) },
+        { label: "Anbieter", value: seller?.name || "" },
+        { label: "Standort", value: neuesInserat.standort || "" },
+        { label: "Inserat-ID", value: insertedIdStr },
+        { label: "Link", value: listingUrl },
+        { label: "Zeit", value: formatAdminDate(new Date()) }
+      ]
+    });
 
     await entwurfColl.deleteOne({ _id: draftMongoId, nutzerId: sellerId });
 

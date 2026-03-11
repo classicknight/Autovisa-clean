@@ -479,11 +479,16 @@ const pager         = document.getElementById("pager");
 const resultCountEl = document.getElementById("resultCount");
 const sortBy        = document.getElementById("sortBy");
 const applyFilters  = document.getElementById("applyFiltersBtn");
+const applyFiltersCountEl = document.getElementById("applyFiltersCount");
 
   function updateResultCount() {
-    if (!resultCountEl) return;
     const total = Number(serverTotal) || 0;
-    resultCountEl.textContent = `${total.toLocaleString("de-DE")} Treffer`;
+    if (resultCountEl) {
+      resultCountEl.textContent = `${total.toLocaleString("de-DE")} Treffer`;
+    }
+    if (applyFiltersCountEl) {
+      applyFiltersCountEl.textContent = `(${total.toLocaleString("de-DE")})`;
+    }
   }
 
   // Mobile/Tablet: Filter-Sidebar ein-/ausblenden
@@ -741,10 +746,17 @@ const applyFilters  = document.getElementById("applyFiltersBtn");
 
   // --- Getriebe (einfach) ---
   if (gearEl && QP.getriebe) {
-    const m = [...gearEl.options].find(o =>
-      String(o.value).toLowerCase() === QP.getriebe ||
-      String(o.text).toLowerCase()  === QP.getriebe
-    );
+    let target = QP.getriebe;
+    if (/^schalt/.test(target)) target = "schaltgetriebe";
+    else if (/^auto/.test(target)) target = "automatik";
+    const m = [...gearEl.options].find(o => {
+      const v = String(o.value).toLowerCase();
+      const t = String(o.text).toLowerCase();
+      if (v === target || t === target) return true;
+      if (target === "schaltgetriebe") return v.includes("schalt") || t.includes("schalt");
+      if (target === "automatik") return v.includes("auto") || t.includes("auto");
+      return false;
+    });
     if (m) gearEl.value = m.value;
   }
 
@@ -2390,19 +2402,21 @@ function applyClientFilters(items) {
       else p.set(k, s);
     };
   
-    // Marke / Modell / Variante
+    // Marke / Modell / Variante (nur wenn UI vorhanden)
     const markeEl  = document.getElementById("marke");
     const modellEl = document.getElementById("modell");
     const modVarEl = document.getElementById("modellausfuehrung");
-    setOrDelete(params, "marke", markeEl?.value || "");
-    if (modellEl && modellEl.options) {
-      const selected = [...modellEl.options]
-        .filter(o => o.selected)
-        .map(o => o.value)
-        .filter(Boolean);
-      setOrDelete(params, "modell", selected.length ? selected.join(",") : "");
+    if (markeEl || modellEl || modVarEl) {
+      setOrDelete(params, "marke", markeEl?.value || "");
+      if (modellEl && modellEl.options) {
+        const selected = [...modellEl.options]
+          .filter(o => o.selected)
+          .map(o => o.value)
+          .filter(Boolean);
+        setOrDelete(params, "modell", selected.length ? selected.join(",") : "");
+      }
+      setOrDelete(params, "modellausfuehrung", modVarEl?.value || "");
     }
-    setOrDelete(params, "modellausfuehrung", modVarEl?.value || "");
   
     // Erstzulassung FROM/TO (inkl. Fallback-Felder)
     const firstRegFromEl     = document.getElementById("firstRegFrom");
@@ -2463,29 +2477,33 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
     }
     setOrDelete(params, "kraftstoff", fuelList.length ? fuelList.join(",") : "");
   
-    // Getriebe (ein Wert)
+    // Getriebe (ein Wert) – nur wenn UI vorhanden
     const gearEl  = document.getElementById("transmission") || document.getElementById("gear");
-    const gearRaw = (gearEl?.value || "").toLowerCase();
-    const gearVal =
-      (/schalt|getriebe|manuell|manual/.test(gearRaw)) ? "schalt" : gearRaw;
-    if (gearVal && !/^(beliebig|any|alle|all|-)$/i.test(gearVal)) params.set("getriebe", gearVal);
-    else params.delete("getriebe");
+    if (gearEl) {
+      const gearRaw = (gearEl.value || "").toLowerCase();
+      const gearVal = canon(norm(gearRaw), GEAR_MAP);
+      if (gearVal && !/^(beliebig|any|alle|all|-)$/i.test(gearVal)) params.set("getriebe", gearVal);
+      else params.delete("getriebe");
+    }
   
-    // Antriebsart (Select oder Checkboxen -> CSV)
+    // Antriebsart (Select oder Checkboxen -> CSV) – nur wenn UI vorhanden
     const driveEl  = document.getElementById("antriebsart") || document.getElementById("drivetrain") || document.getElementById("antrieb");
     const driveCbs = document.querySelectorAll('input[name="antrieb"]:checked');
-    let driveList = [...driveCbs].map(cb => driveCanon(cb.value)).filter(Boolean);
-    if (!driveList.length && driveEl) {
-      const v = driveCanon(driveEl.value);
-      if (v && !/^(beliebig|any|alle|all|-)$/i.test(v)) driveList = [v];
+    if (driveEl || driveCbs.length) {
+      let driveList = [...driveCbs].map(cb => driveCanon(cb.value)).filter(Boolean);
+      if (!driveList.length && driveEl) {
+        const v = driveCanon(driveEl.value);
+        if (v && !/^(beliebig|any|alle|all|-)$/i.test(v)) driveList = [v];
+      }
+      setOrDelete(params, "antriebsart", driveList.length ? driveList.join(",") : "");
+      params.delete("antrieb"); // legacy key
     }
-    setOrDelete(params, "antriebsart", driveList.length ? driveList.join(",") : "");
-    params.delete("antrieb"); // legacy key
   
     // Verbrauch (Filter)
     (function () {
       const sel = document.getElementById("verbrauch-select");
       const inp = document.getElementById("verbrauch");
+      if (!sel && !inp) return; // UI fehlt -> bestehende URL-Parameter behalten
       const toDec = s => {
         const t = String(s ?? "").trim().replace(/\s+/g, "").replace(",", ".");
         if (!t) return null;
@@ -2500,45 +2518,48 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
       setOrDelete(params, "verbrauch_max", (n != null && n > 0) ? String(n) : "");
     })();
   
-    // Ort / Umkreis
-    const locVal = (document.getElementById("location")?.value || document.getElementById("ort")?.value || "").trim();
-    const hasLoc = !!locVal;
-    setOrDelete(params, "ort", locVal);
-    const distSel    = document.getElementById("distance-select");
-    const distCustom = document.getElementById("distance-custom");
-    let umkreisSet = false;
-    if (hasLoc && distSel && !distSel.disabled) {
-      const dRaw = distSel.value === "custom" ? (distCustom?.value || "") : distSel.value;
-      const d    = parseInt(dRaw, 10);
-      if (!Number.isNaN(d) && d > 0 && d !== 999) {
-        setOrDelete(params, "umkreis", d);
-        umkreisSet = true;
+    // Ort / Umkreis (nur wenn UI vorhanden)
+    const locInput = document.getElementById("location") || document.getElementById("ort");
+    if (locInput) {
+      const locVal = (locInput.value || "").trim();
+      const hasLoc = !!locVal;
+      setOrDelete(params, "ort", locVal);
+      const distSel    = document.getElementById("distance-select");
+      const distCustom = document.getElementById("distance-custom");
+      let umkreisSet = false;
+      if (hasLoc && distSel && !distSel.disabled) {
+        const dRaw = distSel.value === "custom" ? (distCustom?.value || "") : distSel.value;
+        const d    = parseInt(dRaw, 10);
+        if (!Number.isNaN(d) && d > 0 && d !== 999) {
+          setOrDelete(params, "umkreis", d);
+          umkreisSet = true;
+        } else {
+          params.delete("umkreis");
+        }
       } else {
         params.delete("umkreis");
       }
-    } else {
-      params.delete("umkreis");
-    }
-    if (!hasLoc) {
-      params.delete("umkreis");
-      params.delete("ort_lat"); params.delete("ort_lon");
-      params.delete("ort-lat"); params.delete("ort-lon");
-      if (distSel) {
-        distSel.value = "999";
-        distSel.disabled = true;
+      if (!hasLoc) {
+        params.delete("umkreis");
+        params.delete("ort_lat"); params.delete("ort_lon");
+        params.delete("ort-lat"); params.delete("ort-lon");
+        if (distSel) {
+          distSel.value = "999";
+          distSel.disabled = true;
+        }
+        if (distCustom) {
+          distCustom.value = "";
+          distCustom.style.display = "none";
+        }
       }
-      if (distCustom) {
-        distCustom.value = "";
-        distCustom.style.display = "none";
-      }
-    }
-    // Default: wenn Ort gesetzt ist, aber kein Umkreis gewählt → 100 km
-    if (hasLoc && !umkreisSet) {
-      params.set("umkreis", "100");
-      if (distSel) {
-        distSel.disabled = false;
-        distSel.value = "100";
-        if (distCustom) distCustom.value = "";
+      // Default: wenn Ort gesetzt ist, aber kein Umkreis gewählt → 100 km
+      if (hasLoc && !umkreisSet) {
+        params.set("umkreis", "100");
+        if (distSel) {
+          distSel.disabled = false;
+          distSel.value = "100";
+          if (distCustom) distCustom.value = "";
+        }
       }
     }
   
@@ -2581,27 +2602,26 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
   
     // Zusatz-Flags (Partikelfilter / Scheckheft / Unfallfrei)
     {
-      const pfChecked = document.getElementById("partikelfilter")?.checked;
-      const shChecked = document.getElementById("scheckheft")?.checked;
-      const ufChecked =
-        document.getElementById("unfallfrei")?.checked ??
-        document.getElementById("accidentFree")?.checked;
-  
-      // Wir schreiben überall "1", damit Backend + Prefill klar damit arbeiten können
-      setOrDelete(params, "partikelfilter", pfChecked ? "1" : "");
-      setOrDelete(params, "scheckheft",     shChecked ? "1" : "");
-      setOrDelete(params, "unfallfrei",     ufChecked ? "1" : "");
-  
+      const pfEl = document.getElementById("partikelfilter");
+      const shEl = document.getElementById("scheckheft");
+      const ufEl = document.getElementById("unfallfrei") || document.getElementById("accidentFree");
+
+      if (pfEl) setOrDelete(params, "partikelfilter", pfEl.checked ? "1" : "");
+      if (shEl) setOrDelete(params, "scheckheft",     shEl.checked ? "1" : "");
+      if (ufEl) setOrDelete(params, "unfallfrei",     ufEl.checked ? "1" : "");
+
       // altes Fahrtauglich-Flag aufräumen, falls noch irgendwo vorhanden
       params.delete("fahrtauglich");
     }
   
     // Fahrzeugtyp (Checkboxen + Fallback-Select) -> CSV
     (function () {
+      const typeSel = document.getElementById("fahrzeugtyp");
+      const typeCbs = document.querySelectorAll('input[name="fahrzeugtyp"]');
+      if (!typeSel && !typeCbs.length) return;
       const s = new Set();
       document.querySelectorAll('input[name="fahrzeugtyp"]:checked')
         .forEach(cb => s.add(String(cb.value || "").trim()));
-      const typeSel = document.getElementById("fahrzeugtyp");
       if (typeSel && typeSel.tagName === "SELECT") {
         [...typeSel.options].forEach(o => { if (o.selected && o.value) s.add(o.value.trim()); });
       }
@@ -2610,6 +2630,8 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
   
     // Farbe (Checkboxen) -> CSV
     (function () {
+      const colorCbs = document.querySelectorAll('input[name="farbe"]');
+      if (!colorCbs.length) return;
       const s = new Set();
       document.querySelectorAll('input[name="farbe"]:checked')
         .forEach(cb => s.add(String(cb.value || "").trim()));
@@ -2618,8 +2640,10 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
   
     // Türen (Checkboxen + Fallback-Select) -> CSV
     (function () {
-      const s = new Set();
       const doorSel = document.getElementById("tueren");
+      const doorCbs = document.querySelectorAll('input[name="tueren"]');
+      if (!doorSel && !doorCbs.length) return;
+      const s = new Set();
       if (doorSel && doorSel.tagName === "SELECT") {
         [...doorSel.options].forEach(o => { if (o.selected && o.value) s.add(o.value.trim()); });
       }
@@ -2630,13 +2654,13 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
   
     // Umweltplakette (ein Wert)
     (function () {
+      const badgeSel = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
+      const badgeCbs = document.querySelectorAll('input[name="umweltplakette"]');
+      if (!badgeSel && !badgeCbs.length) return;
       let val = "";
       const checked = document.querySelector('input[name="umweltplakette"]:checked');
       if (checked) val = badgeCanon(checked.value);
-      if (!val) {
-        const sel = document.getElementById("umweltplakette") || document.getElementById("umwelt-badge");
-        if (sel) val = badgeCanon(sel.value);
-      }
+      if (!val && badgeSel) val = badgeCanon(badgeSel.value);
       // Beide Keys für Kompatibilität schreiben
       if (val) {
         params.set("plakette", val);
@@ -2649,13 +2673,13 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
   
     // *** Schadstoffklasse (ein Wert) ***
     (function () {
+      const emissionSel = document.getElementById("schadstoffklasse") || document.getElementById("emission");
+      const emissionCbs = document.querySelectorAll('input[name="schadstoffklasse"], input[name="emission"]');
+      if (!emissionSel && !emissionCbs.length) return;
       let val = "";
       const checked = document.querySelector('input[name="schadstoffklasse"]:checked, input[name="emission"]:checked');
       if (checked) val = emissionCanon(checked.value);
-      if (!val) {
-        const sel = document.getElementById("schadstoffklasse") || document.getElementById("emission");
-        if (sel) val = emissionCanon(sel.value);
-      }
+      if (!val && emissionSel) val = emissionCanon(emissionSel.value);
       setOrDelete(params, "schadstoffklasse", val);
     })();
   
