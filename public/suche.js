@@ -2716,6 +2716,42 @@ if (!Number.isNaN(kmMax) && kmMax > 0) params.set("km_max", String(kmMax));   el
     updateUrlFromUiAndReload();
   });
 
+  // Vorschau-Zähler: zeigt Trefferzahl für aktuelle Filterauswahl
+  function debounce(fn, wait = 350) {
+    let t;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), wait);
+    };
+  }
+
+  const previewApplyCount = debounce(async () => {
+    if (!applyFiltersCountEl) return;
+    try {
+      const params = updateUrlFromUiAndReload({ reload: false, replace: false }) || new URLSearchParams(location.search);
+      params.set("page", "1");
+      params.set("limit", "1");
+      const res = await fetch(`/api/search?${params.toString()}`, { credentials: "omit" });
+      if (!res.ok) return;
+      const data = await res.json().catch(() => ({}));
+      const total = Number(data?.total);
+      if (!Number.isFinite(total)) return;
+      applyFiltersCountEl.textContent = `(${total.toLocaleString("de-DE")})`;
+    } catch {}
+  }, 350);
+
+  const filterSidebarEl = document.getElementById("filterSidebar");
+  if (filterSidebarEl && applyFiltersCountEl) {
+    const onFilterChange = (e) => {
+      const target = e.target;
+      if (!target || !target.matches("input, select, textarea")) return;
+      applyFiltersCountEl.textContent = "(…)";
+      previewApplyCount();
+    };
+    filterSidebarEl.addEventListener("input", onFilterChange);
+    filterSidebarEl.addEventListener("change", onFilterChange);
+  }
+
   document.getElementById("moreFiltersBtn")?.addEventListener("click", (e) => {
     e.preventDefault();
     const params = updateUrlFromUiAndReload({ reload: false, replace: false }) || new URLSearchParams();

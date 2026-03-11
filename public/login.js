@@ -1,4 +1,16 @@
 document.addEventListener("DOMContentLoaded", () => {
+  // Redirect-Quelle aktualisieren: Referrer überschreibt alte Werte
+  try {
+    const ref = document.referrer ? new URL(document.referrer) : null;
+    const sameOrigin = ref && ref.origin === window.location.origin;
+    const refPath = sameOrigin ? `${ref.pathname}${ref.search}${ref.hash}` : "";
+    if (refPath && !/login\.html/i.test(refPath)) {
+      localStorage.setItem("redirectAfterLogin", refPath);
+    } else if (!refPath) {
+      localStorage.removeItem("redirectAfterLogin");
+    }
+  } catch {}
+
   const loginTab = document.getElementById("loginTab");
   const registerTab = document.getElementById("registerTab");
   const loginContent = document.getElementById("login");

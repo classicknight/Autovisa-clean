@@ -5418,7 +5418,28 @@ app.get("/api/search", async (req, res) => {
           _ps_raw:     { $ifNull: [ "$verkauf_leistung", { $ifNull: [ "$leistung", "$ps" ] } ] },
           _seats_raw:  { $ifNull: [ "$verkauf_sitze", { $ifNull: [ "$sitze", { $ifNull: [ "$seats", "$sitzplaetze" ] } ] } ] },
           _ccm_raw:    { $ifNull: [ "$verkauf_hubraum",  { $ifNull: [ "$hubraum",  "$ccm" ] } ] },
-          _verb_raw:   { $ifNull: [ "$verkauf_verbrauch_kombiniert", { $ifNull: [ "$verbrauch_kombiniert", "$verbrauch" ] } ] },
+          _verb_raw: {
+            $trim: {
+              input: {
+                $concat: [
+                  { $convert: { input: "$verkauf_verbrauch_kombiniert", to: "string", onError: "", onNull: "" } }, " ",
+                  { $convert: { input: "$verbrauch_kombiniert",         to: "string", onError: "", onNull: "" } }, " ",
+                  { $convert: { input: "$verkauf_verbrauch_innerorts",   to: "string", onError: "", onNull: "" } }, " ",
+                  { $convert: { input: "$verkauf_verbrauch_ausserorts",  to: "string", onError: "", onNull: "" } }, " ",
+                  { $convert: { input: "$verbrauch_innerorts",           to: "string", onError: "", onNull: "" } }, " ",
+                  { $convert: { input: "$verbrauch_ausserorts",          to: "string", onError: "", onNull: "" } }, " ",
+                  { $convert: { input: "$verbrauch",                     to: "string", onError: "", onNull: "" } }, " ",
+                  { $convert: { input: "$raw.verkauf_verbrauch_kombiniert", to: "string", onError: "", onNull: "" } }, " ",
+                  { $convert: { input: "$raw.verbrauch_kombiniert",         to: "string", onError: "", onNull: "" } }, " ",
+                  { $convert: { input: "$raw.verkauf_verbrauch_innerorts",   to: "string", onError: "", onNull: "" } }, " ",
+                  { $convert: { input: "$raw.verkauf_verbrauch_ausserorts",  to: "string", onError: "", onNull: "" } }, " ",
+                  { $convert: { input: "$raw.verbrauch_innerorts",           to: "string", onError: "", onNull: "" } }, " ",
+                  { $convert: { input: "$raw.verbrauch_ausserorts",          to: "string", onError: "", onNull: "" } }, " ",
+                  { $convert: { input: "$raw.verbrauch",                     to: "string", onError: "", onNull: "" } }
+                ]
+              }
+            }
+          },
           _halter_raw: { $ifNull: [ "$halter", { $ifNull: [ "$halteranzahl", "$fahrzeughalter" ] } ] }
         }
       },
