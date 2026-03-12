@@ -449,13 +449,29 @@ function setupNavbarShortcuts() {
       return false;
     }
   };
+  const go = async (url) => {
+    window.location.href = (await guard()) ? url : "login.html";
+  };
+
   document.getElementById("saved-cars-link")?.addEventListener("click", async (e) => {
     e.preventDefault();
-    window.location.href = (await guard()) ? "gespeicherte-autos.html" : "login.html";
+    go("übersicht.html#saved-cars");
+  });
+  document.getElementById("messages-link")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    go("übersicht.html#messages-list");
+  });
+  document.getElementById("mobile-saved")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    go("übersicht.html#saved-cars");
+  });
+  document.getElementById("mobile-messages")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    go("übersicht.html#messages-list");
   });
   document.getElementById("my-cars-link")?.addEventListener("click", async (e) => {
     e.preventDefault();
-    window.location.href = (await guard()) ? "meine-autos.html" : "login.html";
+    go("übersicht.html#car-list");
   });
 }
 

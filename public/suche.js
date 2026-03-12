@@ -1146,8 +1146,8 @@ const applyFiltersCountEl = document.getElementById("applyFiltersCount");
         window.location.href = "login.html";
       });
   }
-  document.getElementById("saved-cars-link")?.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndGo("gespeicherte-autos.html"); });
-  document.getElementById("my-cars-link")?.addEventListener("click",    (e) => { e.preventDefault(); checkLoginAndGo("meine-autos.html"); });
+  document.getElementById("saved-cars-link")?.addEventListener("click", (e) => { e.preventDefault(); checkLoginAndGo("übersicht.html#saved-cars"); });
+  document.getElementById("my-cars-link")?.addEventListener("click",    (e) => { e.preventDefault(); checkLoginAndGo("übersicht.html#car-list"); });
 
   // ===== Medien-Slider (wie auf der Startseite) =====
   function initMediaSlider(container) {

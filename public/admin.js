@@ -15,6 +15,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const loadListingBtn = document.getElementById("loadListingBtn");
   const listingDetailEl = document.getElementById("listingDetail");
 
+  const campaignSubjectEl = document.getElementById("campaignSubject");
+  const campaignRecipientsEl = document.getElementById("campaignRecipients");
+  const sendCampaignBtn = document.getElementById("sendCampaignBtn");
+
   const statusEl = document.getElementById("adminStatus");
 
   const state = {
@@ -44,6 +48,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isNaN(date.getTime())) return "–";
     return date.toLocaleDateString("de-DE");
   };
+
+  const parseEmails = (raw) => {
+    const list = String(raw || "")
+      .split(/[\n,;]+/g)
+      .map((v) => v.trim().toLowerCase())
+      .filter(Boolean);
+    return Array.from(new Set(list));
+  };
+
+  const emailOk = (v) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v || ""));
 
   async function fetchJSON(url, opts = {}) {
     const res = await fetch(url, { credentials: "include", ...opts });
@@ -283,6 +297,50 @@ document.addEventListener("DOMContentLoaded", () => {
       listingDetailEl.innerHTML = `<div class="empty-state">Inserat nicht gefunden.</div>`;
       setStatus("Inserat nicht gefunden.");
     }
+  }
+
+  // ---------------- Händler-Mail ----------------
+  if (sendCampaignBtn) {
+    sendCampaignBtn.addEventListener("click", async () => {
+      const subject = String(campaignSubjectEl?.value || "").trim() || "Autovisa Händler – Einladung";
+      const recipients = parseEmails(campaignRecipientsEl?.value || "");
+      const valid = recipients.filter(emailOk);
+
+      if (!valid.length) {
+        setStatus("Bitte gültige Empfänger-E-Mails eintragen.");
+        return;
+      }
+
+      if (valid.length !== recipients.length) {
+        const bad = recipients.length - valid.length;
+        const ok = confirm(`${bad} ungültige Adresse(n) entfernt. Jetzt an ${valid.length} Empfänger senden?`);
+        if (!ok) return;
+      } else if (valid.length > 1) {
+        const ok = confirm(`E-Mail an ${valid.length} Empfänger senden?`);
+        if (!ok) return;
+      }
+
+      sendCampaignBtn.disabled = true;
+      sendCampaignBtn.textContent = "Sende…";
+      try {
+        const res = await fetchJSON("/api/admin/send-haendler-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subject, recipients: valid })
+        });
+        const failed = (res.failed || []).length;
+        if (failed) {
+          setStatus(`Gesendet: ${res.sent || 0}, Fehler: ${failed}.`);
+        } else {
+          setStatus(`Gesendet: ${res.sent || 0}.`);
+        }
+      } catch (e) {
+        setStatus("Versand fehlgeschlagen.");
+      } finally {
+        sendCampaignBtn.disabled = false;
+        sendCampaignBtn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Senden`;
+      }
+    });
   }
 
   // ---------------- Events ----------------

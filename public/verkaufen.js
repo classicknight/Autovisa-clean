@@ -200,12 +200,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     savedCarsLink?.addEventListener("click", (e) => {
       e.preventDefault();
-      window.location.href = isLoggedIn ? "gespeicherte-autos.html" : "login.html";
+      window.location.href = isLoggedIn ? "übersicht.html#saved-cars" : "login.html";
     });
 
     myCarsLink?.addEventListener("click", (e) => {
       e.preventDefault();
-      window.location.href = isLoggedIn ? "meine-autos.html" : "login.html";
+      window.location.href = isLoggedIn ? "übersicht.html#car-list" : "login.html";
     });
   }
 

@@ -3820,6 +3820,63 @@ app.get("/api/admin/user", checkAdmin, async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------
+// === Admin: Händler-E-Mail (Vorlage haendler-email.html)
+// ------------------------------------------------------------
+app.post("/api/admin/send-haendler-email", checkAdmin, async (req, res) => {
+  try {
+    const rawRecipients = req.body?.recipients;
+    const rawSubject = String(req.body?.subject || "").trim() || "Autovisa Händler – Einladung";
+
+    const list = Array.isArray(rawRecipients)
+      ? rawRecipients
+      : String(rawRecipients || "").split(/[\n,;]+/g);
+
+    const emails = Array.from(new Set(
+      list.map(v => String(v || "").trim().toLowerCase()).filter(Boolean)
+    ));
+
+    const emailRegex = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+    const valid = emails.filter(e => emailRegex.test(e));
+
+    if (!valid.length) {
+      return res.status(400).json({ error: "Keine gültigen Empfänger." });
+    }
+
+    const templatePath = path.join(__dirname, "public", "haendler-email.html");
+    if (!fs.existsSync(templatePath)) {
+      return res.status(500).json({ error: "Vorlage nicht gefunden." });
+    }
+
+    const html = fs.readFileSync(templatePath, "utf8");
+    const from = process.env.MAIL_FROM_CAMPAIGN || "Autovisa <kontakt@autovisa.de>";
+    const replyTo = process.env.MAIL_REPLY_TO_CAMPAIGN || "kontakt@autovisa.de";
+
+    let sent = 0;
+    const failed = [];
+
+    for (const email of valid) {
+      try {
+        await transporter.sendMail({
+          from,
+          to: email,
+          subject: rawSubject,
+          html,
+          replyTo
+        });
+        sent += 1;
+      } catch (err) {
+        failed.push({ email, error: String(err?.message || err) });
+      }
+    }
+
+    return res.json({ total: valid.length, sent, failed });
+  } catch (err) {
+    console.error("❌ Fehler bei /api/admin/send-haendler-email:", err);
+    return res.status(500).json({ error: "Serverfehler" });
+  }
+});
+
 
 // ------------------------------------------------------------
 // === Legacy: Inserat speichern/entspeichern
@@ -5266,14 +5323,24 @@ app.get("/api/search", async (req, res) => {
     const ccmMinNum    = parseInt(ccm_min, 10);
     const ccmMaxNum    = parseInt(ccm_max, 10);
 
-    // Verbrauch: bevorzugt verbrauch_max, sonst (falls gesetzt) „verbrauch“
-    const rawVerb = (verbrauch_max != null && verbrauch_max !== "")
-      ? verbrauch_max
-      : (verbrauch != null ? verbrauch : null);
+    // Verbrauch: bevorzugt verbrauch_max, sonst (falls gesetzt) „verbrauch“ + Legacy-Keys
+    const rawVerb = pickParam(
+      verbrauch_max,
+      req.query.verbrauch_max,
+      req.query["verbrauch-bis"],
+      req.query.verbrauch_bis,
+      verbrauch,
+      req.query.verbrauch
+    );
 
-    const verbMaxNum = (rawVerb != null && rawVerb !== "")
-      ? parseFloat(String(rawVerb).replace(",", "."))
-      : NaN;
+    const verbMaxNum = (() => {
+      if (rawVerb == null || rawVerb === "") return NaN;
+      const s = String(rawVerb).replace(",", ".");
+      const n = parseFloat(s);
+      if (Number.isFinite(n)) return n;
+      const m = s.match(/(\d+(?:\.\d+)?)/);
+      return m ? parseFloat(m[1]) : NaN;
+    })();
 
     const halterMaxNum = parseInt(halter_max, 10);
     const seatsMinNum  = parseInt(sitze_min || sitze, 10);
@@ -5355,6 +5422,32 @@ app.get("/api/search", async (req, res) => {
       }
     });
 
+    // Allgemeiner Unwrap (für Verbrauch & ähnliche Felder)
+    const unwrapScalarExpr = (expr) => ({
+      $let: {
+        vars: { v: expr },
+        in: {
+          $cond: [
+            { $eq: [{ $type: "$$v" }, "object"] },
+            {
+              $ifNull: [
+                "$$v.value",
+                { $ifNull: [
+                  "$$v.amount",
+                  { $getField: { field: "$numberDecimal", input: "$$v" } }
+                ] }
+              ]
+            },
+            "$$v"
+          ]
+        }
+      }
+    });
+
+    const toStringSafe = (expr) => ({
+      $convert: { input: unwrapScalarExpr(expr), to: "string", onError: "", onNull: "" }
+    });
+
     // Hilfs-Expr: nur Werte mit Ziffern durchlassen (z.B. "Preis auf Anfrage" blocken)
     const nonEmptyNum = (expr) => {
       const v = unwrapPriceExpr(expr);
@@ -5422,20 +5515,24 @@ app.get("/api/search", async (req, res) => {
             $trim: {
               input: {
                 $concat: [
-                  { $convert: { input: "$verkauf_verbrauch_kombiniert", to: "string", onError: "", onNull: "" } }, " ",
-                  { $convert: { input: "$verbrauch_kombiniert",         to: "string", onError: "", onNull: "" } }, " ",
-                  { $convert: { input: "$verkauf_verbrauch_innerorts",   to: "string", onError: "", onNull: "" } }, " ",
-                  { $convert: { input: "$verkauf_verbrauch_ausserorts",  to: "string", onError: "", onNull: "" } }, " ",
-                  { $convert: { input: "$verbrauch_innerorts",           to: "string", onError: "", onNull: "" } }, " ",
-                  { $convert: { input: "$verbrauch_ausserorts",          to: "string", onError: "", onNull: "" } }, " ",
-                  { $convert: { input: "$verbrauch",                     to: "string", onError: "", onNull: "" } }, " ",
-                  { $convert: { input: "$raw.verkauf_verbrauch_kombiniert", to: "string", onError: "", onNull: "" } }, " ",
-                  { $convert: { input: "$raw.verbrauch_kombiniert",         to: "string", onError: "", onNull: "" } }, " ",
-                  { $convert: { input: "$raw.verkauf_verbrauch_innerorts",   to: "string", onError: "", onNull: "" } }, " ",
-                  { $convert: { input: "$raw.verkauf_verbrauch_ausserorts",  to: "string", onError: "", onNull: "" } }, " ",
-                  { $convert: { input: "$raw.verbrauch_innerorts",           to: "string", onError: "", onNull: "" } }, " ",
-                  { $convert: { input: "$raw.verbrauch_ausserorts",          to: "string", onError: "", onNull: "" } }, " ",
-                  { $convert: { input: "$raw.verbrauch",                     to: "string", onError: "", onNull: "" } }
+                  toStringSafe("$verkauf_verbrauch_kombiniert"), " ",
+                  toStringSafe("$verbrauch_kombiniert"),         " ",
+                  toStringSafe("$verkauf_verbrauch_innerorts"),   " ",
+                  toStringSafe("$verkauf_verbrauch_ausserorts"),  " ",
+                  toStringSafe("$verbrauch_innerorts"),           " ",
+                  toStringSafe("$verbrauch_ausserorts"),          " ",
+                  toStringSafe("$verbrauch"),                     " ",
+                  toStringSafe("$ev_consumption_kwh_100"),         " ",
+                  toStringSafe("$ev_verbrauch_kwh_100"),           " ",
+                  toStringSafe("$raw.verkauf_verbrauch_kombiniert"), " ",
+                  toStringSafe("$raw.verbrauch_kombiniert"),         " ",
+                  toStringSafe("$raw.verkauf_verbrauch_innerorts"),   " ",
+                  toStringSafe("$raw.verkauf_verbrauch_ausserorts"),  " ",
+                  toStringSafe("$raw.verbrauch_innerorts"),           " ",
+                  toStringSafe("$raw.verbrauch_ausserorts"),          " ",
+                  toStringSafe("$raw.verbrauch"),                     " ",
+                  toStringSafe("$raw.ev_consumption_kwh_100"),         " ",
+                  toStringSafe("$raw.ev_verbrauch_kwh_100")
                 ]
               }
             }

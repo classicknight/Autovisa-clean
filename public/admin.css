@@ -95,6 +95,25 @@ input[type="text"] {
   font-family: "Inter", sans-serif;
 }
 
+.admin-textarea {
+  width: 100%;
+  min-height: 140px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #ccd7e1;
+  font-size: 14px;
+  font-family: "Inter", sans-serif;
+  resize: vertical;
+  background: #ffffff;
+  color: #1a2a33;
+}
+
+.admin-textarea:focus {
+  outline: none;
+  border-color: #00b8a9;
+  box-shadow: 0 0 0 3px rgba(0, 184, 169, 0.18);
+}
+
 .btn-primary,
 .btn-ghost {
   display: inline-flex;

@@ -95,6 +95,24 @@
         <div class="empty-state">Gib eine Inserat-ID ein, um Details zu sehen.</div>
       </div>
     </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Händler-Mail</h2>
+        <div class="panel-tools">
+          <input id="campaignSubject" type="text" placeholder="Betreff" value="Autovisa Händler – Einladung" />
+          <button id="sendCampaignBtn" class="btn-primary">
+            <i class="fa-solid fa-paper-plane"></i> Senden
+          </button>
+        </div>
+      </div>
+      <div class="panel-meta">Vorlage: haendler-email.html (wird 1:1 versendet).</div>
+      <textarea
+        id="campaignRecipients"
+        class="admin-textarea"
+        placeholder="Empfänger-E-Mails, eine pro Zeile oder mit Kommas getrennt"
+      ></textarea>
+    </section>
   </main>
 
   <div id="adminStatus" class="admin-status" aria-live="polite"></div>

@@ -565,12 +565,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const bindGoto = (el, hash) => el?.addEventListener("click", e => { e.preventDefault(); gotoUebersicht(hash); });
-  bindGoto(savedCarsLink, "#saved");
-  bindGoto(myCarsLink,    "#my-cars");
-  bindGoto(soldCarsLink,  "#sold");
-  bindGoto(messagesLink,  "#chats");
-  bindGoto(mobileSaved,   "#saved");
-  bindGoto(mobileMsg,     "#chats");
+  bindGoto(savedCarsLink, "#saved-cars");
+  bindGoto(myCarsLink,    "#car-list");
+  bindGoto(soldCarsLink,  "#sold-cars");
+  bindGoto(messagesLink,  "#messages-list");
+  bindGoto(mobileSaved,   "#saved-cars");
+  bindGoto(mobileMsg,     "#messages-list");
 
   const hashLink = document.querySelector('a[href="#search-section"]');
   if (hashLink) {
