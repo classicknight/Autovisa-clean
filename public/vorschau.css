@@ -2093,6 +2093,19 @@
     margin-top: 1rem;
     font-weight: bold;
   }
+
+  .kontakt-popup .kontakt-consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    font-weight: 500;
+    margin-top: 1rem;
+  }
+
+  .kontakt-popup .kontakt-consent input {
+    width: auto;
+    margin: 0.2rem 0 0;
+  }
   
   .kontakt-popup input {
     width: 100%;

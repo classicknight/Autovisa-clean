@@ -1065,6 +1065,7 @@ if (ausstattungContainer) {
         plz: document.getElementById("kontaktPlzInput")?.value.trim() || "",
         ort: document.getElementById("kontaktOrtInput")?.value.trim() || "",
         telefon: document.getElementById("kontaktTelefonInput")?.value.trim() || "",
+        instagram_freigabe: !!document.getElementById("instagramConsent")?.checked,
         verkauf_verkaeufer: (nutzer?.rolle === "haendler") ? "Händler" : "Privatverkäufer",
         verkauf_name: document.getElementById("kontaktNameInput")?.value.trim() || "",
         standort: `${document.getElementById("kontaktPlzInput")?.value.trim() || ""} ${document
@@ -1119,7 +1120,6 @@ if (ausstattungContainer) {
   // Geo-Suggest für Kontaktformular
   setupGeoSuggest();
 });
-
 
 
 

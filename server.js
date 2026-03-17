@@ -59,47 +59,6 @@ function decodeSession(token) {
 }
 
 /* =========================
-   Mobile.de Credentials (AES-GCM)
-========================= */
-const MOBILE_API_SECRET = process.env.MOBILE_API_SECRET || "";
-const MOBILE_API_KEY = MOBILE_API_SECRET
-  ? crypto.createHash("sha256").update(MOBILE_API_SECRET).digest()
-  : null;
-if (!MOBILE_API_SECRET) {
-  console.warn("⚠️ MOBILE_API_SECRET fehlt – Mobile.de Credentials können nicht gespeichert werden.");
-}
-
-function encryptMobileValue(value) {
-  if (!MOBILE_API_KEY) throw new Error("MOBILE_API_SECRET fehlt");
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv("aes-256-gcm", MOBILE_API_KEY, iv);
-  const enc = Buffer.concat([cipher.update(String(value || ""), "utf8"), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return `${iv.toString("base64")}.${tag.toString("base64")}.${enc.toString("base64")}`;
-}
-
-function decryptMobileValue(payload) {
-  if (!MOBILE_API_KEY) throw new Error("MOBILE_API_SECRET fehlt");
-  if (!payload) return "";
-  const [ivB64, tagB64, dataB64] = String(payload).split(".");
-  if (!ivB64 || !tagB64 || !dataB64) return "";
-  const iv = Buffer.from(ivB64, "base64");
-  const tag = Buffer.from(tagB64, "base64");
-  const data = Buffer.from(dataB64, "base64");
-  const decipher = crypto.createDecipheriv("aes-256-gcm", MOBILE_API_KEY, iv);
-  decipher.setAuthTag(tag);
-  const dec = Buffer.concat([decipher.update(data), decipher.final()]);
-  return dec.toString("utf8");
-}
-
-function maskCredential(value) {
-  const s = String(value || "");
-  if (!s) return "";
-  if (s.length <= 4) return "*".repeat(s.length);
-  return `${s.slice(0, 2)}***${s.slice(-2)}`;
-}
-
-/* =========================
    Öffnungszeiten Helpers
 ========================= */
 const OPENING_DAY_LABELS = {
@@ -382,10 +341,6 @@ client.connect()
     await db.collection("geocache").createIndex({ key: 1 }, { unique: true });
     await db.collection("savedInserate").createIndex(
       { userId: 1, fahrzeugId: 1 },
-      { unique: true }
-    );
-    await db.collection("mobileCredentials").createIndex(
-      { userId: 1 },
       { unique: true }
     );
     await db.collection("inserate").createIndex(
@@ -2624,162 +2579,6 @@ app.post("/profil/update", checkLogin, async (req, res) => {
 });
 
 
-/* =========================
-   Mobile.de Integration (Credentials + Status)
-========================= */
-app.get("/api/mobile-de/status", checkLogin, async (req, res) => {
-  try {
-    const coll = db.collection("mobileCredentials");
-    const doc = await coll.findOne({ userId: req.nutzer.id });
-    if (!doc) {
-      return res.json({
-        connected: false,
-        hasPassword: false,
-        usernameMasked: "",
-        sellerId: "",
-        lastTestAt: null,
-        lastTestStatus: "",
-        lastTestMessage: "",
-        lastSyncAt: null,
-        lastSyncStatus: "",
-        lastSyncMessage: ""
-      });
-    }
-
-    return res.json({
-      connected: Boolean(doc.usernameEnc && doc.passwordEnc),
-      hasPassword: Boolean(doc.passwordEnc),
-      usernameMasked: doc.usernameMasked || "",
-      sellerId: doc.sellerId || "",
-      lastTestAt: doc.lastTestAt || null,
-      lastTestStatus: doc.lastTestStatus || "",
-      lastTestMessage: doc.lastTestMessage || "",
-      lastSyncAt: doc.lastSyncAt || null,
-      lastSyncStatus: doc.lastSyncStatus || "",
-      lastSyncMessage: doc.lastSyncMessage || ""
-    });
-  } catch (err) {
-    console.error("❌ Fehler bei /api/mobile-de/status:", err);
-    return res.status(500).json({ error: "Status konnte nicht geladen werden." });
-  }
-});
-
-app.post("/api/mobile-de/credentials", checkLogin, async (req, res) => {
-  try {
-    if (!MOBILE_API_KEY) {
-      return res.status(500).json({ error: "MOBILE_API_SECRET fehlt in der Server-Konfiguration." });
-    }
-
-    const { username, password, sellerId } = req.body || {};
-    const usernameValue = String(username || "").trim();
-    const passwordValue = String(password || "").trim();
-    const sellerIdValue = sellerId !== undefined ? String(sellerId || "").trim() : undefined;
-
-    const coll = db.collection("mobileCredentials");
-    const existing = await coll.findOne({ userId: req.nutzer.id });
-
-    if (!usernameValue && !existing?.usernameEnc) {
-      return res.status(400).json({ error: "API-Username fehlt." });
-    }
-    if (!passwordValue && !existing?.passwordEnc) {
-      return res.status(400).json({ error: "API-Passwort fehlt." });
-    }
-
-    const update = {
-      userId: req.nutzer.id,
-      updatedAt: new Date()
-    };
-    if (!existing) update.createdAt = new Date();
-
-    if (usernameValue) {
-      update.usernameEnc = encryptMobileValue(usernameValue);
-      update.usernameMasked = maskCredential(usernameValue);
-    }
-
-    if (passwordValue) {
-      update.passwordEnc = encryptMobileValue(passwordValue);
-    }
-
-    if (sellerIdValue !== undefined) {
-      update.sellerId = sellerIdValue;
-    }
-
-    await coll.updateOne({ userId: req.nutzer.id }, { $set: update }, { upsert: true });
-
-    return res.json({
-      ok: true,
-      connected: true,
-      hasPassword: Boolean(passwordValue || existing?.passwordEnc),
-      usernameMasked: update.usernameMasked || existing?.usernameMasked || "",
-      sellerId: update.sellerId ?? existing?.sellerId ?? ""
-    });
-  } catch (err) {
-    console.error("❌ Fehler bei /api/mobile-de/credentials:", err);
-    return res.status(500).json({ error: "Speichern fehlgeschlagen." });
-  }
-});
-
-app.delete("/api/mobile-de/credentials", checkLogin, async (req, res) => {
-  try {
-    await db.collection("mobileCredentials").deleteOne({ userId: req.nutzer.id });
-    return res.json({ ok: true });
-  } catch (err) {
-    console.error("❌ Fehler bei /api/mobile-de/credentials DELETE:", err);
-    return res.status(500).json({ error: "Verbindung konnte nicht getrennt werden." });
-  }
-});
-
-app.post("/api/mobile-de/test", checkLogin, async (req, res) => {
-  try {
-    const coll = db.collection("mobileCredentials");
-    const doc = await coll.findOne({ userId: req.nutzer.id });
-    if (!doc?.usernameEnc || !doc?.passwordEnc) {
-      return res.status(400).json({ error: "Bitte zuerst Zugangsdaten speichern." });
-    }
-
-    const now = new Date();
-    const status = "local";
-    const message =
-      "Zugangsdaten gespeichert. Ein echter API-Test ist erst nach Freischaltung möglich.";
-
-    await coll.updateOne(
-      { userId: req.nutzer.id },
-      { $set: { lastTestAt: now, lastTestStatus: status, lastTestMessage: message } }
-    );
-
-    return res.json({ ok: true, at: now, status, message });
-  } catch (err) {
-    console.error("❌ Fehler bei /api/mobile-de/test:", err);
-    return res.status(500).json({ error: "Test fehlgeschlagen." });
-  }
-});
-
-app.post("/api/mobile-de/sync", checkLogin, async (req, res) => {
-  try {
-    const coll = db.collection("mobileCredentials");
-    const doc = await coll.findOne({ userId: req.nutzer.id });
-    if (!doc?.usernameEnc || !doc?.passwordEnc) {
-      return res.status(400).json({ error: "Bitte zuerst Zugangsdaten speichern." });
-    }
-
-    const now = new Date();
-    const status = "pending";
-    const message =
-      "Sync ist vorbereitet. Die echte Synchronisation folgt nach Freischaltung der Mobile.de API.";
-
-    await coll.updateOne(
-      { userId: req.nutzer.id },
-      { $set: { lastSyncAt: now, lastSyncStatus: status, lastSyncMessage: message } }
-    );
-
-    return res.json({ ok: false, at: now, status, message });
-  } catch (err) {
-    console.error("❌ Fehler bei /api/mobile-de/sync:", err);
-    return res.status(500).json({ error: "Sync fehlgeschlagen." });
-  }
-});
-
-
 // ------------------------------------------------------------
 // Multer-Instanz für Logo-Upload (nutzt storage aus Teil 1)
 // ------------------------------------------------------------
@@ -3849,7 +3648,7 @@ app.post("/api/admin/send-haendler-email", checkAdmin, async (req, res) => {
     }
 
     const html = fs.readFileSync(templatePath, "utf8");
-    const from = process.env.MAIL_FROM_CAMPAIGN || "Autovisa <kontakt@autovisa.de>";
+    const from = process.env.MAIL_FROM_CAMPAIGN || "Autovisa <no-reply@autovisa.de>";
     const replyTo = process.env.MAIL_REPLY_TO_CAMPAIGN || "kontakt@autovisa.de";
 
     let sent = 0;
@@ -4469,6 +4268,12 @@ async function publishFromDraft(req, res, { requireId = false } = {}) {
       ...payload
     } = draft;
 
+    const instaRaw = req.body?.instagram_freigabe;
+    const instaConsent =
+      (instaRaw === undefined || instaRaw === null || instaRaw === "")
+        ? (payload.instagram_freigabe ?? false)
+        : toBoolLoose(instaRaw);
+
     const neuesInserat = {
       ...payload,
 
@@ -4488,6 +4293,8 @@ async function publishFromDraft(req, res, { requireId = false } = {}) {
         : (payload.standort || "Nicht angegeben"),
 
       telefon: req.body?.telefon || payload.telefon || "",
+
+      instagram_freigabe: instaConsent,
 
       seller,
     };
@@ -4605,6 +4412,12 @@ app.put("/veroeffentlichen/:id", checkLogin, async (req, res) => {
       ...payload
     } = draft;
 
+    const instaRaw = req.body?.instagram_freigabe;
+    const instaConsent =
+      (instaRaw === undefined || instaRaw === null || instaRaw === "")
+        ? (payload.instagram_freigabe ?? false)
+        : toBoolLoose(instaRaw);
+
     const neuesInserat = {
       ...payload,
 
@@ -4622,6 +4435,8 @@ app.put("/veroeffentlichen/:id", checkLogin, async (req, res) => {
         : (payload.standort || "Nicht angegeben"),
 
       telefon: req.body?.telefon || payload.telefon || "",
+
+      instagram_freigabe: instaConsent,
 
       seller,
       updatedAt: new Date()
@@ -5522,6 +5337,9 @@ app.get("/api/search", async (req, res) => {
                   toStringSafe("$verbrauch_innerorts"),           " ",
                   toStringSafe("$verbrauch_ausserorts"),          " ",
                   toStringSafe("$verbrauch"),                     " ",
+                  toStringSafe("$verbrauch.kombiniert"),          " ",
+                  toStringSafe("$verbrauch.innerorts"),           " ",
+                  toStringSafe("$verbrauch.ausserorts"),          " ",
                   toStringSafe("$ev_consumption_kwh_100"),         " ",
                   toStringSafe("$ev_verbrauch_kwh_100"),           " ",
                   toStringSafe("$raw.verkauf_verbrauch_kombiniert"), " ",
@@ -5531,6 +5349,9 @@ app.get("/api/search", async (req, res) => {
                   toStringSafe("$raw.verbrauch_innerorts"),           " ",
                   toStringSafe("$raw.verbrauch_ausserorts"),          " ",
                   toStringSafe("$raw.verbrauch"),                     " ",
+                  toStringSafe("$raw.verbrauch.kombiniert"),          " ",
+                  toStringSafe("$raw.verbrauch.innerorts"),           " ",
+                  toStringSafe("$raw.verbrauch.ausserorts"),          " ",
                   toStringSafe("$raw.ev_consumption_kwh_100"),         " ",
                   toStringSafe("$raw.ev_verbrauch_kwh_100")
                 ]
