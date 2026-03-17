@@ -4736,7 +4736,7 @@ app.post("/api/documents", checkLogin, async (req, res) => {
 
       const existing = await db.collection("dokumente").findOne({ _id: oid });
       if (!existing) return res.status(404).json({ error: "Dokument nicht gefunden." });
-      if (!isAdmin && String(existing.ownerId || \"\") !== String(req.nutzer.id || \"\")) {
+      if (!isAdmin && String(existing.ownerId || "") !== String(req.nutzer.id || "")) {
         return res.status(403).json({ error: "Kein Zugriff." });
       }
 
