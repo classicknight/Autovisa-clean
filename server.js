@@ -4630,6 +4630,137 @@ app.get("/api/inserat/:id/edit-data", checkLogin, async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------
+// Dokumente (Rechnung, Vertrag, Uebergabe)
+// ------------------------------------------------------------
+app.get("/api/documents", checkLogin, async (req, res) => {
+  try {
+    if (!db) return res.status(503).json({ error: "DB nicht bereit." });
+
+    const listingId = String(req.query.listingId || "").trim();
+    if (!listingId) return res.status(400).json({ error: "listingId fehlt." });
+
+    let inserat = null;
+    try { inserat = await db.collection("inserate").findOne({ _id: new ObjectId(listingId) }); } catch {}
+    if (!inserat) inserat = await db.collection("inserate").findOne({ id: listingId });
+    if (!inserat) return res.status(404).json({ error: "Inserat nicht gefunden." });
+
+    const ownerId = inserat.verkaeuferId || inserat.nutzerId;
+    const isAdmin = isAdminRole(req.nutzer?.role);
+    if (!isAdmin && ownerId !== req.nutzer.id) {
+      return res.status(403).json({ error: "Kein Zugriff." });
+    }
+
+    const docs = await db.collection("dokumente")
+      .find({ listingId: String(listingId) })
+      .project({ html: 0 })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.json({ documents: docs });
+  } catch (err) {
+    console.error("❌ /api/documents error:", err);
+    res.status(500).json({ error: "Serverfehler." });
+  }
+});
+
+app.get("/api/documents/:id", checkLogin, async (req, res) => {
+  try {
+    if (!db) return res.status(503).json({ error: "DB nicht bereit." });
+
+    let oid = null;
+    try { oid = new ObjectId(String(req.params.id)); } catch {}
+    if (!oid) return res.status(400).json({ error: "Ungültige ID." });
+
+    const doc = await db.collection("dokumente").findOne({ _id: oid });
+    if (!doc) return res.status(404).json({ error: "Dokument nicht gefunden." });
+
+    const isAdmin = isAdminRole(req.nutzer?.role);
+    if (!isAdmin && String(doc.ownerId || "") !== String(req.nutzer.id || "")) {
+      return res.status(403).json({ error: "Kein Zugriff." });
+    }
+
+    res.json({ doc });
+  } catch (err) {
+    console.error("❌ /api/documents/:id error:", err);
+    res.status(500).json({ error: "Serverfehler." });
+  }
+});
+
+app.post("/api/documents", checkLogin, async (req, res) => {
+  try {
+    if (!db) return res.status(503).json({ error: "DB nicht bereit." });
+
+    const {
+      id,
+      listingId,
+      type,
+      docNumber,
+      docDate,
+      payload,
+      html
+    } = req.body || {};
+
+    const listingIdStr = String(listingId || "").trim();
+    if (!listingIdStr) return res.status(400).json({ error: "listingId fehlt." });
+    if (!type) return res.status(400).json({ error: "Dokumenttyp fehlt." });
+
+    let inserat = null;
+    try { inserat = await db.collection("inserate").findOne({ _id: new ObjectId(listingIdStr) }); } catch {}
+    if (!inserat) inserat = await db.collection("inserate").findOne({ id: listingIdStr });
+    if (!inserat) return res.status(404).json({ error: "Inserat nicht gefunden." });
+
+    const ownerId = inserat.verkaeuferId || inserat.nutzerId;
+    const isAdmin = isAdminRole(req.nutzer?.role);
+    if (!isAdmin && ownerId !== req.nutzer.id) {
+      return res.status(403).json({ error: "Kein Zugriff." });
+    }
+
+    const baseDoc = {
+      listingId: String(listingIdStr),
+      ownerId: String(ownerId || req.nutzer.id || ""),
+      type: String(type || ""),
+      docNumber: String(docNumber || ""),
+      docDate: docDate || null,
+      payload: payload || {},
+      html: html || "",
+      listingTitle: inserat.titel || [inserat.marke, inserat.modell].filter(Boolean).join(" ").trim()
+    };
+
+    const now = new Date();
+
+    if (id) {
+      let oid = null;
+      try { oid = new ObjectId(String(id)); } catch {}
+      if (!oid) return res.status(400).json({ error: "Ungültige Dokument-ID." });
+
+      const existing = await db.collection("dokumente").findOne({ _id: oid });
+      if (!existing) return res.status(404).json({ error: "Dokument nicht gefunden." });
+      if (!isAdmin && String(existing.ownerId || \"\") !== String(req.nutzer.id || \"\")) {
+        return res.status(403).json({ error: "Kein Zugriff." });
+      }
+
+      await db.collection("dokumente").updateOne(
+        { _id: oid },
+        { $set: { ...baseDoc, updatedAt: now } }
+      );
+
+      return res.json({ ok: true, id: String(oid) });
+    }
+
+    const insert = await db.collection("dokumente").insertOne({
+      ...baseDoc,
+      createdAt: now,
+      updatedAt: now
+    });
+
+    return res.json({ ok: true, id: String(insert.insertedId) });
+  } catch (err) {
+    console.error("❌ /api/documents POST error:", err);
+    res.status(500).json({ error: "Serverfehler." });
+  }
+});
+
 
 // ------------------------------------------------------------
 // Healthcheck & Server starten (ganz ans Ende)
@@ -5142,6 +5273,9 @@ app.get("/api/search", async (req, res) => {
     const rawVerb = pickParam(
       verbrauch_max,
       req.query.verbrauch_max,
+      req.query.verbrauchMax,
+      req.query["verbrauchMax"],
+      req.query["verbrauch-max"],
       req.query["verbrauch-bis"],
       req.query.verbrauch_bis,
       verbrauch,
@@ -5340,6 +5474,10 @@ app.get("/api/search", async (req, res) => {
                   toStringSafe("$verbrauch.kombiniert"),          " ",
                   toStringSafe("$verbrauch.innerorts"),           " ",
                   toStringSafe("$verbrauch.ausserorts"),          " ",
+                  toStringSafe("$wltp_kombiniert"),               " ",
+                  toStringSafe("$wltp.kombiniert"),               " ",
+                  toStringSafe("$nefz_kombiniert"),               " ",
+                  toStringSafe("$nefz.kombiniert"),               " ",
                   toStringSafe("$ev_consumption_kwh_100"),         " ",
                   toStringSafe("$ev_verbrauch_kwh_100"),           " ",
                   toStringSafe("$raw.verkauf_verbrauch_kombiniert"), " ",
@@ -5352,6 +5490,10 @@ app.get("/api/search", async (req, res) => {
                   toStringSafe("$raw.verbrauch.kombiniert"),          " ",
                   toStringSafe("$raw.verbrauch.innerorts"),           " ",
                   toStringSafe("$raw.verbrauch.ausserorts"),          " ",
+                  toStringSafe("$raw.wltp_kombiniert"),               " ",
+                  toStringSafe("$raw.wltp.kombiniert"),               " ",
+                  toStringSafe("$raw.nefz_kombiniert"),               " ",
+                  toStringSafe("$raw.nefz.kombiniert"),               " ",
                   toStringSafe("$raw.ev_consumption_kwh_100"),         " ",
                   toStringSafe("$raw.ev_verbrauch_kwh_100")
                 ]

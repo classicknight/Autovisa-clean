@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="de" class="no-js">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autovisa – Dokumente</title>
+
+  <link rel="stylesheet" href="dokumente.css?v=2026-03-17-1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet" />
+  <link rel="icon" href="/favicon.ico?v=3">
+</head>
+<body>
+  <div class="docs-page">
+    <header class="docs-header">
+      <div class="docs-header-left">
+        <button class="btn-soft" id="backToOverview" type="button"><i class="fas fa-arrow-left"></i> Zurück</button>
+        <div>
+          <h1>Dokumente</h1>
+          <p class="docs-subtitle" id="docListingTitle">–</p>
+        </div>
+      </div>
+      <div class="docs-header-actions">
+        <button class="btn-soft" id="loadSavedDocs" type="button"><i class="fas fa-folder-open"></i> Gespeichert</button>
+        <button class="btn-primary" id="saveDoc" type="button"><i class="fas fa-save"></i> Speichern</button>
+        <button class="btn-primary" id="printDoc" type="button"><i class="fas fa-print"></i> Drucken / PDF</button>
+      </div>
+    </header>
+
+    <div class="docs-layout">
+      <aside class="docs-form" id="docsForm">
+        <div class="form-section">
+          <h2>Dokument</h2>
+          <label for="docType">Typ</label>
+          <select id="docType">
+            <option value="invoice">Rechnung</option>
+            <option value="proforma">Proforma / Anzahlung</option>
+            <option value="credit">Gutschrift / Storno</option>
+            <option value="contract">Kaufvertrag</option>
+            <option value="delivery">Übergabeprotokoll</option>
+          </select>
+
+          <label for="docNumber">Dokumentnummer</label>
+          <input id="docNumber" type="text" placeholder="z. B. RE-2026-001" />
+
+          <div class="form-grid">
+            <div>
+              <label for="docDate">Datum</label>
+              <input id="docDate" type="date" />
+            </div>
+            <div>
+              <label for="deliveryDate">Leistungs-/Übergabedatum</label>
+              <input id="deliveryDate" type="date" />
+            </div>
+          </div>
+
+          <label for="taxCase">Steuerfall</label>
+          <select id="taxCase">
+            <option value="standard">Regelbesteuerung (MwSt)</option>
+            <option value="differenz">Differenzbesteuerung (§25a)</option>
+            <option value="reverse">Reverse Charge (§13b)</option>
+            <option value="igl">Innergemeinschaftliche Lieferung</option>
+            <option value="export">Export / Steuerfrei</option>
+          </select>
+        </div>
+
+        <div class="form-section">
+          <h2>Verkaeufer</h2>
+          <label for="sellerCompany">Firma</label>
+          <input id="sellerCompany" type="text" placeholder="Firmenname" />
+
+          <label for="sellerName">Name</label>
+          <input id="sellerName" type="text" placeholder="Ansprechpartner" />
+
+          <div class="form-grid">
+            <div>
+              <label for="sellerStreet">Straße</label>
+              <input id="sellerStreet" type="text" placeholder="Straße" />
+            </div>
+            <div>
+              <label for="sellerHouse">Nr.</label>
+              <input id="sellerHouse" type="text" placeholder="Nr." />
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div>
+              <label for="sellerZip">PLZ</label>
+              <input id="sellerZip" type="text" placeholder="PLZ" />
+            </div>
+            <div>
+              <label for="sellerCity">Ort</label>
+              <input id="sellerCity" type="text" placeholder="Ort" />
+            </div>
+          </div>
+
+          <label for="sellerCountry">Land</label>
+          <input id="sellerCountry" type="text" placeholder="Deutschland" />
+
+          <div class="form-grid">
+            <div>
+              <label for="sellerTaxNumber">Steuernummer</label>
+              <input id="sellerTaxNumber" type="text" placeholder="Steuernummer" />
+            </div>
+            <div>
+              <label for="sellerVatId">USt-IdNr.</label>
+              <input id="sellerVatId" type="text" placeholder="DE123456789" />
+            </div>
+          </div>
+
+          <label for="sellerEmail">E-Mail</label>
+          <input id="sellerEmail" type="email" placeholder="info@firma.de" />
+
+          <label for="sellerPhone">Telefon</label>
+          <input id="sellerPhone" type="text" placeholder="+49 ..." />
+        </div>
+
+        <div class="form-section">
+          <h2>Käufer</h2>
+          <label for="buyerType">Kundentyp</label>
+          <select id="buyerType">
+            <option value="b2c">Privat (B2C)</option>
+            <option value="b2b">Firma (B2B)</option>
+          </select>
+
+          <label for="buyerCompany">Firma</label>
+          <input id="buyerCompany" type="text" placeholder="Firma (bei B2B)" />
+
+          <label for="buyerName">Name</label>
+          <input id="buyerName" type="text" placeholder="Vor- und Nachname" />
+
+          <div class="form-grid">
+            <div>
+              <label for="buyerStreet">Straße</label>
+              <input id="buyerStreet" type="text" placeholder="Straße" />
+            </div>
+            <div>
+              <label for="buyerHouse">Nr.</label>
+              <input id="buyerHouse" type="text" placeholder="Nr." />
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div>
+              <label for="buyerZip">PLZ</label>
+              <input id="buyerZip" type="text" placeholder="PLZ" />
+            </div>
+            <div>
+              <label for="buyerCity">Ort</label>
+              <input id="buyerCity" type="text" placeholder="Ort" />
+            </div>
+          </div>
+
+          <label for="buyerCountry">Land</label>
+          <input id="buyerCountry" type="text" placeholder="Deutschland" />
+
+          <label for="buyerVatId">USt-IdNr. (nur B2B)</label>
+          <input id="buyerVatId" type="text" placeholder="DE123456789" />
+
+          <label for="buyerEmail">E-Mail</label>
+          <input id="buyerEmail" type="email" placeholder="kunde@email.de" />
+        </div>
+
+        <div class="form-section">
+          <h2>Fahrzeug</h2>
+          <div class="form-grid">
+            <div>
+              <label for="vehicleBrand">Marke</label>
+              <input id="vehicleBrand" type="text" />
+            </div>
+            <div>
+              <label for="vehicleModel">Modell</label>
+              <input id="vehicleModel" type="text" />
+            </div>
+          </div>
+
+          <label for="vehicleVariant">Variante</label>
+          <input id="vehicleVariant" type="text" />
+
+          <div class="form-grid">
+            <div>
+              <label for="vehicleVin">FIN / VIN</label>
+              <input id="vehicleVin" type="text" />
+            </div>
+            <div>
+              <label for="vehicleFirstReg">Erstzulassung</label>
+              <input id="vehicleFirstReg" type="text" placeholder="MM/JJJJ" />
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div>
+              <label for="vehicleMileage">Kilometerstand</label>
+              <input id="vehicleMileage" type="text" placeholder="z. B. 45.000" />
+            </div>
+            <div>
+              <label for="vehicleFuel">Kraftstoff</label>
+              <input id="vehicleFuel" type="text" />
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div>
+              <label for="vehiclePower">Leistung (PS)</label>
+              <input id="vehiclePower" type="text" />
+            </div>
+            <div>
+              <label for="vehicleColor">Farbe</label>
+              <input id="vehicleColor" type="text" />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h2>Preis</h2>
+          <div class="form-grid">
+            <div>
+              <label for="priceGross">Bruttopreis (€)</label>
+              <input id="priceGross" type="text" placeholder="z. B. 12.900" />
+            </div>
+            <div>
+              <label for="vatRate">MwSt-Satz (%)</label>
+              <input id="vatRate" type="number" step="0.1" value="19" />
+            </div>
+          </div>
+          <label for="priceDeposit">Anzahlung (€)</label>
+          <input id="priceDeposit" type="text" placeholder="optional" />
+        </div>
+
+        <div class="form-section">
+          <h2>Zusatz</h2>
+          <label for="accessories">Zubehör / Übergabeumfang</label>
+          <textarea id="accessories" rows="3" placeholder="z. B. 2 Schlüssel, Winterräder, Serviceheft"></textarea>
+
+          <label for="notes">Hinweise / Vereinbarungen</label>
+          <textarea id="notes" rows="4" placeholder="z. B. Gewährleistung, Zahlungsziel, Besonderheiten"></textarea>
+        </div>
+      </aside>
+
+      <section class="docs-preview">
+        <div class="preview-card">
+          <div class="preview-header">
+            <h2>Vorschau</h2>
+            <p class="preview-hint">Die Vorschau aktualisiert sich automatisch.</p>
+          </div>
+          <div id="docPreview" class="doc-preview"></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="saved-docs-modal hidden" id="savedDocsModal" role="dialog" aria-modal="true" aria-labelledby="savedDocsTitle">
+      <div class="saved-docs-backdrop" data-close></div>
+      <div class="saved-docs-card">
+        <div class="saved-docs-head">
+          <h3 id="savedDocsTitle">Gespeicherte Dokumente</h3>
+          <button class="btn-soft" type="button" id="closeSavedDocs">Schließen</button>
+        </div>
+        <div id="savedDocsList" class="saved-docs-list">
+          <p class="muted">Noch keine Dokumente gespeichert.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="dokumente.js?v=2026-03-17-1"></script>
+</body>
+</html>
