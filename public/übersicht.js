@@ -1545,7 +1545,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const actionModal = document.getElementById("listingActionModal");
   const markSoldBtn = document.getElementById("markSoldBtn");
   const deleteListingBtn = document.getElementById("deleteListingBtn");
-  const listingDocsBtn = document.getElementById("listingDocsBtn");
   const cancelListingBtn = document.getElementById("cancelListingBtn");
   const modalBackdrop = actionModal?.querySelector("[data-close]");
   const listingActionName = document.getElementById("listingActionName");
@@ -1633,26 +1632,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (cancelListingBtn) cancelListingBtn.addEventListener("click", closeListingActionModal);
   if (modalBackdrop) modalBackdrop.addEventListener("click", closeListingActionModal);
-
-  if (listingDocsBtn) {
-    listingDocsBtn.addEventListener("click", () => {
-      const id = String(listingActionState.id || "").trim();
-      if (!id) return closeListingActionModal();
-
-      const inserat = inseratById.get(id);
-      if (inserat) {
-        try {
-          localStorage.setItem("docInserat", JSON.stringify(inserat));
-        } catch {}
-      }
-      try {
-        localStorage.setItem("docListingId", id);
-        localStorage.setItem("docReturnUrl", "übersicht.html");
-      } catch {}
-
-      window.location.href = `dokumente.html?id=${encodeURIComponent(id)}`;
-    });
-  }
 
   if (markSoldBtn) {
     markSoldBtn.addEventListener("click", async () => {

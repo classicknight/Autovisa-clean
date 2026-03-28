@@ -4630,6 +4630,7 @@ app.get("/api/inserat/:id/edit-data", checkLogin, async (req, res) => {
   }
 });
 
+
 // ------------------------------------------------------------
 // Dokumente (Rechnung, Vertrag, Uebergabe)
 // ------------------------------------------------------------
@@ -4760,7 +4761,6 @@ app.post("/api/documents", checkLogin, async (req, res) => {
     res.status(500).json({ error: "Serverfehler." });
   }
 });
-
 
 // ------------------------------------------------------------
 // Healthcheck & Server starten (ganz ans Ende)

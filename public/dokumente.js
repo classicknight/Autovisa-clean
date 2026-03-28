@@ -13,17 +13,6 @@
     docDate: byId("docDate"),
     deliveryDate: byId("deliveryDate"),
     taxCase: byId("taxCase"),
-    sellerCompany: byId("sellerCompany"),
-    sellerName: byId("sellerName"),
-    sellerStreet: byId("sellerStreet"),
-    sellerHouse: byId("sellerHouse"),
-    sellerZip: byId("sellerZip"),
-    sellerCity: byId("sellerCity"),
-    sellerCountry: byId("sellerCountry"),
-    sellerTaxNumber: byId("sellerTaxNumber"),
-    sellerVatId: byId("sellerVatId"),
-    sellerEmail: byId("sellerEmail"),
-    sellerPhone: byId("sellerPhone"),
     buyerType: byId("buyerType"),
     buyerCompany: byId("buyerCompany"),
     buyerName: byId("buyerName"),
@@ -128,17 +117,14 @@
     return `${prefix}-${y}-${tail}`;
   }
 
-  function buildSellerBlock(payload) {
+  function buildSellerBlock() {
     const lines = [
-      payload.sellerCompany || payload.sellerName,
-      payload.sellerCompany ? payload.sellerName : "",
-      [payload.sellerStreet, payload.sellerHouse].filter(Boolean).join(" "),
-      [payload.sellerZip, payload.sellerCity].filter(Boolean).join(" "),
-      payload.sellerCountry || "Deutschland",
-      payload.sellerTaxNumber ? `Steuernr.: ${payload.sellerTaxNumber}` : "",
-      payload.sellerVatId ? `USt-IdNr.: ${payload.sellerVatId}` : "",
-      payload.sellerEmail ? `E-Mail: ${payload.sellerEmail}` : "",
-      payload.sellerPhone ? `Tel.: ${payload.sellerPhone}` : ""
+      state.seller.company || state.seller.name,
+      [state.seller.street, state.seller.house].filter(Boolean).join(" "),
+      [state.seller.zip, state.seller.city].filter(Boolean).join(" "),
+      state.seller.country || "Deutschland",
+      state.seller.email ? `E-Mail: ${state.seller.email}` : "",
+      state.seller.phone ? `Tel.: ${state.seller.phone}` : ""
     ].filter(Boolean);
     return lines.map(escapeHTML).join("<br>");
   }
@@ -206,7 +192,7 @@
     const sign = payload.docType === "credit" ? -1 : 1;
 
     const taxNote = buildTaxNote(taxCase);
-    const sellerBlock = buildSellerBlock(payload);
+    const sellerBlock = buildSellerBlock();
     const buyerBlock = buildBuyerBlock(payload);
 
     const dateLabel = payload.docDate || "";
@@ -291,7 +277,7 @@
 
   function buildContractHtml(payload) {
     const vehicle = buildVehicleRow(payload);
-    const sellerBlock = buildSellerBlock(payload);
+    const sellerBlock = buildSellerBlock();
     const buyerBlock = buildBuyerBlock(payload);
     return `
       <div class="doc">
@@ -337,7 +323,7 @@
 
   function buildDeliveryHtml(payload) {
     const vehicle = buildVehicleRow(payload);
-    const sellerBlock = buildSellerBlock(payload);
+    const sellerBlock = buildSellerBlock();
     const buyerBlock = buildBuyerBlock(payload);
     return `
       <div class="doc">
@@ -391,17 +377,6 @@
       docDate: elements.docDate?.value || "",
       deliveryDate: elements.deliveryDate?.value || "",
       taxCase: elements.taxCase?.value || "standard",
-      sellerCompany: elements.sellerCompany?.value || "",
-      sellerName: elements.sellerName?.value || "",
-      sellerStreet: elements.sellerStreet?.value || "",
-      sellerHouse: elements.sellerHouse?.value || "",
-      sellerZip: elements.sellerZip?.value || "",
-      sellerCity: elements.sellerCity?.value || "",
-      sellerCountry: elements.sellerCountry?.value || "",
-      sellerTaxNumber: elements.sellerTaxNumber?.value || "",
-      sellerVatId: elements.sellerVatId?.value || "",
-      sellerEmail: elements.sellerEmail?.value || "",
-      sellerPhone: elements.sellerPhone?.value || "",
       buyerType: elements.buyerType?.value || "b2c",
       buyerCompany: elements.buyerCompany?.value || "",
       buyerName: elements.buyerName?.value || "",
@@ -513,18 +488,6 @@
         vatId: data.ustid || data.ust_id || "",
         taxNumber: data.steuernummer || ""
       };
-
-      setIfEmpty(elements.sellerCompany, state.seller.company);
-      setIfEmpty(elements.sellerName, state.seller.name);
-      setIfEmpty(elements.sellerStreet, state.seller.street);
-      setIfEmpty(elements.sellerHouse, state.seller.house);
-      setIfEmpty(elements.sellerZip, state.seller.zip);
-      setIfEmpty(elements.sellerCity, state.seller.city);
-      setIfEmpty(elements.sellerCountry, state.seller.country || "Deutschland");
-      setIfEmpty(elements.sellerVatId, state.seller.vatId);
-      setIfEmpty(elements.sellerTaxNumber, state.seller.taxNumber);
-      setIfEmpty(elements.sellerEmail, state.seller.email);
-      setIfEmpty(elements.sellerPhone, state.seller.phone);
     } catch {}
   }
 
@@ -538,7 +501,6 @@
     if (elements.docDate) elements.docDate.value = todayIso();
     if (elements.deliveryDate) elements.deliveryDate.value = todayIso();
     if (elements.buyerCountry) elements.buyerCountry.value = "Deutschland";
-    if (elements.sellerCountry) elements.sellerCountry.value = "Deutschland";
     if (elements.docNumber && !elements.docNumber.value) {
       elements.docNumber.value = autoDocNumber(elements.docType?.value || "invoice");
     }
