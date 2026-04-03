@@ -1203,20 +1203,27 @@ function fillAusstattung(inserat) {
   const block = document.getElementById("ausstattung-block");
   if (!container) return;
 
-  let any = false;
+  container.innerHTML = "";
+
+  const items = [];
   AUSSTATTUNG_KEYS.forEach((key) => {
     const v = inserat["verkauf_" + key] ?? inserat[key];
     const checked = v === true || v === "true";
     if (checked && AUSSTATTUNG_LABELS[key]) {
-      const div = document.createElement("div");
-      div.classList.add("equipment-item");
-      div.innerHTML = `<i class="fas fa-check"></i> ${AUSSTATTUNG_LABELS[key]}`;
-      container.appendChild(div);
-      any = true;
+      items.push(AUSSTATTUNG_LABELS[key]);
     }
   });
 
-  if (any && block) block.style.display = "block";
+  items.sort((a, b) => a.localeCompare(b, "de", { sensitivity: "base" }));
+
+  items.forEach((label) => {
+    const div = document.createElement("div");
+    div.classList.add("equipment-item");
+    div.innerHTML = `<i class="fas fa-check"></i> ${label}`;
+    container.appendChild(div);
+  });
+
+  if (block) block.style.display = items.length ? "block" : "none";
 }
 
 function fillSellerCard(inserat) {

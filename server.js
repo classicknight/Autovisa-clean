@@ -5495,7 +5495,25 @@ app.get("/api/search", async (req, res) => {
                   toStringSafe("$raw.nefz_kombiniert"),               " ",
                   toStringSafe("$raw.nefz.kombiniert"),               " ",
                   toStringSafe("$raw.ev_consumption_kwh_100"),         " ",
-                  toStringSafe("$raw.ev_verbrauch_kwh_100")
+                  toStringSafe("$raw.ev_verbrauch_kwh_100"),           " ",
+                  toStringSafe("$combined_l_100km"),                   " ",
+                  toStringSafe("$kombiniert_l_100km"),                 " ",
+                  toStringSafe("$kombiniert_l_pro_100_km"),            " ",
+                  toStringSafe("$verbrauch_kombiniert_l_100km"),       " ",
+                  toStringSafe("$verbrauch_kombiniert_l_pro_100_km"),  " ",
+                  toStringSafe("$consumption_combined"),               " ",
+                  toStringSafe("$fuel_consumption_combined"),          " ",
+                  toStringSafe("$wltp_consumption_combined"),          " ",
+                  toStringSafe("$nefz_consumption_combined"),          " ",
+                  toStringSafe("$raw.combined_l_100km"),               " ",
+                  toStringSafe("$raw.kombiniert_l_100km"),             " ",
+                  toStringSafe("$raw.kombiniert_l_pro_100_km"),        " ",
+                  toStringSafe("$raw.verbrauch_kombiniert_l_100km"),   " ",
+                  toStringSafe("$raw.verbrauch_kombiniert_l_pro_100_km"), " ",
+                  toStringSafe("$raw.consumption_combined"),           " ",
+                  toStringSafe("$raw.fuel_consumption_combined"),      " ",
+                  toStringSafe("$raw.wltp_consumption_combined"),      " ",
+                  toStringSafe("$raw.nefz_consumption_combined")
                 ]
               }
             }
