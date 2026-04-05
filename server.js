@@ -5677,6 +5677,69 @@ app.get("/api/search", async (req, res) => {
           halter_num: { $convert: { input: { $ifNull: ["$_halter_match.match", null] }, to: "int", onError: null, onNull: null } }
         }
       }
+      ,
+      { $addFields: {
+          verb_num_direct: {
+            $let: {
+              vars: {
+                nums: {
+                  $filter: {
+                    input: {
+                      $map: {
+                        input: [
+                          "$verkauf_verbrauch_kombiniert",
+                          "$verbrauch_kombiniert",
+                          "$verkauf_verbrauch_innerorts",
+                          "$verkauf_verbrauch_ausserorts",
+                          "$verbrauch_innerorts",
+                          "$verbrauch_ausserorts",
+                          "$verbrauch",
+                          "$verbrauch.kombiniert",
+                          "$verbrauch.innerorts",
+                          "$verbrauch.ausserorts",
+                          "$wltp_kombiniert",
+                          "$wltp.kombiniert",
+                          "$nefz_kombiniert",
+                          "$nefz.kombiniert"
+                        ],
+                        as: "v",
+                        in: {
+                          $convert: {
+                            input: {
+                              $replaceAll: {
+                                input: { $trim: { input: { $toString: "$$v" } } },
+                                find: ",", replacement: "."
+                              }
+                            },
+                            to: "double",
+                            onError: null,
+                            onNull: null
+                          }
+                        }
+                      }
+                    },
+                    as: "n",
+                    cond: {
+                      $and: [
+                        { $ne: ["$$n", null] },
+                        { $lt: ["$$n", 60] }
+                      ]
+                    }
+                  }
+                }
+              },
+              in: {
+                $cond: [
+                  { $gt: [ { $size: "$$nums" }, 0 ] },
+                  { $max: "$$nums" },
+                  null
+                ]
+              }
+            }
+          },
+          verb_num_final: { $ifNull: ["$verb_num", "$verb_num_direct"] }
+        }
+      }
     ];
 
     // ---- HU: Rohwert -> (y,m) -> hu_key (y*12+m)
@@ -5975,7 +6038,7 @@ app.get("/api/search", async (req, res) => {
     ];
     const consumptionFilterStages =
       Number.isFinite(verbMaxNum)
-        ? [{ $match: { verb_num: { $ne: null, $lte: verbMaxNum } } }]
+        ? [{ $match: { verb_num_final: { $ne: null, $lte: verbMaxNum } } }]
         : [];
 
     // ---- Antrieb
@@ -6371,7 +6434,8 @@ app.get("/api/search", async (req, res) => {
                 _preis_raw: 0, _preis_raw_base: 0, _mwst_raw: 0, _mwst_str: 0, _mwst_keine: 0, _mwst_zzgl: 0,
                 _km_raw: 0, _preis_str: 0, _preis_matches: 0, _preis_ints: 0, _km_clean: 0,
                 _ps_raw: 0, _seats_raw: 0, _ccm_raw: 0, _verb_raw: 0, _halter_raw: 0,
-                _ps_match: 0, _seats_match: 0, _ccm_match: 0, _verb_norm: 0, _verb_all_any: 0,
+                _ps_match: 0, _seats_match: 0, _ccm_match: 0, _verb_norm: 0, _verb_liters: 0, _verb_kwh: 0, _verb_all_any: 0,
+                verb_num: 0, verb_num_direct: 0, verb_num_final: 0,
                 _halter_match: 0, _preis_null: 0, _km_null: 0, _ps_null: 0,
                 _ez: 0, _ez_sort: 0, _ez_null: 0,
                 _hu_raw: 0, _hu_str: 0, _hu_rx_y_m: 0, _hu_rx_m_y: 0, _hu_rx_y: 0,

@@ -183,6 +183,97 @@ const renderMultilineToHTML = (text = "") => {
   return safe.replace(/\n/g, "<br>");
 };
 
+const SUMMARY_REGEXES = [
+  /unfallfrei/i,
+  /unfall|unfallschaden|schaden|besch[äa]digt|defekt|mangel/i,
+  /nachlack|lackiert|kratzer|delle|beule/i,
+  /scheckheft|service|inspektion|wartung|[öo]lwechsel|zahnriemen|steuerkette|bremsen|kupplung/i,
+  /\b(t[üu]v|hu|au|hauptuntersuchung)\b/i,
+  /garantie|gew[äa]hrleistung/i,
+  /1\.?\s*hand|erste\s*hand|zweite\s*hand|vorbesitzer|halter/i,
+  /nichtraucher|raucher|tierfrei|garage|garagen/i,
+  /inzahlungnahme|tausch|export|finanzierung|leasing/i,
+  /rechnung|beleg|l[üu]ckenlos|nachweis/i,
+  /fahrbereit|fahrunt[üu]chtig/i,
+  /saison|winterfahrzeug|sommerfahrzeug/i
+];
+
+function extractSummaryItems(rawText) {
+  const raw = String(rawText || "");
+  if (!raw.trim()) return [];
+
+  const text = raw
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]*>/g, " ");
+
+  const normKey = (s) =>
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9äöüß]+/g, " ")
+      .trim();
+
+  const cleanLine = (s) =>
+    String(s || "")
+      .replace(/^[-*•\s]+/, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const matchesSummary = (s) => SUMMARY_REGEXES.some((rx) => rx.test(s));
+
+  const seen = new Set();
+  const items = [];
+
+  const addItem = (s) => {
+    const clean = cleanLine(s);
+    if (!clean) return;
+    const key = normKey(clean);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    items.push(clean.length > 220 ? `${clean.slice(0, 217)}…` : clean);
+  };
+
+  const lines = text.split(/\n+/).map(cleanLine).filter(Boolean);
+  lines.forEach((line) => {
+    if (matchesSummary(line)) addItem(line);
+  });
+
+  if (items.length < 6) {
+    const sentences = text.replace(/\n+/g, " ").split(/[.!?]+/).map(cleanLine).filter(Boolean);
+    for (const sentence of sentences) {
+      if (matchesSummary(sentence)) addItem(sentence);
+      if (items.length >= 6) break;
+    }
+  }
+
+  return items.slice(0, 6);
+}
+
+function fillSummary(inserat) {
+  const box = document.getElementById("car-summary-box");
+  const list = document.getElementById("car-summary");
+  if (!box || !list) return;
+
+  const raw = inserat.fahrzeugbeschreibung || inserat.raw?.fahrzeugbeschreibung || "";
+  const items = extractSummaryItems(raw);
+
+  list.innerHTML = "";
+  if (!items.length) {
+    const li = document.createElement("li");
+    li.textContent = "Keine Zusatzinfos in der Beschreibung gefunden.";
+    list.appendChild(li);
+    box.style.display = "";
+    return;
+  }
+
+  items.forEach((text) => {
+    const li = document.createElement("li");
+    li.textContent = text;
+    list.appendChild(li);
+  });
+  box.style.display = "";
+}
+
 const renderImpressumHTML = (input = "") => {
   const raw = String(input || "");
   if (!raw.trim()) return "";
@@ -1838,6 +1929,8 @@ function fillDescription(inserat) {
   if (descEl) {
     descEl.innerHTML = renderMultilineToHTML(inserat.fahrzeugbeschreibung || "");
   }
+
+  fillSummary(inserat);
 
   if (!descEl || !btn) return;
 
