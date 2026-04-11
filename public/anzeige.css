@@ -2016,66 +2016,6 @@ img, video, canvas {
     }
   }
   
-  .car-summary-box {
-    max-width: 900px;
-    margin: 40px auto 20px;
-    padding: 28px 26px;
-    background: linear-gradient(135deg, #ffffff, #f3fbfa);
-    border-radius: 16px;
-    border: 1px solid rgba(0, 184, 169, 0.25);
-    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.05);
-  }
-  
-  .car-summary-box h2 {
-    font-size: 22px;
-    font-weight: 700;
-    color: #0f2027;
-    margin-bottom: 16px;
-    position: relative;
-  }
-  
-  .car-summary-box h2::after {
-    content: '';
-    display: block;
-    height: 3px;
-    width: 70px;
-    margin-top: 8px;
-    background: linear-gradient(90deg, #00b8a9, #00c6b5);
-    border-radius: 6px;
-  }
-  
-  .car-summary-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: grid;
-    gap: 10px;
-  }
-  
-  .car-summary-list li {
-    background: #f4fbfa;
-    border: 1px solid #d7f0ec;
-    border-radius: 12px;
-    padding: 10px 12px;
-    color: #1a2a33;
-    font-size: 15px;
-    line-height: 1.6;
-  }
-  
-  @media (max-width: 600px) {
-    .car-summary-box {
-      padding: 22px 18px;
-    }
-  
-    .car-summary-box h2 {
-      font-size: 19px;
-    }
-  
-    .car-summary-list li {
-      font-size: 14.5px;
-    }
-  }
-  
   
   
   

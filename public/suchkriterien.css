@@ -1114,6 +1114,40 @@ img, video, canvas {
   .submit-btn:hover {
     background: #3ff0d3;
   }
+
+  @media (max-width: 600px) {
+    body {
+      padding-bottom: 90px;
+    }
+
+    .search-submit {
+      position: fixed;
+      bottom: 12px;
+      left: 0;
+      right: 0;
+      margin: 0;
+      padding: 0 16px;
+    }
+
+    .submit-btn {
+      width: 100%;
+      justify-content: center;
+      padding: 12px 16px;
+      font-size: 15px;
+      border-radius: 10px;
+      box-shadow: 0 6px 14px rgba(0, 255, 204, 0.22);
+    }
+  }
+
+  @media (hover: none) {
+    .submit-btn {
+      transition: none;
+    }
+
+    .submit-btn:hover {
+      background: #00ffcc;
+    }
+  }
   
   /* =========================
    Karosseriefarbe – Autovisa Style (runder Punkt)
