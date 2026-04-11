@@ -1132,10 +1132,11 @@ img, video, canvas {
     .submit-btn {
       width: 100%;
       justify-content: center;
-      padding: 12px 16px;
-      font-size: 15px;
-      border-radius: 10px;
-      box-shadow: 0 6px 14px rgba(0, 255, 204, 0.22);
+      padding: 14px 18px;
+      font-size: 16px;
+      min-height: 52px;
+      border-radius: 12px;
+      box-shadow: 0 8px 16px rgba(0, 255, 204, 0.24);
     }
   }
 
