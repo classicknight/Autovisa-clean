@@ -591,7 +591,7 @@ document.addEventListener("DOMContentLoaded", () => {
      const modelDropdown = document.getElementById("modell");
      
      const FILTER_OUT_BELIEBIG = true;
-     const ALL_MODELS_VALUE = "__ALL_MODELS__";
+     const ALL_MODELS_VALUE = "__ALL__";
      
      let slimMarke = null;
      let slimModell = null;
@@ -757,8 +757,8 @@ slimMarke = initSlim('#marke', {
 });
 
 slimModell = initSlim('#modell', {
-  closeOnSelect: true,
-  placeholder: 'Bitte zuerst Marke wählen',
+  closeOnSelect: false,
+  placeholder: 'Modell(e) wählen',
   allowDeselect: true,
   hideSelected: false,
   showSearch: true,
@@ -930,13 +930,20 @@ setModelEnabled(false);
     
       // Marke = Beliebig -> Modell komplett deaktivieren und leeren
       if (!brandList.length) {
+        const data = [{ text: "Beliebig (alle Modelle)", value: ALL_MODELS_VALUE }];
         if (slimModell) {
-          slimModell.setData([]);
+          slimModell.setData(data);
           modellSyncing = true;
-          try { slimModell.setSelected([]); } finally { modellSyncing = false; }
+          try { slimModell.setSelected([ALL_MODELS_VALUE]); } finally { modellSyncing = false; }
         } else {
           modelDropdown.innerHTML = "";
-          modelDropdown.value = "";
+          data.forEach(({ text, value }) => {
+            const opt = document.createElement("option");
+            opt.value = value;
+            opt.textContent = text;
+            modelDropdown.appendChild(opt);
+          });
+          modelDropdown.value = ALL_MODELS_VALUE;
         }
         setModelEnabled(false);
         lastModellValues = [ALL_MODELS_VALUE];
@@ -1431,7 +1438,7 @@ if (equipValues.length) {
         .map(o => (o.value || "").trim())
         .filter(Boolean);
     
-      vals = vals.filter(v => v !== "__ALL_MODELS__" && !/^beliebig/i.test(v) && !/\(alle\)$/i.test(v));
+      vals = vals.filter(v => v !== ALL_MODELS_VALUE && !/^beliebig/i.test(v) && !/\(alle\)$/i.test(v));
       vals = Array.from(new Set(vals));
       if (vals.length) qs.set("modell", vals.join(","));
     })();

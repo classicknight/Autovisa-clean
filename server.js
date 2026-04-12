@@ -5676,15 +5676,19 @@ app.get("/api/search", async (req, res) => {
               },
               in: {
                 $cond: [
-                  { $gt: [ { $size: { $concatArrays: [ "$$liters", "$$kwhs" ] } }, 0 ] },
-                  { $max: { $concatArrays: [ "$$liters", "$$kwhs" ] } },
-                  {
-                    $let: {
-                      vars: { under60: { $filter: { input: "$$anyNums", as: "x", cond: { $lt: [ "$$x", 60 ] } } } },
-                      // Erstes plausibles Vorkommen nehmen (meist "kombiniert")
-                      in: { $cond: [ { $gt: [ { $size: "$$under60" }, 0 ] }, { $arrayElemAt: ["$$under60", 0] }, null ] }
+                  { $gt: [ { $size: "$$liters" }, 0 ] },
+                  { $arrayElemAt: ["$$liters", 0] },
+                  { $cond: [
+                    { $gt: [ { $size: "$$kwhs" }, 0 ] },
+                    { $arrayElemAt: ["$$kwhs", 0] },
+                    {
+                      $let: {
+                        vars: { under60: { $filter: { input: "$$anyNums", as: "x", cond: { $lt: [ "$$x", 60 ] } } } },
+                        // Erstes plausibles Vorkommen nehmen (meist "kombiniert")
+                        in: { $cond: [ { $gt: [ { $size: "$$under60" }, 0 ] }, { $arrayElemAt: ["$$under60", 0] }, null ] }
+                      }
                     }
-                  }
+                  ] }
                 ]
               }
             }
@@ -5716,15 +5720,19 @@ app.get("/api/search", async (req, res) => {
               },
               in: {
                 $cond: [
-                  { $gt: [ { $size: { $concatArrays: [ "$$liters", "$$kwhs" ] } }, 0 ] },
-                  { $max: { $concatArrays: [ "$$liters", "$$kwhs" ] } },
-                  {
-                    $let: {
-                      vars: { under60: { $filter: { input: "$$anyNums", as: "x", cond: { $lt: [ "$$x", 60 ] } } } },
-                      // Erstes plausibles Vorkommen nehmen (inner/außerorts als Fallback)
-                      in: { $cond: [ { $gt: [ { $size: "$$under60" }, 0 ] }, { $arrayElemAt: ["$$under60", 0] }, null ] }
+                  { $gt: [ { $size: "$$liters" }, 0 ] },
+                  { $arrayElemAt: ["$$liters", 0] },
+                  { $cond: [
+                    { $gt: [ { $size: "$$kwhs" }, 0 ] },
+                    { $arrayElemAt: ["$$kwhs", 0] },
+                    {
+                      $let: {
+                        vars: { under60: { $filter: { input: "$$anyNums", as: "x", cond: { $lt: [ "$$x", 60 ] } } } },
+                        // Erstes plausibles Vorkommen nehmen (inner/außerorts als Fallback)
+                        in: { $cond: [ { $gt: [ { $size: "$$under60" }, 0 ] }, { $arrayElemAt: ["$$under60", 0] }, null ] }
+                      }
                     }
-                  }
+                  ] }
                 ]
               }
             }
@@ -5786,7 +5794,7 @@ app.get("/api/search", async (req, res) => {
               in: {
                 $cond: [
                   { $gt: [ { $size: "$$nums" }, 0 ] },
-                  { $max: "$$nums" },
+                  { $arrayElemAt: ["$$nums", 0] },
                   null
                 ]
               }
