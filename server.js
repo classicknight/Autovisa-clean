@@ -5460,20 +5460,16 @@ app.get("/api/search", async (req, res) => {
           _ps_raw:     { $ifNull: [ "$verkauf_leistung", { $ifNull: [ "$leistung", "$ps" ] } ] },
           _seats_raw:  { $ifNull: [ "$verkauf_sitze", { $ifNull: [ "$sitze", { $ifNull: [ "$seats", "$sitzplaetze" ] } ] } ] },
           _ccm_raw:    { $ifNull: [ "$verkauf_hubraum",  { $ifNull: [ "$hubraum",  "$ccm" ] } ] },
+          // Verbrauch: Kombiniert getrennt von inner/außerorts, damit der Filter nicht
+          // durch höhere Innerorts-Werte fälschlich alles rausfiltert.
           _verb_raw: {
             $trim: {
               input: {
                 $concat: [
                   toStringSafe("$verkauf_verbrauch_kombiniert"), " ",
                   toStringSafe("$verbrauch_kombiniert"),         " ",
-                  toStringSafe("$verkauf_verbrauch_innerorts"),   " ",
-                  toStringSafe("$verkauf_verbrauch_ausserorts"),  " ",
-                  toStringSafe("$verbrauch_innerorts"),           " ",
-                  toStringSafe("$verbrauch_ausserorts"),          " ",
                   toStringSafe("$verbrauch"),                     " ",
                   toStringSafe("$verbrauch.kombiniert"),          " ",
-                  toStringSafe("$verbrauch.innerorts"),           " ",
-                  toStringSafe("$verbrauch.ausserorts"),          " ",
                   toStringSafe("$wltp_kombiniert"),               " ",
                   toStringSafe("$wltp.kombiniert"),               " ",
                   toStringSafe("$nefz_kombiniert"),               " ",
@@ -5482,14 +5478,8 @@ app.get("/api/search", async (req, res) => {
                   toStringSafe("$ev_verbrauch_kwh_100"),           " ",
                   toStringSafe("$raw.verkauf_verbrauch_kombiniert"), " ",
                   toStringSafe("$raw.verbrauch_kombiniert"),         " ",
-                  toStringSafe("$raw.verkauf_verbrauch_innerorts"),   " ",
-                  toStringSafe("$raw.verkauf_verbrauch_ausserorts"),  " ",
-                  toStringSafe("$raw.verbrauch_innerorts"),           " ",
-                  toStringSafe("$raw.verbrauch_ausserorts"),          " ",
                   toStringSafe("$raw.verbrauch"),                     " ",
                   toStringSafe("$raw.verbrauch.kombiniert"),          " ",
-                  toStringSafe("$raw.verbrauch.innerorts"),           " ",
-                  toStringSafe("$raw.verbrauch.ausserorts"),          " ",
                   toStringSafe("$raw.wltp_kombiniert"),               " ",
                   toStringSafe("$raw.wltp.kombiniert"),               " ",
                   toStringSafe("$raw.nefz_kombiniert"),               " ",
@@ -5514,6 +5504,26 @@ app.get("/api/search", async (req, res) => {
                   toStringSafe("$raw.fuel_consumption_combined"),      " ",
                   toStringSafe("$raw.wltp_consumption_combined"),      " ",
                   toStringSafe("$raw.nefz_consumption_combined")
+                ]
+              }
+            }
+          },
+          _verb_raw_other: {
+            $trim: {
+              input: {
+                $concat: [
+                  toStringSafe("$verkauf_verbrauch_innerorts"),   " ",
+                  toStringSafe("$verkauf_verbrauch_ausserorts"),  " ",
+                  toStringSafe("$verbrauch_innerorts"),           " ",
+                  toStringSafe("$verbrauch_ausserorts"),          " ",
+                  toStringSafe("$verbrauch.innerorts"),           " ",
+                  toStringSafe("$verbrauch.ausserorts"),          " ",
+                  toStringSafe("$raw.verkauf_verbrauch_innerorts"),   " ",
+                  toStringSafe("$raw.verkauf_verbrauch_ausserorts"),  " ",
+                  toStringSafe("$raw.verbrauch_innerorts"),           " ",
+                  toStringSafe("$raw.verbrauch_ausserorts"),          " ",
+                  toStringSafe("$raw.verbrauch.innerorts"),           " ",
+                  toStringSafe("$raw.verbrauch.ausserorts")
                 ]
               }
             }
@@ -5615,6 +5625,10 @@ app.get("/api/search", async (req, res) => {
           _verb_liters:{ $regexFindAll:{ input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)(?=\s*(?:l|L)\s*\/\s*100\s*km)/i } },
           _verb_kwh:   { $regexFindAll:{ input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)(?=\s*kwh\s*\/\s*100\s*km)/i } },
           _verb_all_any:{ $regexFindAll:{ input: "$_verb_norm", regex: /(\d+(?:\.\d+)?)/ } },
+          _verb_norm_other:  { $replaceAll: { input: { $toString: "$_verb_raw_other" }, find: ",", replacement: "." } },
+          _verb_liters_other:{ $regexFindAll:{ input: "$_verb_norm_other", regex: /(\d+(?:\.\d+)?)(?=\s*(?:l|L)\s*\/\s*100\s*km)/i } },
+          _verb_kwh_other:   { $regexFindAll:{ input: "$_verb_norm_other", regex: /(\d+(?:\.\d+)?)(?=\s*kwh\s*\/\s*100\s*km)/i } },
+          _verb_all_any_other:{ $regexFindAll:{ input: "$_verb_norm_other", regex: /(\d+(?:\.\d+)?)/ } },
           _halter_match:{ $regexFind:   { input: { $toString: "$_halter_raw" }, regex: /(\d{1,2})/ } }
         }
       },
@@ -5667,7 +5681,48 @@ app.get("/api/search", async (req, res) => {
                   {
                     $let: {
                       vars: { under60: { $filter: { input: "$$anyNums", as: "x", cond: { $lt: [ "$$x", 60 ] } } } },
-                      in: { $cond: [ { $gt: [ { $size: "$$under60" }, 0 ] }, { $max: "$$under60" }, null ] }
+                      // Erstes plausibles Vorkommen nehmen (meist "kombiniert")
+                      in: { $cond: [ { $gt: [ { $size: "$$under60" }, 0 ] }, { $arrayElemAt: ["$$under60", 0] }, null ] }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          verb_num_other: {
+            $let: {
+              vars: {
+                liters: {
+                  $map: {
+                    input: { $ifNull: ["$_verb_liters_other", []] },
+                    as: "m",
+                    in: { $convert: { input: "$$m.match", to: "double", onError: null, onNull: null } }
+                  }
+                },
+                kwhs: {
+                  $map: {
+                    input: { $ifNull: ["$_verb_kwh_other", []] },
+                    as: "m",
+                    in: { $convert: { input: "$$m.match", to: "double", onError: null, onNull: null } }
+                  }
+                },
+                anyNums: {
+                  $map: {
+                    input: { $ifNull: ["$_verb_all_any_other", []] },
+                    as: "m",
+                    in: { $convert: { input: "$$m.match", to: "double", onError: null, onNull: null } }
+                  }
+                }
+              },
+              in: {
+                $cond: [
+                  { $gt: [ { $size: { $concatArrays: [ "$$liters", "$$kwhs" ] } }, 0 ] },
+                  { $max: { $concatArrays: [ "$$liters", "$$kwhs" ] } },
+                  {
+                    $let: {
+                      vars: { under60: { $filter: { input: "$$anyNums", as: "x", cond: { $lt: [ "$$x", 60 ] } } } },
+                      // Erstes plausibles Vorkommen nehmen (inner/außerorts als Fallback)
+                      in: { $cond: [ { $gt: [ { $size: "$$under60" }, 0 ] }, { $arrayElemAt: ["$$under60", 0] }, null ] }
                     }
                   }
                 ]
@@ -5737,7 +5792,7 @@ app.get("/api/search", async (req, res) => {
               }
             }
           },
-          verb_num_final: { $ifNull: ["$verb_num", "$verb_num_direct"] }
+          verb_num_final: { $ifNull: ["$verb_num", { $ifNull: ["$verb_num_other", "$verb_num_direct"] }] }
         }
       }
     ];
@@ -6433,9 +6488,10 @@ app.get("/api/search", async (req, res) => {
                 token: 0, password: 0, iban: 0, bic: 0, kontoinhaber: 0,
                 _preis_raw: 0, _preis_raw_base: 0, _mwst_raw: 0, _mwst_str: 0, _mwst_keine: 0, _mwst_zzgl: 0,
                 _km_raw: 0, _preis_str: 0, _preis_matches: 0, _preis_ints: 0, _km_clean: 0,
-                _ps_raw: 0, _seats_raw: 0, _ccm_raw: 0, _verb_raw: 0, _halter_raw: 0,
+                _ps_raw: 0, _seats_raw: 0, _ccm_raw: 0, _verb_raw: 0, _verb_raw_other: 0, _halter_raw: 0,
                 _ps_match: 0, _seats_match: 0, _ccm_match: 0, _verb_norm: 0, _verb_liters: 0, _verb_kwh: 0, _verb_all_any: 0,
-                verb_num: 0, verb_num_direct: 0, verb_num_final: 0,
+                _verb_norm_other: 0, _verb_liters_other: 0, _verb_kwh_other: 0, _verb_all_any_other: 0,
+                verb_num: 0, verb_num_other: 0, verb_num_direct: 0, verb_num_final: 0,
                 _halter_match: 0, _preis_null: 0, _km_null: 0, _ps_null: 0,
                 _ez: 0, _ez_sort: 0, _ez_null: 0,
                 _hu_raw: 0, _hu_str: 0, _hu_rx_y_m: 0, _hu_rx_m_y: 0, _hu_rx_y: 0,
