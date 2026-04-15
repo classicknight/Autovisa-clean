@@ -1,0 +1,34 @@
+{
+  "bmw/x5": {
+    "overview": "Der BMW X5 ist eines der bekanntesten Premium-SUVs im Gebrauchtwagenmarkt. Je nach Generation reicht die Bandbreite vom komfortablen Familienfahrzeug bis zur sehr leistungsstarken M-Variante. Auf dem Markt entscheiden vor allem Motorisierung, Pflegezustand, Laufleistung und Ausstattung ueber Preis und Nachfrage.",
+    "market_position": "Beim BMW X5 schauen Kaeufer meist nicht nur auf Baujahr und Leistung. Entscheidend sind die Gesamtanmutung des Fahrzeugs, eine saubere Historie und die Frage, ob Ausstattung und Einsatzzweck zusammenpassen.\nEin gut konfigurierter X5 mit nachvollziehbarer Pflege, stimmiger Farbkombination und gefragten Komfort- und Assistenzpaketen verkauft sich in der Regel deutlich leichter als ein optisch oder technisch unklar wirkendes Vergleichsfahrzeug.",
+    "buyer_focus": [
+      "Servicehistorie, Rechnungen und Wartungsnachweise sollten schluessig sein.",
+      "Bei hoeherer Laufleistung lohnt sich ein genauer Blick auf Fahrwerk, Bremsen, Reifen und Innenraumzustand.",
+      "Assistenzsysteme, Luftfederung, Kameras, Infotainment und Sitzfunktionen im Alltag pruefen.",
+      "Ausstattung hat grossen Einfluss auf Nachfrage und Wiederverkauf, gerade im Premium-SUV-Segment."
+    ],
+    "must_have": [
+      "Automatik",
+      "xDrive oder klar passende Antriebsvariante fuer den eigenen Einsatzzweck",
+      "Navigationssystem oder grosses Infotainment",
+      "Sitzheizung",
+      "Rueckfahrkamera oder Parkassistent",
+      "Anhaengerkupplung oder 7-Sitzer, wenn Familien- oder Zugbetrieb wichtig sind"
+    ],
+    "faq": [
+      {
+        "q": "Worauf achten Interessenten beim BMW X5 zuerst?",
+        "a": "Meist stehen Zustand, nachvollziehbare Historie, Laufleistung, Ausstattung und die passende Motorisierung im Vordergrund."
+      },
+      {
+        "q": "Welche Punkte bewegen den Preis beim BMW X5 am staerksten?",
+        "a": "Besonders stark wirken Baujahr, Kilometerstand, Pflegezustand, Unfallsituation, Ausstattungspakete und die allgemeine Attraktivitaet der Konfiguration."
+      },
+      {
+        "q": "Lohnt sich hohe Ausstattung beim BMW X5?",
+        "a": "Im Premium-SUV-Segment meist ja. Gut gewaehlte Komfort- und Assistenzausstattung verbessert oft Nachfrage und Wiederverkauf, solange Zustand und Historie ebenfalls stimmen."
+      }
+    ]
+  }
+}

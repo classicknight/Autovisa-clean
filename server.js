@@ -428,6 +428,140 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+const MODEL_GUIDES_PATH = path.join(__dirname, "public", "data", "model-guides.json");
+const KBA_JSONL_PATH = path.join(__dirname, "public", "data", "kba.jsonl");
+
+let modelGuidesCache = null;
+let kbaRowsCache = null;
+
+const KBA_FUEL_LABELS = {
+  "0001": "Benzin",
+  "0002": "Diesel",
+  "0008": "Mild-Hybrid",
+  "0010": "Diesel Hybrid",
+  "0025": "Plug-in-Hybrid"
+};
+
+function seoSlugify(input) {
+  return String(input || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function loadModelGuides() {
+  if (modelGuidesCache) return modelGuidesCache;
+  try {
+    modelGuidesCache = JSON.parse(fs.readFileSync(MODEL_GUIDES_PATH, "utf8"));
+  } catch {
+    modelGuidesCache = {};
+  }
+  return modelGuidesCache;
+}
+
+function loadKbaRows() {
+  if (kbaRowsCache) return kbaRowsCache;
+  try {
+    const raw = fs.readFileSync(KBA_JSONL_PATH, "utf8");
+    kbaRowsCache = raw
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        try {
+          const row = JSON.parse(line);
+          return {
+            manufacturerPlain: String(row.manufacturer_plaintext || "").trim(),
+            manufacturerNorm: norm(row.manufacturer_plaintext || ""),
+            makePlain: String(row.make || "").trim(),
+            makeNorm: norm(row.make || ""),
+            commercialPlain: String(row.commercial_name || "").trim(),
+            commercialNorm: norm(row.commercial_name || ""),
+            year: parseInt(String(row.typecode_date || "").slice(0, 4), 10) || null,
+            powerKw: Number(row.power_kw) || null,
+            engineCcm: Number(row.engine_ccm) || null,
+            seats: Number(row.max_seats_incl_driver) || null,
+            fuelCode: String(row.fuel_or_energy_code || "").trim()
+          };
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+  } catch {
+    kbaRowsCache = [];
+  }
+  return kbaRowsCache;
+}
+
+function matchKbaRowsForModel(displayBrand, displayModel) {
+  const brandNeedle = norm(displayBrand);
+  const modelNeedle = norm(displayModel);
+  if (!brandNeedle || !modelNeedle) return [];
+
+  return loadKbaRows().filter((row) => {
+    const brandOk =
+      row.makeNorm.includes(brandNeedle) ||
+      row.manufacturerNorm.includes(brandNeedle);
+    const modelOk =
+      row.makeNorm === modelNeedle ||
+      row.makeNorm.includes(modelNeedle) ||
+      row.commercialNorm.includes(modelNeedle);
+    return brandOk && modelOk;
+  });
+}
+
+function aggregateKbaModelStats(displayBrand, displayModel) {
+  const rows = matchKbaRowsForModel(displayBrand, displayModel);
+  if (!rows.length) {
+    return {
+      rows: [],
+      yearMin: null,
+      yearMax: null,
+      powerMin: null,
+      powerMax: null,
+      displacementMin: null,
+      displacementMax: null,
+      seatsMin: null,
+      seatsMax: null,
+      fuelLabels: [],
+      variantLabels: []
+    };
+  }
+
+  const years = rows.map((row) => row.year).filter(Number.isFinite);
+  const powers = rows.map((row) => row.powerKw).filter(Number.isFinite);
+  const displacements = rows.map((row) => row.engineCcm).filter(Number.isFinite);
+  const seats = rows.map((row) => row.seats).filter(Number.isFinite);
+
+  const variantLabels = Array.from(new Set(rows.map((row) => {
+    const label = row.commercialPlain || row.makePlain || "";
+    if (!label) return "";
+    if (new RegExp(escRe(displayModel), "i").test(label)) return label;
+    return `${displayModel} ${label}`.replace(/\s+/g, " ").trim();
+  }).filter(Boolean))).slice(0, 10);
+
+  const fuelLabels = Array.from(
+    new Set(rows.map((row) => KBA_FUEL_LABELS[row.fuelCode] || "").filter(Boolean))
+  );
+
+  return {
+    rows,
+    yearMin: years.length ? Math.min(...years) : null,
+    yearMax: years.length ? Math.max(...years) : null,
+    powerMin: powers.length ? Math.min(...powers) : null,
+    powerMax: powers.length ? Math.max(...powers) : null,
+    displacementMin: displacements.length ? Math.min(...displacements) : null,
+    displacementMax: displacements.length ? Math.max(...displacements) : null,
+    seatsMin: seats.length ? Math.min(...seats) : null,
+    seatsMax: seats.length ? Math.max(...seats) : null,
+    fuelLabels,
+    variantLabels
+  };
+}
+
 /* =========================
    SEO-Landingpage: Marke/Modell
    Beispiel: /autos/bmw/x5
@@ -460,6 +594,78 @@ app.get("/autos/:marke/:modell", async (req, res) => {
       return res.status(404).sendFile(path.join(__dirname, "public", "suche.html"));
     }
 
+    const pickText = (...vals) => {
+      for (const v of vals) {
+        if (v == null) continue;
+        const s = String(v).trim();
+        if (s) return s;
+      }
+      return "";
+    };
+
+    const unwrap = (v) => {
+      if (v && typeof v === "object") {
+        if (v.value != null) return v.value;
+        if (v.amount != null) return v.amount;
+        if (typeof v.$numberDecimal === "string") return v.$numberDecimal;
+      }
+      return v;
+    };
+
+    const toIntLoose = (v) => {
+      const s = String(v ?? "").replace(/[^\d]/g, "");
+      return s ? parseInt(s, 10) : NaN;
+    };
+
+    const toYearLoose = (v) => {
+      const m = String(v || "").match(/\b(19|20)\d{2}\b/);
+      return m ? Number(m[0]) : NaN;
+    };
+
+    const fmtNum = (n) => new Intl.NumberFormat("de-DE").format(n);
+
+    const median = (nums) => {
+      const arr = nums.filter(Number.isFinite).sort((a, b) => a - b);
+      if (!arr.length) return null;
+      const mid = Math.floor(arr.length / 2);
+      return arr.length % 2 ? arr[mid] : Math.round((arr[mid - 1] + arr[mid]) / 2);
+    };
+
+    const incCounter = (map, label) => {
+      const key = String(label || "").trim();
+      if (!key) return;
+      map.set(key, (map.get(key) || 0) + 1);
+    };
+
+    const topLabels = (map, limit = 6) =>
+      Array.from(map.entries())
+        .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0], "de"))
+        .slice(0, limit)
+        .map(([label]) => label);
+
+    const formatRange = (min, max, suffix = "") => {
+      if (!Number.isFinite(min) && !Number.isFinite(max)) return "";
+      if (Number.isFinite(min) && Number.isFinite(max)) {
+        if (min === max) return `${fmtNum(min)}${suffix}`;
+        return `${fmtNum(min)}-${fmtNum(max)}${suffix}`;
+      }
+      const only = Number.isFinite(min) ? min : max;
+      return `${fmtNum(only)}${suffix}`;
+    };
+
+    const renderList = (itemsList, className = "bullets") =>
+      itemsList && itemsList.length
+        ? `<ul class="${className}">${itemsList.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`
+        : "";
+
+    const renderParagraphs = (text) =>
+      String(text || "")
+        .split(/\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => `<p>${escapeHtml(line)}</p>`)
+        .join("");
+
     const match = {
       status: "online",
       $and: [
@@ -488,7 +694,9 @@ app.get("/autos/:marke/:modell", async (req, res) => {
         _id: 1,
         titel: 1,
         marke: 1,
+        verkauf_marke: 1,
         modell: 1,
+        verkauf_modell: 1,
         preis: 1,
         verkauf_preis: 1,
         price: 1,
@@ -505,6 +713,13 @@ app.get("/autos/:marke/:modell", async (req, res) => {
         km: 1,
         erstzulassung: 1,
         verkauf_erstzulassung: 1,
+        verkauf_kraftstoff: 1,
+        kraftstoff: 1,
+        verkauf_getriebe: 1,
+        getriebe: 1,
+        fahrzeugtyp: 1,
+        ausstattung: 1,
+        verkauf_ausstattung: 1,
         standort: 1,
         ort: 1,
         plz: 1,
@@ -517,51 +732,20 @@ app.get("/autos/:marke/:modell", async (req, res) => {
       .limit(24)
       .toArray();
 
-    const pickText = (...vals) => {
-      for (const v of vals) {
-        if (v == null) continue;
-        const s = String(v).trim();
-        if (s) return s;
-      }
-      return "";
-    };
-
     const displayBrand =
       pickText(items[0]?.marke, items[0]?.verkauf_marke) || brandInput;
     const displayModel =
       pickText(items[0]?.modell, items[0]?.verkauf_modell) || modelInput;
 
-    const slugify = (input) =>
-      String(input || "")
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/\p{Diacritic}/gu, "")
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
+    const guideKey = `${seoSlugify(displayBrand)}/${seoSlugify(displayModel)}`;
+    const guide = loadModelGuides()[guideKey] || null;
 
     const { appUrl } = getAppUrls();
     const baseUrl = String(appUrl || "").replace(/\/+$/, "");
     const canonical =
       baseUrl
-        ? `${baseUrl}/autos/${slugify(displayBrand)}/${slugify(displayModel)}`
+        ? `${baseUrl}/autos/${seoSlugify(displayBrand)}/${seoSlugify(displayModel)}`
         : "";
-
-    const unwrap = (v) => {
-      if (v && typeof v === "object") {
-        if (v.value != null) return v.value;
-        if (v.amount != null) return v.amount;
-        if (typeof v.$numberDecimal === "string") return v.$numberDecimal;
-      }
-      return v;
-    };
-
-    const toIntLoose = (v) => {
-      const s = String(v ?? "").replace(/[^\d]/g, "");
-      return s ? parseInt(s, 10) : NaN;
-    };
-
-    const fmtNum = (n) =>
-      new Intl.NumberFormat("de-DE").format(n);
 
     const formatPrice = (doc) => {
       const raw = pickText(
@@ -578,7 +762,7 @@ app.get("/autos/:marke/:modell", async (req, res) => {
         unwrap(doc["netto-preis"])
       );
       const n = toIntLoose(raw);
-      return Number.isFinite(n) ? `${fmtNum(n)} €` : "Preis auf Anfrage";
+      return Number.isFinite(n) ? `${fmtNum(n)} EUR` : "Preis auf Anfrage";
     };
 
     const formatKm = (doc) => {
@@ -600,9 +784,97 @@ app.get("/autos/:marke/:modell", async (req, res) => {
       return imgs.find(Boolean) || "";
     };
 
+    const priceNums = [];
+    const kmNums = [];
+    const yearNums = [];
+    const fuelCounter = new Map();
+    const gearboxCounter = new Map();
+    const bodyCounter = new Map();
+    const featureCounter = new Map();
+
+    items.forEach((doc) => {
+      const priceNum = toIntLoose(pickText(
+        unwrap(doc.preis),
+        unwrap(doc.verkauf_preis),
+        unwrap(doc.price),
+        unwrap(doc.price_eur),
+        unwrap(doc.priceEUR),
+        unwrap(doc.verkauf_brutto),
+        unwrap(doc.brutto_preis),
+        unwrap(doc["brutto-preis"]),
+        unwrap(doc.verkauf_netto),
+        unwrap(doc.netto_preis),
+        unwrap(doc["netto-preis"])
+      ));
+      if (Number.isFinite(priceNum)) priceNums.push(priceNum);
+
+      const kmNum = toIntLoose(pickText(doc.verkauf_kilometer, doc.kilometer, doc.km));
+      if (Number.isFinite(kmNum)) kmNums.push(kmNum);
+
+      const yearNum = toYearLoose(pickText(doc.erstzulassung, doc.verkauf_erstzulassung));
+      if (Number.isFinite(yearNum)) yearNums.push(yearNum);
+
+      incCounter(fuelCounter, pickText(doc.verkauf_kraftstoff, doc.kraftstoff));
+      incCounter(gearboxCounter, pickText(doc.verkauf_getriebe, doc.getriebe));
+      incCounter(bodyCounter, pickText(doc.fahrzeugtyp));
+
+      const features = []
+        .concat(Array.isArray(doc.ausstattung) ? doc.ausstattung : [])
+        .concat(Array.isArray(doc.verkauf_ausstattung) ? doc.verkauf_ausstattung : []);
+      features
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+        .forEach((item) => incCounter(featureCounter, item));
+    });
+
+    const priceMin = priceNums.length ? Math.min(...priceNums) : null;
+    const priceMax = priceNums.length ? Math.max(...priceNums) : null;
+    const kmMedian = median(kmNums);
+    const yearMin = yearNums.length ? Math.min(...yearNums) : null;
+    const yearMax = yearNums.length ? Math.max(...yearNums) : null;
+    const topFuelTypes = topLabels(fuelCounter, 4);
+    const topGearboxes = topLabels(gearboxCounter, 3);
+    const topBodyTypes = topLabels(bodyCounter, 3);
+    const topFeatures = topLabels(featureCounter, 8);
+
+    const kbaStats = aggregateKbaModelStats(displayBrand, displayModel);
+
+    const marketIntro = guide?.overview || [
+      `Autovisa kombiniert auf dieser Seite aktuelle Angebote, Marktbild und technische Eckdaten zum ${displayBrand} ${displayModel}.`,
+      `So siehst du schneller, in welchem Preisfenster sich das Modell bewegt, welche Varianten haeufig angeboten werden und welche Ausstattung im Markt oft gesucht wird.`
+    ].join(" ");
+
+    const buyerFocus = Array.isArray(guide?.buyer_focus) && guide.buyer_focus.length
+      ? guide.buyer_focus
+      : [
+          "Servicehistorie, Wartungsnachweise und Rechnungen sollten nachvollziehbar sein.",
+          "Bei hoeherer Laufleistung auf Pflegezustand, Reifen, Bremsen und Innenraum achten.",
+          "Infotainment, Kameras, Assistenzsysteme und Komfortfunktionen im Alltag testen.",
+          "Ausstattung, Zustand und Laufleistung haben meist mehr Einfluss auf Nachfrage als nur das Baujahr."
+        ];
+
+    const mustHave = Array.isArray(guide?.must_have) && guide.must_have.length
+      ? guide.must_have
+      : (topFeatures.length
+          ? topFeatures.slice(0, 6)
+          : ["Automatik", "Navigationssystem", "Sitzheizung", "Rueckfahrkamera"]);
+
+    const faqItems = Array.isArray(guide?.faq) && guide.faq.length
+      ? guide.faq
+      : [
+          {
+            q: `Was ist beim ${displayBrand} ${displayModel} fuer den Preis am wichtigsten?`,
+            a: "Vor allem Laufleistung, nachvollziehbare Historie, Ausstattung und der sichtbare Pflegezustand beeinflussen den Preis."
+          },
+          {
+            q: `Wie kann ich Angebote fuer ${displayBrand} ${displayModel} schnell vergleichen?`,
+            a: "Sinnvoll ist ein Vergleich nach Erstzulassung, Kilometerstand, Motorisierung, Ausstattung und Preis pro aehnlicher Variante."
+          }
+        ];
+
     const cardsHtml = items.map((doc) => {
       const id = doc._id?.toString?.() || String(doc._id || "");
-      const title = escapeHtml(doc.titel || `${displayBrand} ${displayModel}`);
+      const titleCard = escapeHtml(doc.titel || `${displayBrand} ${displayModel}`);
       const price = escapeHtml(formatPrice(doc));
       const km = escapeHtml(formatKm(doc));
       const ez = escapeHtml(formatEz(doc));
@@ -610,13 +882,13 @@ app.get("/autos/:marke/:modell", async (req, res) => {
       const meta = [km, ez, location].filter(Boolean).join(" · ");
       const img = pickImage(doc);
       const imgTag = img
-        ? `<img src="${escapeHtml(img)}" alt="${title}" loading="lazy">`
+        ? `<img src="${escapeHtml(img)}" alt="${titleCard}" loading="lazy">`
         : `<div class="img-placeholder">Kein Bild</div>`;
       return `
         <a class="card" href="/anzeige.html?id=${encodeURIComponent(id)}">
           <div class="card-img">${imgTag}</div>
           <div class="card-body">
-            <div class="card-title">${title}</div>
+            <div class="card-title">${titleCard}</div>
             <div class="card-price">${price}</div>
             ${meta ? `<div class="card-meta">${meta}</div>` : ""}
           </div>
@@ -625,8 +897,60 @@ app.get("/autos/:marke/:modell", async (req, res) => {
     }).join("");
 
     const count = items.length;
-    const title = `${displayBrand} ${displayModel} gebraucht kaufen | Autovisa`;
-    const description = `Gebrauchte ${displayBrand} ${displayModel} in deiner Nähe. ${count ? `${count} Treffer` : "Aktuelle Angebote"} bei Autovisa.`;
+    const title = `${displayBrand} ${displayModel}: Infos, Preise, Varianten | Autovisa`;
+    const description = `Autovisa Modell-Guide fuer ${displayBrand} ${displayModel} mit Marktpreisen, Varianten, Ausstattung und aktuellen Gebrauchtwagen-Angeboten.`;
+
+    const factCards = [
+      { label: "Aktuelle Angebote", value: count ? `${fmtNum(count)} Inserate` : "Noch keine Inserate" },
+      { label: "Preisbereich", value: formatRange(priceMin, priceMax, " EUR") || "Auf Anfrage" },
+      { label: "Baujahre im Markt", value: formatRange(yearMin, yearMax) || formatRange(kbaStats.yearMin, kbaStats.yearMax) || "k. A." },
+      { label: "Leistung laut KBA", value: formatRange(kbaStats.powerMin, kbaStats.powerMax, " kW") || "k. A." }
+    ].map((fact) => `
+      <div class="fact-card">
+        <div class="fact-label">${escapeHtml(fact.label)}</div>
+        <div class="fact-value">${escapeHtml(fact.value)}</div>
+      </div>
+    `).join("");
+
+    const marketStatsHtml = [
+      priceMin != null && priceMax != null ? `Aktuelle Angebote liegen bei Autovisa grob zwischen ${fmtNum(priceMin)} und ${fmtNum(priceMax)} EUR.` : "",
+      Number.isFinite(kmMedian) ? `Der typische Kilometerstand der aktuellen Inserate liegt bei etwa ${fmtNum(kmMedian)} km.` : "",
+      topFuelTypes.length ? `Haeufige Kraftstoffarten: ${topFuelTypes.map(escapeHtml).join(", ")}.` : "",
+      topGearboxes.length ? `Im Markt oft vertreten: ${topGearboxes.map(escapeHtml).join(", ")}.` : "",
+      topBodyTypes.length ? `Typische Aufbauform: ${topBodyTypes.map(escapeHtml).join(", ")}.` : ""
+    ].filter(Boolean).map((line) => `<p>${line}</p>`).join("");
+
+    const variantChips = renderList(kbaStats.variantLabels, "chip-list");
+    const featureChips = renderList(topFeatures, "chip-list");
+    const faqHtml = faqItems.map((item) => `
+      <details class="faq-item">
+        <summary>${escapeHtml(item.q || "")}</summary>
+        <div class="faq-answer">${escapeHtml(item.a || "")}</div>
+      </details>
+    `).join("");
+
+    const structuredData = [
+      canonical ? {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Autovisa", item: `${baseUrl}/` },
+          { "@type": "ListItem", position: 2, name: `${displayBrand} ${displayModel}`, item: canonical }
+        ]
+      } : null,
+      faqItems.length ? {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: faqItems.map((item) => ({
+          "@type": "Question",
+          name: item.q,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: item.a
+          }
+        }))
+      } : null
+    ].filter(Boolean);
 
     const html = `
 <!doctype html>
@@ -639,48 +963,413 @@ app.get("/autos/:marke/:modell", async (req, res) => {
     ${canonical ? `<link rel="canonical" href="${escapeHtml(canonical)}">` : ""}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:wght@600;700&display=swap" rel="stylesheet">
     <style>
-      :root { --bg:#f4f7f8; --ink:#12202a; --muted:#5f6d76; --accent:#00b8a9; }
-      * { box-sizing: border-box; }
-      body { margin:0; font-family:Inter,system-ui,Arial,sans-serif; background:var(--bg); color:var(--ink); }
-      .hero { background:linear-gradient(135deg,#0f2027,#1f3b45,#2c5364); color:#fff; padding:32px 20px; }
-      .hero .wrap { max-width:1100px; margin:0 auto; }
-      .hero h1 { margin:0 0 8px; font-size:28px; }
-      .hero p { margin:0; color:#cfe5ec; }
-      .wrap { max-width:1100px; margin:0 auto; padding:20px; }
-      .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; }
-      .card { display:block; text-decoration:none; color:inherit; background:#fff; border-radius:14px; overflow:hidden; box-shadow:0 8px 20px rgba(15,32,39,0.08); }
-      .card-img { width:100%; height:150px; background:#e9eef1; display:flex; align-items:center; justify-content:center; }
-      .card-img img { width:100%; height:100%; object-fit:cover; display:block; }
+      :root {
+        --bg:#f3f6f7;
+        --panel:#ffffff;
+        --ink:#14222d;
+        --muted:#60707a;
+        --line:#d9e3e6;
+        --accent:#00b8a9;
+      }
+      * { box-sizing:border-box; }
+      body {
+        margin:0;
+        font-family:Inter,system-ui,Arial,sans-serif;
+        background:linear-gradient(180deg,#f7f9fa 0%, #eef3f4 100%);
+        color:var(--ink);
+      }
+      a { color:inherit; }
+      .hero {
+        background:
+          radial-gradient(circle at top right, rgba(0,184,169,0.26), transparent 30%),
+          linear-gradient(140deg, #10222d 0%, #183543 55%, #1f4b54 100%);
+        color:#fff;
+      }
+      .site-bar { border-bottom:1px solid rgba(255,255,255,0.08); }
+      .wrap { max-width:1180px; margin:0 auto; padding:0 20px; }
+      .site-bar .wrap {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:16px;
+        padding-top:18px;
+        padding-bottom:18px;
+      }
+      .brand-link {
+        color:#fff;
+        text-decoration:none;
+        font-weight:700;
+        letter-spacing:0.08em;
+        text-transform:uppercase;
+      }
+      .hero-main { padding:20px 0 34px; }
+      .breadcrumbs {
+        color:#b8cad2;
+        font-size:13px;
+        margin:0 0 14px;
+      }
+      .breadcrumbs a {
+        color:#dce7eb;
+        text-decoration:none;
+      }
+      .hero-grid {
+        display:grid;
+        grid-template-columns:minmax(0,1.35fr) minmax(280px,0.75fr);
+        gap:22px;
+        align-items:end;
+      }
+      .eyebrow {
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        padding:8px 12px;
+        border:1px solid rgba(255,255,255,0.14);
+        border-radius:999px;
+        color:#d7e4e8;
+        text-transform:uppercase;
+        letter-spacing:0.08em;
+        font-size:11px;
+        margin-bottom:16px;
+      }
+      .hero h1 {
+        margin:0 0 10px;
+        font-family:Fraunces, Georgia, serif;
+        font-size:46px;
+        line-height:1.06;
+      }
+      .hero p {
+        margin:0;
+        color:#d3e2e7;
+        font-size:16px;
+        line-height:1.7;
+        max-width:760px;
+      }
+      .hero-actions {
+        display:flex;
+        flex-wrap:wrap;
+        gap:12px;
+        margin-top:22px;
+      }
+      .hero-btn {
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        min-height:46px;
+        padding:0 18px;
+        border-radius:999px;
+        text-decoration:none;
+        font-weight:700;
+      }
+      .hero-btn.primary {
+        background:var(--accent);
+        color:#082629;
+      }
+      .hero-btn.secondary {
+        border:1px solid rgba(255,255,255,0.16);
+        color:#fff;
+      }
+      .hero-note {
+        background:rgba(255,255,255,0.08);
+        border:1px solid rgba(255,255,255,0.12);
+        border-radius:22px;
+        padding:20px;
+      }
+      .hero-note h2 {
+        margin:0 0 10px;
+        font-size:14px;
+        text-transform:uppercase;
+        letter-spacing:0.08em;
+        color:#cfe0e6;
+      }
+      .hero-note p {
+        font-size:14px;
+        line-height:1.65;
+      }
+      .fact-grid {
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:14px;
+        margin-top:22px;
+      }
+      .fact-card {
+        background:rgba(255,255,255,0.08);
+        border:1px solid rgba(255,255,255,0.1);
+        border-radius:18px;
+        padding:16px;
+      }
+      .fact-label {
+        color:#c9d8de;
+        font-size:12px;
+        text-transform:uppercase;
+        letter-spacing:0.08em;
+        margin-bottom:8px;
+      }
+      .fact-value {
+        font-size:18px;
+        font-weight:700;
+        line-height:1.35;
+      }
+      .page { padding:28px 0 40px; }
+      .layout {
+        display:grid;
+        grid-template-columns:minmax(0,1.1fr) minmax(300px,0.9fr);
+        gap:22px;
+        align-items:start;
+      }
+      .stack { display:grid; gap:18px; }
+      .panel {
+        background:var(--panel);
+        border:1px solid var(--line);
+        border-radius:24px;
+        padding:24px;
+        box-shadow:0 18px 40px rgba(16,34,45,0.06);
+      }
+      .panel h2 {
+        margin:0 0 14px;
+        font-family:Fraunces, Georgia, serif;
+        font-size:28px;
+        line-height:1.12;
+      }
+      .panel h3 {
+        margin:0 0 10px;
+        font-size:18px;
+      }
+      .panel p {
+        margin:0 0 12px;
+        color:var(--muted);
+        line-height:1.7;
+      }
+      .subtle { color:var(--muted); }
+      .meta-grid {
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:14px;
+      }
+      .meta-card {
+        padding:16px;
+        border-radius:18px;
+        background:#f7fafb;
+        border:1px solid var(--line);
+      }
+      .meta-card strong {
+        display:block;
+        font-size:14px;
+        margin-bottom:6px;
+      }
+      .chip-list {
+        list-style:none;
+        padding:0;
+        margin:0;
+        display:flex;
+        flex-wrap:wrap;
+        gap:10px;
+      }
+      .chip-list li {
+        list-style:none;
+        padding:10px 13px;
+        border-radius:999px;
+        background:#eef5f6;
+        border:1px solid #d8e7e8;
+        color:#21424a;
+        font-size:14px;
+      }
+      .bullets {
+        margin:0;
+        padding-left:18px;
+        color:var(--muted);
+      }
+      .bullets li {
+        margin:0 0 10px;
+        line-height:1.65;
+      }
+      .grid {
+        display:grid;
+        grid-template-columns:repeat(auto-fill,minmax(250px,1fr));
+        gap:14px;
+      }
+      .card {
+        display:block;
+        text-decoration:none;
+        color:inherit;
+        background:#fff;
+        border-radius:18px;
+        overflow:hidden;
+        border:1px solid var(--line);
+        box-shadow:0 12px 30px rgba(15,32,39,0.06);
+      }
+      .card-img {
+        width:100%;
+        height:168px;
+        background:#e9eef1;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+      }
+      .card-img img {
+        width:100%;
+        height:100%;
+        object-fit:cover;
+        display:block;
+      }
       .img-placeholder { color:#8b97a1; font-size:13px; }
-      .card-body { padding:12px 12px 14px; }
+      .card-body { padding:14px 14px 16px; }
       .card-title { font-weight:700; font-size:14px; line-height:1.3; margin-bottom:6px; }
       .card-price { color:var(--accent); font-weight:700; margin-bottom:6px; }
       .card-meta { color:var(--muted); font-size:12px; }
-      .empty { background:#fff; border-radius:12px; padding:16px; }
-      .cta { margin-top:16px; }
-      .cta a { color:#0f2027; font-weight:600; }
-      @media (max-width: 600px) {
-        .hero { padding:24px 16px; }
-        .hero h1 { font-size:22px; }
+      .empty {
+        background:#fff;
+        border:1px dashed var(--line);
+        border-radius:18px;
+        padding:18px;
+      }
+      .faq-item {
+        border-top:1px solid var(--line);
+        padding:16px 0;
+      }
+      .faq-item:first-child {
+        padding-top:0;
+        border-top:0;
+      }
+      .faq-item summary {
+        cursor:pointer;
+        font-weight:700;
+        list-style:none;
+      }
+      .faq-item summary::-webkit-details-marker { display:none; }
+      .faq-answer {
+        padding-top:12px;
+        color:var(--muted);
+        line-height:1.7;
+      }
+      @media (max-width: 980px) {
+        .hero-grid,
+        .layout,
+        .fact-grid {
+          grid-template-columns:1fr;
+        }
+        .hero h1 { font-size:36px; }
+      }
+      @media (max-width: 640px) {
+        .wrap { padding-left:16px; padding-right:16px; }
+        .hero h1 { font-size:30px; }
+        .panel,
+        .hero-note,
+        .fact-card { border-radius:18px; }
+        .panel { padding:18px; }
+        .meta-grid { grid-template-columns:1fr; }
       }
     </style>
+    ${structuredData.map((schema) => `<script type="application/ld+json">${JSON.stringify(schema).replace(/</g, "\\u003c")}</script>`).join("\n")}
   </head>
   <body>
     <div class="hero">
-      <div class="wrap">
-        <h1>${escapeHtml(displayBrand)} ${escapeHtml(displayModel)} gebraucht kaufen</h1>
-        <p>${escapeHtml(description)}</p>
+      <div class="site-bar">
+        <div class="wrap">
+          <a class="brand-link" href="/">Autovisa</a>
+          <a class="brand-link" href="/suche.html">Fahrzeuge suchen</a>
+        </div>
+      </div>
+      <div class="wrap hero-main">
+        <div class="breadcrumbs">
+          <a href="/">Startseite</a> / <a href="/suche.html?marke=${encodeURIComponent(displayBrand)}&sort=neueste">${escapeHtml(displayBrand)}</a> / ${escapeHtml(displayModel)}
+        </div>
+        <div class="hero-grid">
+          <div>
+            <div class="eyebrow">Autovisa Modell-Guide</div>
+            <h1>${escapeHtml(displayBrand)} ${escapeHtml(displayModel)}</h1>
+            <p>${escapeHtml(marketIntro)}</p>
+            <div class="hero-actions">
+              <a class="hero-btn primary" href="/suche.html?marke=${encodeURIComponent(displayBrand)}&modell=${encodeURIComponent(displayModel)}&sort=neueste">Aktuelle Angebote ansehen</a>
+              <a class="hero-btn secondary" href="/suche.html?marke=${encodeURIComponent(displayBrand)}&sort=neueste">Mehr ${escapeHtml(displayBrand)} Modelle</a>
+            </div>
+          </div>
+          <div class="hero-note">
+            <h2>Wofuer diese Seite gedacht ist</h2>
+            <p>Die Seite verbindet redaktionelle Modell-Infos mit echten Autovisa-Inseraten. So entsteht nicht nur eine Suchseite, sondern ein klarer Einstieg fuer Kaufentscheidung, Vergleich und spaetere SEO-Landingpages.</p>
+          </div>
+        </div>
+        <div class="fact-grid">
+          ${factCards}
+        </div>
       </div>
     </div>
-    <div class="wrap">
-      ${count
-        ? `<div class="grid">${cardsHtml}</div>`
-        : `<div class="empty">Aktuell keine Inserate gefunden. Schau gern später wieder vorbei.</div>`
-      }
-      <div class="cta">
-        <a href="/suche.html?marke=${encodeURIComponent(displayBrand)}&modell=${encodeURIComponent(displayModel)}&sort=neueste">Zur erweiterten Suche</a>
+
+    <div class="wrap page">
+      <div class="layout">
+        <div class="stack">
+          <section class="panel">
+            <h2>Marktueberblick zum ${escapeHtml(displayBrand)} ${escapeHtml(displayModel)}</h2>
+            ${renderParagraphs(guide?.market_position || "")}
+            ${marketStatsHtml || `<p>Fuer dieses Modell liegen aktuell noch nicht genug Marktinformationen vor.</p>`}
+            <div class="meta-grid">
+              <div class="meta-card">
+                <strong>Beliebte Kraftstoffe</strong>
+                <div class="subtle">${escapeHtml(topFuelTypes.join(", ") || (kbaStats.fuelLabels.join(", ") || "k. A."))}</div>
+              </div>
+              <div class="meta-card">
+                <strong>Typische Getriebe</strong>
+                <div class="subtle">${escapeHtml(topGearboxes.join(", ") || "k. A.")}</div>
+              </div>
+              <div class="meta-card">
+                <strong>KBA Baujahre</strong>
+                <div class="subtle">${escapeHtml(formatRange(kbaStats.yearMin, kbaStats.yearMax) || "k. A.")}</div>
+              </div>
+              <div class="meta-card">
+                <strong>KBA Hubraum</strong>
+                <div class="subtle">${escapeHtml(formatRange(kbaStats.displacementMin, kbaStats.displacementMax, " ccm") || "k. A.")}</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2>Worauf Kaeufer achten sollten</h2>
+            ${renderList(buyerFocus, "bullets")}
+          </section>
+
+          <section class="panel">
+            <h2>Sinnvolle Ausstattung</h2>
+            <p>Diese Punkte helfen beim spaeteren Wiederverkauf und sorgen meist fuer mehr Nachfrage. Sie sind keine Pflicht, aber oft wertrelevant.</p>
+            ${renderList(mustHave, "chip-list")}
+            ${featureChips ? `<h3 style="margin-top:18px;">Haeufig in aktuellen Autovisa-Inseraten</h3>${featureChips}` : ""}
+          </section>
+        </div>
+
+        <div class="stack">
+          <section class="panel">
+            <h2>Varianten und Eckdaten</h2>
+            <div class="meta-grid">
+              <div class="meta-card">
+                <strong>Leistung</strong>
+                <div class="subtle">${escapeHtml(formatRange(kbaStats.powerMin, kbaStats.powerMax, " kW") || "k. A.")}</div>
+              </div>
+              <div class="meta-card">
+                <strong>Sitzplaetze</strong>
+                <div class="subtle">${escapeHtml(formatRange(kbaStats.seatsMin, kbaStats.seatsMax) || "k. A.")}</div>
+              </div>
+            </div>
+            <h3 style="margin-top:18px;">Bekannte Varianten laut KBA</h3>
+            ${variantChips || `<p>Fuer dieses Modell liegen aktuell noch keine KBA-Varianten vor.</p>`}
+          </section>
+
+          <section class="panel">
+            <h2>FAQ</h2>
+            ${faqHtml}
+          </section>
+        </div>
+      </div>
+
+      <section class="panel" style="margin-top:22px;">
+        <h2>Aktuelle ${escapeHtml(displayBrand)} ${escapeHtml(displayModel)} Angebote</h2>
+        ${count
+          ? `<div class="grid">${cardsHtml}</div>`
+          : `<div class="empty">Aktuell sind noch keine Inserate online. Die Modellseite kann trotzdem schon fuer Inhalte, SEO und spaetere Angebote genutzt werden.</div>`
+        }
+      </section>
+
+      <div style="margin-top:16px; color:#5f6d76; font-size:14px;">
+        Redaktioneller Inhalt und Marktstatistiken koennen je Modell weiter ausgebaut werden. Die Struktur dafuer liegt jetzt serverseitig auf einer festen URL.
       </div>
     </div>
   </body>
