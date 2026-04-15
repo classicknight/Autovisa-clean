@@ -429,6 +429,271 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
+   SEO-Landingpage: Marke/Modell
+   Beispiel: /autos/bmw/x5
+========================= */
+app.get("/autos/:marke/:modell", async (req, res) => {
+  try {
+    const rawBrandSlug = String(req.params.marke || "").trim();
+    const rawModelSlug = String(req.params.modell || "").trim();
+    if (!rawBrandSlug || !rawModelSlug) {
+      return res.status(404).sendFile(path.join(__dirname, "public", "suche.html"));
+    }
+
+    const brandInput = rawBrandSlug.replace(/[-_]+/g, " ").trim();
+    const modelInput = rawModelSlug.replace(/[-_]+/g, " ").trim();
+
+    const makeLooseRegex = (input) => {
+      const parts = String(input || "")
+        .trim()
+        .split(/[-_\s]+/)
+        .map((p) => p.trim())
+        .filter(Boolean)
+        .map(escRe);
+      if (!parts.length) return null;
+      return new RegExp(parts.join("[-\\s]+"), "i");
+    };
+
+    const rxBrand = makeLooseRegex(brandInput);
+    const rxModel = makeLooseRegex(modelInput);
+    if (!rxBrand || !rxModel) {
+      return res.status(404).sendFile(path.join(__dirname, "public", "suche.html"));
+    }
+
+    const match = {
+      status: "online",
+      $and: [
+        {
+          $or: [
+            { marke: rxBrand },
+            { verkauf_marke: rxBrand },
+            { "raw.marke": rxBrand },
+            { "raw.verkauf_marke": rxBrand }
+          ]
+        },
+        {
+          $or: [
+            { modell: rxModel },
+            { verkauf_modell: rxModel },
+            { "raw.modell": rxModel },
+            { "raw.verkauf_modell": rxModel }
+          ]
+        }
+      ]
+    };
+
+    const coll = db.collection("inserate");
+    const items = await coll.find(match, {
+      projection: {
+        _id: 1,
+        titel: 1,
+        marke: 1,
+        modell: 1,
+        preis: 1,
+        verkauf_preis: 1,
+        price: 1,
+        price_eur: 1,
+        priceEUR: 1,
+        verkauf_brutto: 1,
+        brutto_preis: 1,
+        "brutto-preis": 1,
+        verkauf_netto: 1,
+        netto_preis: 1,
+        "netto-preis": 1,
+        verkauf_kilometer: 1,
+        kilometer: 1,
+        km: 1,
+        erstzulassung: 1,
+        verkauf_erstzulassung: 1,
+        standort: 1,
+        ort: 1,
+        plz: 1,
+        images: 1,
+        fotos: 1,
+        media: 1
+      }
+    })
+      .sort({ veroeffentlichtAm: -1, _id: -1 })
+      .limit(24)
+      .toArray();
+
+    const pickText = (...vals) => {
+      for (const v of vals) {
+        if (v == null) continue;
+        const s = String(v).trim();
+        if (s) return s;
+      }
+      return "";
+    };
+
+    const displayBrand =
+      pickText(items[0]?.marke, items[0]?.verkauf_marke) || brandInput;
+    const displayModel =
+      pickText(items[0]?.modell, items[0]?.verkauf_modell) || modelInput;
+
+    const slugify = (input) =>
+      String(input || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/\p{Diacritic}/gu, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+    const { appUrl } = getAppUrls();
+    const baseUrl = String(appUrl || "").replace(/\/+$/, "");
+    const canonical =
+      baseUrl
+        ? `${baseUrl}/autos/${slugify(displayBrand)}/${slugify(displayModel)}`
+        : "";
+
+    const unwrap = (v) => {
+      if (v && typeof v === "object") {
+        if (v.value != null) return v.value;
+        if (v.amount != null) return v.amount;
+        if (typeof v.$numberDecimal === "string") return v.$numberDecimal;
+      }
+      return v;
+    };
+
+    const toIntLoose = (v) => {
+      const s = String(v ?? "").replace(/[^\d]/g, "");
+      return s ? parseInt(s, 10) : NaN;
+    };
+
+    const fmtNum = (n) =>
+      new Intl.NumberFormat("de-DE").format(n);
+
+    const formatPrice = (doc) => {
+      const raw = pickText(
+        unwrap(doc.preis),
+        unwrap(doc.verkauf_preis),
+        unwrap(doc.price),
+        unwrap(doc.price_eur),
+        unwrap(doc.priceEUR),
+        unwrap(doc.verkauf_brutto),
+        unwrap(doc.brutto_preis),
+        unwrap(doc["brutto-preis"]),
+        unwrap(doc.verkauf_netto),
+        unwrap(doc.netto_preis),
+        unwrap(doc["netto-preis"])
+      );
+      const n = toIntLoose(raw);
+      return Number.isFinite(n) ? `${fmtNum(n)} €` : "Preis auf Anfrage";
+    };
+
+    const formatKm = (doc) => {
+      const raw = pickText(doc.verkauf_kilometer, doc.kilometer, doc.km);
+      const n = toIntLoose(raw);
+      return Number.isFinite(n) ? `${fmtNum(n)} km` : "";
+    };
+
+    const formatEz = (doc) => {
+      const ez = pickText(doc.erstzulassung, doc.verkauf_erstzulassung);
+      return ez ? `EZ ${ez}` : "";
+    };
+
+    const pickImage = (doc) => {
+      const imgs = Array.isArray(doc.images) ? doc.images
+        : Array.isArray(doc.fotos) ? doc.fotos
+        : Array.isArray(doc.media) ? doc.media.map((m) => m?.url || m)
+        : [];
+      return imgs.find(Boolean) || "";
+    };
+
+    const cardsHtml = items.map((doc) => {
+      const id = doc._id?.toString?.() || String(doc._id || "");
+      const title = escapeHtml(doc.titel || `${displayBrand} ${displayModel}`);
+      const price = escapeHtml(formatPrice(doc));
+      const km = escapeHtml(formatKm(doc));
+      const ez = escapeHtml(formatEz(doc));
+      const location = escapeHtml(pickText(doc.plz, doc.ort, doc.standort));
+      const meta = [km, ez, location].filter(Boolean).join(" · ");
+      const img = pickImage(doc);
+      const imgTag = img
+        ? `<img src="${escapeHtml(img)}" alt="${title}" loading="lazy">`
+        : `<div class="img-placeholder">Kein Bild</div>`;
+      return `
+        <a class="card" href="/anzeige.html?id=${encodeURIComponent(id)}">
+          <div class="card-img">${imgTag}</div>
+          <div class="card-body">
+            <div class="card-title">${title}</div>
+            <div class="card-price">${price}</div>
+            ${meta ? `<div class="card-meta">${meta}</div>` : ""}
+          </div>
+        </a>
+      `;
+    }).join("");
+
+    const count = items.length;
+    const title = `${displayBrand} ${displayModel} gebraucht kaufen | Autovisa`;
+    const description = `Gebrauchte ${displayBrand} ${displayModel} in deiner Nähe. ${count ? `${count} Treffer` : "Aktuelle Angebote"} bei Autovisa.`;
+
+    const html = `
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${escapeHtml(title)}</title>
+    <meta name="description" content="${escapeHtml(description)}">
+    ${canonical ? `<link rel="canonical" href="${escapeHtml(canonical)}">` : ""}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+      :root { --bg:#f4f7f8; --ink:#12202a; --muted:#5f6d76; --accent:#00b8a9; }
+      * { box-sizing: border-box; }
+      body { margin:0; font-family:Inter,system-ui,Arial,sans-serif; background:var(--bg); color:var(--ink); }
+      .hero { background:linear-gradient(135deg,#0f2027,#1f3b45,#2c5364); color:#fff; padding:32px 20px; }
+      .hero .wrap { max-width:1100px; margin:0 auto; }
+      .hero h1 { margin:0 0 8px; font-size:28px; }
+      .hero p { margin:0; color:#cfe5ec; }
+      .wrap { max-width:1100px; margin:0 auto; padding:20px; }
+      .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; }
+      .card { display:block; text-decoration:none; color:inherit; background:#fff; border-radius:14px; overflow:hidden; box-shadow:0 8px 20px rgba(15,32,39,0.08); }
+      .card-img { width:100%; height:150px; background:#e9eef1; display:flex; align-items:center; justify-content:center; }
+      .card-img img { width:100%; height:100%; object-fit:cover; display:block; }
+      .img-placeholder { color:#8b97a1; font-size:13px; }
+      .card-body { padding:12px 12px 14px; }
+      .card-title { font-weight:700; font-size:14px; line-height:1.3; margin-bottom:6px; }
+      .card-price { color:var(--accent); font-weight:700; margin-bottom:6px; }
+      .card-meta { color:var(--muted); font-size:12px; }
+      .empty { background:#fff; border-radius:12px; padding:16px; }
+      .cta { margin-top:16px; }
+      .cta a { color:#0f2027; font-weight:600; }
+      @media (max-width: 600px) {
+        .hero { padding:24px 16px; }
+        .hero h1 { font-size:22px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="hero">
+      <div class="wrap">
+        <h1>${escapeHtml(displayBrand)} ${escapeHtml(displayModel)} gebraucht kaufen</h1>
+        <p>${escapeHtml(description)}</p>
+      </div>
+    </div>
+    <div class="wrap">
+      ${count
+        ? `<div class="grid">${cardsHtml}</div>`
+        : `<div class="empty">Aktuell keine Inserate gefunden. Schau gern später wieder vorbei.</div>`
+      }
+      <div class="cta">
+        <a href="/suche.html?marke=${encodeURIComponent(displayBrand)}&modell=${encodeURIComponent(displayModel)}&sort=neueste">Zur erweiterten Suche</a>
+      </div>
+    </div>
+  </body>
+</html>`;
+
+    return res.status(200).send(html);
+  } catch (err) {
+    console.error("SEO-Landing Fehler:", err);
+    return res.status(500).send("Serverfehler");
+  }
+});
+
+/* =========================
    Admin Dashboard (nur Admin)
 ========================= */
 app.get("/admin", checkAdmin, (req, res) => {
@@ -5800,7 +6065,8 @@ app.get("/api/search", async (req, res) => {
               }
             }
           },
-          verb_num_final: { $ifNull: ["$verb_num", { $ifNull: ["$verb_num_other", "$verb_num_direct"] }] }
+          // Priorität: direkte Felder (kombiniert) zuerst, dann Regex-Fallbacks
+          verb_num_final: { $ifNull: ["$verb_num_direct", { $ifNull: ["$verb_num", "$verb_num_other"] }] }
         }
       }
     ];
