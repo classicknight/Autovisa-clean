@@ -5805,7 +5805,10 @@ app.get("/api/search", async (req, res) => {
                 ]
               }
             }
-          },
+          }
+        }
+      },
+      { $addFields: {
           // Priorität: direkte Felder (kombiniert) zuerst, dann Regex-Fallbacks
           verb_num_final: { $ifNull: ["$verb_num_direct", { $ifNull: ["$verb_num", "$verb_num_other"] }] }
         }
