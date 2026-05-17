@@ -157,6 +157,7 @@ async function refreshChat(forceScroll){
     const hasUnread = list.some(m => m.empfaengerId === me.nutzerId && !m.gelesen);
     if (hasUnread) {
       await markThreadRead(user1, user2, fahrzeugId);
+      await window.AutovisaMessageBadge?.refresh?.();
     }
   }catch(e){
     console.error(e);

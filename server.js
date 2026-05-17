@@ -1112,9 +1112,13 @@ async function checkLogin(req, res, next) {
 
     const user = await db.collection("nutzer").findOne(
       { id: sess.id },
-      { projection: { id: 1, role: 1, email: 1, verified: 1 } }
+      { projection: { id: 1, role: 1, email: 1, verified: 1, blocked: 1 } }
     );
     if (!user) return res.status(401).json({ error: "Ungültiger Login." });
+    if (user.blocked) {
+      clearAuthCookies(res);
+      return res.status(403).json({ error: "Dieser Account wurde gesperrt." });
+    }
     if (!user.verified) return res.status(403).json({ error: "Bitte bestätige zuerst deine E-Mail." });
 
     req.nutzer = { id: user.id, role: user.role || "privat", email: user.email || "" };
@@ -1136,6 +1140,25 @@ async function checkAdmin(req, res, next) {
       return res.status(403).json({ error: "Kein Admin-Zugriff." });
     }
     return next();
+  });
+}
+
+function clearAuthCookies(res) {
+  const { appUrl } = getUrls();
+  const isSecureCookie = appUrl.startsWith("https") || process.env.NODE_ENV === "production";
+
+  res.clearCookie("session", {
+    httpOnly: true,
+    sameSite: "Lax",
+    secure: isSecureCookie,
+    path: "/"
+  });
+
+  res.clearCookie("isLoggedIn", {
+    httpOnly: false,
+    sameSite: "Lax",
+    secure: isSecureCookie,
+    path: "/"
   });
 }
 
@@ -1592,6 +1615,10 @@ app.post("/login", async (req, res) => {
       return res.status(401).json({ error: "❌ E-Mail oder Passwort falsch." });
     }
 
+    if (user.blocked) {
+      return res.status(403).json({ error: "❌ Dieser Account wurde gesperrt." });
+    }
+
     if (!user.verified) {
       return res.status(403).json({ error: "❌ Bitte bestätige zuerst deine E-Mail." });
     }
@@ -1742,6 +1769,9 @@ app.get("/auth/google/callback", async (req, res) => {
       const roleRaw = String(user.role || "").toLowerCase();
       if (roleRaw.includes("haend")) {
         return res.redirect(`${baseUrl}/login.html?oauth=forbidden`);
+      }
+      if (user.blocked) {
+        return res.redirect(`${baseUrl}/login.html?oauth=blocked`);
       }
 
       await nutzerColl.updateOne(
@@ -2180,6 +2210,7 @@ app.get("/getNutzerInfo", async (req, res) => {
           telefon: 1,
           telefon2: 1,
           email: 1,
+          blocked: 1,
 
           website: 1,
           webseite: 1,
@@ -2197,6 +2228,11 @@ app.get("/getNutzerInfo", async (req, res) => {
 
     if (!nutzer) {
       return res.json({ eingeloggt: false });
+    }
+
+    if (nutzer.blocked) {
+      clearAuthCookies(res);
+      return res.json({ eingeloggt: false, blocked: true, error: "Account gesperrt." });
     }
 
     const rolleRaw = (nutzer.role || "privat").toLowerCase();
@@ -3492,6 +3528,7 @@ app.get("/api/admin/haendler", checkAdmin, async (req, res) => {
           firma: 1,
           name: 1,
           email: 1,
+          blocked: 1,
           telefon: 1,
           telefon2: 1,
           logoUrl: 1,
@@ -3544,6 +3581,7 @@ app.get("/api/admin/haendler", checkAdmin, async (req, res) => {
         firma: d.firma || "",
         name: d.name || "",
         email: d.email || "",
+        blocked: !!d.blocked,
         telefon: d.telefon || d.telefon2 || "",
         logoUrl: d.logoUrl || "",
         createdAt: d.createdAt || d.erstelltAm || null,
@@ -3568,16 +3606,20 @@ app.get("/api/admin/haendler", checkAdmin, async (req, res) => {
 app.get("/api/admin/user", checkAdmin, async (req, res) => {
   try {
     const id = String(req.query.id || "").trim();
-    if (!id) return res.status(400).json({ error: "ID fehlt." });
+    const email = String(req.query.email || "").trim().toLowerCase();
+    if (!id && !email) return res.status(400).json({ error: "ID oder E-Mail fehlt." });
 
     const user = await db.collection("nutzer").findOne(
-      { id },
+      id ? { id } : { email },
       {
         projection: {
           id: 1,
           role: 1,
           email: 1,
           verified: 1,
+          blocked: 1,
+          blockedAt: 1,
+          blockedBy: 1,
           firma: 1,
           name: 1,
           telefon: 1,
@@ -3602,6 +3644,9 @@ app.get("/api/admin/user", checkAdmin, async (req, res) => {
       role: user.role || "privat",
       email: user.email || "",
       verified: !!user.verified,
+      blocked: !!user.blocked,
+      blockedAt: user.blockedAt || null,
+      blockedBy: user.blockedBy || "",
       firma: user.firma || "",
       name: user.name || "",
       telefon: user.telefon || user.telefon2 || "",
@@ -3616,6 +3661,66 @@ app.get("/api/admin/user", checkAdmin, async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Fehler bei /api/admin/user:", err);
+    return res.status(500).json({ error: "Serverfehler" });
+  }
+});
+
+// ------------------------------------------------------------
+// === Admin: Nutzer sperren / entsperren
+// ------------------------------------------------------------
+app.post("/api/admin/user/block", checkAdmin, async (req, res) => {
+  try {
+    const id = String(req.body?.id || "").trim();
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const blocked = req.body?.blocked !== false;
+
+    if (!id && !email) {
+      return res.status(400).json({ error: "ID oder E-Mail fehlt." });
+    }
+
+    const nutzerColl = db.collection("nutzer");
+    const existing = await nutzerColl.findOne(
+      id ? { id } : { email },
+      { projection: { _id: 1, id: 1, email: 1 } }
+    );
+
+    if (!existing) {
+      return res.status(404).json({ error: "Nutzer nicht gefunden." });
+    }
+
+    if (blocked && String(existing.id) === String(req.nutzer.id)) {
+      return res.status(400).json({ error: "Du kannst deinen eigenen Admin-Account nicht sperren." });
+    }
+
+    const actor = String(req.nutzer.email || req.nutzer.id || "admin").trim();
+    const update = blocked
+      ? {
+          $set: {
+            blocked: true,
+            blockedAt: new Date(),
+            blockedBy: actor
+          }
+        }
+      : {
+          $set: {
+            blocked: false
+          },
+          $unset: {
+            blockedAt: "",
+            blockedBy: ""
+          }
+        };
+
+    await nutzerColl.updateOne({ _id: existing._id }, update);
+
+    res.json({
+      success: true,
+      id: existing.id || "",
+      email: existing.email || "",
+      blocked
+    });
+  } catch (err) {
+    console.error("❌ Fehler bei /api/admin/user/block:", err);
     return res.status(500).json({ error: "Serverfehler" });
   }
 });

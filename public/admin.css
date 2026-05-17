@@ -149,6 +149,40 @@ input[type="text"] {
   background: #e6eef5;
 }
 
+.btn-danger,
+.btn-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-danger {
+  background: #fff1f1;
+  color: #a92b2b;
+  border-color: #f2c4c4;
+}
+
+.btn-danger:hover {
+  background: #ffe7e7;
+}
+
+.btn-warning {
+  background: #eefaf7;
+  color: #0d695f;
+  border-color: #bfe6df;
+}
+
+.btn-warning:hover {
+  background: #e3f6f1;
+}
+
 .panel-meta {
   font-size: 13px;
   color: #53636f;
@@ -210,6 +244,12 @@ input[type="text"] {
   border-radius: 999px;
 }
 
+.stat-pill-danger {
+  background: #fff1f1;
+  border-color: #f0caca;
+  color: #a23434;
+}
+
 .dealer-actions,
 .listing-actions {
   display: flex;
@@ -234,6 +274,32 @@ input[type="text"] {
 
 .profile-grid span {
   color: #5c6b76;
+}
+
+.profile-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid #d3dee8;
+  background: #f3f7fa;
+  color: #4c5d69;
+}
+
+.status-badge.is-blocked {
+  background: #fff1f1;
+  border-color: #f0caca;
+  color: #a23434;
 }
 
 .listing-title {

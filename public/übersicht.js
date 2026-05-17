@@ -3093,6 +3093,10 @@ async function loadMessagesSection() {
     const user = await getLoggedInUser();
     messagesSection.dataset.meId = String(user.nutzerId || "");
     const allMessages = await loadAllMessagesFor(user.nutzerId);
+    window.AutovisaMessageBadge?.refresh?.({
+      messages: allMessages,
+      meId: user.nutzerId
+    });
 
     if (!Array.isArray(allMessages) || allMessages.length === 0) {
       loadingEl?.classList.add("hidden");
@@ -3169,6 +3173,7 @@ async function markThreadReadFromOverview(meId, otherId, fahrzeugId) {
       keepalive: true,
       body: JSON.stringify({ user1: meId, user2: otherId, fahrzeugId })
     });
+    await window.AutovisaMessageBadge?.refresh?.();
   } catch {}
 }
 

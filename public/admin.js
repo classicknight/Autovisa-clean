@@ -59,6 +59,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const emailOk = (v) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v || ""));
 
+  const buildUserLookupQuery = (value) => {
+    const q = String(value || "").trim();
+    if (!q) return "";
+    return q.includes("@")
+      ? `email=${encodeURIComponent(q.toLowerCase())}`
+      : `id=${encodeURIComponent(q)}`;
+  };
+
   async function fetchJSON(url, opts = {}) {
     const res = await fetch(url, { credentials: "include", ...opts });
     if (!res.ok) {
@@ -97,6 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
     dealerListEl.innerHTML = items.map((d) => {
       const name = d.firma || d.name || "Händler";
       const counts = d.listings || { total: 0, online: 0, sold: 0 };
+      const blockedPill = d.blocked ? `<span class="stat-pill stat-pill-danger">Gesperrt</span>` : "";
       return `
         <div class="dealer-card" data-id="${esc(d.id)}">
           <div class="dealer-row">
@@ -108,6 +117,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <span class="stat-pill">Gesamt ${counts.total || 0}</span>
               <span class="stat-pill">Online ${counts.online || 0}</span>
               <span class="stat-pill">Verkauft ${counts.sold || 0}</span>
+              ${blockedPill}
             </div>
           </div>
           <div class="dealer-actions">
@@ -147,23 +157,41 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ---------------- Händlerdetails ----------------
-  async function selectDealer(id) {
-    if (!id) return;
-    state.currentDealerId = id;
-    dealerIdInput.value = id;
-    openSellerSearch.href = `suche.html?sellerId=${encodeURIComponent(id)}`;
-    await loadDealerProfile(id);
-    await loadDealerListings(id);
+  async function selectDealer(lookup) {
+    const q = String(lookup || "").trim();
+    if (!q) return;
+
+    dealerIdInput.value = q;
+    openSellerSearch.href = "#";
+    state.currentDealerId = "";
+
+    const user = await loadDealerProfile(q);
+    if (!user?.id) {
+      dealerListingsEl.innerHTML = `<div class="empty-state">Keine Inserate gefunden.</div>`;
+      return;
+    }
+
+    state.currentDealerId = user.id;
+    openSellerSearch.href = `suche.html?sellerId=${encodeURIComponent(user.id)}`;
+    await loadDealerListings(user.id);
   }
 
-  async function loadDealerProfile(id) {
-    dealerProfileEl.innerHTML = `<div class="empty-state">Lade Händlerprofil…</div>`;
+  async function loadDealerProfile(lookup) {
+    dealerProfileEl.innerHTML = `<div class="empty-state">Lade Nutzerprofil…</div>`;
     try {
-      const d = await fetchJSON(`/api/admin/user?id=${encodeURIComponent(id)}`);
-      const name = d.firma || d.name || "Händler";
+      const query = buildUserLookupQuery(lookup);
+      if (!query) throw new Error("lookup");
+
+      const d = await fetchJSON(`/api/admin/user?${query}`);
+      const name = d.firma || d.name || "Nutzer";
       const address = [d.strasse, d.hausnummer, d.plz, d.ort, d.land]
         .filter(Boolean)
         .join(" ");
+      const blockLabel = d.blocked ? "Entsperren" : "Account sperren";
+      const blockClass = d.blocked ? "btn-warning" : "btn-danger";
+      const blockedInfo = d.blocked
+        ? ` <span class="status-badge is-blocked"><i class="fa-solid fa-lock"></i> Gesperrt seit ${esc(fmtDate(d.blockedAt))}</span>`
+        : ` <span class="status-badge"><i class="fa-solid fa-circle-check"></i> Aktiv</span>`;
 
       dealerProfileEl.innerHTML = `
         <div class="profile-grid">
@@ -176,11 +204,56 @@ document.addEventListener("DOMContentLoaded", () => {
           <div><strong>Website:</strong> <span>${esc(d.website || "—")}</span></div>
           <div><strong>Erstellt:</strong> <span>${fmtDate(d.createdAt)}</span></div>
           <div><strong>Verifiziert:</strong> <span>${d.verified ? "Ja" : "Nein"}</span></div>
+          <div><strong>Status:</strong><span>${blockedInfo}</span></div>
+        </div>
+        <div class="profile-actions">
+          <button
+            id="toggleUserBlockBtn"
+            class="${blockClass}"
+            data-user-id="${esc(d.id)}"
+            data-user-email="${esc(d.email || "")}"
+            data-next-blocked="${d.blocked ? "false" : "true"}"
+          >
+            <i class="fa-solid ${d.blocked ? "fa-lock-open" : "fa-ban"}"></i>
+            ${blockLabel}
+          </button>
         </div>
       `;
+
+      const toggleBtn = document.getElementById("toggleUserBlockBtn");
+      toggleBtn?.addEventListener("click", async () => {
+        const nextBlocked = toggleBtn.dataset.nextBlocked === "true";
+        const confirmText = nextBlocked
+          ? `Diesen Account wirklich sperren?\n\n${d.email || d.id}`
+          : `Diesen Account wieder entsperren?\n\n${d.email || d.id}`;
+        if (!confirm(confirmText)) return;
+
+        toggleBtn.disabled = true;
+        try {
+          await fetchJSON("/api/admin/user/block", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: d.id,
+              email: d.email || "",
+              blocked: nextBlocked
+            })
+          });
+          setStatus(nextBlocked ? "Account gesperrt." : "Account entsperrt.");
+          await loadDealerProfile(d.email || d.id);
+          if (state.currentDealerId) loadDealers(state.dealers.page);
+        } catch (err) {
+          setStatus(nextBlocked ? "Sperren fehlgeschlagen." : "Entsperren fehlgeschlagen.");
+        } finally {
+          toggleBtn.disabled = false;
+        }
+      });
+
+      return d;
     } catch (e) {
       dealerProfileEl.innerHTML = `<div class="empty-state">Profil konnte nicht geladen werden.</div>`;
-      setStatus("Händlerprofil konnte nicht geladen werden.");
+      setStatus("Nutzerprofil konnte nicht geladen werden.");
+      return null;
     }
   }
 
@@ -360,6 +433,14 @@ document.addEventListener("DOMContentLoaded", () => {
   loadDealerBtn?.addEventListener("click", () => {
     const id = dealerIdInput.value.trim();
     if (id) selectDealer(id);
+  });
+
+  dealerIdInput?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const id = dealerIdInput.value.trim();
+      if (id) selectDealer(id);
+    }
   });
 
   refreshListingsBtn?.addEventListener("click", () => {
